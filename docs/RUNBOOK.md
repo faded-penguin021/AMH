@@ -213,9 +213,32 @@ fallback:** a session that cannot spawn a fresh context parks the rule change fo
 NOT mean a standing instruction told you not to spawn one: that is a policy the owner can
 lift, so ASK before parking, and record the answer. Treating a policy as a capability limit
 would park every legislation change forever while the playbooks above still expect the unit to
-finish. Note also that P12 permits exactly ONE reviewer at a time, blocking: a review is a
-gate, not a background job, and fanning out several is the parallel-subagent failure the
-session discipline forbids (D-009).
+finish. **Three bounds on the pass** — they are what keep it a gate instead of a process that eats the
+unit (D-015):
+
+- **Concurrency: one reviewer at a time, blocking.** A review is a gate, not a background job;
+  fanning out several is the parallel-subagent failure the session discipline forbids (D-009).
+  You do not keep editing while it runs.
+- **Iteration: ONE pass per unit.** Triage the findings, apply them, ship. Do NOT review the
+  corrected diff again — re-running until a pass comes back clean turns the gate into a loop
+  that launders a diff into looking approved, and each lap costs a whole context for shrinking
+  returns. Fixes too large to ship unreviewed mean the unit was too big: split it, or put the
+  residue in the Owner queue.
+- **Depth: one level of meta.** The reviewer reports, the session triages, the human
+  arbitrates. Nobody reviews the reviewer.
+
+**Spawning the reviewer is not a question for the owner.** It is what this protocol already
+requires, so do not ask permission each time — spawn it, and escalate the *diff's substance*
+if something genuinely needs a human. (The "ask before parking" clause above is narrower: it
+applies only when a standing instruction appears to forbid subagents outright.)
+
+**While the pass is in flight the diff stays green, uncommitted and unpushed.** A harness that
+prompts for a commit on every idle turn does not override the gate: hold, say so once, and do
+not re-explain every turn. Green-but-reviewed-pending is a normal state, not a stall — the
+checkpoint invariant budgets for losing exactly the unit in flight, and the ladder's own
+warning says the pass happens BEFORE the commit. The hold lifts the moment the pass reports:
+triage, apply, commit.
+
 Routine `docs/STATE.md` edits are exempt, EXCEPT its rule-bearing sections (the length-guard
 preamble, Decided non-items).
 

@@ -185,8 +185,27 @@ a three-line rule edit can carry a semantic bomb. There is **no self-review fall
 diffs**: a harness that cannot spawn a fresh context parks the rule change for the human
 instead of reviewing its own legislation. Routine state-file edits are exempt — working memory,
 not legislation — but the state file's rule-bearing sections (its length-guard preamble, its
-decided non-items) count as legislation. One level of meta only: the reviewer reports, the
-session triages, the human arbitrates. Nobody reviews the reviewer.
+decided non-items) count as legislation.
+
+Three bounds keep the pass a gate rather than a process that eats the unit. **(a)
+Concurrency: one reviewer at a time, and it blocks.** A review is a gate, not a background
+job; fanning out several is the parallel-subagent failure P5 forbids. **(b) Iteration: ONE
+pass per unit.** Findings are triaged and applied,
+and the corrected diff ships without another reviewer. Re-reviewing until a pass comes back
+clean converts a gate into a loop that launders a diff into looking approved, and every lap
+costs a whole fresh context for shrinking returns. If the fixes feel too large to ship
+unreviewed, that is evidence the unit was too big — split it, or hand the residue to the
+human. **(c) Depth: one level of meta.** The reviewer reports, the session triages, the human
+arbitrates. Nobody reviews the reviewer.
+
+Separately from the three: the pass is the harness's default, not a permission to request. Do
+not ask whether to review a legislation diff; spawn the reviewer, and escalate the *diff's
+substance* if anything needs the human. Asking every time trains the human to rubber-stamp.
+
+While the pass is in flight the diff stays green, uncommitted and unpushed. A harness that
+prompts for a commit on every idle turn is not an argument against the gate: hold, and say so
+once rather than re-explaining each turn. Green-but-reviewed-pending is a normal state, not a
+stall — the checkpoint invariant already budgets for losing the unit in flight.
 
 The ledger feeds the checklist: every new shipped bug class gets appended, and when a class
 turns out to be mechanically testable, encode it as a regression test and retire it from the
@@ -797,8 +816,23 @@ occur):
   filenames or environment variables.
 
 Verdict in the commit body. The ladder's rule-file tripwire only *surfaces* that this protocol
-applies; reviewer attention is the enforcement. One level of meta only: the reviewer reports,
-the session triages, the human arbitrates. Nobody reviews the reviewer.
+applies; reviewer attention is the enforcement.
+
+**Three bounds keep the pass a gate rather than a process that eats the unit:**
+
+- **Concurrency: one reviewer at a time, blocking.** Not a background job; you do not keep
+  editing while it runs.
+- **Iteration: ONE pass per unit.** Triage the findings, apply them, ship — do NOT review the
+  corrected diff again. Re-running until a pass comes back clean turns the gate into a loop
+  that launders a diff into looking approved. Fixes too large to ship unreviewed mean the unit
+  was too big: split it, or hand the residue to the human.
+- **Depth: one level of meta.** The reviewer reports, the session triages, the human
+  arbitrates. Nobody reviews the reviewer.
+
+Spawning the reviewer is what this protocol requires, not a permission to request — do not ask
+each time; escalate the *diff's substance* instead. While the pass is in flight the diff stays
+green, uncommitted and unpushed; a harness commit prompt on an idle turn does not override the
+gate. Say so once rather than re-explaining every turn.
 
 ## Incident: leaked credential
 

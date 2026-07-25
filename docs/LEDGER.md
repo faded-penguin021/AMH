@@ -132,3 +132,144 @@
   work it stood for becomes optional. Generalisation: when a ban reads "never write X", check
   whether the harm is in the writing or in something depending on it; banning the artifact
   instead of the dependency outlaws honest disclosure and still permits the gate.
+- D-015: **A review protocol needs three bounds, not one; this repo shipped only two
+  and the third leaked immediately.** Concurrency was bounded (one reviewer at a time, D-009)
+  and depth was bounded (nobody reviews the reviewer), but *iteration* was not: nothing stopped
+  a session from reviewing, fixing, and reviewing the corrected diff again — each pass
+  sequential and single, each one compliant. That is a loop that launders a diff into looking
+  approved, and the session did exactly it on the command-guard unit before the owner named the
+  gap. Now: ONE pass per unit; fixes too large to ship unreviewed mean the unit was too big.
+  Two adjacent clauses landed with it, both from live friction rather than review: spawning the
+  reviewer is what the protocol requires and is not a permission to request each time (asking
+  trains the owner to rubber-stamp), and a green-but-unreviewed legislation diff is HELD against
+  a harness commit prompt — said once, not re-explained every turn. Generalisation: when a rule
+  bounds a process, enumerate the axes it can run away along. Concurrency, depth and iteration
+  are three different runaways, and closing two of them reads as closing all three.
+- D-016: **Open defect register at the 2026-07-25 session handoff.** Recorded here rather than in working memory because STATE hit its hard cap; these are the next unit's scope, all confirmed and none fixed at the time of writing. Correct the entry as they are fixed; never delete it.
+  1. **[SEVERE, shipped] `<<<` here-strings void every rail in `command-guard.sh`.**
+     `strip_heredocs` opens heredoc-body mode on any `*'<<'*`, which matches `<<<` and `$((1<<8))`
+     too; the delimiter resolves to `<`, no line ever matches it, and every later line is
+     discarded unjudged. `grep -q x <<< "$v"` followed by `git push --force origin main` is
+     ALLOWED — it voids the force-push and push-to-`main` rails, the two oldest. Server-side
+     branch protection is the only remaining layer. Introduced in `a98b462` while fixing a
+     heredoc false positive. Fix: open body mode only on a real heredoc operator (`<<` or `<<-`
+     followed by a delimiter word), never on `<<<`.
+  2. **[shipped] The `<` redirection scan matches `<` inside quoted text — D-007 verbatim.**
+     `git commit -m "never read < .env directly"` is BLOCKED. The scan runs over the split words
+     before leading-command resolution, so any `<` is treated as a redirection. Fix: judge
+     position, not presence.
+  3. **[shipped] `is_secret_name` blocks ordinary variables.** `$key`, `$sort_key`, `$page_token`,
+     `$csrf_token`, `$public_key`, `$LICENSE_KEY` are all blocked — the last-component rule fixed
+     substring matching in one direction and overshot in the other.
+  4. **[shipped] Write destinations reported as reads.** `cp .env.example .env`, `tee .env`,
+     `sed -i … .env` are blocked with the reason "Reading `.env` exposes credential values" —
+     the false-reason class that was just fixed for `export NAME`, back via `cp`/`tee`/`sort`.
+  5. **[shipped] `${VAR:+set}` is blocked**, though it never emits a value — it is the presence
+     check the block reason itself recommends. And `${#VAR}` (the length, which the prose
+     forbids) is NOT caught; nor is `0</proc/self/environ`; nor `readonly -p`.
+  6. **[shipped] `AGENTS.md` over-claims reader coverage.** The "which layer holds which half"
+     bullet says the guard blocks reads through a reader command; the list is 22 names, and
+     `wc -c .env`, `md5sum .env`, `python3 -c "open('.env')"` all pass — `md5sum` and `wc -c`
+     produce exactly the hash and length that same paragraph forbids. (D-010 pattern, written
+     while fixing D-010 instances.) `harness/src/10-principles.md` hedges correctly; only the
+     constitution bullet over-claims.
+  7. **[shipped] Guard is quadratic and now 2× slower.** 32 KB of command text takes ~21s;
+     64 KB projects past a typical hook timeout. Agents write multi-KB heredocs routinely.
+  8. **[CI, never green] The ladder has failed on every run in the repo's history — all 8.**
+     The failing rung is always `shellcheck`, which `verify.sh` treats as failed on ANY output,
+     including info-level notices: SC2094 (false positive at `ladder.sh:271`, `redact.sh:118` —
+     both `cmp` a file against a filtered copy of itself), SC2034 (`test-ladder-guards.sh:27`
+     `local name=$1` genuinely unused; a `BRANCH_PREFIX` report), SC2016 (`local-guards.sh:114`,
+     intentional), SC2128/SC2178. Shellcheck is CI-only, so no local run can see it. Fix the
+     scripts — do NOT narrow `verify.sh` to get green. Also: `tr: write error: Broken pipe`
+     appears twice in the fixture-suite output; check it is not a silent skip.
+  9. **[CI] Node 20 deprecation.** `actions/checkout@v4` targets Node 20 and is being force-run
+     on Node 24. Bump to `@v5` in `.github/workflows/ci.yml` **and** in
+     `harness/templates/configs/ci.yml` — adopters inherit the pin.
+  11. **[repo-local guard] The STATE landing check cannot tell an edit from a compression pass.**
+      Above the 14 KB soft cap, *any* shrink that does not reach the 9 KB floor fails the ladder
+      — including a 3-byte typo fix. Hit live this session: correcting a wrong path in this very
+      file (`ladder.yml` → `ci.yml`) turned the ladder red, and the only compliant moves were to
+      compress the whole file or revert the correction. Both are worse than the typo. The guard
+      is right about the Goodhart hole it was built for (D-011); it is wrong that every byte lost
+      above the cap is a compression attempt. Fix direction: only judge a shrink as compression
+      when it is large enough to *be* one (e.g. below some delta, or when the file crosses no
+      band), and say plainly which it is. Do NOT fix by widening the band — that reopens D-011.
+  12. **Fixture gaps behind all of the above.** Every "name merely contains a secret word"
+      allowed-fixture puts the benign word last, so they pass by construction; none tests a
+      benign name *ending* in `_KEY`/`_TOKEN`. No fixture covers `<` in quoted text, `<<<`,
+      `${VAR:+…}`, or `cp x .env`. The blocked side is honest (all 20 fail against the old
+      script). A duplicate `st_allowed 'grep -rn "force-push" docs/RUNBOOK.md'` appears twice.
+- D-017: **First hostile read of the shipped scripts and templates (the D-005 sweep), 2026-07-25.**
+  All CONFIRMED unless marked. None fixed. This closes the *investigation* half of D-005 — do
+  not re-run the sweep; fix from this list.
+  - **B1 [BLOCKER] The secret scan vanishes silently if `redact.sh` loses its exec bit.**
+    `ladder.sh:255-258` and `:309-310`. Reproduced: with an `AKIA`-shaped token in the tree,
+    executable → FAIL; `chmod -x scripts/redact.sh` → `skip  scripts/redact.sh not present`,
+    **ladder green with the credential present**. `guard_rail_selftests` prints its header and
+    nothing at all. `copy-drift.sh` does not catch it (`cmp` compares content, not mode). Hits
+    any adopter arriving by archive extraction or `core.fileMode=false`. D-004 designates this
+    guard as the repo's ENTIRE secret scan.
+  - **B2 The citation guard word-splits its file list** — `ladder.sh:234`,
+    `grep ... $(tr '\n' ' ' <"$scan_files")`. a scanned script containing `# see D-099` → FAIL; the same
+    content in a filename with a space → **green**. `2>/dev/null` swallows the error.
+    The same file forbids exactly this at `:265` ("a scan with a silent hole is worse than no
+    scan"); `harness/src/30-scaffolds.md:63` calls it "a blocker-class hole". Fixture
+    `secret_spacey` exists; no `cite_spacey`.
+  - **B3 Same defect in `scripts/guards/path-refs.sh:25`** (`for f in $files`).
+  - **B4 Three guards have ZERO fixture coverage** (mutation-tested: stubbing them leaves the
+    suite 20/20 green) — `guard_poison_tokens`, `guard_rail_selftests` (the one that catches
+    B1), and `advisories` (which holds the rule-review tripwire). Causes: `mk()` never creates
+    an `origin/<default>` ref; `run()` sets `CI=1` and `advisories` starts `in_ci && return`;
+    `mk()` hardcodes `RULE_FILES=''`. **`guard_poison_tokens` is also inert in this repo right
+    now** — `git rev-parse --verify origin/main` fails locally, so it prints `skip` every run.
+    The other eight mutations were caught; the suite is otherwise honest.
+  - **B5 `redact.sh` misses live credential shapes**, verified by piping runtime-generated
+    tokens: `sk-proj-…` (the *existing* `openai_key` class no longer matches OpenAI's format —
+    `redact.sh:34` is `sk-[A-Za-z0-9]{32,}` and the `-` breaks the class), `ASIA…` (AWS STS),
+    `glpat-…`, `postgres://user:pw@host/db`, `https://user:token@host/repo.git`, `hf_…`,
+    `Authorization: Bearer …`. The URL-with-userinfo shape already appears in this repo's own
+    `git remote -v` output. Negative cases are clean — no false positives found.
+  - **B6 Exact-length classes leak the token tail.** `AKIA[0-9A-Z]{16}`, `AIza…{35}`,
+    `npm_…{36}` are fixed-count; a longer token prints its remainder:
+    `[REDACTED:google_api_key]AXThQ`. `AGENTS.md` forbids printing a suffix. The self-test
+    **structurally cannot see this** — `redact.sh:74` asserts only that the whole token is
+    absent, which a partial redaction satisfies.
+  - **B7 `session-start.sh:33` silently skips the toolchain bootstrap** when `REMOTE_FLAG` is
+    not a valid shell identifier (e.g. `AMH-REMOTE`): `${!REMOTE_FLAG}` errors to stderr, exit
+    0, bootstrap never runs. `amh.conf` presents the flag as free-form with no stated
+    constraint.
+  - **B8 `rm -rf scripts/guards` → ladder green with no output at all** (`ladder.sh:320-333`),
+    against the script's own convention of printing `skip` for anything absent.
+  - **B11 `CONTRIBUTING.md` does not exist**, is cited 5× (`docs/RUNBOOK.md:32,42,104,207`,
+    `docs/UPGRADING.md:4`) and is in `RULE_FILES`; playbook 5 is unfollowable because of it.
+    the init script `amh-init.sh` likewise absent, cited 3×, pre-allowed in `.claude/settings.json:13`.
+    `path-refs.sh` reports 63 refs resolving because its pattern requires an embedded slash, so
+    a repo-root file can never match — the guard was admitted to close this exact incident and
+    is blind to half of it.
+  - **B12 `command-guard.sh` mistake-class misses**: `git push origin +main` (force-push AND
+    default-branch push) ALLOWED, `git push --mirror origin` ALLOWED, `source .env` / `. ./.env`
+    ALLOWED. The static deny rails miss `+main` too — both layers fail together.
+  - **B9/B10 [PLAUSIBLE, unreproduced]** `ladder.sh:271` discards `cmp`'s stderr, so a
+    truncated `redact.sh` stream would pass silently; `ladder.sh:207` `CITATION_EXCLUDE` keeps
+    the unfiltered list if the exclusion empties it, and interpolates `$ex` unescaped.
+  - **B13/B14 minor**: `harness/templates/seed/scripts/verify.sh` is mode 100644 while
+    `ladder.sh:425` requires `-x`, so an adopter's first full run is red; `.claude/settings.json`
+    pre-allows a script that ships nowhere.
+  - Clean categories, do not re-check: D-004 runtime-generated fixtures honoured everywhere;
+    D-006 `local` expansion clean; redaction false positives none; `guard_secret_shapes` NUL
+    handling correct; `dist-drift` faithful.
+- D-018: **The rule-review codification (D-015) shipped a contradiction and a false citation,
+  caught by its own pass.** P12 named the three bounds *Depth, Iteration, Standing* while the
+  runbook and seed named *Concurrency, Iteration, Depth* — the generated bundle carried both
+  enumerations 627 lines apart under the same heading, and the P12 copy dropped the concurrency
+  bound that carries D-009's no-fan-out rule. Fixed by aligning on Concurrency/Iteration/Depth
+  and demoting "standing" to a following clause (it is a permission rule, not a runaway axis).
+  Also fixed: the claim that "the playbooks say the pass happens BEFORE the commit" — they do
+  not, only the ladder's warning does — and a collapsed paragraph break that made the STATE
+  exemption read as an exemption from the hold rule. **Open, escalated to the Owner queue:** the
+  iteration bound is Goodhart-open. "Fixes too large mean the unit was too big: split it" lets a
+  session relabel the corrected diff as a new unit and claim a fresh pass, and no definition of
+  a unit is mechanical (`docs/RUNBOOK.md:128`, "about one focused hour", self-assessed). Per
+  D-011 a hole survives one band above the fix; this one is prose-only, and `RULE_FILES` does
+  not even cover `harness/src`, so the P12 edit in that very diff tripped no tripwire.

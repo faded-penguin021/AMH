@@ -126,8 +126,23 @@ occur):
   filenames or environment variables.
 
 Verdict in the commit body. The ladder's rule-file tripwire only *surfaces* that this protocol
-applies; reviewer attention is the enforcement. One level of meta only: the reviewer reports,
-the session triages, the human arbitrates. Nobody reviews the reviewer.
+applies; reviewer attention is the enforcement.
+
+**Three bounds keep the pass a gate rather than a process that eats the unit:**
+
+- **Concurrency: one reviewer at a time, blocking.** Not a background job; you do not keep
+  editing while it runs.
+- **Iteration: ONE pass per unit.** Triage the findings, apply them, ship — do NOT review the
+  corrected diff again. Re-running until a pass comes back clean turns the gate into a loop
+  that launders a diff into looking approved. Fixes too large to ship unreviewed mean the unit
+  was too big: split it, or hand the residue to the human.
+- **Depth: one level of meta.** The reviewer reports, the session triages, the human
+  arbitrates. Nobody reviews the reviewer.
+
+Spawning the reviewer is what this protocol requires, not a permission to request — do not ask
+each time; escalate the *diff's substance* instead. While the pass is in flight the diff stays
+green, uncommitted and unpushed; a harness commit prompt on an idle turn does not override the
+gate. Say so once rather than re-explaining every turn.
 
 ## Incident: leaked credential
 
