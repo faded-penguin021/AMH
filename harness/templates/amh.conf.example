@@ -1,0 +1,60 @@
+# amh.conf — the Agentic Maintenance Harness's settings for THIS repository.
+#
+# The shipped scripts under scripts/ are parameter-free and read this file at runtime.
+# Change values HERE; never edit a shipped script locally, or upgrading becomes a merge.
+#
+# Sourced by bash. Keep it to simple KEY=value assignments.
+
+# The harness version this repository has adopted. Record it — process drift is
+# diagnosable only if the version that shaped the process is written down.
+AMH_VERSION={{AMH_VERSION}}
+
+# --- Git topology -----------------------------------------------------------
+DEFAULT_BRANCH={{DEFAULT_BRANCH}}
+BRANCH_PREFIX={{BRANCH_PREFIX}}
+# branch-per-change | branch-train
+MERGE_MODE={{MERGE_MODE_KEY}}
+
+# Environment flag marking a remote/ephemeral container. The session bootstrap runs
+# toolchain setup only when this is 1 — never a heuristic that could surprise someone
+# on their own machine.
+REMOTE_FLAG={{REMOTE_FLAG}}
+
+# --- Working memory: the state file's size band (hysteresis) ----------------
+# Grow freely to WARN. Over WARN, one deep compression pass must land at or below
+# COMPRESS_TO — landing between them fails, because a micro-trim to just under the
+# warning re-arms it a session later. Over HARD fails outright.
+# Pick numbers so WARN − COMPRESS_TO spans many sessions of growth and HARD − WARN
+# leaves one long session of margin.
+STATE_FILE=docs/STATE.md
+STATE_COMPRESS_TO_KB={{COMPRESS_TO_KB}}
+STATE_WARN_KB={{WARN_KB}}
+STATE_HARD_KB={{HARD_KB}}
+
+# Section headers that must survive compression ('|' separated); a missing one fails.
+STATE_REQUIRED_SECTIONS='## Project|## Current state|## Changelog'
+# The owner's channel: its disappearance is a warning, not a failure.
+STATE_OWNER_QUEUE_SECTION='## Owner queue'
+
+# --- Permanent memory: the append-only ledger -------------------------------
+LEDGER_DIR=docs
+LEDGER_BASENAME=LEDGER
+# Keep in lockstep with the number stated in the ledger's own header.
+LEDGER_LINE_CAP={{LINE_CAP}}
+
+# Where citations are scanned for: code and workflows only — NOT docs (prose mentions
+# IDs without citing them), and not the guard fixtures (which carry synthetic IDs).
+CITATION_SCAN_PATHS='{{CITATION_SCAN_PATHS}}'
+CITATION_EXCLUDE='scripts/test-ladder-guards.sh scripts/tests'
+
+# --- Commit hygiene ---------------------------------------------------------
+# Fixed strings that must never reach a commit message: a squash merge would fold them
+# onto the default branch, and force-push is forbidden, so it is permanent until merge.
+POISON_TOKENS='[skip ci]|[ci skip]|***NO_CI***'
+
+# --- Multi-session plans ----------------------------------------------------
+PLAN_DIR=docs/plans
+
+# --- Legislation: files whose diffs require the rule-review protocol ---------
+# Add each new agent adapter's config file here.
+RULE_FILES='AGENTS.md docs/RUNBOOK.md scripts/ladder.sh scripts/test-ladder-guards.sh scripts/command-guard.sh scripts/redact.sh scripts/session-start.sh .claude/settings.json'

@@ -28,7 +28,7 @@ Founding build in progress on `claude/amh-meta-repository-tb2myi`, in sequential
 - [x] **U1 — Self-hosting core.** `amh.conf`, the five shipped scripts + byte-identical
       copies in `scripts/`, guard fixture suite, permission rails, CI, working memory.
 - [x] **U2 — Legislation.** `AGENTS.md`, `CLAUDE.md` pointer, `docs/RUNBOOK.md`.
-- [ ] **U3 — Adopter templates.** `harness/templates/{seed,configs}`, `PLACEHOLDERS.md`.
+- [x] **U3 — Adopter templates.** `harness/templates/{seed,configs}`, `PLACEHOLDERS.md`.
 - [ ] **U4 — Harness prose + generated bundle.** `harness/src/`, `harness/dist/AMH.md`.
 - [ ] **U5 — Version, changelog, upgrade path.** `harness/VERSION`, `CHANGELOG`, `UPGRADING`.
 - [ ] **U6 — README, CONTRIBUTING, `amh-init.sh`, end-to-end test.**
@@ -78,6 +78,10 @@ Founding build in progress on `claude/amh-meta-repository-tb2myi`, in sequential
 One line per shipped change or completed unit (newest first). Keep terse; details live in the
 cited ledger rows and in git history.
 
+- 2026-07-25 — **U3** Adopter templates: seed scaffolds (constitution, pointer, STATE,
+  RUNBOOK, LEDGER, `verify.sh`), configs carrying `{{PLACEHOLDER}}`s (Claude Code settings,
+  CI workflow), `amh.conf.example`, and `harness/PLACEHOLDERS.md` with a guard that fails on
+  an undocumented placeholder or one left unfilled in this repo's live tree.
 - 2026-07-25 — **U2** Legislation: `AGENTS.md` (canonical constitution), `CLAUDE.md` pointer,
   `docs/RUNBOOK.md` (playbooks, session discipline, both review protocols, incident playbook),
   and `scripts/guards/copy-drift.sh` — which makes "this repo runs what it ships" checkable

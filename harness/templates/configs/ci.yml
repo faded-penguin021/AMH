@@ -1,0 +1,26 @@
+name: ladder
+
+# AMH template. CI's verification step invokes scripts/ladder.sh directly — the same
+# command the agent runs. Never add verification steps here that the ladder does not
+# perform: a hand-maintained lockstep between "what the agent runs" and "what CI runs"
+# is where "green locally, red in CI" mysteries breed.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  ladder:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: the poison-token guard compares commit messages against
+          # origin/{{DEFAULT_BRANCH}}, and a shallow clone silently skips that check.
+          fetch-depth: 0
+
+      # {{TOOLCHAIN_SETUP_STEPS}} — language runtimes, caches, shellcheck, etc.
+
+      - name: Acceptance ladder
+        run: scripts/ladder.sh
