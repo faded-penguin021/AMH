@@ -36,9 +36,18 @@ running byte-identical copies of the scripts it ships.
 > through commit `a98b462`. **Two things are known-broken and neither is fixed:** the shipped
 > command guard has a rail-voiding regression, and CI has never passed. Both are itemised
 > under **Incoming findings** — read them before starting any new unit; they are the next
-> unit's scope. One codification diff (rule-review bounds, D-015) was uncommitted and awaiting
-> a fresh-context pass at handoff; if it is absent from the tree, it was lost with the session
-> and must be rewritten from D-015.
+> unit's scope. One codification diff was uncommitted and awaiting a fresh-context pass at
+> handoff; if `D-015` is absent from `docs/LEDGER.md`, that diff died with the session and must
+> be rewritten. Its whole content, so it is recoverable from here: the rule-review protocol
+> gains **three bounds** — *concurrency* (one reviewer at a time, blocking: already had it),
+> *iteration* (**ONE pass per unit** — triage findings, apply, ship; never re-review the
+> corrected diff, because that turns a gate into a loop that launders a diff into looking
+> approved; fixes too large to ship unreviewed mean the unit was too big), and *depth* (nobody
+> reviews the reviewer: already had it). Plus two clauses from live friction: spawning the
+> reviewer is what the protocol requires and is **not** a permission to ask for each time, and
+> a green-but-unreviewed legislation diff is **held** against a harness commit prompt — said
+> once, not re-explained every turn. Goes in `docs/RUNBOOK.md`, `harness/src/10-principles.md`
+> (P12), and `harness/templates/seed/docs/RUNBOOK.md`, then rebuild the bundle.
 
 Founding build (`claude/amh-meta-repository-tb2myi`): **U1–U4 done** — self-hosting core,
 legislation, adopter templates, harness prose + generated bundle.
