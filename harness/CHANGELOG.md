@@ -34,7 +34,7 @@ Nothing about the harness's rules changed in this release. What changed is its f
 
 From a hand-instantiated copy of the 1.x document: there is no mechanical path, because the
 scripts described in the old document were specifications rather than code. Treat this as a
-fresh adoption — run `scripts/amh-init.sh` into a scratch directory, then port your existing
+fresh adoption — run the harness init script into a scratch directory, then port your existing
 STATE, LEDGER and RUNBOOK content into the new layout by hand. Your ledger rows and their
 numbering carry over unchanged; nothing in this release renumbers or reformats them.
 

@@ -104,34 +104,60 @@ guard_state_size() {
 		ok "$((cur / 1024)) KB (soft cap ${STATE_WARN_KB} KB, hard ${STATE_HARD_KB} KB)"
 	fi
 
-	# Landing check. Size thresholds alone are Goodhart-able: a micro-trim to just
-	# under the soft cap passes and re-arms the warning a session later. Compare
-	# against the committed size and require a compression to actually LAND on the
-	# floor. Fires only on a shrink out of warn territory.
+	# Landing check. Size thresholds alone are Goodhart-able: a trim that stops short of
+	# the floor passes and re-arms the warning a session later. Compare against the
+	# committed size and require a compression, once started, to actually LAND on the
+	# floor.
+	#
+	# It fires on ANY shrink from over the soft cap that does not reach the floor —
+	# including one that stays over the cap. Checking only trims that cross below the
+	# cap leaves the same hole one band higher: 15.5 KB → 14.2 KB never crosses, so the
+	# check never evaluates, and grow-then-nibble repeats forever under a mere warning.
+	# Growth and edits that start below the cap never trip it.
 	has_git || return
 	prev=$(git show "HEAD:$STATE_FILE" 2>/dev/null | wc -c)
 	if [ "$prev" = "$cur" ]; then
 		prev=$(git show "HEAD~1:$STATE_FILE" 2>/dev/null | wc -c)
 	fi
 	[ "${prev:-0}" -gt 0 ] || return
-	if [ "$prev" -gt "$warn_b" ] && [ "$cur" -le "$warn_b" ] && [ "$cur" -gt "$comp_b" ]; then
-		fail "compression landed at $((cur / 1024)) KB, inside the debounce band — a real pass must reach ≤ ${STATE_COMPRESS_TO_KB} KB, or the warning re-arms next session"
+	if [ "$prev" -gt "$warn_b" ] && [ "$cur" -lt "$prev" ] && [ "$cur" -gt "$comp_b" ]; then
+		fail "trimmed from $((prev / 1024)) KB to $((cur / 1024)) KB but the floor is ${STATE_COMPRESS_TO_KB} KB — a compression pass that stops short re-arms the warning next session. Go to the floor or leave the file alone."
 	fi
+}
+
+# A section is present only if its header stands at the start of a line AND something
+# non-blank follows before the next header. Header-presence alone is trivially gamed:
+# the cheapest way to "survive compression" is to keep four headings and delete every
+# body under them. This does not judge whether the content is any GOOD — no guard can —
+# it only refuses to call an empty shell a section.
+section_has_body() { # <file> <header>
+	awk -v h="$2" '
+		index($0, h) == 1 && !inside { inside = 1; next }
+		inside && /^#{1,6} / { exit }
+		inside && NF { found = 1; exit }
+		END { exit(found ? 0 : 1) }
+	' "$1"
 }
 
 guard_state_structure() {
 	section "Working memory: required sections"
 	[ -f "$STATE_FILE" ] || return
-	local missing=0 sec
+	local problems=0 sec
 	while IFS= read -r sec; do
 		[ -n "$sec" ] || continue
-		if ! grep -qF "$sec" "$STATE_FILE"; then
+		if ! grep -q "^${sec}[[:space:]]*$" "$STATE_FILE"; then
 			fail "section '$sec' is missing — over-compression deleted it"
-			missing=1
+			problems=$((problems + 1))
+		elif ! section_has_body "$STATE_FILE" "$sec"; then
+			fail "section '$sec' is empty — the header survived compression but its content did not"
+			problems=$((problems + 1))
 		fi
 	done < <(printf '%s\n' "$STATE_REQUIRED_SECTIONS" | tr '|' '\n')
-	[ "$missing" = 0 ] && ok "all required sections present"
-	if ! grep -qF "$STATE_OWNER_QUEUE_SECTION" "$STATE_FILE"; then
+	[ "$problems" = 0 ] && ok "all required sections present and non-empty"
+	# WARN, not fail: the owner's channel is theirs, and a session that has genuinely
+	# closed every item should not be blocked. The asymmetry is deliberate and is
+	# stated wherever this section is described as protected.
+	if ! grep -q "^${STATE_OWNER_QUEUE_SECTION}[[:space:]]*$" "$STATE_FILE"; then
 		warn "'$STATE_OWNER_QUEUE_SECTION' has vanished — that section is the owner's channel; its items are theirs to close"
 	fi
 }

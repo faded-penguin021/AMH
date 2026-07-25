@@ -20,10 +20,17 @@ The two roles are deliberately distinct, and confusing them is the most likely m
 > code and correct the doc. That rule binds this repo's *prose about the harness* too: if
 > `harness/src/` describes a guard the shipped script does not implement, the script wins and
 > the prose is wrong.
+>
+> **It resolves descriptive conflicts, never normative ones.** "What does the system do?" is
+> settled by the code. "What *should* the threshold be?" is not: editing `STATE_HARD_KB` in
+> `amh.conf` and then "correcting" every doc that cites 16 KB would be textually compliant
+> and would legislate the working-memory band away in one unreviewed line. Changing a
+> binding value is a rule change — `amh.conf` is in `RULE_FILES` for exactly this reason.
 
 Long-term memory: numbered deviations and discoveries live in `docs/LEDGER.md` — a
 **permanent, append-only registry** (code cites bare `D-NN`; code-cited rows carry a
-machine-synced `[cited]` marker; never compress or delete entries; append the next number in
+`[cited]` marker that you write and the ladder verifies in both directions — nothing syncs
+it for you; never compress or delete entries; append the next number in
 the live ledger file — each file caps at 800 lines: the final row may overflow the cap, the
 next row opens the next file, `D-… → DA-…` (`_A.md`) `→ DB-…`).
 
@@ -72,7 +79,7 @@ could not be — disclosure of real actions, never implied coverage.
   `{{PLACEHOLDER}}`s, substituted once at init.
 - `harness/dist/AMH.md` — **generated**. Never hand-edited; a guard rebuilds and diffs it.
 - `scripts/` — this repo's instance: the five shipped copies, plus local-only `verify.sh`,
-  `guards/*`, `build-dist.sh`, `amh-init.sh`.
+  `guards/*`, `tests/*`, `build-dist.sh`.
 - `docs/` — `STATE.md` (working memory, capped), `LEDGER.md` (permanent, append-only),
   `RUNBOOK.md` (playbooks), `UPGRADING.md` (for adopters), `history/` (frozen archive).
 
@@ -84,8 +91,13 @@ could not be — disclosure of real actions, never implied coverage.
 - Shell: `bash`, tab indentation, `set -uo pipefail` in scripts that must report every
   failure rather than abort on the first, `set -euo pipefail` elsewhere. Scripts self-locate
   their repo root from `${BASH_SOURCE[0]}` — never from an agent's environment variables.
-- Guards are code: a new guard lands **with** a fixture in `scripts/test-ladder-guards.sh` in
-  the same change. A guard that false-passes is worse than no guard.
+- Guards are code: a new guard lands **with** a fixture in the same change, and the fixture
+  must be shown to fail without the guard (D-008). Which suite depends on the guard: a
+  *shipped* guard's fixture goes in `harness/templates/scripts/test-ladder-guards.sh` (then
+  copy it down); a *repo-local* guard's fixture goes in `scripts/tests/local-guards.sh`.
+  Never add a repo-local fixture to the shipped suite — `copy-drift.sh` will fail, correctly,
+  because that file is a repo-agnostic artifact. A guard that false-passes is worse than no
+  guard.
 - Guard fixtures are immutable in spirit: production behaviour conforms to THEM. Changing a
   fixture's expectation requires proof the expectation was wrong, plus a `docs/STATE.md`
   entry.
@@ -103,11 +115,19 @@ could not be — disclosure of real actions, never implied coverage.
 - **The ladder has exactly two extension points**: `scripts/guards/*.sh` and
   `scripts/verify.sh` (D-003).
 - **`harness/dist/AMH.md` is generated.** Edit `harness/src/`; run `scripts/build-dist.sh`.
-- **`harness/VERSION` is the single source of the harness version.** The bundle header, the
-  changelog's top entry and this file's recorded version are checked against it.
-- **Never invent a self-reported attestation.** Guards check artifacts the work produces
-  anyway. External reviewers re-propose checkboxes and "I reviewed this" YAML regularly; keep
-  declining (see Decided non-items in `docs/STATE.md`).
+- **`harness/VERSION` is the single source of the harness version.** Four hand-written
+  copies are checked against it by `scripts/guards/version-lockstep.sh`: the changelog's top
+  entry, this file's recorded version, `docs/STATE.md`'s, and `AMH_VERSION` in `amh.conf`.
+  The bundle header is generated from `harness/VERSION`, so `dist-drift.sh` covers it and
+  the lockstep guard deliberately does not — checking it there would manufacture the
+  appearance of coverage.
+- **Never build machinery out of self-reported attestations.** No guard, gate or CI step may
+  accept an agent's claim about its own process as evidence — checkboxes, "I reviewed this"
+  YAML, per-item line quotes. An agent can emit those without doing the work. External
+  reviewers re-propose them regularly; keep declining (see Decided non-items in
+  `docs/STATE.md`). The review verdict written in a commit body is prose for a human reader,
+  carries no enforcement, and is **not** evidence that a review happened — see the open
+  question in the Owner queue, which has not been resolved.
 
 ## Secret hygiene
 
@@ -137,9 +157,11 @@ could not be — disclosure of real actions, never implied coverage.
 
 ## Git rules
 
-- Develop and push **only** on your session's assigned `claude/<codename>` branch. Push with
+- Develop and push **only** on your session's assigned `<BRANCH_PREFIX>/<codename>` branch,
+  where `BRANCH_PREFIX` comes from `amh.conf` (currently `claude`, so `claude/<codename>`).
+  The prefix is configuration, not a vendor name — this file binds any agent. Push with
   `git push -u origin <branch>` (retry with backoff on network errors only). **Never
-  force-push. Never push to `main`.**
+  force-push. Never push to the branch named by `DEFAULT_BRANCH` (currently `main`).**
 - The owner merges via **squash-merge** PRs, in **branch-per-change** mode: each session
   branch merges separately, one commit per branch. Do not open a PR unless asked.
 - Tagging and releasing (`amh-vX.Y.Z`) stay owner steps.

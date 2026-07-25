@@ -6,7 +6,7 @@ narrow: an undocumented placeholder is one an adopter ships to production unfill
 
 Two kinds:
 
-- **Substituted at init** — `scripts/amh-init.sh` fills these in automatically from the
+- **Substituted at init** — the harness init script fills these in automatically from the
   answers it collects. They appear in `configs/` and `amh.conf.example`, which are JSON,
   YAML and shell-config files that cannot read `amh.conf` at runtime.
 - **Filled in by you** — everything in `seed/`. These are prose scaffolds; no tool can guess

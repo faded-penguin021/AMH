@@ -158,7 +158,19 @@ d=$(mk state_landing_bad)
 } >>"$d/docs/STATE.md"
 (cd "$d" && git commit -qam "grow past the soft cap")
 head -c $((11 * 1024)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
-expect_fail "micro-trim into the debounce band fails" "$d" "debounce band"
+expect_fail "micro-trim that crosses below the cap but misses the floor fails" "$d" "stops short"
+
+# The same hole one band higher: a trim that never crosses below the soft cap. If the
+# landing check only fires on a crossing, grow-to-15.5 / trim-to-14.2 repeats forever
+# under a mere warning, which is exactly what the debounce claims to prevent.
+d=$(mk state_landing_above_warn)
+{
+	echo
+	filler $((16 * 1024))
+} >>"$d/docs/STATE.md"
+(cd "$d" && git commit -qam "grow well past the soft cap")
+head -c $((15 * 1024)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
+expect_fail "a trim that stops short while still over the cap fails" "$d" "stops short"
 
 d=$(mk state_landing_good)
 {
@@ -173,6 +185,12 @@ expect_pass "compression landing on the floor passes" "$d"
 d=$(mk state_section)
 grep -v '^## Changelog' "$d/docs/STATE.md" >"$d/t" && mv "$d/t" "$d/docs/STATE.md"
 expect_fail "a deleted required section fails" "$d" "is missing"
+
+# Cheapest possible "compliance": keep the headers, delete everything under them.
+d=$(mk state_empty_section)
+awk '/^## Current state/{print; skip=1; next} skip && /^## /{skip=0} !skip' \
+	"$d/docs/STATE.md" >"$d/t" && mv "$d/t" "$d/docs/STATE.md"
+expect_fail "a required section emptied of content fails" "$d" "is empty"
 
 d=$(mk state_ownerq)
 grep -v '^## Owner queue' "$d/docs/STATE.md" >"$d/t" && mv "$d/t" "$d/docs/STATE.md"

@@ -3,7 +3,10 @@
 > **Append-only registry — NEVER archived, compressed or truncated.** This is the canonical,
 > permanent home for every numbered deviation and discovery. Code and docs cite entries as
 > bare `D-NNN` and those citations must always resolve here; no entry is ever deleted or
-> summarised away. Append new entries at the bottom, one continuous sequence. Code and
+> summarised away. Note the asymmetry: citations from **code and workflows** are
+> machine-checked (`CITATION_SCAN_PATHS`), citations from **prose are not checked at all** —
+> docs are deliberately out of scan scope, because prose mentions IDs without citing them.
+> A dangling `D-NNN` in a doc will not fail the build; that one is on the reviewer. Append new entries at the bottom, one continuous sequence. Code and
 > fixtures are ground truth: if an entry conflicts with the current code, trust the code and
 > **correct** the entry — never delete it.
 >
@@ -18,11 +21,14 @@
 > same header discipline, numbering from **DA-001** (then `_B.md`/`DB-001`, …). Existing
 > rows are never moved or renumbered. A citation's prefix names its file.
 >
-> **`[cited]` marker (machine-managed).** A row cited from the ladder's scan scope carries
-> ` [cited]` after its number. The ladder syncs it BOTH directions — cited-but-unmarked and
-> marked-but-uncited each fail the build — so it is verified derived state, never
-> hand-tracked. The marker warns you that code resolves here before you lean on or reword
-> a row.
+> **`[cited]` marker (machine-CHECKED — you write it, the ladder verifies it).** A row cited
+> from the ladder's scan scope carries ` [cited]` after its number. The ladder checks it in
+> BOTH directions — cited-but-unmarked and marked-but-uncited each fail the build — but it
+> never edits this file: nothing syncs the marker for you. The marker warns you that code
+> resolves here before you lean on or reword a row. Known Goodhart path, unguarded: the
+> cheapest way to strip a protected row's marker is to delete the code comment citing it,
+> which the guard then *requires*. If you find yourself doing that, you are removing the
+> warning rather than heeding it.
 
 - D-001 [cited]: **This repository is both the harness's source of truth and its reference
   instance.** The distributed product lives under `harness/`; the repo's own instance is
@@ -70,8 +76,47 @@
   only a real `push` — is the general rule: match a token's position, not its presence.
   This is the second of the two false-positive classes the harness warns about, and both
   surfaced within an hour of the guard existing.
-- D-008: **A guard's fixture must be shown to fail without the guard.** Both mutations tried
-  against the first fixture suite (deleting the STATE landing check; word-splitting the
-  secret-scan file list) were caught, which is the only reason the suite's 18 green
-  assertions mean anything. Run the mutation before believing a new fixture: a fixture that
-  passes against the broken code is a false sense of protection, which is worse than none.
+- D-008: **A guard's fixture must be shown to fail without the guard.** Run the mutation
+  before believing a new fixture — delete or neuter the guard and confirm the fixture goes
+  red. A fixture that passes against the broken code is a false sense of protection, which is
+  worse than none. Every mutation tried so far was caught (the STATE landing check, the
+  secret-scan file list, the above-cap trim, the empty-section check).
+  *(Correction, 2026-07-25: this row originally cited "the suite's 18 green assertions". That
+  number was stale within a day. A permanent row must not embed a live count — the guard/prose
+  lockstep class, committed inside the row warning about it.)*
+- D-009: **Fanning out review subagents is the parallel-agent failure, not an exception to
+  it.** P12 permits ONE fresh-context reviewer, blocking, inside the unit. The first session
+  with the capability spawned three at once and kept editing files while they ran — so they
+  were neither singular nor blocking. Nothing in the tooling resisted it; spawning three is
+  exactly as easy as spawning one, which is the whole problem. The rule now appears at the
+  point of temptation (session discipline 1 and the rule-review protocol), not only in the
+  discipline list. The owner caught this, not a guard: it is not machine-checkable, because
+  the harness cannot see its own agent's tool calls.
+- D-010: **Prose that claims enforcement is worse than prose that claims nothing.** A rule
+  review found five places asserting a check that did not exist or did not do what was
+  claimed: a version-lockstep guard named in three files and never written; `[cited]`
+  described as "machine-synced" when the ladder only compares; the ledger preamble claiming
+  doc citations resolve when docs are out of scan scope; the STATE preamble naming Owner queue
+  as mandatory (it warns) while omitting `## Changelog` (it fails); "machine-checks all of
+  this" over rules no byte count can see. The failure mode is specific: a false enforcement
+  claim is what stops a reviewer checking by hand. When adding a rule, write down which layer
+  holds it — guard, rail, or prose-only — and say "prose-only" out loud.
+- D-011: **A Goodhart hole usually survives one band higher than the fix.** The STATE landing
+  check closed "trim to just under the soft cap" but only fired when the trim CROSSED below
+  the cap, so 15.5 KB → 14.2 KB never triggered it and grow-then-nibble repeated forever under
+  a warning. Generalisation: when closing a threshold-gaming hole, ask what the same game looks
+  like without crossing the threshold. The check now fires on any shrink from above the cap
+  that misses the floor.
+- D-012: **A scope list must cover the file that defines the scope list.** `amh.conf` holds
+  `STATE_HARD_KB`, `POISON_TOKENS`, `CITATION_SCAN_PATHS` and `RULE_FILES` itself, and was not
+  in `RULE_FILES` — so raising a cap or blanking the poison tokens tripped no wire. Related:
+  the ground-truth rule ("trust the code, correct the doc") let a one-line config edit
+  retroactively amend the constitution, since the config IS code. That rule now resolves
+  descriptive conflicts only; changing a binding value is a rule change.
+- D-013: **The repo-local guards had no fixtures, and the constitution's rule made that
+  unfixable.** It demanded every new guard land with a fixture in
+  `scripts/test-ladder-guards.sh` — a file `copy-drift.sh` forbids editing, with no third
+  slot for repo-local fixtures. Three guards shipped untested under a rule nobody could obey.
+  Fixtures for repo-local guards now live in `scripts/tests/local-guards.sh`, run from
+  `verify.sh`. Watch for this shape: a rule whose only compliant action violates a different
+  invariant is not strict, it is broken.

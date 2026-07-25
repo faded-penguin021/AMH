@@ -39,8 +39,11 @@ else
 	printf '     skip (not installed locally — CI runs it)\n'
 fi
 
-step "guard fixture suite"
+step "shipped guard fixture suite"
 scripts/test-ladder-guards.sh || bad "scripts/test-ladder-guards.sh"
+
+step "repo-local guard fixture suite"
+scripts/tests/local-guards.sh || bad "scripts/tests/local-guards.sh"
 
 if [ "$FAILS" -gt 0 ]; then
 	printf '\n   verification set: %d failure(s)\n' "$FAILS"
