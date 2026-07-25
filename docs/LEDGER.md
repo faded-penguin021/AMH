@@ -24,21 +24,21 @@
 > hand-tracked. The marker warns you that code resolves here before you lean on or reword
 > a row.
 
-- D-001: **This repository is both the harness's source of truth and its reference
+- D-001 [cited]: **This repository is both the harness's source of truth and its reference
   instance.** The distributed product lives under `harness/`; the repo's own instance is
   `AGENTS.md` + `docs/` + `scripts/` + `amh.conf`. The two are deliberately not the same
   files: prose scaffolds are *seeds* (copied once, then owned by the adopting repo), while
   scripts are shipped artifacts (copied verbatim, upgradeable). Rationale: a harness whose
   own repo does not run it has no evidence its artifacts work, and an artifact no repo
   executes rots silently.
-- D-002: **Shipped scripts are parameter-free and read `amh.conf` at runtime** — they are
+- D-002 [cited]: **Shipped scripts are parameter-free and read `amh.conf` at runtime** — they are
   not rendered from `{{PLACEHOLDER}}` templates. A render step would create a permanent
   rendered-vs-template drift class needing its own guard; runtime configuration deletes the
   class instead of policing it. Consequence: `scripts/*.sh` here are byte-identical to
   `harness/templates/scripts/*.sh` and a guard enforces that with `cmp`, which is what makes
   the dogfooding claim checkable rather than aspirational. Supersedes nothing; see the
   Decided non-items entry in `docs/STATE.md`.
-- D-003: **The ladder has exactly two extension points**, and they exist so the shipped
+- D-003 [cited]: **The ladder has exactly two extension points**, and they exist so the shipped
   script never needs local edits (which is the precondition for D-002's `cmp` guard):
   `scripts/guards/*.sh` for repo-specific guards, and `scripts/verify.sh` for the full
   test/build/lint rung. A repo that finds itself editing `scripts/ladder.sh` has found a
@@ -56,3 +56,22 @@
   review against and no reviewer was spawned; the owner's review at merge stands in. From
   that merge onward the rule-review protocol binds normally. Recorded rather than skipped
   silently, because an undocumented exception becomes precedent.
+- D-006: **`local a=$1 b=${#a}` explodes under `set -u`.** Bash expands every word of a
+  `local` declaration *before* performing any of its assignments, so a later initialiser
+  referring to an earlier name on the same line sees the OLD (unset) variable —
+  `unbound variable`, on the first line of a function that reads correctly. Split the
+  declaration. Shipped live in `command-guard.sh`'s segment splitter on day one and broke
+  every single check; the self-test caught it immediately, which is the argument for rails
+  carrying their own matrices.
+- D-007: **Matching a forbidden word anywhere in a command instead of in its argument
+  position.** The command guard scanned every token after `git` for `push`, so
+  `git commit -m "never git push --force"` was blocked by its own commit message. Quoted
+  text is DATA. The fix — resolve the git *subcommand* (skipping global flags), then judge
+  only a real `push` — is the general rule: match a token's position, not its presence.
+  This is the second of the two false-positive classes the harness warns about, and both
+  surfaced within an hour of the guard existing.
+- D-008: **A guard's fixture must be shown to fail without the guard.** Both mutations tried
+  against the first fixture suite (deleting the STATE landing check; word-splitting the
+  secret-scan file list) were caught, which is the only reason the suite's 18 green
+  assertions mean anything. Run the mutation before believing a new fixture: a fixture that
+  passes against the broken code is a false sense of protection, which is worse than none.

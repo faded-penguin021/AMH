@@ -27,7 +27,7 @@ Founding build in progress on `claude/amh-meta-repository-tb2myi`, in sequential
 
 - [x] **U1 — Self-hosting core.** `amh.conf`, the five shipped scripts + byte-identical
       copies in `scripts/`, guard fixture suite, permission rails, CI, working memory.
-- [ ] **U2 — Legislation.** `AGENTS.md`, `CLAUDE.md` pointer, `docs/RUNBOOK.md`.
+- [x] **U2 — Legislation.** `AGENTS.md`, `CLAUDE.md` pointer, `docs/RUNBOOK.md`.
 - [ ] **U3 — Adopter templates.** `harness/templates/{seed,configs}`, `PLACEHOLDERS.md`.
 - [ ] **U4 — Harness prose + generated bundle.** `harness/src/`, `harness/dist/AMH.md`.
 - [ ] **U5 — Version, changelog, upgrade path.** `harness/VERSION`, `CHANGELOG`, `UPGRADING`.
@@ -78,6 +78,11 @@ Founding build in progress on `claude/amh-meta-repository-tb2myi`, in sequential
 One line per shipped change or completed unit (newest first). Keep terse; details live in the
 cited ledger rows and in git history.
 
+- 2026-07-25 — **U2** Legislation: `AGENTS.md` (canonical constitution), `CLAUDE.md` pointer,
+  `docs/RUNBOOK.md` (playbooks, session discipline, both review protocols, incident playbook),
+  and `scripts/guards/copy-drift.sh` — which makes "this repo runs what it ships" checkable
+  rather than aspirational. Shipped-bug classes seeding the review checklist: **D-006**,
+  **D-007**, **D-008**.
 - 2026-07-25 — **U1** Self-hosting core: `amh.conf`, ladder + guard fixture suite, redaction
   and command-guard rails with self-tests, session bootstrap, permission rails, CI. This repo
   now runs the harness it ships. Founding decisions in **D-001**…**D-005**.
