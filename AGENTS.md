@@ -135,10 +135,25 @@ could not be — disclosure of real actions, never implied coverage.
 ## Secret hygiene
 
 - The session environment carries credentials even though this codebase ships none. Never
-  dump environments (`env`, `printenv`, `.env` files, container inspect output); never print
-  a credential's value, prefix, suffix, length or hash — report key presence only. The
-  permission rails deny the dump commands and `scripts/command-guard.sh` blocks them with a
-  reason.
+  dump environments — not with `env` or `printenv`, not with the builtin forms (`set`,
+  `export -p`, `declare -x`), not by reading `.env` files or `/proc/<pid>/environ`, not from
+  container inspect output. Never print a credential's value, prefix, suffix, length or hash,
+  and that includes expanding one into an `echo`: report key presence only
+  (`[ -n "${MY_KEY:-}" ] && echo set`).
+- **Which layer holds which half.** `scripts/command-guard.sh` blocks, with a reason: `env`,
+  `printenv`, the builtin dump forms, `declare -p <secret-named>`, reads of `.env` files and
+  `/proc/<pid>/environ` through a reader command or a `<` redirection, and an `echo`/`printf`
+  that expands a credential-shaped variable. The deny rails add the spellings a prefix matcher
+  can express. **Container and service inspect output is prose-only** — no guard sees
+  `docker inspect`, and none is proposed: it would block ordinary use to catch a shape this
+  repo never runs. Treat that bullet as binding on you, not on a script.
+- **The owner's personal identifiers are secrets too**, and they leak through a door the
+  credential rails do not cover: git author metadata, doc bylines, licence headers, changelog
+  credits. Use the owner's handle or their forge no-reply alias — never a personal address,
+  including one handed to the agent in its own session context. **Prose-only, deliberately:**
+  no guard can see an identity you have not committed yet. Check `git config user.email`
+  before the first commit — an unpushed commit is amendable, a pushed one is not, and this
+  repo forbids itself the rewrite that would fix it.
 - A diagnostic that seems to need raw secret material becomes an Owner-queue open question
   (ask for a narrower evidence contract) — never raw output.
 - A **leaked** secret (commit, push, log): stop; never repeat the value — key name only;

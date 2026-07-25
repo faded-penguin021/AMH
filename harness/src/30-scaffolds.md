@@ -111,8 +111,16 @@ switching agents rewrites nothing.
 - **Allow:** the ladder, the setup, warm-up and bootstrap scripts, the build tool.
   Verification must never stall on a permission prompt.
 - **Deny (hard rails):** `git push --force` in all spellings; any push targeting the default
-  branch directly; environment and secret dumps (`env`, `printenv`, reads of `.env`-style
-  files). Prose forbids it; the permission layer *enforces* it. An agent without
+  branch directly; environment and secret dumps in the spellings a deny rule can express —
+  `env`, `printenv`, the builtin dump forms (`set`, `export -p`, `declare -x`), reads of
+  `.env`-style files and of `/proc/<pid>/environ`. Deny rules match command *strings*
+  (exactly or by prefix, depending on the agent), so they reach what you can enumerate and
+  nothing else: a variable expansion inside `echo`, or a `<` redirection, is invisible to
+  them. That residue is the pre-execution guard's job, below. Two cautions from live use:
+  write each rule so it cannot swallow ordinary usage the guard itself permits (`declare -x`
+  as an exact match denies the dump; as a prefix it also denies `declare -x MY_FLAG=1`), and
+  never let this list imply coverage the layers do not have. Prose forbids it; the permission
+  layer *enforces* what it can spell. An agent without
   permission-rule support still inherits the prose rule — the rails are defence in depth, not
   the only copy of the policy.
 - **Instructive pre-execution guard** (where the agent supports pre-tool-use hooks): wire the

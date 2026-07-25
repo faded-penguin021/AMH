@@ -252,7 +252,12 @@ code never cites the plan, because the plan dies and the ledger does not).
 **P17. Secrets are write-only to the agent.** Session environments carry credentials — VCS
 tokens, proxy auth, deploy keys — even when the codebase ships none. Never dump environments
 (`env`, `printenv`, `.env` files, container or service inspect output, unredacted config
-dumps); never print a credential's value, prefix, suffix, length or hash. Report only fixed-key
+dumps); never print a credential's value, prefix, suffix, length or hash. Enumerate the dump
+*shapes*, not one command: a shell builtin dumps the environment without going near `env`
+(`set`, `export -p`, `declare -x`), a file reader reaches a live process's copy of it
+(`/proc/<pid>/environ`), and the commonest leak of all is an agent echoing one variable to
+look at it (`echo $GITHUB_TOKEN`). A rail that blocks `env` and stops there is a rail with
+three doors beside it. Report only fixed-key
 presence ("`DATABASE_URL` is set") and bounded counts, and redact subprocess, exception and API
 output before reasoning over it. If a diagnostic cannot be done through a redacted path, stop
 and request a narrower evidence contract via the Owner queue (P8 applied to secrets) — never
@@ -266,7 +271,18 @@ entropy matching — that mangles build output) that adapters pipe tool and term
 through BEFORE the context window sees it, via an output-filter hook if the agent has one. Be
 honest per adapter about capability: an agent without output rewriting keeps prose plus deny
 rails only, and the filter stays available for manual piping. The regex layer catches known
-shapes only — it narrows the window, it never replaces the prose rule.
+shapes only — it narrows the window, it never replaces the prose rule. State per rule which
+layer holds it. A guard covers the shapes it enumerates and no more, so prose that implies
+coverage a script does not provide is worse than prose claiming nothing: it is what stops the
+next reader checking by hand (P20's companion failure).
+
+**The owner's personal identifiers are secrets of the same kind**, and they leak by a route
+credential rails do not watch: git author metadata, doc bylines, licence headers, changelog
+credits. Use the handle or the forge no-reply alias the owner publishes; never a personal
+address, even one the agent was handed in its own session context. This one is prose-only by
+construction — no guard can see an identity before it is committed — so check the git identity
+before the FIRST commit: an unpushed commit is amendable, a pushed one is immutable (P7), and
+the rewrite that would fix it is the thing this harness reserves for a leaked credential.
 
 **Leak response is a protocol, not improvisation.** If a secret has already escaped — into a
 commit, a pushed branch, a log — stop normal work: containment outranks the checkpoint
