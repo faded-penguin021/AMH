@@ -16,7 +16,8 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
 The first release packaged as a repository. Versions up to 1.8 existed only as a single
 prose document passed around by hand; their history is not reconstructed here.
 
-Nothing about the harness's rules changed in this release. What changed is its form:
+One rule's *wording* changed (P3, below); nothing about what the rules require of an adopter
+did. What changed otherwise is the harness's form:
 
 - The scaffolds are now real files under `harness/templates/`, not fenced blocks to be
   extracted from prose by hand.
@@ -29,6 +30,11 @@ Nothing about the harness's rules changed in this release. What changed is its f
   suite for the guards themselves.
 - `harness/dist/AMH.md` is generated from the same files an adopter copies, so the document
   and the artifacts cannot disagree.
+- **P3 reworded** to ban attestation-based *machinery* rather than attestation-shaped prose.
+  The 1.x document said "never invent self-reported attestations" while P12 mandated writing
+  a review verdict in the commit body — a contradiction carried by every instantiation. The
+  rule is now that nothing downstream may consume a self-report; a commit-body sentence a
+  human reads and may disbelieve is fine. Same prohibition, stated where the harm is.
 
 ### Upgrading
 
@@ -39,3 +45,8 @@ STATE, LEDGER and RUNBOOK content into the new layout by hand. Your ledger rows 
 numbering carry over unchanged; nothing in this release renumbers or reformats them.
 
 Set `AMH_VERSION=1.8.0` in `amh.conf` and record the same version in your constitution.
+
+If your constitution or runbook carries the old P3 sentence, reword it by hand — seeds are
+yours and never re-synced. Nothing you must *do* changes; the point of the reword is that
+your commit-body verdicts and verification disclosures stop contradicting the rule above
+them. If any gate in your repo consumes such a sentence, that gate is the thing to delete.

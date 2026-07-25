@@ -121,13 +121,16 @@ could not be — disclosure of real actions, never implied coverage.
   The bundle header is generated from `harness/VERSION`, so `dist-drift.sh` covers it and
   the lockstep guard deliberately does not — checking it there would manufacture the
   appearance of coverage.
-- **Never build machinery out of self-reported attestations.** No guard, gate or CI step may
-  accept an agent's claim about its own process as evidence — checkboxes, "I reviewed this"
-  YAML, per-item line quotes. An agent can emit those without doing the work. External
-  reviewers re-propose them regularly; keep declining (see Decided non-items in
-  `docs/STATE.md`). The review verdict written in a commit body is prose for a human reader,
-  carries no enforcement, and is **not** evidence that a review happened — see the open
-  question in the Owner queue, which has not been resolved.
+- **Never build machinery out of self-reported attestations.** No guard, gate, CI step or
+  required field may accept an agent's claim about its own process as evidence — checkboxes,
+  "I reviewed this" YAML, per-item line quotes. An agent can emit those without doing the
+  work. External reviewers re-propose them regularly; keep declining (see Decided non-items in
+  `docs/STATE.md`). The ban is on machinery, not on prose: the review verdict and the
+  verification disclosure written in a commit body are addressed to a human reader, carry no
+  enforcement, and are **not** evidence that the work happened. They stay legitimate only
+  while nothing downstream consumes them — the moment a script greps for the string or a
+  merge checklist demands it, it has become a gate an agent passes by typing. Never let a
+  disclosure graduate into a gate (D-014).
 
 ## Secret hygiene
 

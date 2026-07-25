@@ -66,22 +66,19 @@ Founding build in progress on `claude/amh-meta-repository-tb2myi`, in sequential
 
 **Open questions:**
 
-1. [2026-07-25] **The commit-body review verdict is a self-reported attestation, which this
-   repo bans permanently.** The runbook mandates writing "adversarial pass: clean"; the
-   constitution and Decided non-items ban attestations because an agent can emit one without
-   doing the work. Both are inherited from the upstream harness (P12 mandates the verdict, P3
-   bans attestations), so this is a defect in the harness itself, not just this instantiation.
-   **Options:** (a) keep the verdict, scoped explicitly as prose-for-humans carrying no
-   evidentiary weight — done as an interim measure, but it leaves P3's "never" as an
-   overstatement; (b) drop the verdict requirement entirely and rely on the reviewer's
-   findings appearing in the diff; (c) reword P3 to ban attestation-based *machinery* rather
-   than attestation-shaped *prose*. **Recommendation: (c)** — the real rule is that no gate
-   may accept a self-report, which (c) says precisely while (a) leaves a contradiction on the
-   page. This changes an upstream principle, so it is yours, not mine.
-2. [2026-07-25] Founding units U1–U2 installed this repo's legislation with no fresh-context
+1. [2026-07-25] Founding units U1–U2 installed this repo's legislation with no fresh-context
    reviewer, since there was no prior constitution to review against (D-005). The rule-review
-   pass you authorised has now covered U1–U4 and its findings are applied. **Recommendation:**
-   close this once you have read the founding branch at merge; nothing further is pending.
+   pass you authorised covered **the constitution and this runbook only** — not the
+   ladder/rails scripts and not the templates or the generated bundle, which have had no
+   hostile read. **Recommendation:** close D-005 on your read at merge for the prose that was
+   reviewed, and treat a scripts/templates pass as a separate unit to authorise (or decline)
+   when you choose.
+2. [2026-07-25] The P3 reword below (D-014) is a binding-rule diff, and the rule-review
+   protocol has no self-review fallback: it goes to a fresh context, or it parks for you. You
+   directed this session to do it without a subagent, so it landed **self-reviewed** — the
+   protocol's own exit, since a standing instruction is a policy you can set, not a capability
+   limit. Flagging it because the diff changes a principle and I authored it: your read at
+   merge is the only outside look it gets. No answer needed unless you want it re-reviewed.
 
 **Incoming findings:** (none)
 
@@ -104,13 +101,20 @@ Founding build in progress on `claude/amh-meta-repository-tb2myi`, in sequential
   kills tripwires) and `docs/RUNBOOK.md` stays in wholesale, accepting that operational
   playbook fixes trip it. Building section-granularity is machinery in service of a warning.
 - **2026-07-25 — Self-reported checklists in commits or YAML.** Declined permanently (AMH
-  P3): an agent can emit an attestation without doing the work. Guards check artifacts.
+  P3): an agent can emit an attestation without doing the work. Guards check artifacts. Scope
+  clarified the same day (D-014): the ban is on *machinery* — no guard, gate, CI step or
+  required field may consume a self-report — not on a commit-body sentence a human reads and
+  may disbelieve. A disclosure that graduates into a gate is the thing being banned.
 
 ## Changelog
 
 One line per shipped change or completed unit (newest first). Keep terse; details live in the
 cited ledger rows and in git history.
 
+- 2026-07-25 — **P3/P12 attestation contradiction resolved (owner: option (c)).** P3 now bans
+  attestation-based *machinery* — nothing downstream may consume a self-report — and permits
+  the commit-body verdict and verification disclosure as prose for a human. Mirrored into
+  `AGENTS.md`, both runbooks, the seed scaffold and the rebuilt bundle. **D-014.**
 - 2026-07-25 — **MIT `LICENSE`** at the repo root, © faded-penguin021 (owner's call; the
   harness is meant to be copied, and it shipped without permission to do so).
 - 2026-07-25 — **Rule review, U1–U4, applied.** One fresh-context pass over the constitution

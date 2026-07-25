@@ -82,7 +82,8 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
   `copy-drift.sh`, and it should — that file is a repo-agnostic artifact.
 - **Obligations:** the guard must check an artifact the work produces anyway — a file size, a
   diff, a commit message, a citation. If a rule cannot be derived from a real artifact it
-  stays prose plus reviewer attention; never invent an attestation the agent self-reports.
+  stays prose plus reviewer attention; never make a gate out of something the agent
+  self-reports (D-014).
 - **Acceptance:** ladder green; the new fixture demonstrably fails without the guard.
 - **Record:** STATE changelog line; a ledger row naming the incident that earned the guard.
 
@@ -152,7 +153,8 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
    judgement inside a unit's stated scope is NOT a fork. The final chat message restates the
    Owner queue.
 8. **Verification disclosure.** Every commit body states which ladder rungs actually ran and
-   names what could NOT be verified locally. Disclosure of real actions — not an attestation.
+   names what could NOT be verified locally. Disclosure of real actions, addressed to a human
+   — never something a gate consumes (D-014).
 
 ## Adversarial review protocol (MANDATORY for diffs the fixtures cannot see)
 
@@ -191,11 +193,13 @@ the reader to discount all of it:
 
 Verdict goes in the commit body ("adversarial pass: clean"). Understand exactly what that
 string is: prose for a human reader, checked by nothing, and **not** evidence the pass
-happened — an agent that skipped the review can type it just as easily. It sits in tension
-with the permanent ban on self-reported attestations, and that tension is an open Owner-queue
-question, not something settled here. Findings get fixed before the commit and ledgered if
-durable; when a class becomes mechanically testable, encode it as a
-fixture and retire it from this list — the pass holds only what the fixtures cannot see.
+happened — an agent that skipped the review can type it just as easily. Write it anyway, and
+write it honestly: the attestation ban forbids *machinery* built on a self-report, not a
+disclosure nothing consumes (D-014). If a guard, a CI step or a merge checklist ever starts
+requiring the string, that is the violation — delete the requirement, not the sentence.
+Findings get fixed before the commit and ledgered if durable; when a class becomes
+mechanically testable, encode it as a fixture and retire it from this list — the pass holds
+only what the fixtures cannot see.
 
 ## Rule-review protocol (MANDATORY for binding-rule and guard diffs)
 

@@ -120,3 +120,15 @@
   Fixtures for repo-local guards now live in `scripts/tests/local-guards.sh`, run from
   `verify.sh`. Watch for this shape: a rule whose only compliant action violates a different
   invariant is not strict, it is broken.
+- D-014: **The attestation ban is on machinery, not on prose — P3 said "never invent
+  self-reported attestations" while P12 mandated writing "adversarial pass: clean" in the
+  commit body.** Both inherited from the upstream harness, so the contradiction was a defect
+  in the harness itself, not in this instantiation; an interim fix scoped the verdict as
+  prose-for-humans and left P3's "never" standing as an overstatement. Resolved by the owner
+  in favour of rewording P3: no guard, gate, CI step or required field may accept an agent's
+  claim about its own process as evidence, while a sentence addressed to a human reader is
+  fine. The operative test is **does anything downstream consume it** — a claim a human may
+  disbelieve costs nothing; the moment a script greps for it or a checklist demands it, the
+  work it stood for becomes optional. Generalisation: when a ban reads "never write X", check
+  whether the harm is in the writing or in something depending on it; banning the artifact
+  instead of the dependency outlaws honest disclosure and still permits the gate.

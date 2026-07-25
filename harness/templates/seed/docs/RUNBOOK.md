@@ -75,7 +75,7 @@ cut (version invariants; the owner does the tagging), etc.}}
    final chat message restates the Owner queue.
 8. **Verification disclosure.** Every commit body states what was actually verified (which
    ladder rungs and tests ran) and names what could NOT be verified locally. Disclosure of
-   real actions — not an attestation gate.
+   real actions, addressed to a human — never something a gate consumes.
 
 ## Adversarial review protocol (MANDATORY for {{UNTESTED_GLUE_AREAS}} diffs)
 
@@ -92,7 +92,10 @@ new classes as the ledger grows:
 - {{BUG_CLASS + its ledger citation}}
 
 If the pass finds nothing, say so in the commit body ("adversarial pass: clean"); if it finds
-something, fix it before the commit and ledger anything durable. When a class turns out to be
+something, fix it before the commit and ledger anything durable. That verdict is disclosure to
+a human reader, not evidence the pass happened — legitimate only because nothing consumes it.
+Never let a guard, a CI step or a merge checklist start requiring the string; a self-report
+that gates anything is passed by typing. When a class turns out to be
 mechanically testable, encode it as a regression test and retire it from this list — the pass
 holds only what the tests cannot see.
 

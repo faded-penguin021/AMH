@@ -41,12 +41,24 @@ on disk.
 
 **P3. Machine-check everything checkable — but only over artifacts the work produces anyway.**
 Guards verify diffs, file sizes, commit messages, citation cross-references: things that exist
-as a side effect of doing the work. Never invent self-reported attestations — checkboxes, "I
-reviewed this" YAML, per-checklist-item line quotes. An agent can emit those without doing the
-work (Goodhart), and external reviewers re-propose them regularly; keep declining. If a rule
-cannot be derived from a real artifact, it stays a prose rule plus reviewer attention. (Even a
-*prose* claim becomes checkable once it has drifted, if it is machine-decidable against code —
-see P20 — but earn that guard with a real incident, never speculatively.)
+as a side effect of doing the work. **Never build machinery on a self-report.** No guard, gate,
+CI step or required field may accept an agent's claim about its own process as evidence —
+checkboxes, "I reviewed this" YAML, per-checklist-item line quotes. An agent can emit those
+without doing the work (Goodhart), and external reviewers re-propose them regularly; keep
+declining. If a rule cannot be derived from a real artifact, it stays a prose rule plus
+reviewer attention. (Even a *prose* claim becomes checkable once it has drifted, if it is
+machine-decidable against code — see P20 — but earn that guard with a real incident, never
+speculatively.)
+
+The ban is on *machinery*, not on prose. An agent still reports what it did — commit bodies
+state which checks ran and what could not be verified (P12's review verdict is the standing
+example) — and such a sentence is a disclosure addressed to a human reader, weightless to
+every gate. The two are distinguished by one question: **does anything downstream consume it?**
+A sentence a human reads and may disbelieve costs nothing; the moment a script greps for it,
+or a checklist must be filled before merge, the claim has become a gate that an agent can pass
+by typing, and the work it stood for is now optional. Never let a disclosure graduate into a
+gate. Where you write such a sentence, say what it is worth — prose that overstates its own
+enforcement is the failure P20's companion rule names.
 
 **P4. One verification entrypoint, shared by CI and local *by construction*.** A single
 `scripts/ladder.sh` — guards, then the full test/build/lint set — that CI invokes directly. No
@@ -145,7 +157,11 @@ session triages, the human arbitrates. Nobody reviews the reviewer.
 The ledger feeds the checklist: every new shipped bug class gets appended, and when a class
 turns out to be mechanically testable, encode it as a regression test and retire it from the
 checklist — the pass holds only what tests *cannot* see. The verdict goes in the commit body
-("glue-review pass: clean"); findings get fixed pre-commit and ledgered if durable.
+("glue-review pass: clean"); findings get fixed pre-commit and ledgered if durable. The verdict
+is disclosure to a human reader, not evidence the pass happened — an agent that skipped the
+review can type it just as easily. That is permitted precisely because nothing consumes it
+(P3): keep it out of every gate, and never let a guard, a CI step or a merge checklist start
+requiring the string.
 
 **P13. Hard rails in the permission layer; discipline in prose.** Denials that must never be
 crossed — force-push, pushing to the default branch — live in tool-permission deny rules,
