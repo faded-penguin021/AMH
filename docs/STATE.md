@@ -29,7 +29,7 @@ Founding build in progress on `claude/amh-meta-repository-tb2myi`, in sequential
       copies in `scripts/`, guard fixture suite, permission rails, CI, working memory.
 - [x] **U2 — Legislation.** `AGENTS.md`, `CLAUDE.md` pointer, `docs/RUNBOOK.md`.
 - [x] **U3 — Adopter templates.** `harness/templates/{seed,configs}`, `PLACEHOLDERS.md`.
-- [ ] **U4 — Harness prose + generated bundle.** `harness/src/`, `harness/dist/AMH.md`.
+- [x] **U4 — Harness prose + generated bundle.** `harness/src/`, `harness/dist/AMH.md`.
 - [ ] **U5 — Version, changelog, upgrade path.** `harness/VERSION`, `CHANGELOG`, `UPGRADING`.
 - [ ] **U6 — README, CONTRIBUTING, `amh-init.sh`, end-to-end test.**
 
@@ -78,6 +78,11 @@ Founding build in progress on `claude/amh-meta-repository-tb2myi`, in sequential
 One line per shipped change or completed unit (newest first). Keep terse; details live in the
 cited ledger rows and in git history.
 
+- 2026-07-25 — **U4** Harness prose in `harness/src/` (overview, P0–P20, constitution,
+  scaffolds, adaptation notes) and the generated single-file bundle `harness/dist/AMH.md`,
+  built by `scripts/build-dist.sh` and kept honest by `dist-drift.sh`. The placeholder guard's
+  live-file scope was corrected: everything under `harness/` is the product, not this repo's
+  instance.
 - 2026-07-25 — **U3** Adopter templates: seed scaffolds (constitution, pointer, STATE,
   RUNBOOK, LEDGER, `verify.sh`), configs carrying `{{PLACEHOLDER}}`s (Claude Code settings,
   CI workflow), `amh.conf.example`, and `harness/PLACEHOLDERS.md` with a guard that fails on

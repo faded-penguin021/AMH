@@ -40,10 +40,13 @@ if [ -n "$undocumented" ]; then
 	fails=$((fails + 1))
 fi
 
-# Live files: this repo's own instance. `PLACEHOLDER` is the generic word used in prose
-# ("these carry {{PLACEHOLDER}}s"), not an unfilled slot.
+# Live files: this repo's OWN instance — the files that had to be instantiated. Everything
+# under harness/ is the distributed product: templates carry placeholders by definition, the
+# prose explains the convention, and the generated bundle inlines the templates verbatim.
+# `PLACEHOLDER` itself is the generic word used in prose ("these carry {{PLACEHOLDER}}s"),
+# never an unfilled slot.
 live=$(git ls-files -co --exclude-standard |
-	grep -v -e '^harness/templates/' -e "^$DOC$" -e '^scripts/guards/placeholder-integrity.sh$' || true)
+	grep -v -e '^harness/' -e '^scripts/guards/placeholder-integrity.sh$' || true)
 if [ -n "$live" ]; then
 	leftover=$(printf '%s\n' "$live" | tr '\n' '\0' |
 		xargs -0 grep -lE '\{\{[A-Z_][A-Z0-9_]*\}\}' 2>/dev/null |
