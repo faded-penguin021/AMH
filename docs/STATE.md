@@ -30,19 +30,25 @@ running byte-identical copies of the scripts it ships.
 
 ## Current state
 
-Founding build in progress on `claude/amh-meta-repository-tb2myi`, in sequential units:
+> **Session handoff (2026-07-25).** Work continues on `claude/owner-queue-attestation-der6bl`,
+> which is stacked on the founding branch — the topology is a **branch train**, not the
+> `branch-per-change` that `amh.conf` still declares (see Owner queue). Pushed and green
+> through commit `a98b462`. **Two things are known-broken and neither is fixed:** the shipped
+> command guard has a rail-voiding regression, and CI has never passed. Both are itemised
+> under **Incoming findings** — read them before starting any new unit; they are the next
+> unit's scope. One codification diff (rule-review bounds, D-015) was uncommitted and awaiting
+> a fresh-context pass at handoff; if it is absent from the tree, it was lost with the session
+> and must be rewritten from D-015.
 
-- [x] **U1 — Self-hosting core.** `amh.conf`, the five shipped scripts + byte-identical
-      copies in `scripts/`, guard fixture suite, permission rails, CI, working memory.
-- [x] **U2 — Legislation.** `AGENTS.md`, `CLAUDE.md` pointer, `docs/RUNBOOK.md`.
-- [x] **U3 — Adopter templates.** `harness/templates/{seed,configs}`, `PLACEHOLDERS.md`.
-- [x] **U4 — Harness prose + generated bundle.** `harness/src/`, `harness/dist/AMH.md`.
-- [~] **U5 — Version, changelog, upgrade path.** `harness/VERSION`, `CHANGELOG`, `UPGRADING`,
-      `version-lockstep.sh` and the MIT `LICENSE` are in. Still open: the tag-triggered release
-      workflow (owner asked for it), and mirroring the review's prose corrections into
-      `harness/templates/seed/**` and `harness/src/**` — the corrections landed in this repo's
-      own instance first, so the shipped copies still carry the wrong claims.
+Founding build (`claude/amh-meta-repository-tb2myi`): **U1–U4 done** — self-hosting core,
+legislation, adopter templates, harness prose + generated bundle.
+
+- [~] **U5 — Version, changelog, upgrade path.** `VERSION`, `CHANGELOG`, `UPGRADING`,
+      `version-lockstep.sh`, MIT `LICENSE` in. Open: the tag-triggered release workflow, and
+      mirroring the review's prose corrections into `harness/templates/seed/**` and
+      `harness/src/**` (they landed in this repo's instance first).
 - [ ] **U6 — README, CONTRIBUTING, `amh-init.sh`, end-to-end test.**
+- [ ] **Next unit — fix what is broken.** Incoming findings 1–10 below, in that order.
 
 ## Owner queue
 
@@ -63,6 +69,15 @@ Founding build in progress on `claude/amh-meta-repository-tb2myi`, in sequential
    release workflow is not built yet, so today the tag triggers nothing; once it exists,
    pushing the tag is the whole step and it refuses a tag that disagrees with
    `harness/VERSION`.
+3. **Merge mode is misdeclared.** `amh.conf` says `MERGE_MODE=branch-per-change`, but
+   `claude/owner-queue-attestation-der6bl` was cut from the founding branch and contains it
+   whole — that is P13 mode (b), **branch-train**. Under a train only the final superset
+   branch merges, in ONE squash PR whose body must describe the net `origin/main..HEAD` diff
+   (all 9+ commits), not just the last session's. You asked for the PR to cover the whole
+   train; that is consistent with the train, so the config is what is wrong. Decide: switch
+   `MERGE_MODE` to `branch-train` (changing a value in `RULE_FILES`, so it is a rule change),
+   or merge the founding branch first and keep per-change. No PR template exists yet either —
+   `.github/` holds only `workflows/`.
 
 **Open questions:**
 
@@ -80,7 +95,53 @@ Founding build in progress on `claude/amh-meta-repository-tb2myi`, in sequential
    limit. Flagging it because the diff changes a principle and I authored it: your read at
    merge is the only outside look it gets. No answer needed unless you want it re-reviewed.
 
-**Incoming findings:** (none)
+**Incoming findings:** (the next unit's scope — all confirmed, none fixed)
+
+1. **[SEVERE, shipped] `<<<` here-strings void every rail in `command-guard.sh`.**
+   `strip_heredocs` opens heredoc-body mode on any `*'<<'*`, which matches `<<<` and `$((1<<8))`
+   too; the delimiter resolves to `<`, no line ever matches it, and every later line is
+   discarded unjudged. `grep -q x <<< "$v"` followed by `git push --force origin main` is
+   ALLOWED — it voids the force-push and push-to-`main` rails, the two oldest. Server-side
+   branch protection is the only remaining layer. Introduced in `a98b462` while fixing a
+   heredoc false positive. Fix: open body mode only on a real heredoc operator (`<<` or `<<-`
+   followed by a delimiter word), never on `<<<`.
+2. **[shipped] The `<` redirection scan matches `<` inside quoted text — D-007 verbatim.**
+   `git commit -m "never read < .env directly"` is BLOCKED. The scan runs over the split words
+   before leading-command resolution, so any `<` is treated as a redirection. Fix: judge
+   position, not presence.
+3. **[shipped] `is_secret_name` blocks ordinary variables.** `$key`, `$sort_key`, `$page_token`,
+   `$csrf_token`, `$public_key`, `$LICENSE_KEY` are all blocked — the last-component rule fixed
+   substring matching in one direction and overshot in the other.
+4. **[shipped] Write destinations reported as reads.** `cp .env.example .env`, `tee .env`,
+   `sed -i … .env` are blocked with the reason "Reading `.env` exposes credential values" —
+   the false-reason class that was just fixed for `export NAME`, back via `cp`/`tee`/`sort`.
+5. **[shipped] `${VAR:+set}` is blocked**, though it never emits a value — it is the presence
+   check the block reason itself recommends. And `${#VAR}` (the length, which the prose
+   forbids) is NOT caught; nor is `0</proc/self/environ`; nor `readonly -p`.
+6. **[shipped] `AGENTS.md` over-claims reader coverage.** The "which layer holds which half"
+   bullet says the guard blocks reads through a reader command; the list is 22 names, and
+   `wc -c .env`, `md5sum .env`, `python3 -c "open('.env')"` all pass — `md5sum` and `wc -c`
+   produce exactly the hash and length that same paragraph forbids. (D-010 pattern, written
+   while fixing D-010 instances.) `harness/src/10-principles.md` hedges correctly; only the
+   constitution bullet over-claims.
+7. **[shipped] Guard is quadratic and now 2× slower.** 32 KB of command text takes ~21s;
+   64 KB projects past a typical hook timeout. Agents write multi-KB heredocs routinely.
+8. **[CI, never green] The ladder has failed on every run in the repo's history — all 8.**
+   The failing rung is always `shellcheck`, which `verify.sh` treats as failed on ANY output,
+   including info-level notices: SC2094 (false positive at `ladder.sh:271`, `redact.sh:118` —
+   both `cmp` a file against a filtered copy of itself), SC2034 (`test-ladder-guards.sh:27`
+   `local name=$1` genuinely unused; a `BRANCH_PREFIX` report), SC2016 (`local-guards.sh:114`,
+   intentional), SC2128/SC2178. Shellcheck is CI-only, so no local run can see it. Fix the
+   scripts — do NOT narrow `verify.sh` to get green. Also: `tr: write error: Broken pipe`
+   appears twice in the fixture-suite output; check it is not a silent skip.
+9. **[CI] Node 20 deprecation.** `actions/checkout@v4` targets Node 20 and is being force-run
+   on Node 24. Bump to `@v5` in `.github/workflows/ladder.yml` **and** in
+   `harness/templates/configs/ci.yml` — adopters inherit the pin.
+10. **Fixture gaps behind all of the above.** Every "name merely contains a secret word"
+    allowed-fixture puts the benign word last, so they pass by construction; none tests a
+    benign name *ending* in `_KEY`/`_TOKEN`. No fixture covers `<` in quoted text, `<<<`,
+    `${VAR:+…}`, or `cp x .env`. The blocked side is honest (all 20 fail against the old
+    script). A duplicate `st_allowed 'grep -rn "force-push" docs/RUNBOOK.md'` appears twice.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
