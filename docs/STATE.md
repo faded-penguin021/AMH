@@ -37,8 +37,8 @@ Founding build in progress on `claude/amh-meta-repository-tb2myi`, in sequential
 - [x] **U2 — Legislation.** `AGENTS.md`, `CLAUDE.md` pointer, `docs/RUNBOOK.md`.
 - [x] **U3 — Adopter templates.** `harness/templates/{seed,configs}`, `PLACEHOLDERS.md`.
 - [x] **U4 — Harness prose + generated bundle.** `harness/src/`, `harness/dist/AMH.md`.
-- [~] **U5 — Version, changelog, upgrade path.** `harness/VERSION`, `CHANGELOG`, `UPGRADING`
-      and `version-lockstep.sh` are in. Still open: MIT `LICENSE`, the tag-triggered release
+- [~] **U5 — Version, changelog, upgrade path.** `harness/VERSION`, `CHANGELOG`, `UPGRADING`,
+      `version-lockstep.sh` and the MIT `LICENSE` are in. Still open: the tag-triggered release
       workflow (owner asked for it), and mirroring the review's prose corrections into
       `harness/templates/seed/**` and `harness/src/**` — the corrections landed in this repo's
       own instance first, so the shipped copies still carry the wrong claims.
@@ -53,13 +53,16 @@ Founding build in progress on `claude/amh-meta-repository-tb2myi`, in sequential
 
 **Pending owner actions:**
 
-1. Choose a licence for the distributed harness — it currently ships without one, which
-   leaves adopters without permission to use it. (Recommendation: a permissive licence;
-   the harness is meant to be copied.)
-2. Mirror the hard rails server-side (AMH P13): branch protection on `main` (PRs required,
-   force-push and deletion blocked) and secret-scanning push protection. The agent-side
-   permission rails bind only agents that load them; server-side rails bind every actor.
-3. Tag `amh-v1.8.0` once the founding branch is merged — tagging stays an owner step.
+1. Enable **secret-scanning push protection** on the repo (Settings → Code security). Branch
+   protection on `main` is done. Push protection is worth enabling even though this codebase
+   ships no keys: it binds every actor and every tool, and the risk it covers is a session
+   *environment* credential pasted into a file or a log excerpt, not a checked-in key. No
+   custom patterns are needed — the default provider-token set is the whole ask, and it costs
+   nothing to leave on. (AMH P13: agent-side rails bind only agents that load them.)
+2. Tag `amh-v1.8.0` once the founding branch is merged — tagging stays an owner step. The
+   release workflow is not built yet, so today the tag triggers nothing; once it exists,
+   pushing the tag is the whole step and it refuses a tag that disagrees with
+   `harness/VERSION`.
 
 **Open questions:**
 
@@ -108,6 +111,8 @@ Founding build in progress on `claude/amh-meta-repository-tb2myi`, in sequential
 One line per shipped change or completed unit (newest first). Keep terse; details live in the
 cited ledger rows and in git history.
 
+- 2026-07-25 — **MIT `LICENSE`** at the repo root, © faded-penguin021 (owner's call; the
+  harness is meant to be copied, and it shipped without permission to do so).
 - 2026-07-25 — **Rule review, U1–U4, applied.** One fresh-context pass over the constitution
   and runbook returned 17 findings (14 confirmed); 13 fixed here, 1 escalated to the Owner
   queue, 2 accepted as documented limits. Guards: the STATE landing check now catches trims
