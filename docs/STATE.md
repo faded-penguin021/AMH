@@ -42,11 +42,6 @@ status, and a red tree has been pushed that way.
 **Open findings.** The owner has given a settled direction on each; build them, do not
 re-litigate them. **D-016** and **D-017** carry the corrections — do not re-investigate.
 
-- **D-022** — colon-less URL userinfo (the documented Azure DevOps PAT clone URL) is missed. Add
-  a class requiring ≥ 20 characters of userinfo before the `@`, excluding `git@host` at three.
-  Every negative fixture MID-LINE: for a filter that is also a gate, a false positive switches
-  the whole filter off while a miss leaks one secret. The row's second half — `ASIA` + 16
-  uppercase characters redacting an ordinary identifier — is **accepted, not open**.
 ## Owner queue
 
 > **Protected section.** Never delete it, and never silently drop items during compression.
@@ -90,6 +85,9 @@ being on machinery consuming a self-report rather than on a sentence a human may
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-26 — **Colon-less URL userinfo is redacted** (D-022's first half; the second stays
+  ACCEPTED). Its pass found the false positive that mattered — an unpadded markdown table row —
+  and the userinfo class is now POSITIVE rather than negated, which ends that family. **D-031**.
 - 2026-07-26 — **The shipped scripts stopped citing a ledger they do not ship with** (D-023).
   Closed by RETRACTING the previous fix: the `CITATION_EXCLUDE` route would have turned every
   existing adopter's ladder red until they hand-edited a config they own forever. D-004 and

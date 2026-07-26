@@ -655,4 +655,40 @@
   unit does and is right to do, so the preamble gained its one carve-out; and both the config
   comment and the CHANGELOG entry had grown nine lines narrating a rejected fix no adopter ever
   received, permanently, in files the harness cannot upgrade. **Generalisation: an
-  un-upgradeable artifact is the wrong place to explain yourself — say what is true now.**
+  un-upgradeable artifact is the wrong place to explain yourself — say what is true now.
+- D-031: **Colon-less URL userinfo, and why the userinfo class had to be turned inside out.**
+  D-022's first half is closed: `url_token_userinfo` matches a URL whose userinfo is a bare
+  token rather than a `user:password` pair — the documented Azure DevOps PAT clone URL, a real
+  credential inside a command people paste into terminals — which `url_credentials` structurally
+  could not see, its first component being followed by a mandatory colon. Twenty characters of
+  userinfo is the floor, which excludes `git@host` at three. Unlike the bearer-header case the
+  length really does separate the populations here: colon-less userinfo in ordinary output is a
+  short human or service name, while every credential of this shape is a generated string, and
+  there is no word-versus-token question because the anchor is `scheme://` immediately followed
+  by the candidate and terminated by `@`.
+  **The blocker was the false positive, and the fix was structural.** The first draft used a
+  NEGATED character class, like `url_credentials` above it, with `=` excluded by hand for
+  logfmt and query strings. The review found `|`: an unpadded markdown table row —
+  `|api|https://api-gateway-internal-prod|ops@corp.example|` — came out with the endpoint and
+  the owner's name deleted and no credential anywhere on the line. That is D-022's own blocker
+  one delimiter further out, and `|` is the ONE character that cannot be added to a negated
+  class here, because it is the generated `s|re|rep|g` delimiter. `\ ^ [ ! $ & *` were all
+  admitted by the same hole. The class is now POSITIVE — the RFC 3986 unreserved set plus `%` —
+  which ends the entire family at once: a real token is unreserved characters (Azure DevOps
+  PATs base32, Sentry keys hex, GitHub tokens alphanumerics and `_`) and anything else is a
+  line, not a credential. **Generalisation: a negated class silently admits every character
+  nobody thought of, and for a filter that is also a gate that is the expensive direction. Name
+  what the field may contain.**
+  Three more from the pass. The `=` exclusion was covered by nothing — the query-string fixture
+  is stopped by its `?` ten characters in, so the mutation that admitted `=` stayed green while
+  the comment asserted `=` was doing the work (D-010's shape); there is now a fixture with no
+  `?`, `/`, space or quote before the `@`, so only the class can stop it. The accepted residue
+  (a twenty-character human account name redacts) was asserted in prose as "verified by probe" —
+  a verification the tree could not re-run — and is now a fixture, which is the difference
+  between a trade-off and a surprise. And the comment above `url_credentials` had claimed since
+  it was written that "the scheme and host survive"; the match starts at the scheme, so it does
+  not, found by reading the regex instead of the comment.
+  Recorded for the next session, because the guard caught it and the guard was right: writing
+  `D-022` in this script's new comment failed the ladder on the citation rung one commit after
+  D-030 removed every such token. The de-citation is not self-enforcing for NEW prose — the
+  guard fires, but only after you have written it.**

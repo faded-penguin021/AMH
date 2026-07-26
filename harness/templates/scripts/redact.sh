@@ -61,6 +61,7 @@ PATTERNS=$(
 		jwt	eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}
 		bearer_header	[Aa][Uu][Tt][Hh][Oo][Rr][Ii][Zz][Aa][Tt][Ii][Oo][Nn]:[[:space:]]*[Bb][Ee][Aa][Rr][Ee][Rr][[:space:]]+[A-Za-z0-9._~+/=-]*[A-Z0-9._~+/=-][A-Za-z0-9._~+/=-]*[A-Z0-9._~+/=-][A-Za-z0-9._~+/=-]{14,}
 		url_credentials	[A-Za-z][A-Za-z0-9+.-]*://[^]:/?#@[:space:]"'`,;<>{}()]+:[^]/?#@[:space:]"'`,;<>{}()]+@
+		url_token_userinfo	[A-Za-z][A-Za-z0-9+.-]*://[A-Za-z0-9._~+%-]{20,}@
 		private_key_block	-----BEGIN [A-Z ]*PRIVATE KEY-----
 	PATS
 )
@@ -106,9 +107,11 @@ PATTERNS=$(
 # USUALLY is a flake, however sound the predicate looks** — and a flake in a guard is worse
 # than a missing test, because it teaches everyone that red means "run it again".
 #
-# `url_credentials` matches the userinfo and the `@` only, so the scheme and host
-# survive: `[REDACTED:url_credentials]host/path`. That keeps the diagnostic useful (a
-# failed clone still names the host) while the credential is gone. This shape is not
+# `url_credentials` matches the scheme, the userinfo and the `@`, so the HOST and path
+# survive: `[REDACTED:url_credentials]host/path`. (This said "the scheme and host survive"
+# until a review read the regex instead of the comment — the match starts at the scheme,
+# so the scheme goes.) That keeps the diagnostic useful — a failed clone still names the
+# host — while the credential is gone. This shape is not
 # hypothetical — a token-bearing remote appears in this repo's own `git remote -v`.
 # Both userinfo components exclude quoting and structural punctuation. Excluding only
 # `/ ? # @` and whitespace was a blocker: in one-line JSON or logfmt, `scheme://host:port`
@@ -116,6 +119,52 @@ PATTERNS=$(
 # port and the surrounding structure —
 # `{"url":"http://svc:8080","user":"a@b.com"}` came out as
 # `{"url":"[REDACTED:url_credentials]b.com"}`.
+#
+# `url_token_userinfo` is the SAME shape with no colon in it: a URL whose userinfo is a
+# bare token rather than a `user:password` pair. That is the documented Azure DevOps
+# personal-access-token clone URL, and it is a real credential inside a command people
+# paste into terminals and issue trackers. `url_credentials` cannot see it — its first
+# component is followed by a mandatory `:` — so the whole shape was passing through in the
+# clear.
+#
+# The discriminator is LENGTH OF USERINFO, and here that is legitimate, because the two
+# populations really are separated by it. Colon-less userinfo in ordinary output is a
+# short human or service name: `ssh://git@host` is three characters, `svc@`, `build@`,
+# `ci@` are all under ten. An opaque token is not: an Azure DevOps PAT is 52 characters
+# and every credential of this shape is a generated string. Twenty is the floor because it
+# sits in the empty gap — well past any account name anyone writes by hand, well under any
+# generated token — and unlike the bearer-header case there is no word-versus-token
+# question to answer, because the ANCHOR is not a header name but `scheme://` immediately
+# followed by the candidate and terminated by `@`.
+#
+# Note the userinfo class here is POSITIVE — the RFC 3986 unreserved set plus `%` — while
+# `url_credentials` above uses a negated one. That difference is the whole safety margin,
+# and it was earned: a negated class silently admits every character nobody thought to
+# exclude, and the list of things that turned out to sit between a scheme and a later `@`
+# on one line kept growing. `=` (logfmt, query strings) was excluded by hand, and then a
+# review found `|` — an unpadded markdown table row, `|api|https://host|ops@corp.example|`,
+# came out as `|api|[REDACTED:url_token_userinfo]corp.example|`, with the endpoint and the
+# owner's name deleted and no credential anywhere on the line. That is the AMH ledger row
+# D022 failure one delimiter further out, and `|` is the one character that CANNOT be
+# added to a negated class here, because it is the `s|re|rep|g` delimiter. `\ ^ [ ! $ & *` were all
+# admitted by the same hole. Naming what userinfo may contain ends the whole family: a
+# real token is unreserved characters (Azure DevOps PATs are base32, Sentry keys hex,
+# GitHub tokens alphanumerics and `_`), and anything else is a line, not a credential.
+# Note too what does most of the work regardless: `/` is not in the class, so any URL that
+# reaches a path — nearly every URL in ordinary output — cannot match at all.
+#
+# Accepted residue, recorded rather than silently carried, and both halves fixture-covered
+# below so neither can drift unnoticed:
+#   · A userinfo of twenty or more unreserved characters that is genuinely somebody's
+#     account name — a very long IRC nickname, say — is redacted. Same trade as
+#     `bearer_header` and the same answer: at that length the shape is a token, whoever
+#     wrote it, and the cost is a host that still prints while one name does not.
+#   · Base64 userinfo carrying its `=` padding is MISSED — `=` is outside the class, and
+#     `url_credentials` cannot see it either for want of a colon. Percent-encoded padding
+#     (`%3D`) is caught. Admitting `=` is what the markdown-table finding argues against,
+#     so the miss is the cheaper side of that trade.
+# If either ever costs something real, move the floor or the class here — never delete the
+# class.
 #
 # `slack_webhook` tolerates optional userinfo so that it still fires on a webhook URL
 # carrying credentials. Substitutions run once, in list order: without this,
@@ -246,6 +295,22 @@ self_test() {
 	url_prefix="postgres://amh:$(rand_alnum 16)"
 	st_redacted url_credentials "$url_prefix@db.internal.invalid/app" \
 		'[REDACTED:url_credentials]db.internal.invalid/app'
+	# Colon-less userinfo: the documented Azure DevOps PAT clone URL. 52 characters, so it
+	# clears the 20-character floor BY CONSTRUCTION rather than on most draws.
+	local pat_prefix
+	pat_prefix="https://$(rand_alnum 52)"
+	st_redacted url_token_userinfo "$pat_prefix@dev.azure.invalid/org/_git/repo" \
+		'[REDACTED:url_token_userinfo]dev.azure.invalid/org/_git/repo'
+	# The accepted residue, pinned as a fixture rather than asserted in a comment: a long
+	# HUMAN name in colon-less userinfo redacts too. This is deliberate, and writing it
+	# down as an assertion is the difference between a trade-off and a surprise — move the
+	# floor and this fixture tells you what you have changed. Assembled at runtime like
+	# every other token here: written out whole, the line would match its own class and
+	# this file would stop being clean under its own filter.
+	local nick_url
+	nick_url="irc://$(rand_class 'a-z' 24)"
+	st_redacted url_token_userinfo "$nick_url@irc.invalid/room" \
+		'[REDACTED:url_token_userinfo]irc.invalid/room'
 
 	# Over-long tokens. These are the B6 regression fixtures: with an exact-length class
 	# each one used to emit the marker followed by its own tail, and the old "the whole
@@ -295,6 +360,33 @@ self_test() {
 	st_untouched bearer_capitalised "Authorization: Bearer Antidisestablishmentarianism is a word"
 	st_untouched bearer_sequence "seq Authorization: Bearer acdefghiklmnpqrstvwyacdefghiklmnpqrstvwy end"
 	st_untouched sk_kebab "cache key sk-build-linux-x86-64-node20-pnpm9-abc123-def456 hit"
+	# The colon-less userinfo class, whose whole risk is what it eats. Every candidate
+	# below sits MID-LINE with text after it, for the reason stated above the negative
+	# block: a benign case that runs to end-of-line passes because the match had nothing
+	# left to run into, and this repo has already shipped a whole family of fixtures that
+	# were worthless for exactly that.
+	#
+	# Short userinfo is the `git@host` end of the population the length floor separates.
+	st_untouched ssh_scheme_url "using ssh://git@github.com/faded-penguin021/AMH.git for now"
+	st_untouched short_userinfo "fetching https://svc-account@dev.azure.invalid/org/x now"
+	# Long, but a `/` arrives before any `@` — which is why nearly every real URL in
+	# ordinary output cannot reach this class at all.
+	st_untouched long_host_then_at "GET https://build.artifacts.internal.invalid/a/very/long/path by me@corp.example ok"
+	# A query string: the one shape where a long run of URL-legal characters sits between
+	# a scheme and a later `@`. Here `?` is what stops it, ten characters in.
+	st_untouched query_then_at "open https://ci.invalid?job=build-linux-x86-64-node20-pnpm9&who=me@corp.example done"
+	# ...and the same shape with NO `?`, `/`, space or quote before the `@`, so the only
+	# thing that can stop the match is a character outside the userinfo class. Without it,
+	# widening the class went unnoticed: the case above is blocked by its `?` and proves
+	# nothing about the rest. This is the fixture that fails when the class grows.
+	st_untouched logfmt_eq_at "level=info url=https://ci.invalid-build-node&owner=me@x.com msg=done"
+	# An unpadded markdown table row. `|` cannot be excluded by a negated class — it is the
+	# generated substitution's own delimiter — so this line is the argument for naming what
+	# userinfo may contain instead of what it may not.
+	st_untouched md_table_row "|api|https://api-gateway-internal-prod|ops@corp.example|"
+	# Compact JSON and logfmt, the two lines that were live blockers for url_credentials.
+	st_untouched json_scheme_at "{\"url\":\"https://averyveryverylongidentifier\",\"user\":\"alice@example.com\"}"
+	st_untouched logfmt_scheme_at "level=info url=https://averyveryverylongidentifier owner=me@x.com done"
 
 	# The ASSERTION is under test too, not only the classes. Every fixture above proves
 	# something about the patterns; none of them proves the check can still SEE a partial
