@@ -319,8 +319,9 @@ with explicit approval and a rollback plan.
 
 Split per P13: the dump commands go in the permission deny rails; the redaction discipline
 stays prose. Add a third, mechanical layer where the harness allows it: a `scripts/redact.sh`
-filter (stdin → stdout, prefix-anchored token shapes → `[REDACTED:<class>]`, never generic
-entropy matching — that mangles build output) that adapters pipe tool and terminal output
+filter (stdin → stdout, known token shapes → `[REDACTED:<class>]` — most anchored on a
+prefix, a few on context such as an `Authorization` header or a URL's userinfo; never
+generic entropy matching, which mangles build output) that adapters pipe tool and terminal output
 through BEFORE the context window sees it, via an output-filter hook if the agent has one. Be
 honest per adapter about capability: an agent without output rewriting keeps prose plus deny
 rails only, and the filter stays available for manual piping. The regex layer catches known
@@ -943,10 +944,11 @@ The guards it ships with:
   tripwire); warn if the Owner-queue header vanished (data loss for the human).
 - **Ledger rollover** — warn approaching the line cap; fail when the live file's LAST row
   *starts* past the cap. The final row may overflow; the next belongs in the next file.
-- **Citation integrity** — grep the source trees (code and workflows, NOT docs and not the
-  guard's own fixtures) for `D[A-Z]?-\d+`; every citation must resolve to a row in the file its
-  prefix names; no duplicate row numbers; `[cited]` markers must match the citation set in both
-  directions.
+- **Citation integrity** — grep the source trees (code and workflows, NOT docs, not the
+  guard's own fixtures, and — by the shipped `amh.conf` default — not the shipped scripts,
+  whose `D-NNN` comments cite the harness's ledger rather than yours) for `D[A-Z]?-\d+`;
+  every citation must resolve to a row in the file its prefix names; no duplicate row
+  numbers; `[cited]` markers must match the citation set in both directions.
 - **Poison-token scan** — fixed strings that must never reach a commit message (CI-skip tokens
   a squash merge would fold onto the default branch), scanned over `origin/<default>..HEAD`
   before push. Because force-push is forbidden, a pushed mistake is permanent until merge.

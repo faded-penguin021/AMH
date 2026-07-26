@@ -285,8 +285,9 @@ with explicit approval and a rollback plan.
 
 Split per P13: the dump commands go in the permission deny rails; the redaction discipline
 stays prose. Add a third, mechanical layer where the harness allows it: a `scripts/redact.sh`
-filter (stdin → stdout, prefix-anchored token shapes → `[REDACTED:<class>]`, never generic
-entropy matching — that mangles build output) that adapters pipe tool and terminal output
+filter (stdin → stdout, known token shapes → `[REDACTED:<class>]` — most anchored on a
+prefix, a few on context such as an `Authorization` header or a URL's userinfo; never
+generic entropy matching, which mangles build output) that adapters pipe tool and terminal output
 through BEFORE the context window sees it, via an output-filter hook if the agent has one. Be
 honest per adapter about capability: an agent without output rewriting keeps prose plus deny
 rails only, and the filter stays available for manual piping. The regex layer catches known

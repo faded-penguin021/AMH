@@ -49,10 +49,11 @@ The guards it ships with:
   tripwire); warn if the Owner-queue header vanished (data loss for the human).
 - **Ledger rollover** — warn approaching the line cap; fail when the live file's LAST row
   *starts* past the cap. The final row may overflow; the next belongs in the next file.
-- **Citation integrity** — grep the source trees (code and workflows, NOT docs and not the
-  guard's own fixtures) for `D[A-Z]?-\d+`; every citation must resolve to a row in the file its
-  prefix names; no duplicate row numbers; `[cited]` markers must match the citation set in both
-  directions.
+- **Citation integrity** — grep the source trees (code and workflows, NOT docs, not the
+  guard's own fixtures, and — by the shipped `amh.conf` default — not the shipped scripts,
+  whose `D-NNN` comments cite the harness's ledger rather than yours) for `D[A-Z]?-\d+`;
+  every citation must resolve to a row in the file its prefix names; no duplicate row
+  numbers; `[cited]` markers must match the citation set in both directions.
 - **Poison-token scan** — fixed strings that must never reach a commit message (CI-skip tokens
   a squash merge would fold onto the default branch), scanned over `origin/<default>..HEAD`
   before push. Because force-push is forbidden, a pushed mistake is permanent until merge.

@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # AMH — output redaction filter (P17).
 #
-# stdin -> stdout. Replaces PREFIX-ANCHORED credential shapes with [REDACTED:<class>].
+# stdin -> stdout. Replaces KNOWN credential shapes with [REDACTED:<class>]. Most are
+# anchored on a token PREFIX (AKIA…, ghp_…, sk-proj-…); two are anchored on CONTEXT
+# instead — the WHOLE of an Authorization: Bearer header, and a URL's `user:password@`
+# userinfo — because such a credential need not carry a prefix of its own.
 # Deliberately NOT generic entropy matching: entropy heuristics mangle ordinary build
 # output, and output an agent cannot read gets the filter disabled rather than fixed.
 #
