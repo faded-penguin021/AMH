@@ -75,6 +75,11 @@ rand_class() { # <class> <length>
 rand_alnum() { rand_class 'A-Za-z0-9' "$1"; }
 rand_upper() { rand_class 'A-Z0-9' "$1"; }
 
+# shellcheck disable=SC2094 # "$1" is opened twice for READING only — the filter's stdin
+# and cmp's operand. SC2094 warns about a read/write pair; nothing here writes it, and
+# comparing a file against its own filtered stream is the whole point of the check.
+clean_under_filter() { filter <"$1" | cmp -s - "$1"; }
+
 ST_FAILS=0
 st_redacted() { # <class> <token>  — token must be replaced, and must not survive
 	local class=$1 token=$2 out
@@ -125,12 +130,14 @@ self_test() {
 
 	# The filter must be clean under itself: its own patterns must not look like
 	# tokens, or the ladder's tree scan would flag this very file forever.
+	#
+	# The comparison lives in its own function so the SC2094 waiver covers ONE pipeline
+	# and nothing else. Inline, the directive had to sit on the enclosing `if`, which
+	# silenced SC2094 for the whole body — and SC2094 is the check for clobbering a
+	# file. Blinding it inside the repo's entire secret scan (D-004) is the exact shape
+	# of hole this guard exists to prevent.
 	if [ -f "${BASH_SOURCE[0]}" ]; then
-		# shellcheck disable=SC2094 # this file is opened twice for READING only — once as
-		# the filter's stdin, once as cmp's operand. SC2094 warns about a read/write pair;
-		# nothing here writes it, and comparing the file against its own filtered stream
-		# is the whole point of the check.
-		if ! filter <"${BASH_SOURCE[0]}" | cmp -s - "${BASH_SOURCE[0]}"; then
+		if ! clean_under_filter "${BASH_SOURCE[0]}"; then
 			printf 'SELF-TEST FAIL: redact.sh is not clean under its own filter\n' >&2
 			ST_FAILS=$((ST_FAILS + 1))
 		fi

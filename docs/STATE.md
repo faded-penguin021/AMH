@@ -58,9 +58,11 @@ legislation, adopter templates, harness prose + generated bundle.
       `guard_poison_tokens` being inert in THIS repo because `origin/main` did not resolve
       locally — is now a **WARN** rather than a silent skip. A fresh clone will warn again;
       `git fetch origin main` is the fix and makes the guard real (done here, now `ok clean`).
-- [x] **Unit 3 — CI green for the first time in the repo's history.** D-016 items 8 and 9.
-      Scripts fixed, `verify.sh` untouched; `checkout@v5` in both workflow and template.
-      The `tr: … Broken pipe` was noise, not a skip — removed anyway.
+- [x] **Unit 3 — CI green for the first time in the repo's history** (run 14). D-016 items 8
+      and 9. Scripts fixed, `verify.sh` untouched; `checkout@v5` in both workflow and
+      template. The `tr: … Broken pipe` was noise, not a skip — removed anyway. Its review
+      pass found the fix had put two lint waivers on whole compound commands, blinding
+      SC2016 across `path-refs.sh`'s loop and SC2094 inside the secret scan: **D-021**.
 - [ ] **Unit 4 — `redact.sh` misses live credential shapes** (D-017 B5/B6): `sk-proj-` (the
       existing `openai_key` class no longer matches OpenAI's format), `ASIA`, `glpat-`,
       credentials in URLs; and the exact-length classes leak the token tail. The self-test
@@ -139,11 +141,12 @@ check cannot tell a typo fix from a compression pass above the soft cap (**D-016
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history.
 
-- 2026-07-26 — **CI green for the first time in this repo's history.** Eight runs had failed
-  on shellcheck info notices in our own scripts; fixed in the scripts (unused `BRANCH_PREFIX`
-  deleted, inline `disable=` with a reason at each SC2094/SC2016 site), with `verify.sh`
-  left as strict as it was. `actions/checkout@v5` in the workflow and the shipped template.
-  D-016 items 8–9.
+- 2026-07-26 — **CI green for the first time in this repo's history** (run 14; runs 1–13 all
+  failed, always on shellcheck info notices in our own scripts). Fixed in the scripts — unused
+  `BRANCH_PREFIX` deleted, inline `disable=` with a reason at each SC2094/SC2016 site — with
+  `verify.sh` left as strict as it was. `actions/checkout@v5` in the workflow and the shipped
+  template. The review pass caught the fix widening two waivers to whole compound commands;
+  both narrowed and injection-tested. D-016 items 8–9, **D-021**.
 - 2026-07-26 — **The ladder's off switch closed, and the fixture builder's blind spots.**
   `redact.sh` losing its exec bit no longer makes the secret scan and the rail self-tests
   vanish silently; the citation guard and `path-refs.sh` no longer word-split their file

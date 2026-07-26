@@ -175,7 +175,7 @@
      constitution bullet over-claims.
   7. **[shipped] Guard is quadratic and now 2× slower.** 32 KB of command text takes ~21s;
      64 KB projects past a typical hook timeout. Agents write multi-KB heredocs routinely.
-  8. **[FIXED 2026-07-26, CI green at last] The ladder had failed on every run — all 8.**
+  8. **[FIXED 2026-07-26] The ladder has failed on every run in the repo's history — all 8.**
      The failing rung is always `shellcheck`, which `verify.sh` treats as failed on ANY output,
      including info-level notices: SC2094 (false positive at `ladder.sh:271`, `redact.sh:118` —
      both `cmp` a file against a filtered copy of itself), SC2034 (`test-ladder-guards.sh:27`
@@ -183,18 +183,8 @@
      intentional), SC2128/SC2178. Shellcheck is CI-only, so no local run can see it. Fix the
      scripts — do NOT narrow `verify.sh` to get green. Also: `tr: write error: Broken pipe`
      appears twice in the fixture-suite output; check it is not a silent skip.
-     **Fixed** by fixing the scripts, `verify.sh` untouched: `BRANCH_PREFIX` deleted from
-     `ladder.sh` (it never read it); inline `disable=` with a per-site reason for the two
-     SC2094 sites (a file opened twice for READING is not the read/write pair SC2094 means)
-     and the four SC2016 sites (literal backticks — markdown code spans are the subject).
-     The SC2128/SC2178 and `test-ladder-guards.sh:27` reports in this row were already gone
-     by the 8th run; the CI log, not this row, is the authority on what shellcheck says.
-     The broken pipe was **not** a silent skip: `tr -dc … </dev/urandom | head -c N` leaves
-     tr writing into a pipe `head` has closed after taking its N bytes, and the token is
-     complete. Removed anyway (bounded read, then slice in the shell) — noise in a guard's
-     output is how a real diagnostic gets skimmed past.
-  9. **[FIXED 2026-07-26] Node 20 deprecation.** `actions/checkout@v4` targeted Node 20 and
-     was being force-run on Node 24. Bumped to `@v5` in `.github/workflows/ci.yml` **and** in
+  9. **[FIXED 2026-07-26] Node 20 deprecation.** `actions/checkout@v4` targets Node 20 and is
+     being force-run on Node 24. Bump to `@v5` in `.github/workflows/ci.yml` **and** in
      `harness/templates/configs/ci.yml` — adopters inherit the pin.
   11. **[repo-local guard] The STATE landing check cannot tell an edit from a compression pass.**
       Above the 14 KB soft cap, *any* shrink that does not reach the 9 KB floor fails the ladder
@@ -308,3 +298,28 @@
   are worth recording as well — a rail self-test overridden by a function appended AFTER the
   file's dispatcher never runs, and a single-line here-document fixture cannot exercise body
   mode, which only ever discards SUBSEQUENT lines.
+- D-021: **A lint waiver scoped to a compound command is not a waiver, it is a blind spot —
+  and the first draft of the fix put two of them inside the guards.** D-016 items 8 and 9 are
+  closed: CI is green for the first time (run 14, `8326627`), fixed in the SCRIPTS with
+  `verify.sh` untouched — `BRANCH_PREFIX` deleted from `ladder.sh` (it never read it), and an
+  inline `# shellcheck disable=` carrying its reason at each SC2094 and SC2016 site. What the
+  review caught is the interesting half. `# shellcheck disable=` before a compound command —
+  a `while ... done`, an `if ... fi` — covers the ENTIRE body, so the first draft silenced
+  SC2016 for all of `path-refs.sh`'s backtick loop and SC2094 for the whole self-test `if`
+  inside `redact.sh`, which is the repo's entire secret scan (D-004). Proven by injection: a
+  planted `$target`-in-single-quotes and a planted `cat "$f" > "$f"` both linted silent, and
+  both fire once the waiver is narrowed. SC1123 forbids a directive on `done < <(...)`; it
+  does NOT force widening to the compound — hoist the offending command into its own
+  assignment, or factor it into a one-line function, and the waiver covers exactly it.
+  **Generalisation: a suppression must be narrower than the thing it protects.** When the
+  narrow form is syntactically awkward, the awkwardness is the price of the guard keeping its
+  teeth; widening the scope to make the directive fit is how a gate gets weakened by a door
+  nobody was watching. Corrections to the rows above, which are append-only and so are
+  recorded here instead: (a) item 8's "all 8" was true when written and stale by the time it
+  was actioned — runs 1–13 all failed, run 14 is the first success; the CI log, not a ledger
+  row, is the authority on what shellcheck reports; (b) item 8's SC2128/SC2178 and
+  `test-ladder-guards.sh:27` symptoms were already gone by then and needed no fix. Also
+  checked and clean: the `tr: write error: Broken pipe` was **not** a silent skip —
+  `tr -dc … </dev/urandom | head -c N` leaves tr writing into a pipe `head` closed after
+  taking its N bytes, so the token was always complete. Removed regardless (bounded read,
+  then slice) because noise in a guard's output is how a real diagnostic gets skimmed past.

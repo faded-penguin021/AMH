@@ -54,9 +54,14 @@ while IFS= read -r -d '' f; do
 	# (b) Backticked paths that look like real repo paths: contain a slash, end in a
 	#     known extension, and carry no glob, placeholder or shell expansion. Resolved
 	#     from the repo root, which is how prose here names files.
-	# shellcheck disable=SC2016 # every backtick in this loop is literal: they are the
-	# markdown code-span delimiters the pattern matches on, and the diagnostic quotes the
-	# citation back in the same form the prose used. Expanding either would be the bug.
+	#
+	# The extraction is hoisted out of the loop so its SC2016 waiver covers ONE command.
+	# A directive cannot sit before `done < <(...)` (SC1123), and putting it on the whole
+	# `while` silenced SC2016 for the entire body — a waiver that wide stops being a
+	# waiver and becomes a blind spot.
+	# shellcheck disable=SC2016 # backticks are the pattern's own syntax: this matches
+	# markdown code spans literally, so single quotes are required, not a slip.
+	backticked=$(grep -oE '`[A-Za-z0-9_./-]+/[A-Za-z0-9_./-]+\.(md|sh|json|yml|yaml|conf)`' "$f" | tr -d '`' | sort -u)
 	while IFS= read -r target; do
 		[ -n "$target" ] || continue
 		case $target in
@@ -64,11 +69,12 @@ while IFS= read -r -d '' f; do
 		esac
 		checked=$((checked + 1))
 		if [ ! -e "$target" ]; then
+			# shellcheck disable=SC2016 # literal backticks: the message quotes the citation
+			# back in the same markdown form the prose used. No expansion wanted.
 			printf 'nonexistent path cited in %s: `%s`\n' "$f" "$target"
 			fails=$((fails + 1))
 		fi
-	done < <(grep -oE '`[A-Za-z0-9_./-]+/[A-Za-z0-9_./-]+\.(md|sh|json|yml|yaml|conf)`' "$f" |
-		tr -d '`' | sort -u)
+	done <<<"$backticked"
 done < <(git ls-files -co --exclude-standard -z '*.md')
 
 [ "$fails" -eq 0 ] || exit 1
