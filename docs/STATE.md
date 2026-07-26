@@ -52,9 +52,10 @@ blocker inside the fix, not in the original defect.** Budget for that.
 2. **Merge the train as ONE squash PR** whose body describes the net `origin/main..HEAD` diff,
    not the last branch's. No PR template exists — `.github/` holds only `workflows/`. The
    drafted body is not yet written; it is the remaining half of the wrap-up unit.
-3. **A `scripts/bootstrap.sh` was proposed** that would install `shellcheck` on every remote
-   session, closing D-026's local-invisibility cost for good (`session-start.sh` already calls
-   that path when present). NOT built: the proposal arrived through an automated channel
+3. **A repo-local bootstrap script was proposed** (scripts/bootstrap.sh — deliberately not
+   code-spanned, since it does not exist and a name in backticks is a citation) that would
+   install shellcheck on every remote session, closing D-026's local-invisibility cost for
+   good; `session-start.sh` already calls that path when present. NOT built: the proposal arrived through an automated channel
    rather than from you, and a script that fetches a binary from the network on every session
    start is your call, not a session's.
 
