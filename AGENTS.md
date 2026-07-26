@@ -183,8 +183,12 @@ could not be — disclosure of real actions, never implied coverage.
   The prefix is configuration, not a vendor name — this file binds any agent. Push with
   `git push -u origin <branch>` (retry with backoff on network errors only). **Never
   force-push. Never push to the branch named by `DEFAULT_BRANCH` (currently `main`).**
-- The owner merges via **squash-merge** PRs, in **branch-per-change** mode: each session
-  branch merges separately, one commit per branch. Do not open a PR unless asked.
+- The owner merges via **squash-merge** PRs, in the mode `MERGE_MODE` names — currently
+  **branch-train** (owner decision, 2026-07-26): each session branch is cut from the previous
+  one and contains it whole, so only the final superset branch merges, in ONE squash PR whose
+  body describes the net `origin/main..HEAD` diff rather than the last branch's. Under
+  `branch-per-change` each branch would merge separately instead. Do not open a PR unless
+  asked.
 - Tagging and releasing (`amh-vX.Y.Z`) stay owner steps.
 
 ## Agent harness

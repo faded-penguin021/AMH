@@ -23,6 +23,8 @@ PASSED=0
 FAILED=0
 
 # --- fixture construction ---------------------------------------------------
+DEFAULT_BRANCH_FIXTURE=main # must match amh.conf's DEFAULT_BRANCH below
+
 mk() { # mk <name> -> prints the fixture path
 	local d="$WORK/$1"
 	mkdir -p "$d/scripts/guards" "$d/docs"
@@ -79,11 +81,21 @@ mk() { # mk <name> -> prints the fixture path
 		git init -q .
 		git add -A
 		git commit -qm "fixture"
+		# An `origin/<default>` ref, because three guards resolve one and go VACUOUS
+		# without it: the poison-token scan has nothing to diff against and prints
+		# `skip` on every run — which is how it shipped untested and inert in the
+		# reference repo itself. A local ref under refs/remotes is enough; no network.
+		git update-ref "refs/remotes/origin/$DEFAULT_BRANCH_FIXTURE" HEAD
 	)
 	printf '%s' "$d"
 }
 
 run() { (cd "$1" && CI=1 scripts/ladder.sh --guards-only 2>&1); }
+
+# The advisory rung starts with `in_ci && return`, so nothing that runs under `run()`
+# can ever reach it. Local advisories are warn-only and cannot fail the ladder, so the
+# assertion is on the warning TEXT.
+run_local() { (cd "$1" && env -u CI scripts/ladder.sh --guards-only 2>&1); }
 
 # --- assertions -------------------------------------------------------------
 report() { # <ok|no> <name> <detail...>
@@ -226,6 +238,13 @@ printf '# see D-001\n' >"$d/scripts/thing.sh"
 sed -i 's/^- D-001:/- D-001 [cited]:/' "$d/docs/LEDGER.md"
 expect_pass "a citation with its marker passes" "$d"
 
+# A file name with a space, in the citation guard this time. `secret_spacey` existed
+# and this did not, so the word-split hole survived in one guard while being fixed in
+# its neighbour — the fixture set marked the boundary of what anyone had thought about.
+d=$(mk cite_spacey)
+printf '# see D-099\n' >"$d/scripts/thing notes.sh"
+expect_fail "a citation in a file name with a space is still seen" "$d" "no such ledger row"
+
 d=$(mk cite_dupe)
 printf -- '- D-001: a second row with the same number.\n' >>"$d/docs/LEDGER.md"
 expect_fail "duplicate row numbers fail" "$d" "duplicate ledger row numbers"
@@ -264,6 +283,77 @@ expect_pass "a passing repo-local guard passes" "$d"
 d=$(mk guard_bad)
 printf '#!/usr/bin/env bash\necho "domain rule violated"\nexit 1\n' >"$d/scripts/guards/bad.sh"
 expect_fail "a failing repo-local guard fails the ladder" "$d" "domain rule violated"
+
+# --- the secret scan cannot be switched off by a file mode
+# The scan IS the repo's entire secret defence (D-004), so the ways it can vanish are
+# worth more fixtures than the ways it can fire. Losing the exec bit — an archive
+# download, core.fileMode=false, a stray chmod — used to turn it into `skip` and left
+# the ladder green with a live credential in the tree.
+d=$(mk secret_noexec)
+tok="AKIA$(LC_ALL=C tr -dc 'A-Z0-9' </dev/urandom | head -c 16)"
+printf 'key = %s\n' "$tok" >"$d/scripts/deploy.sh"
+chmod -x "$d/scripts/redact.sh"
+expect_fail "a non-executable redact.sh still scans" "$d" "credential-shaped"
+
+d=$(mk secret_absent)
+rm -f "$d/scripts/redact.sh"
+expect_fail "a missing redact.sh fails rather than skips" "$d" "IS this repo's secret scan"
+
+# --- rail self-tests (the rung that catches the above)
+# Mutation: a rail whose self-test fails must turn the ladder red. Without this the
+# whole section could print nothing and no fixture would notice.
+d=$(mk rail_regressed)
+# Mutate the fixture matrix itself, not the tail of the file: a function appended
+# after the dispatcher is defined too late to ever run, which is a mutation that
+# proves nothing.
+sed -i 's/^\tst_allowed .cat README.md./\tst_allowed "cat .env"/' "$d/scripts/command-guard.sh"
+expect_fail "a regressed rail self-test fails the ladder" "$d" "self-test failed"
+
+d=$(mk rail_noexec)
+sed -i 's/^\tst_allowed .cat README.md./\tst_allowed "cat .env"/' "$d/scripts/command-guard.sh"
+chmod -x "$d/scripts/command-guard.sh"
+expect_fail "a non-executable rail is still self-tested" "$d" "self-test failed"
+
+# --- poison tokens
+# This guard resolves origin/<default> and prints `skip` without one, which is how it
+# ran inert in the reference repo for its whole life. mk() now creates the ref.
+d=$(mk poison_token)
+(
+	cd "$d" || exit 1
+	printf 'a change\n' >>docs/STATE.md
+	git commit -qam "checkpoint [skip ci]"
+)
+expect_fail "a poison token in a commit message fails" "$d" "[skip ci]"
+
+d=$(mk poison_clean)
+(
+	cd "$d" || exit 1
+	printf 'a change\n' >>docs/STATE.md
+	git commit -qam "an ordinary checkpoint"
+)
+expect_pass "an ordinary commit message passes" "$d"
+
+# --- local advisories
+# Warn-only and skipped in CI, so `run()` can never reach them: assert on the text.
+d=$(mk advisory_rules)
+sed -i "s|^RULE_FILES=''|RULE_FILES='amh.conf'|" "$d/amh.conf"
+printf '\n# an uncommitted legislation edit\n' >>"$d/amh.conf"
+out=$(run_local "$d")
+if printf '%s' "$out" | grep -qF "touches legislation"; then
+	report ok
+else
+	report no "an uncommitted legislation edit warns" "no rule-review warning" "$out"
+fi
+
+d=$(mk advisory_ci)
+sed -i "s|^RULE_FILES=''|RULE_FILES='amh.conf'|" "$d/amh.conf"
+printf '\n# an uncommitted legislation edit\n' >>"$d/amh.conf"
+out=$(run "$d")
+if printf '%s' "$out" | grep -qF "Local advisories"; then
+	report no "advisories stay out of CI" "the advisory section ran under CI=1" "$out"
+else
+	report ok
+fi
 
 # =============================================================================
 printf '\n%d passed, %d failed\n' "$PASSED" "$FAILED"

@@ -64,6 +64,12 @@ The guards it ships with:
   characters, which is a blocker-class hole. Text files only — binaries ride on the server-side
   push-protection layer, which fires at push; this guard is the earlier, commit-time net. One
   consequence: any fixture token in the tree must be runtime-generated, never a stored literal.
+  **`redact.sh` is a hard dependency of this guard, not an optional one**: it IS the scan, so
+  its absence FAILS the ladder rather than skipping, and the smallest-useful-subset path may
+  not drop it while keeping this rung. Neither may its file mode decide anything — run it
+  through `bash`, and prove it still works on a generated token before trusting its silence. A
+  filter that is missing, empty, truncating or pass-through otherwise reports every file clean,
+  which is the same hole as having no scan while looking greener than one.
 - **Rail self-tests** — every mechanical rail script carries its own fixture self-test and the
   ladder runs it, so a silently regressed pattern fails the build instead of passing quietly.
   The command guard's matrix asserts both directions: forbidden commands block, and the known

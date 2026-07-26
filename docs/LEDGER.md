@@ -49,7 +49,7 @@
   `scripts/guards/*.sh` for repo-specific guards, and `scripts/verify.sh` for the full
   test/build/lint rung. A repo that finds itself editing `scripts/ladder.sh` has found a
   missing extension point — fix it upstream in the template, not locally.
-- D-004: **The redaction filter is also the secret-shape scan.** The ladder does not carry a
+- D-004 [cited]: **The redaction filter is also the secret-shape scan.** The ladder does not carry a
   second copy of the token patterns; it pipes each text file through `scripts/redact.sh` and
   fails if the output differs. The scan is therefore drift-free by construction. Two
   consequences that have already bitten: any fixture token must be generated at runtime
@@ -273,3 +273,28 @@
   a unit is mechanical (`docs/RUNBOOK.md:128`, "about one focused hour", self-assessed). Per
   D-011 a hole survives one band above the fix; this one is prose-only, and `RULE_FILES` does
   not even cover `harness/src`, so the P12 edit in that very diff tripped no tripwire.
+- D-019 [cited]: **A guard that tests `-x` before running has an off switch, and the switch
+  looks like a pass.** The ladder's secret scan — `redact.sh`, designated the repo's ENTIRE secret defence
+  by D-004 — printed `skip  scripts/redact.sh not present` when the file lost its execute bit,
+  and the rail self-test section printed its header and nothing at all. Ladder green, live
+  credential in the tree, no line saying anything was missing. Reached by an archive download,
+  `core.fileMode=false`, or one stray `chmod`, and `copy-drift.sh` cannot see it because `cmp`
+  compares content, not mode. Fixed by asking the question that actually matters: the file's
+  PRESENCE decides, absence FAILS for the scan (a skip for the thing that is the whole scan is
+  a contradiction) and prints `skip` for the self-tests, and both invoke through `bash` so the
+  mode has no vote at all. Generalisation: when a guard can be disabled by a property that is
+  not its subject — a file mode, an unset variable, a missing ref — the disabled state must be
+  louder than the passing state, not quieter. Prefer deleting the dependency (run through
+  `bash`) over policing it.
+- D-020: **Three guards had no fixture at all, and the cause was the fixture BUILDER, not
+  neglect.** Mutation-testing found `guard_poison_tokens`, `guard_rail_selftests` and
+  `advisories` all stubbable with the suite still 20/20 green. Each was unreachable by
+  construction: `mk()` created no `origin/<default>` ref, so the poison scan resolved nothing
+  and printed `skip` on every run (it was inert in the reference repo too, for its entire
+  life); `run()` sets `CI=1` and `advisories` opens with `in_ci && return`; `mk()` hardcoded
+  `RULE_FILES=''`, so the rule-review tripwire had nothing to trip on. A fixture harness is
+  itself a guard and needs the same hostility: **the question is not "did I write a test" but
+  "can the guard be stubbed with the suite still green".** Two mutations that prove nothing
+  are worth recording as well — a rail self-test overridden by a function appended AFTER the
+  file's dispatcher never runs, and a single-line here-document fixture cannot exercise body
+  mode, which only ever discards SUBSEQUENT lines.

@@ -19,10 +19,19 @@ checked=0
 
 # harness/dist is generated (dist-drift owns it); harness/templates and harness/src
 # describe an ADOPTER's tree, where the paths are meant to resolve there, not here.
-files=$(git ls-files -co --exclude-standard '*.md' |
-	grep -v -e '^harness/dist/' -e '^harness/templates/' -e '^harness/src/' || true)
-
-for f in $files; do
+#
+# NUL-separated: `for f in $files` word-splits the list, so a file whose name contains
+# a space is skipped in silence and the guard still prints a count and a green line.
+# scripts/ladder.sh forbids exactly this in the secret scan ("a scan with a silent hole
+# is worse than no scan"), and the harness prose calls it a blocker-class hole.
+while IFS= read -r -d '' f; do
+	# docs/plans/ describes an INTENDED tree the same way harness/templates describes an
+	# adopter's: a plan that may not name a file it has not built yet is the normal case,
+	# not drift. What a plan actually delivered is settled by the ladder against the real
+	# tree, never by this guard.
+	case $f in
+	harness/dist/* | harness/templates/* | harness/src/* | docs/plans/*) continue ;;
+	esac
 	dir=$(dirname "$f")
 
 	# (a) Markdown links with a relative target: [text](path). Skip URLs, anchors and
@@ -57,7 +66,7 @@ for f in $files; do
 		fi
 	done < <(grep -oE '`[A-Za-z0-9_./-]+/[A-Za-z0-9_./-]+\.(md|sh|json|yml|yaml|conf)`' "$f" |
 		tr -d '`' | sort -u)
-done
+done < <(git ls-files -co --exclude-standard -z '*.md')
 
 [ "$fails" -eq 0 ] || exit 1
 printf '%s path reference(s) resolve\n' "$checked"

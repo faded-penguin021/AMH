@@ -114,5 +114,18 @@ d=$(snapshot refs_backtick)
 printf '\nRun `scripts/does-not-exist.sh` first.\n' >>"$d/docs/RUNBOOK.md"
 expect fail "path-refs: a cited path that does not exist" "$d" path-refs.sh "nonexistent path"
 
+# A file name with a space: `for f in $files` word-splits it away, and the guard then
+# prints a resolved count and a green line for a file it never opened.
+d=$(snapshot refs_spacey)
+printf 'See `docs/NOTHING_HERE.md` for the details.\n' >"$d/notes with space.md"
+expect fail "path-refs: a bad ref in a file name with a space" "$d" path-refs.sh "nonexistent path"
+
+# The docs/plans exclusion is a hole by design (a plan may name what it has not built).
+# It is bounded to that directory and asserted here so the boundary is a tested one.
+d=$(snapshot refs_plans_excluded)
+mkdir -p "$d/docs/plans"
+printf 'Build `scripts/does-not-exist.sh` next.\n' >"$d/docs/plans/future.md"
+expect pass "path-refs: a plan may name a path it has not built yet" "$d" path-refs.sh
+
 printf '\n%d passed, %d failed\n' "$PASSED" "$FAILED"
 [ "$FAILED" -eq 0 ]

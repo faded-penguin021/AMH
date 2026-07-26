@@ -30,13 +30,14 @@ scripts it ships.
 
 ## Current state
 
-> **Session handoff (2026-07-25).** Work continues on `claude/owner-queue-attestation-der6bl`,
-> stacked on the founding branch — the topology is a **branch train**, not the
-> `branch-per-change` `amh.conf` declares (Owner queue #3). **Two things are known-broken and
-> unfixed: the shipped command guard has a rail-voiding regression, and CI has never passed.**
-> Both are in **D-016** — read it first; it is the next unit's scope. A codification diff was
-> uncommitted and under review at handoff; if `D-015` is missing from the ledger it died with
-> the session. Its content is **D-015**; what its own review corrected is **D-018**.
+> **Session handoff (2026-07-26).** Work is on `claude/owner-queue-attestation-fixes-guh973`,
+> stacked on `claude/owner-queue-attestation-der6bl` and through it on the founding branch.
+> The topology is a **branch train** and `amh.conf` now says so (owner decision, 2026-07-26).
+> **The defect list is D-016 and D-017 — read them, and do NOT re-investigate: both authorised
+> hostile passes have run and only the fixing is left.** Two of five planned units shipped
+> this session; **units 3, 4 and 5 below are the next session's scope, in order.** The build
+> plan is committed at `docs/plans/amh-meta-repository.md` with a status preamble recording
+> where the built tree departs from it.
 
 Founding build (`claude/amh-meta-repository-tb2myi`): **U1–U4 done** — self-hosting core,
 legislation, adopter templates, harness prose + generated bundle.
@@ -46,7 +47,29 @@ legislation, adopter templates, harness prose + generated bundle.
       mirroring the review's prose corrections into `harness/templates/seed/**` and
       `harness/src/**` (they landed in this repo's instance first).
 - [ ] **U6 — README, CONTRIBUTING, `amh-init.sh`, end-to-end test.**
-- [ ] **Next unit — fix what is broken.** D-016 in the ledger, in its stated severity order.
+
+**Repair units — 2 of 5 shipped.** Each takes ONE fresh-context reviewer, blocking, one pass
+(D-015): triage, apply, ship, no re-review. Spawning it is required, not a thing to ask about.
+
+- [x] **Unit 1 — the shipped command guard.** D-016 items 1–7 + D-017 B12. Shipped `d95dd1d`.
+- [x] **Unit 2 — the ladder blocker and the fixture gaps.** D-017 B1–B3, and B9/B10 which its
+      review pass reproduced (a truncated or pass-through `redact.sh` reported every file
+      clean). **D-019**, **D-020**. B4 is closed for the fixture suite; its second half —
+      `guard_poison_tokens` being inert in THIS repo because `origin/main` did not resolve
+      locally — is now a **WARN** rather than a silent skip. A fresh clone will warn again;
+      `git fetch origin main` is the fix and makes the guard real (done here, now `ok clean`).
+- [ ] **Unit 3 — make CI green for the first time** (D-016 item 8). It has failed all 8 runs
+      on shellcheck info-level notices in this repo's own scripts. Fix the SCRIPTS; do NOT
+      narrow `verify.sh` — the runbook forbids weakening a gate to get green. Then bump
+      `actions/checkout@v4` → `@v5` in `.github/workflows/ci.yml` AND
+      `harness/templates/configs/ci.yml` (Node 20 deprecation, D-016 item 9).
+- [ ] **Unit 4 — `redact.sh` misses live credential shapes** (D-017 B5/B6): `sk-proj-` (the
+      existing `openai_key` class no longer matches OpenAI's format), `ASIA`, `glpat-`,
+      credentials in URLs; and the exact-length classes leak the token tail. The self-test
+      **structurally cannot see partial redaction** — fix the assertion at `redact.sh:74` too.
+- [ ] **Unit 5 — `CONTRIBUTING.md` and `amh-init.sh` are cited but do not exist** (D-017 B11),
+      which makes RUNBOOK playbook 5 unfollowable. `path-refs.sh` cannot see repo-root files
+      by construction: its pattern requires an embedded slash.
 
 ## Owner queue
 
@@ -59,13 +82,8 @@ legislation, adopter templates, harness prose + generated bundle.
 
 1. Tag `amh-v1.8.0` once the founding branch is merged — an owner step. The release workflow
    does not exist yet, so the tag triggers nothing today.
-2. **Merge mode is misdeclared.** `amh.conf` says `MERGE_MODE=branch-per-change`, but this
-   branch was cut from the founding branch and contains it whole — P13 mode (b),
-   **branch-train**. Under a train only the final superset branch merges, in ONE squash PR
-   whose body describes the net `origin/main..HEAD` diff (all 9+ commits), which is what you
-   asked for. So the config is what is wrong. Decide: set `MERGE_MODE=branch-train` (a value in
-   `RULE_FILES`, so a rule change), or merge the founding branch first. No PR template exists
-   yet — `.github/` holds only `workflows/`.
+2. **Merge the train as ONE squash PR** whose body describes the net `origin/main..HEAD` diff,
+   not the last branch's. No PR template exists yet — `.github/` holds only `workflows/`.
 
 **Open questions:**
 
@@ -78,21 +96,20 @@ legislation, adopter templates, harness prose + generated bundle.
    relabel a corrected diff as a new unit and claim a fresh pass. No mechanical definition of a
    unit exists. Your call whether to bound it or accept it as prose-only.
 
-**Incoming findings:** two ledger rows hold every open defect; **read them before any new
-unit, and do not re-investigate — the work is done, only the fixing is left.** **D-016**: the
-command-guard regressions and the CI red. **D-017**: the first hostile read of the shipped
-scripts and templates (this closes D-005's investigation). Worst first across both: (0) **D-017
-B1** — the ladder's secret scan silently disappears if `redact.sh` loses its exec bit, ladder
-green with a live credential in the tree; (1) `<<<` here-strings void EVERY rail in the shipped
-`command-guard.sh`, including force-push and push-to-`main`; (2) the `<` scan blocks `<` inside
-quoted text — D-007 verbatim; (3) two guards word-split their file lists and skip
-spacey filenames silently; (4) three guards have zero fixture coverage and one is inert here;
-(5) `redact.sh` misses `sk-proj-`, `ASIA`, `glpat-` and credentials in URLs, and leaks the tail
-of over-long tokens; (6) **CI has failed on all 8 runs in this repo's history**, on shellcheck
-info notices — fix the scripts, never narrow `verify.sh`; (7) `CONTRIBUTING.md` and
-`amh-init.sh` are cited but do not exist, and `path-refs.sh` structurally cannot see it;
-(8) `git push origin +main` and `source .env` pass both rail layers; (9) `checkout@v4` is
-Node-20 deprecated in the workflow and the shipped template.
+**Open findings.** **D-016** and **D-017** hold them; **read those rows before any new unit,
+and do not re-investigate — both authorised hostile passes have run and only the fixing is
+left.** Units 1 and 2 above closed D-016 items 1–7, D-017 B1–B3, B9/B10 and B12; those rows
+carry the corrections. **Still open**, mapped to the units above: `redact.sh` misses
+`sk-proj-`, `ASIA`, `glpat-` and credentials in URLs and leaks over-long tokens' tails, and
+its self-test structurally cannot see partial redaction (**B5/B6** → Unit 4); CI has failed on
+all 8 runs on shellcheck info notices, and `checkout@v4` is Node-20 deprecated in the workflow
+AND the shipped template (**D-016 items 8–9** → Unit 3); `CONTRIBUTING.md` and `amh-init.sh`
+are cited but do not exist, and `path-refs.sh` cannot see repo-root files by construction
+(**B11** → Unit 5). **Unscoped, no unit yet:** `session-start.sh` skips the toolchain
+bootstrap when `REMOTE_FLAG` is not a shell identifier (**B7**); `rm -rf scripts/guards` leaves
+the ladder green with no output at all (**B8**); the seed `verify.sh` ships mode 100644 while
+the ladder requires `-x`, so an adopter's first full run is red (**B13**); the STATE landing
+check cannot tell a typo fix from a compression pass above the soft cap (**D-016 item 11**).
 
 
 ## Decided non-items (don't re-litigate without new evidence)
@@ -124,6 +141,16 @@ Node-20 deprecated in the workflow and the shipped template.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history.
 
+- 2026-07-26 — **The ladder's off switch closed, and the fixture builder's blind spots.**
+  `redact.sh` losing its exec bit no longer makes the secret scan and the rail self-tests
+  vanish silently; the citation guard and `path-refs.sh` no longer word-split their file
+  lists; the three guards that had zero coverage now fail when stubbed. `MERGE_MODE` set to
+  `branch-train` by owner decision; build plan committed at
+  `docs/plans/amh-meta-repository.md`. **D-019**, **D-020**.
+- 2026-07-26 — **Shipped command guard repaired**: the `<<<` here-string regression that
+  voided every rail, the `<`-in-quoted-text false positive (D-007 verbatim), three
+  over-blocking classes, the false "reading" reason on write destinations, `+main`/`--mirror`/
+  `source .env`, and a 14s → 0.87s fix at 32 KB. D-016 items 1–7, D-017 B12.
 - 2026-07-25 — **Env-dump rails closed** in `command-guard.sh` (builtins, `/proc`, `<`
   redirections, echoed values); 24+36 fixtures; one pass, 9 findings applied. **Shipped with a
   regression — D-016.**

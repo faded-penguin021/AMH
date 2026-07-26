@@ -192,20 +192,37 @@ guard_ledger_rollover() {
 guard_citations() {
 	section "Citations: code ↔ ledger, both directions"
 	local scan_files=$TMP/scanfiles rows=$TMP/rows cited=$TMP/cited marked=$TMP/marked
+	# NUL-separated throughout, for the reason the secret scan states below: a
+	# word-split file list drops every name containing a space, and the drop is
+	# invisible — the guard reports the same green it reports for a clean tree.
 	: >"$scan_files"
+	# `set -f` for the two config lists below: they are split on whitespace ON PURPOSE,
+	# but an unquoted expansion also GLOBS, so an entry containing `?` or `*` would be
+	# rewritten into whatever happens to sit in the working directory — a third way for
+	# the scanned scope to differ from what amh.conf says it is.
+	set -f
 	local p
 	for p in $CITATION_SCAN_PATHS; do
 		[ -e "$p" ] || continue
 		if has_git; then
-			git ls-files -co --exclude-standard -- "$p" >>"$scan_files"
+			git ls-files -co --exclude-standard -z -- "$p" >>"$scan_files"
 		else
-			find "$p" -type f >>"$scan_files"
+			find "$p" -type f -print0 >>"$scan_files"
 		fi
 	done
-	local ex
+	local ex f
 	for ex in $CITATION_EXCLUDE; do
-		grep -v -e "^$ex$" -e "^$ex/" "$scan_files" >"$scan_files.t" && mv "$scan_files.t" "$scan_files"
+		# Whole paths and directory prefixes, matched literally. The grep form this
+		# replaces interpolated $ex as a REGEX and kept the unfiltered list whenever
+		# the exclusion emptied it — two more ways for the same scope to drift.
+		: >"$scan_files.t"
+		while IFS= read -r -d '' f; do
+			case $f in "$ex" | "$ex"/*) continue ;; esac
+			printf '%s\0' "$f" >>"$scan_files.t"
+		done <"$scan_files"
+		mv "$scan_files.t" "$scan_files"
 	done
+	set +f
 
 	# Every ledger row, and whether it carries the machine-synced [cited] marker.
 	: >"$rows"
@@ -230,8 +247,7 @@ guard_citations() {
 
 	: >"$cited"
 	if [ -s "$scan_files" ]; then
-		# shellcheck disable=SC2046
-		grep -hoE 'D[A-Z]?-[0-9]+' $(tr '\n' ' ' <"$scan_files") 2>/dev/null | sort -u >"$cited"
+		xargs -0 grep -hoE 'D[A-Z]?-[0-9]+' <"$scan_files" 2>/dev/null | sort -u >"$cited"
 	fi
 
 	local unresolved missing_marker stale_marker
@@ -252,8 +268,28 @@ guard_citations() {
 
 guard_secret_shapes() {
 	section "Secret-shape scan (the redaction filter IS the scan)"
-	if [ ! -x scripts/redact.sh ]; then
-		skip "scripts/redact.sh not present"
+	# This guard is the repo's ENTIRE secret scan (D-004), so it must not be possible
+	# to switch it off by accident. It used to test `-x` and print `skip` when the bit
+	# was missing: `chmod -x scripts/redact.sh` — or an archive download, or
+	# core.fileMode=false — turned the scan into a green line with a live credential
+	# sitting in the tree. Presence is now the question, and the answer to "absent" is
+	# a failure, not a skip. The exec bit no longer decides anything: the filter is run
+	# through `bash` explicitly.
+	if [ ! -f scripts/redact.sh ]; then
+		fail "scripts/redact.sh is missing — it IS this repo's secret scan, so its absence is a failure, not a skip"
+		return
+	fi
+	# ...and PRESENCE is not the same as WORKING. The verdict below is "the filter's
+	# output differs from the file", which an empty, truncating, crashing or
+	# pass-through filter satisfies for nothing at all — every file reads as clean and
+	# the rung prints ok. A positive control first, so the scan has to prove it can
+	# still catch something before its silence is allowed to mean anything. The token is
+	# generated at runtime: a stored literal would make this file fail its own scan
+	# (D-004).
+	local canary
+	canary="AKIA$(LC_ALL=C tr -dc 'A-Z0-9' </dev/urandom | head -c 16)"
+	if printf 'x %s x\n' "$canary" | bash scripts/redact.sh 2>/dev/null | grep -qF "$canary"; then
+		fail "scripts/redact.sh did not redact a generated test token — the filter is empty, broken or pass-through, and this scan would report green on everything"
 		return
 	fi
 	local list=$TMP/files.nul hits=0
@@ -264,11 +300,19 @@ guard_secret_shapes() {
 	fi
 	# NUL-separated: a word-split list silently skips names with spaces or non-ASCII
 	# characters, and a scan with a silent hole is worse than no scan.
-	local f pos
+	local f pos cmperr=$TMP/cmp.err
 	while IFS= read -r -d '' f; do
 		[ -f "$f" ] || continue
 		LC_ALL=C grep -qI . "$f" 2>/dev/null || continue # text files only
-		pos=$(scripts/redact.sh <"$f" 2>/dev/null | cmp - "$f" 2>/dev/null)
+		# `cmp`'s stderr carries the truncation verdict (`EOF on -`) while its stdout
+		# carries the difference verdict. Discarding stderr made a filter that stopped
+		# mid-stream indistinguishable from a clean file.
+		pos=$(bash scripts/redact.sh <"$f" 2>/dev/null | cmp - "$f" 2>"$cmperr")
+		if [ -s "$cmperr" ]; then
+			fail "scripts/redact.sh did not filter all of $f ($(tr -d '\n' <"$cmperr")) — a truncated stream reads as clean"
+			hits=$((hits + 1))
+			continue
+		fi
 		if [ -n "$pos" ]; then
 			# Report the POSITION only. A diagnostic that regresses to printing the
 			# matched line defeats the entire point of the guard.
@@ -284,7 +328,11 @@ guard_poison_tokens() {
 	local base
 	base=$(upstream_ref)
 	if ! has_git || [ -z "$base" ]; then
-		skip "no $DEFAULT_BRANCH reference to compare against"
+		# WARN, not skip. Without `origin/$DEFAULT_BRANCH` this guard has nothing to diff
+		# against and checks nothing — it ran inert in the reference repo for its entire
+		# life while printing a line that read like a considered pass. A guard that is
+		# switched off must say so more loudly than one that passed (D-019).
+		warn "no $DEFAULT_BRANCH reference to compare against — this guard checked NOTHING. Fetch it (\`git fetch origin $DEFAULT_BRANCH\`) or accept that poison tokens are unguarded locally."
 		return
 	fi
 	local msgs tok hits=0
@@ -307,8 +355,14 @@ guard_rail_selftests() {
 	section "Rail self-tests (a silently regressed rail is no rail)"
 	local s
 	for s in scripts/redact.sh scripts/command-guard.sh; do
-		[ -x "$s" ] || continue
-		if out=$("$s" --self-test 2>&1); then
+		# `[ -x ]` here printed nothing at all when the bit was missing — this whole
+		# section went blank and the ladder stayed green. Absence gets a `skip` line,
+		# the script's convention everywhere else; the exec bit gets no vote.
+		if [ ! -f "$s" ]; then
+			skip "$s is not a readable file — nothing self-tested it"
+			continue
+		fi
+		if out=$(bash "$s" --self-test 2>&1); then
 			ok "$s"
 		else
 			fail "$s self-test failed:"
@@ -383,9 +437,22 @@ advisories() {
 			git diff --cached --name-only
 			git ls-files -o --exclude-standard
 		) 2>/dev/null | sort -u)
+		# Literal whole-path or directory-prefix matches, and `set -f` so an entry is
+		# never glob-expanded against the working directory — see guard_citations. The
+		# grep form this replaces interpolated each entry as a regex.
+		set -f
+		local d
 		for rf in $RULE_FILES; do
-			printf '%s\n' "$dirty" | grep -q -e "^$rf$" -e "^$rf/" && touched="$touched $rf"
+			while IFS= read -r d; do
+				case $d in
+				"$rf" | "$rf"/*)
+					touched="$touched $rf"
+					break
+					;;
+				esac
+			done <<<"$dirty"
 		done
+		set +f
 		if [ -n "$touched" ]; then
 			warn "uncommitted diff touches legislation:$touched — the rule-review protocol applies (fresh-context reviewer, strongest tier, no self-review fallback) BEFORE commit."
 		fi

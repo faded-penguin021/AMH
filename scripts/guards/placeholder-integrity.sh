@@ -43,15 +43,18 @@ fi
 # Live files: this repo's OWN instance — the files that had to be instantiated. Everything
 # under harness/ is the distributed product: templates carry placeholders by definition, the
 # prose explains the convention, and the generated bundle inlines the templates verbatim.
-# `PLACEHOLDER` itself is the generic word used in prose ("these carry {{PLACEHOLDER}}s"),
-# never an unfilled slot.
+# `PLACEHOLDER` and `X` are the generic words prose uses for a slot in general ("these
+# carry {{PLACEHOLDER}}s", "every {{X}} is documented"), never an unfilled slot. Exempting
+# the two metasyntactic names keeps this guard pointed at whole DIRECTORIES it cannot see
+# into; excluding a directory to let one document through would be a standing hole for
+# every file later put there.
 live=$(git ls-files -co --exclude-standard |
 	grep -v -e '^harness/' -e '^scripts/guards/placeholder-integrity.sh$' || true)
 if [ -n "$live" ]; then
 	leftover=$(printf '%s\n' "$live" | tr '\n' '\0' |
 		xargs -0 grep -lE '\{\{[A-Z_][A-Z0-9_]*\}\}' 2>/dev/null |
 		while IFS= read -r f; do
-			if grep -ohE '\{\{[A-Z_][A-Z0-9_]*\}\}' "$f" | grep -qv '^{{PLACEHOLDER}}$'; then
+			if grep -ohE '\{\{[A-Z_][A-Z0-9_]*\}\}' "$f" | grep -qvE '^\{\{(PLACEHOLDER|X)\}\}$'; then
 				printf '%s\n' "$f"
 			fi
 		done)
