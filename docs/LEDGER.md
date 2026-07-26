@@ -376,7 +376,7 @@
   is a SHIPPED script, and a `D-NNN` citation inside one resolves against the ADOPTER's
   ledger, where no such row exists. The shipped `ladder.sh` already cites D-004 this way; the
   class is real, is not this unit's to fix, and is queued.
-- D-023: **A dangling citation is a symptom; the disease is that nobody ever walked the path.**
+- D-023 [cited]: **A dangling citation is a symptom; the disease is that nobody ever walked the path.**
   D-017 B11 is closed — `CONTRIBUTING.md` and `scripts/amh-init.sh` exist, so RUNBOOK playbook
   5 is followable and the `.claude/settings.json` pre-allow points at a real script — and with
   them the guard that was supposed to have caught their absence. `path-refs.sh` resolved 64
@@ -439,7 +439,7 @@
   for a threshold on a proxy — a threshold invites "is 24 enough?", which has no answer, while
   "words are lowercase, tokens are not" can be checked against a counter-example and was,
   twice, before it held.
-- D-025: **Unit 5's review pass, and the shape of what it caught.** D-017 B11 and B13 are
+- D-025 [cited]: **Unit 5's review pass, and the shape of what it caught.** D-017 B11 and B13 are
   closed (D-023); this row carries the corrections its fresh-context pass returned, none of
   which were in the artifacts the unit set out to build — they were all in the *guard* and the
   *tool* written to close it. `path-refs.sh` resolved bare names against `git ls-files`, which

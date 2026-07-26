@@ -45,6 +45,13 @@ scripts/test-ladder-guards.sh || bad "scripts/test-ladder-guards.sh"
 step "repo-local guard fixture suite"
 scripts/tests/local-guards.sh || bad "scripts/tests/local-guards.sh"
 
+# Last, because it is the slowest rung and the only one that builds a whole second repo.
+# It is also the only one that executes the adopter's path at all: everything above tests
+# this repo against itself, and the defects that path has produced were invisible to all
+# of it (D-023).
+step "instantiation end-to-end"
+scripts/tests/test-init-e2e.sh || bad "scripts/tests/test-init-e2e.sh"
+
 if [ "$FAILS" -gt 0 ]; then
 	printf '\n   verification set: %d failure(s)\n' "$FAILS"
 	exit 1

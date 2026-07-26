@@ -206,6 +206,31 @@ done
 # would have been a standing hole: it would also hide a placeholder this script forgot.
 INIT_PLACEHOLDERS='AMH_VERSION DEFAULT_BRANCH BRANCH_PREFIX MERGE_MODE_KEY REMOTE_FLAG COMPRESS_TO_KB WARN_KB HARD_KB LINE_CAP CITATION_SCAN_PATHS'
 
+# ...and that table is bound to harness/PLACEHOLDERS.md, whose `init` rows are the same
+# set said in prose. Nothing bound them before: they agreed, and a new template
+# placeholder documented as `init` but left out of the list above would have been written
+# into an adopter's live config unfilled, reported by the run's own summary as something
+# THEY had to fill in. Silent divergence between a list and the document describing it is
+# the whole failure (D-025).
+#
+# The check dies rather than warns, and it dies for the HARNESS maintainer, never for an
+# adopter — nobody runs this script against their own repo. An empty derived set is a
+# mismatch like any other, so the pattern drifting away from the table cannot make the
+# check vacuously pass, which is the way a binding like this usually rots.
+PLACEHOLDER_DOC="$ROOT/harness/PLACEHOLDERS.md"
+[ -f "$PLACEHOLDER_DOC" ] ||
+	die "cannot find harness/PLACEHOLDERS.md — the init placeholder list has nothing to check against"
+# shellcheck disable=SC2016 # the backticks belong to the sed script: it matches the
+# markdown code span in the table's first cell. Expanding them would run the cell text.
+doc_init=$(sed -n 's/^| *`\([^`]*\)` *| *init *|.*/\1/p' "$PLACEHOLDER_DOC" | sort)
+list_init=$(printf '%s\n' "$INIT_PLACEHOLDERS" | tr ' ' '\n' | sort)
+if [ "$doc_init" != "$list_init" ]; then
+	printf 'amh-init: INIT_PLACEHOLDERS and the init rows of harness/PLACEHOLDERS.md disagree.\n' >&2
+	printf '  only in this script: %s\n' "$(comm -13 <(printf '%s\n' "$doc_init") <(printf '%s\n' "$list_init") | tr '\n' ' ')" >&2
+	printf '  only in the document: %s\n' "$(comm -23 <(printf '%s\n' "$doc_init") <(printf '%s\n' "$list_init") | tr '\n' ' ')" >&2
+	die 'fix whichever is wrong — a placeholder in one and not the other ships unfilled'
+fi
+
 # The substitutions run through sed with `|` as the delimiter, so four characters are
 # refused rather than escaped: a silently mangled config is worse than a refusal, and no
 # legitimate value here needs any of them.

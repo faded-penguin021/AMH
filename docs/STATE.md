@@ -33,8 +33,9 @@ plan:
 
 - **U5** — the release workflow; and the review's prose corrections need mirroring into
   `harness/templates/seed/` and `harness/src/` (they landed in this repo's instance first).
-- **U6** — the README is written; the planned end-to-end init test does not exist, so
-  instantiation is verified only by hand.
+
+**U6 is closed** — README written, and instantiation is verified end-to-end by
+`scripts/tests/test-init-e2e.sh` rather than by hand.
 
 **Repair units — all 5 shipped** (D-016, D-017; see the Changelog and **D-019**…**D-025**).
 Each took ONE fresh-context reviewer, blocking, one pass (D-015): triage, apply, ship, no
@@ -108,6 +109,15 @@ corrections and should not be re-investigated. **Unscoped, still open:**
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history.
 
+- 2026-07-26 — **The end-to-end init test, and the placeholder list bound to its document**
+  (U6's second half, closing U6). `scripts/tests/test-init-e2e.sh` instantiates into a scratch
+  repo and runs THAT repo's ladder; it is `verify.sh`'s last rung and the only one that
+  executes the adopter's path. Its green is proved non-vacuous by a planted credential. **D-025
+  closed:** `INIT_PLACEHOLDERS` is checked against `harness/PLACEHOLDERS.md`'s `init` rows,
+  fatally, with an empty derived set counting as a mismatch. The review pass found the blocker
+  inside the fix for the seventh time running: the new comment cited `D025` without the hyphen,
+  which the citation regex does not match, so the citation was invisible and the diff passed
+  *because* of the typo.
 - 2026-07-26 — **`README.md`, the adopter's front door** (U6's first half). Was the 5-byte stub
   the build plan's own Context describes as the repo's *starting* condition: what the harness is
   and the failure modes it answers, who it is for and the two groups it explicitly is not for,
