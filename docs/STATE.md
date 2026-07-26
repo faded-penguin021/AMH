@@ -22,20 +22,15 @@ scripts it ships.
 ## Current state
 
 > **Session handoff (2026-07-26).** Work is on
-> `claude/owner-queue-attestation-fixes-8yq4br`, the tip of the branch train (main ←
-> `...-tb2myi` ← `...-der6bl` ← `...-guh973` ← `...-guzkor` ← here); `amh.conf` says
-> `branch-train` by owner decision. **All five repair units are shipped.** What is left is
-> the unbuilt half of U5/U6 and the unscoped findings below — not a defect list. The build
-> plan is at `docs/plans/amh-meta-repository.md`, stale by design about U6.
+> `claude/owner-queue-wrap-up-b7fell`, the tip of the branch train (main ← `...-tb2myi` ←
+> `...-der6bl` ← `...-guh973` ← `...-guzkor` ← `...-8yq4br` ← here); `amh.conf` says
+> `branch-train` by owner decision. **All five repair units are shipped, and the build plan
+> is now fully built.** What is left is the unscoped findings below — not a defect list.
 
-Founding build (`claude/amh-meta-repository-tb2myi`): **U1–U4 done**. Still open from the
-plan:
-
-- **U5** — the release workflow; and the review's prose corrections need mirroring into
-  `harness/templates/seed/` and `harness/src/` (they landed in this repo's instance first).
-
-**U6 is closed** — README written, and instantiation is verified end-to-end by
-`scripts/tests/test-init-e2e.sh` rather than by hand.
+Founding build (`claude/amh-meta-repository-tb2myi`): **U1–U4 done**, and **U5 and U6 are
+closed** — release workflow shipped, prose corrections mirrored, README
+written, and instantiation verified end-to-end by `scripts/tests/test-init-e2e.sh` rather
+than by hand.
 
 **Repair units — all 5 shipped** (D-016, D-017; see the Changelog and **D-019**…**D-025**).
 Each took ONE fresh-context reviewer, blocking, one pass (D-015): triage, apply, ship, no
@@ -52,7 +47,8 @@ blocker inside the fix, not in the original defect.** Budget for that.
 **Pending owner actions:**
 
 1. Tag `amh-v1.8.0` once the founding branch is merged — an owner step. The release workflow
-   does not exist yet, so the tag triggers nothing today.
+   now exists, so the tag verifies the tree, checks itself against `harness/VERSION`, and
+   publishes the bundle.
 2. **Merge the train as ONE squash PR** whose body describes the net `origin/main..HEAD` diff,
    not the last branch's. No PR template exists yet — `.github/` holds only `workflows/`.
 
@@ -109,6 +105,23 @@ corrections and should not be re-investigated. **Unscoped, still open:**
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history.
 
+- 2026-07-26 — **The build plan is deleted, its work complete.**
+  The plan file (docs/plans, now empty) said so itself: *"A plan is a disposable artifact: it
+  dies when the work lands... Delete it when U6 closes."* U1–U6 all landed; what the plan got
+  wrong about the built tree (merge mode, the third `scripts/tests/` slot, the fifth guard,
+  the two acceptance claims that failed on first pass) is recorded in the ledger rows it
+  named, which is where code cites from and where a plan never is.
+- 2026-07-26 — **U5's remainder: the release workflow, and the prose corrections mirrored.**
+  `.github/workflows/release.yml` gives the `amh-v*` tag something to trigger — it *calls*
+  `ci.yml` rather than copying its checkout depth and toolchain, adds the two checks that
+  exist only at tag time (tag ↔ `harness/VERSION`, and the tag being an ancestor of the
+  default branch), publishes the changelog entry as the notes and the bundle as an asset, and
+  is create-or-update so a re-run cannot go red at the last step. Two D-010-class corrections
+  that had landed only in this repo's instance are now in `harness/templates/seed/` and
+  `harness/src/`: the constitution's reader-command bullet (an enumeration is a list, not a
+  category) and `[cited]` described as *machine-synced* when nothing syncs it. The review pass
+  found the workflow's own comment claiming it duplicated nothing while duplicating the whole
+  environment around the ladder — **U5 is closed.**
 - 2026-07-26 — **The end-to-end init test, and the placeholder list bound to its document**
   (U6's second half, closing U6). `scripts/tests/test-init-e2e.sh` instantiates into a scratch
   repo and runs THAT repo's ladder; it is `verify.sh`'s last rung and the only one that

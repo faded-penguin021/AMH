@@ -17,7 +17,8 @@ their keep only in combination.
 
 Long-term memory: numbered deviations and discoveries live in `docs/LEDGER.md` — a
 **permanent, append-only registry** (code cites bare `D-NN`; code-cited rows carry a
-machine-synced `[cited]` marker; never compress or delete entries; append the next number in
+`[cited]` marker that you write and the ladder verifies in both directions — nothing syncs
+it for you; never compress or delete entries; append the next number in
 the live ledger file — each file caps at {{LINE_CAP}} lines: the final row may overflow the
 cap, the next row opens the next file, `D-… → DA-…` (`_A.md`) `→ DB-…`).
 
@@ -71,13 +72,16 @@ could NOT be verified locally — disclosure of real actions, never implied cove
   includes expanding one into an `echo`: report key presence only
   (`[ -n "${MY_KEY:-}" ] && echo set`).
 - **Which layer holds which half.** `scripts/command-guard.sh` blocks, with a reason you can
-  act on: `env`, `printenv`, the builtin dump forms, `declare -p <secret-named>`, reads of
-  `.env` files and `/proc/<pid>/environ` through a reader command or a `<` redirection, and an
-  `echo`/`printf` that expands a credential-shaped variable. The deny rails add the spellings
-  a prefix matcher can express. Anything else in this section — inspect output, screenshots,
-  pasted logs — is **prose-only** and binds you, not a script. Say which layer holds a rule
-  whenever you add one here; a false enforcement claim is what stops the next reader checking
-  by hand.
+  act on: `env`, `printenv`, the builtin dump forms, `declare -p <secret-named>`,
+  `source .env`, reads of `.env` files and `/proc/<pid>/environ` through **a reader command it
+  enumerates** or a `<` redirection, and an `echo`/`printf` that expands a credential-shaped
+  variable. That enumeration is a **list, not a category**: it names `cat`, `grep`, `wc`,
+  `md5sum` and about thirty others, and anything outside it — `python3 -c "open('.env')"`
+  above all — reaches the file unjudged. The bullet above binds you whether or not a script
+  can see the shape you chose. The deny rails add the spellings a prefix matcher can express. Anything
+  else in this section — inspect output, screenshots, pasted logs — is **prose-only** and binds
+  you, not a script. Say which layer holds a rule whenever you add one here; a false
+  enforcement claim is what stops the next reader checking by hand.
 - **The owner's personal identifiers are secrets too**, and they leak through a door the
   credential rails do not cover: git author metadata, doc bylines, licence headers, changelog
   credits. Use the owner's handle or their forge no-reply alias — never a personal address,

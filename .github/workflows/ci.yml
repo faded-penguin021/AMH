@@ -4,6 +4,12 @@ on:
   push:
     branches: ["**"]
   pull_request:
+  # Called by release.yml rather than copied into it. The environment around the ladder —
+  # full-history checkout, shellcheck — is as load-bearing as the ladder invocation itself,
+  # and two hand-maintained copies of it would let a release publish from a tree verified by
+  # a weaker run than every other commit gets. That is the same hand-maintained lockstep the
+  # shipped template warns about, one layer up.
+  workflow_call:
 
 jobs:
   ladder:

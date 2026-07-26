@@ -1,0 +1,100 @@
+name: release
+
+# Fires on an `amh-v*` tag, which is an OWNER action — tagging and publishing are owner
+# steps and nothing here changes that. This workflow's job is to make the tag mean
+# something: verify that the tagged tree is one the harness would actually ship, then
+# publish the bundle so an adopter can fetch a release rather than a branch tip.
+#
+# It duplicates no verification and no environment. The acceptance gate is the ladder
+# workflow itself, CALLED rather than copied: the checkout depth and the toolchain around
+# the ladder decide what the ladder can see, so a second hand-maintained copy of them would
+# let a release publish from a tree verified more weakly than every ordinary commit is.
+#
+# Two things exist only at tag time and so are done here: binding the tag to
+# harness/VERSION, and refusing to publish from a tree that is not on the default branch.
+
+on:
+  push:
+    tags: ["amh-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Not for the poison-token guard, which has nothing to diff on a tag build: on a
+          # tag at the tip of main, `origin/main..HEAD` is empty and the guard correctly
+          # reports no new commits. Full history is here so `origin/main` RESOLVES at all —
+          # an unresolvable default branch makes that guard warn loudly that it checked
+          # nothing — and so the state-file landing check can read HEAD~1.
+          fetch-depth: 0
+
+      - name: Tag is on the default branch
+        # A tag can be pushed from any ref. Everything that would otherwise notice — the
+        # legislation tripwire, the merge-base advisories — is local-only and returns early
+        # under CI, so an unmerged branch tip would publish a release claiming to be the
+        # shipped harness.
+        env:
+          # Consumed as an environment variable rather than interpolated into the script
+          # body: `${{ }}` substitution happens before the shell sees the line, so a value
+          # carrying shell metacharacters would be executed rather than compared.
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "${GITHUB_SHA}" "origin/${DEFAULT_BRANCH}" ||
+            { echo "tag ${GITHUB_REF_NAME} is not an ancestor of ${DEFAULT_BRANCH} — refusing to publish" >&2; exit 1; }
+
+      - name: Tag matches harness/VERSION
+        # The one check that cannot run before a tag exists. A tag naming a version the
+        # tree does not claim would publish a bundle whose own header disagrees with the
+        # release it is attached to.
+        run: scripts/guards/version-lockstep.sh --tag "${GITHUB_REF_NAME}"
+
+      - name: Extract this version's changelog entry
+        # The release notes are the changelog entry, not a hand-written summary: a summary
+        # is a second copy of the same claims, free to drift from the Upgrading section
+        # that adopters actually act on. awk exits 0 on no match, so the emptiness check is
+        # the thing that actually catches a version with no entry.
+        run: |
+          set -euo pipefail
+          version=$(tr -d '[:space:]' <harness/VERSION)
+          awk -v v="## $version" '
+            index($0, v) == 1 { inside = 1; next }
+            inside && /^## / { exit }
+            inside { print }
+          ' harness/CHANGELOG.md >release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "no changelog entry for $version — refusing to publish notes that say nothing" >&2
+            exit 1
+          fi
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # The generated single-file bundle is attached because it is the artifact people
+        # who are not adopting the whole repo actually want. It is generated, so it is
+        # published rather than reconstructed by hand.
+        #
+        # Create-or-update, because `gh release create` errors on an existing release: a
+        # re-run of a green job would otherwise go red at the last step and read exactly
+        # like a verification failure.
+        run: |
+          set -euo pipefail
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release edit "${GITHUB_REF_NAME}" \
+              --title "AMH ${GITHUB_REF_NAME#amh-v}" --notes-file release-notes.md
+            gh release upload "${GITHUB_REF_NAME}" harness/dist/AMH.md --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" \
+              --title "AMH ${GITHUB_REF_NAME#amh-v}" \
+              --notes-file release-notes.md \
+              harness/dist/AMH.md
+          fi

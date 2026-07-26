@@ -121,8 +121,9 @@ declined. This section is the vaccine, and it is cheaper than re-arguing each ti
 **P11. Citations bind code to permanent memory — and a machine enforces both directions.** Code
 comments cite ledger entries by bare ID (`D-042`); a guard verifies that every ID cited from
 source resolves to a ledger row, that row numbers are unique, and that rows cited from code
-carry a machine-synced `[cited]` marker — so anyone reading the ledger knows which rows are
-load-bearing before rewording them. Where code ports behaviour from a reference system, add
+carry a `[cited]` marker — one you write and the guard verifies in both directions, not one
+anything syncs for you — so anyone reading the ledger knows which rows are load-bearing
+before rewording them. Where code ports behaviour from a reference system, add
 **provenance comments** naming the exact source artifact and location. Never cite ephemeral
 artifacts (plan files, chat) from code: cite only artifacts guaranteed to outlive the change.
 

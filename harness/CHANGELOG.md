@@ -43,6 +43,14 @@ did. What changed otherwise is the harness's form:
   `D-NNN` comments cite the *harness's* ledger, and without the exclusion your citation
   guard fails on rows your ledger cannot contain.
 
+- **Check that `scripts/verify.sh` is executable** (`chmod 755 scripts/verify.sh`). It is the
+  one file whose execute bit is load-bearing: the ladder refuses to run a verification set it
+  cannot execute, and a copy that arrived 0644 — an archive extraction, a copy out of a fenced
+  block, `core.fileMode=false` — makes your first full run red for a reason that has nothing to
+  do with your repo. Every other shipped script is now invoked through `bash`, so its mode
+  decides nothing. Only worth checking if you placed the file by hand; the init script installs
+  it 755 and repairs the bit on a re-run.
+
 From a hand-instantiated copy of the 1.x document: there is no mechanical path, because the
 scripts described in the old document were specifications rather than code. Treat this as a
 fresh adoption — run the harness init script into a scratch directory, then port your existing
