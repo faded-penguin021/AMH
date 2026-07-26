@@ -42,13 +42,6 @@ status, and a red tree has been pushed that way.
 **Open findings.** The owner has given a settled direction on each; build them, do not
 re-litigate them. **D-016** and **D-017** carry the corrections — do not re-investigate.
 
-- **B7 + B8 — the disabled state must be louder than the passing state (D-019).** B7:
-  `session-start.sh` skips the bootstrap silently when `REMOTE_FLAG` is not a shell identifier
-  (narrowed at the source in `amh-init.sh`, not fixed) — validate it, print a loud banner, do NOT
-  make it fatal; the same file gates the bootstrap on `-x`, so run it through `bash` and delete
-  the dependency. B8: `rm -rf scripts/guards` leaves the ladder green and silent — print
-  `skip  scripts/guards (directory absent)` and the count actually run, still a skip. Neither has
-  fixture coverage today; both scripts are shipped.
 - **D-022** — colon-less URL userinfo (the documented Azure DevOps PAT clone URL) is missed. Add
   a class requiring ≥ 20 characters of userinfo before the `@`, excluding `git@host` at three.
   Every negative fixture MID-LINE: for a filter that is also a gate, a false positive switches
@@ -104,6 +97,10 @@ being on machinery consuming a self-report rather than on a sentence a human may
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-26 — **B7 + B8, the loudness rule applied** (D-019): `session-start.sh` validates
+  `REMOTE_FLAG` and gates the bootstrap on presence rather than its exec bit; `guard_repo_local`
+  always prints its header and the count it ran. Its pass found **D-027(a) repeated verbatim** in
+  the new assertion helper. **D-029**.
 - 2026-07-26 — **`scripts/bootstrap.sh`**: the toolchain bootstrap `session-start.sh` had always
   called and nothing provided. Installs shellcheck, persists PATH, warms the `origin/<default>`
   fetch, loud and non-fatal throughout. Its review pass found the blocker in the FIXTURE again —

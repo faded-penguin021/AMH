@@ -434,12 +434,39 @@ guard_rail_selftests() {
 	done
 }
 
+# The section header is printed unconditionally, and the number of guards that actually
+# RAN is always reported. Both were conditional on finding a guard, so `rm -rf
+# scripts/guards` left this rung emitting nothing whatsoever — no header, no skip, no
+# count — and the ladder stayed green. An empty extension point is a legitimate state for
+# an adopter who has earned no repo-local guards yet; printing NOTHING for it is not, and
+# it is indistinguishable from five guards that all passed silently. The disabled state
+# must be louder than the passing one (D-019), so absence gets a `skip` line, the
+# convention this script uses everywhere else, and the count is stated either way.
 guard_repo_local() {
-	local g found=0
+	section "Repo-local guards"
+	if [ -e scripts/guards ] && [ ! -d scripts/guards ]; then
+		skip "scripts/guards exists but is not a directory — 0 repo-local guard(s) ran"
+		return
+	fi
+	if [ ! -d scripts/guards ]; then
+		skip "scripts/guards (directory absent) — 0 repo-local guard(s) ran"
+		return
+	fi
+	local g ran=0 seen=0
 	for g in scripts/guards/*.sh; do
-		[ -f "$g" ] || continue
-		[ "$found" = 0 ] && section "Repo-local guards"
-		found=1
+		# `-e` is false for an unmatched glob (bash leaves the pattern itself) AND for a
+		# broken symlink, so `-L` is tested too. Anything the glob matched is COUNTED and,
+		# if it cannot be run, named: `[ -f ]` alone silently dropped a broken symlink or
+		# a directory called `x.sh`, and the count line then said "holds no *.sh" — an
+		# affirmative false, which is worse than the silence this function was fixed to
+		# stop. The same defect one level in.
+		[ -e "$g" ] || [ -L "$g" ] || continue
+		seen=$((seen + 1))
+		if [ ! -f "$g" ]; then
+			skip "$(basename "$g") is not a regular file — NOT run"
+			continue
+		fi
+		ran=$((ran + 1))
 		if out=$(bash "$g" 2>&1); then
 			ok "$(basename "$g")${out:+ — $out}"
 		else
@@ -447,6 +474,13 @@ guard_repo_local() {
 			printf '%s\n' "$out" | sed 's/^/         /'
 		fi
 	done
+	if [ "$seen" = 0 ]; then
+		skip "scripts/guards holds no *.sh — 0 repo-local guard(s) ran"
+	elif [ "$ran" = 0 ]; then
+		skip "nothing in scripts/guards was runnable — 0 repo-local guard(s) ran"
+	else
+		ok "$ran repo-local guard(s) ran"
+	fi
 }
 
 # --- local-only advisories --------------------------------------------------

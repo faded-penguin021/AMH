@@ -28,12 +28,16 @@ DEFAULT_BRANCH_FIXTURE=main # must match amh.conf's DEFAULT_BRANCH below
 mk() { # mk <name> -> prints the fixture path
 	local d="$WORK/$1"
 	mkdir -p "$d/scripts/guards" "$d/docs"
+	# session-start.sh is copied too. It was left out for as long as this file existed,
+	# which is why its two silent skips (an invalid REMOTE_FLAG, a bootstrap gated on its
+	# exec bit) survived a shipped script with a fixture suite around it.
 	cp "$ROOT/scripts/ladder.sh" "$ROOT/scripts/redact.sh" \
-		"$ROOT/scripts/command-guard.sh" "$d/scripts/"
+		"$ROOT/scripts/command-guard.sh" "$ROOT/scripts/session-start.sh" "$d/scripts/"
 	chmod +x "$d/scripts"/*.sh
 	cat >"$d/amh.conf" <<-'CONF'
 		DEFAULT_BRANCH=main
 		BRANCH_PREFIX=session
+		REMOTE_FLAG=AMH_REMOTE
 		STATE_FILE=docs/STATE.md
 		STATE_COMPRESS_TO_KB=9
 		STATE_WARN_KB=14
@@ -116,6 +120,32 @@ expect_pass() { # <name> <dir>
 	out=$(run "$2")
 	rc=$?
 	if [ "$rc" -eq 0 ]; then report ok; else report no "$1" "expected exit 0, got $rc" "$out"; fi
+}
+
+# A pass is not always the whole assertion. Where the verdict under test is "the ladder
+# stays green AND says what it skipped", `expect_pass` alone would be satisfied by a rung
+# that printed nothing — which is the exact defect the skip lines exist to close.
+#
+# The pattern callers pass must INCLUDE THE VERDICT WORD (`   skip  `, `   ok    `) when
+# the verdict is what is on trial. This helper deliberately does not check the class
+# itself: unlike `expect_warn`, its callers legitimately want different verdicts — two of
+# them assert a `skip`, one asserts an `ok`. That makes the discipline the caller's, and
+# it is not optional. Written without it, the first draft asserted only a bare substring,
+# so demoting both new `skip` lines to `ok` left the suite green — and the rung then
+# rendered an empty extension point identically to one that had done work, which is the
+# entire property this unit exists to establish. D-027(a), repeated inside the fix for the
+# defect D-027(a) records.
+expect_pass_saying() { # <name> <dir> <grep-pattern, verdict word included>
+	local out rc
+	out=$(run "$2")
+	rc=$?
+	if [ "$rc" -ne 0 ]; then
+		report no "$1" "expected exit 0, got $rc" "$out"
+	elif ! printf '%s' "$out" | grep -qF "$3"; then
+		report no "$1" "passed but the output never mentioned '$3'" "$out"
+	else
+		report ok
+	fi
 }
 
 expect_fail() { # <name> <dir> <grep-pattern>
@@ -367,6 +397,135 @@ expect_pass "a passing repo-local guard passes" "$d"
 d=$(mk guard_bad)
 printf '#!/usr/bin/env bash\necho "domain rule violated"\nexit 1\n' >"$d/scripts/guards/bad.sh"
 expect_fail "a failing repo-local guard fails the ladder" "$d" "domain rule violated"
+
+# An extension point with nothing plugged into it. `rm -rf scripts/guards` used to leave
+# this rung printing NOTHING AT ALL — no header, no line, no count — and the ladder green,
+# which is indistinguishable from a set of guards that all passed. It stays a skip rather
+# than a failure: an adopter who has earned no repo-local guards yet is not in error. What
+# was wrong was the silence.
+d=$(mk guard_dir_absent)
+rm -rf "$d/scripts/guards"
+expect_pass_saying "an absent scripts/guards says so instead of printing nothing" "$d" \
+	"   skip  scripts/guards (directory absent) — 0 repo-local guard(s) ran"
+# The section HEADER separately: it used to be printed only on finding a guard, so an
+# empty extension point produced no header either and the rung vanished from the
+# transcript entirely. Deleting the header alone leaves every other assertion green.
+expect_pass_saying "the rung appears in the transcript even with nothing to run" "$d" \
+	"▸ Repo-local guards"
+
+# The directory present and empty is the same hole by another route: the loop found no
+# file, so nothing was printed there either.
+d=$(mk guard_dir_empty)
+expect_pass_saying "an empty scripts/guards says so too" "$d" \
+	"   skip  scripts/guards holds no *.sh — 0 repo-local guard(s) ran"
+
+# Matched by the glob but not runnable — a broken symlink, or a directory named `x.sh`.
+# `[ -f ]` alone dropped these silently and the count line then claimed the directory
+# held no *.sh at all, which is not silence but an affirmative false.
+d=$(mk guard_unrunnable)
+ln -s ../../nowhere "$d/scripts/guards/dangling.sh"
+mkdir -p "$d/scripts/guards/adirectory.sh"
+expect_pass_saying "an entry that is not a runnable file is named, not dropped" "$d" \
+	"   skip  dangling.sh is not a regular file — NOT run"
+expect_pass_saying "...and the count says nothing ran rather than nothing matched" "$d" \
+	"   skip  nothing in scripts/guards was runnable — 0 repo-local guard(s) ran"
+
+# ...and the count must be a count, not a constant. Two guards, and the line must say two:
+# a rung that reports how much work it did is only worth reading if the number moves.
+d=$(mk guard_count)
+printf '#!/usr/bin/env bash\nexit 0\n' >"$d/scripts/guards/one.sh"
+printf '#!/usr/bin/env bash\nexit 0\n' >"$d/scripts/guards/two.sh"
+expect_pass_saying "the rung reports how many guards actually ran" "$d" \
+	"   ok    2 repo-local guard(s) ran"
+
+# --- session-start.sh: the toolchain bootstrap's three silent skips
+# None of these is reachable through the ladder — session-start.sh is the boot sequence,
+# not a guard — so they get their own runner. All three used to produce output identical
+# to a machine that is simply not remote.
+#
+# A bootstrap that ANNOUNCES ITSELF is what every case below turns on: the fixture writes
+# one that prints a marker, so "did the bootstrap run" is a question about the transcript
+# rather than about a side effect.
+mk_bootstrap() { # mk_bootstrap <dir> <exit-code>
+	printf '#!/usr/bin/env bash\nprintf "BOOTSTRAP RAN\\n"\nexit %s\n' "$2" >"$1/scripts/bootstrap.sh"
+	chmod +x "$1/scripts/bootstrap.sh"
+}
+
+# `AMH-REMOTE` is a plausible thing to write in amh.conf — it matches the project's own
+# naming — and `${!REMOTE_FLAG}` on it is a bad substitution: stderr, exit 0, no bootstrap,
+# no word about it. amh.conf documents the flag as free-form, so nothing was stopping it.
+d=$(mk ss_flag_invalid)
+sed -i 's/^REMOTE_FLAG=.*/REMOTE_FLAG=AMH-REMOTE/' "$d/amh.conf"
+mk_bootstrap "$d" 0
+out=$(cd "$d" && env AMH_REMOTE=1 bash scripts/session-start.sh 2>&1)
+# The whole banner, ⚠ and verdict word included — the fixture is asserting how LOUD the
+# line is, so grepping a fragment of its middle would leave the loudness untested.
+if printf '%s' "$out" | grep -qF \
+	"· ⚠ REMOTE_FLAG 'AMH-REMOTE' is not a valid shell variable name — toolchain bootstrap SKIPPED"; then
+	report ok
+else
+	report no "an invalid REMOTE_FLAG is announced, not swallowed" "no banner" "$out"
+fi
+# ...and it must actually have SKIPPED. The banner and the bootstrap running anyway would
+# have satisfied the assertion above, which is why the fixture's bootstrap announces
+# itself: the claim under test is a claim about what did not happen.
+if printf '%s' "$out" | grep -qF "BOOTSTRAP RAN"; then
+	report no "an invalid REMOTE_FLAG really does skip the bootstrap" "it ran anyway" "$out"
+else
+	report ok
+fi
+# ...and it must still be a WARNING. A boot hook that refuses to let the session start
+# over a malformed config value is worse than the silent skip it replaces.
+if (cd "$d" && env AMH_REMOTE=1 bash scripts/session-start.sh >/dev/null 2>&1); then
+	report ok
+else
+	report no "an invalid REMOTE_FLAG is not fatal" "session-start exited non-zero"
+fi
+
+# The exec bit must have no vote. This is D-019's shape in the file that boots everything:
+# a bootstrap arriving 0644 from an archive extraction vanished without a line.
+d=$(mk ss_bootstrap_noexec)
+mk_bootstrap "$d" 0
+chmod -x "$d/scripts/bootstrap.sh"
+out=$(cd "$d" && env AMH_REMOTE=1 bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qF "BOOTSTRAP RAN"; then
+	report ok
+else
+	report no "a non-executable bootstrap still runs" "the bootstrap did not run" "$out"
+fi
+
+# A failing bootstrap is reported and the session continues — the property the bootstrap's
+# own loud-but-non-fatal design depends on, asserted at the caller where it actually holds.
+d=$(mk ss_bootstrap_fails)
+mk_bootstrap "$d" 1
+out=$(cd "$d" && env AMH_REMOTE=1 bash scripts/session-start.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF "bootstrap reported a problem"; then
+	report ok
+else
+	report no "a failing bootstrap warns without killing the session" "rc=$rc" "$out"
+fi
+
+# The flag set, and nothing to run. Legitimate — an adopter may have no toolchain to
+# install — but a remote session skipping a configured step deserves its one line.
+d=$(mk ss_bootstrap_absent)
+out=$(cd "$d" && env AMH_REMOTE=1 bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qF "does not exist" && printf '%s' "$out" | grep -qF "SKIPPED"; then
+	report ok
+else
+	report no "a missing bootstrap under the remote flag says so" "no line about it" "$out"
+fi
+
+# The negative control, and the reason the cases above are not just asserting that
+# session-start.sh prints a lot: with the flag UNSET the bootstrap must not run at all.
+d=$(mk ss_not_remote)
+mk_bootstrap "$d" 0
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qF "BOOTSTRAP RAN"; then
+	report no "a local session does not run the bootstrap" "it ran anyway" "$out"
+else
+	report ok
+fi
 
 # --- the secret scan cannot be switched off by a file mode
 # The scan IS the repo's entire secret defence (D-004), so the ways it can vanish are

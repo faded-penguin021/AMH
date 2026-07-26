@@ -30,10 +30,44 @@ say "── AMH session start ────────────────�
 
 # 1. Toolchain bootstrap — remote/ephemeral containers only, gated on an explicit
 #    flag. A heuristic here would surprise someone on their own machine.
-if [ "${!REMOTE_FLAG:-0}" = "1" ] && [ -x scripts/bootstrap.sh ]; then
-	say "· remote environment ($REMOTE_FLAG=1): running scripts/bootstrap.sh"
-	scripts/bootstrap.sh || say "  ! bootstrap reported a problem — the first ladder run will show it"
-fi
+#
+#    Every way this step can be switched off by something that is NOT the flag's value
+#    now says so. (A flag set to anything other than 1 stays silent, correctly: that is
+#    the flag doing its job, not a property unrelated to it.) There used to be three
+#    silent ones, all of the same shape — a property that is not the step's subject
+#    switched it off, and the output was indistinguishable from a machine that simply is
+#    not remote.
+#
+#    (a) `${!REMOTE_FLAG}` on a name that is not a shell identifier — `AMH-REMOTE`, say —
+#        writes a bad-substitution error to stderr and yields nothing, so the test fails
+#        and the bootstrap never runs. The value is validated here rather than trusted:
+#        amh.conf presents the flag as free-form and nothing downstream constrains it.
+#    (b) The gate was `-x scripts/bootstrap.sh`, so a file present but 0644 — an archive
+#        extraction, `core.fileMode=false`, one stray chmod — disappeared without a word.
+#        Presence is the question; the script is invoked through `bash`, which deletes the
+#        dependency on the mode instead of policing it.
+#    (c) The flag set and no bootstrap at all is a legitimate state (an adopter may have
+#        no toolchain to install), but it is worth one line, because the alternative is a
+#        remote session silently missing a step it was configured to take.
+#
+#    None of these is fatal. A boot hook that refuses to let the session start is worse
+#    than one that skips a tool, and the ladder re-checks everything that matters anyway.
+case $REMOTE_FLAG in
+'' | [!A-Za-z_]* | *[!A-Za-z0-9_]*)
+	say "· ⚠ REMOTE_FLAG '$REMOTE_FLAG' is not a valid shell variable name — toolchain bootstrap SKIPPED"
+	say "    Set REMOTE_FLAG in amh.conf to a plain identifier (letters, digits, underscore; not starting with a digit)."
+	;;
+*)
+	if [ "${!REMOTE_FLAG:-0}" = "1" ]; then
+		if [ -f scripts/bootstrap.sh ]; then
+			say "· remote environment ($REMOTE_FLAG=1): running scripts/bootstrap.sh"
+			bash scripts/bootstrap.sh || say "  ! bootstrap reported a problem — the first ladder run will show it"
+		else
+			say "· ⚠ remote environment ($REMOTE_FLAG=1) but scripts/bootstrap.sh does not exist — toolchain bootstrap SKIPPED"
+		fi
+	fi
+	;;
+esac
 
 # 2. Branch check. The first misplaced commit is the expensive one.
 branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)

@@ -574,3 +574,37 @@
   this script can reach. The two checks do different things — one refuses to write, the other
   verifies what was written — both are cheap, and the comment at the site now says so instead
   of claiming a rationale that does not hold.
+- D-029: **The loudness rule applied to the two rungs that broke it, and an assertion helper
+  that repeated D-027(a) verbatim.** D-017 B7 and B8 are closed. `session-start.sh` validated
+  nothing about `REMOTE_FLAG`, so a value like `AMH-REMOTE` — plausible, matching the project's
+  own naming, and permitted because `amh.conf` presents the flag as free-form — made
+  `${!REMOTE_FLAG}` a bad substitution: stderr, exit 0, bootstrap never runs, output identical
+  to a machine that is not remote. It now prints the whole banner and carries on; a boot hook
+  that refuses to start the session over a malformed config value is worse than the skip it
+  replaces. The same file gated the bootstrap on `-x`, D-019's shape exactly, and the gate is
+  now PRESENCE with the script invoked through `bash` — the dependency deleted rather than
+  policed, as D-019 prefers. `guard_repo_local` printed its section header only on finding a
+  guard, so `rm -rf scripts/guards` produced no header, no line and no count, and the ladder
+  stayed green: a rung that had vanished was indistinguishable from five guards that passed.
+  Header unconditional now, count always stated, absence a `skip` — an adopter with no
+  repo-local guards is not in error, the silence was.
+  **The blocker was in the new fixture helper, and it was D-027(a) word for word.**
+  `expect_pass_saying` asserted exit 0 plus a bare substring and nothing about the line's
+  verdict word — so demoting both new `skip` calls to `ok` left the suite 42/42 green while the
+  rung rendered an empty extension point exactly like one that had done work. That is the
+  entire property the unit exists to establish, verified by nothing, in a helper written after
+  the row recording that `expect_warn` had the same hole. The fix is at the call sites rather
+  than in the helper, because its three callers legitimately want different verdicts: the
+  pattern must now include `   skip  ` or `   ok    `, and the discipline is the caller's.
+  **Generalisation, one turn past D-027: a helper that cannot express the property is not an
+  excuse for asserting less — push the property to the caller and make it mandatory there.**
+  Also from the pass: the invalid-flag fixture built a bootstrap that announces itself and then
+  never checked it had stayed quiet, so the banner printing AND the bootstrap running anyway
+  was green; the unconditional section header had no fixture of its own; and `[ -f "$g" ]`
+  alone dropped a broken symlink or a directory whose name ends in .sh, after which the count line
+  claimed the directory held no `*.sh` — not silence this time but an affirmative false, the
+  same defect one level inside its own fix. Entries the glob matches are counted and named now,
+  and `scripts/guards` existing as a regular file no longer reports itself as absent.
+  Checked and clean, do not re-check: the `case $REMOTE_FLAG in` validation across 16 probed
+  values (hyphen, empty, leading digit, space, `*`, `?`, `[abc]`, `A]B`, `a$b`, UTF-8, `!`,
+  `PATH`, valid-but-unset, `_`) — no quoting or bracket-expression hazard.
