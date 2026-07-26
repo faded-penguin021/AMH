@@ -54,8 +54,9 @@ re-litigate them. **D-016** and **D-017** carry the corrections — do not re-in
 1. Tag `amh-v1.8.0` once the founding branch is merged. The release workflow now exists, so the
    tag verifies the tree, checks itself against `harness/VERSION`, and publishes the bundle.
 2. **Merge the train as ONE squash PR** whose body describes the net `origin/main..HEAD` diff,
-   not the last branch's. No PR template exists — `.github/` holds only `workflows/`. **The
-   drafted body is still not written**; it remains the open half of the wrap-up unit.
+   not the last branch's. No PR template exists — `.github/` holds only `workflows/`. The body
+   is drafted and waiting in `docs/SQUASH_PR_BODY.md`: copy it into the PR description and
+   delete the file, since a merged PR is its own record.
 
 **Open questions:**
 
