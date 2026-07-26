@@ -376,7 +376,12 @@
   this unit, since each adds false-positive surface that would ship unreviewed: userinfo with
   no colon (`https://<PAT>@dev.azure.com/…`, the documented Azure DevOps clone URL) is still
   missed, and `ASIA` + 16 uppercase characters redacts an ordinary run-together identifier.
-  Both are in the Owner queue. (c) A `D-006` citation belongs in `redact.sh`'s note about
+  Both are in the Owner queue. *(Correction pointer, 2026-07-26: neither is, now. The `ASIA`
+  half was resolved to knowingly ACCEPTED and the reasoning sits at the class itself in
+  `scripts/redact.sh`, which is the authority; the colon-less-userinfo half is an open finding
+  in `docs/STATE.md` with a settled direction, not an owner decision. Read this clause for what
+  was deferred and why, never for where either gap currently sits.)* (c) A `D-006` citation
+  belongs in `redact.sh`'s note about
   `local a=$1 b=${2:-"X$a"}` failing under `set -u`, and is deliberately absent: `redact.sh`
   is a SHIPPED script, and a `D-NNN` citation inside one resolves against the ADOPTER's
   ledger, where no such row exists. The shipped `ladder.sh` already cites D-004 this way; the
@@ -472,6 +477,12 @@
   (they agree today; adding a template placeholder and forgetting the list is silent, and the
   guard for it needs its own fixture, so it is queued not bolted on), and the merge-mode placeholder in
   the seed constitution stays a human's sentence even though the script knows the answer.
+  *(Correction pointer, 2026-07-26: the first of those two non-fixes did not stay queued — the
+  binding shipped later the same day. It is `scripts/amh-init.sh`, which derives the `init` rows
+  from `harness/PLACEHOLDERS.md` and dies on a mismatch, an empty derived set included; the
+  fixture the row asked for is in `scripts/tests/test-init-e2e.sh`, covering both directions.
+  Read this row for why it was deferred, not for the current state. The second non-fix, the
+  merge-mode placeholder in the seed constitution, stands.)*
 - D-026: **`shellcheck` is CI-only by constitutional carve-out, and the cost of that is a
   verification rung the agent cannot see.** Recorded because it is repeatedly mistaken for a
   deviation from "no new dependencies" and is not one: `AGENTS.md` states the exception in the

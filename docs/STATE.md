@@ -4,11 +4,12 @@
 > — never to just under the cap, or the warning re-arms next session; the band IS the debounce.
 > Fail above **16 KB**. That floor is a **ceiling, not a target**: aim comfortably below it.
 > Trimming word by word until the guard goes quiet is the same micro-trim reflex the band exists
-> to break, one band lower, and it leaves no headroom for the next session's growth. Above the cap the ladder tells an ordinary edit from a compression pass
-> by how far the file shrank (`STATE_EDIT_DELTA_BYTES`), so fixing a typo up here is allowed and
-> still owes the compression (**D-027**). Compress by folding completed stages into Changelog
-> lines and moving durable gotchas to the ledger, not by cutting text into a new file. The
-> ladder checks the caps, the landing, and that `## Project` / `## Current state` /
+> to break, one band lower, and it leaves no headroom for the next session's growth. Above the
+> cap the ladder tells an ordinary edit from a compression pass by how far the file shrank
+> (`STATE_EDIT_DELTA_BYTES`), so fixing a typo up here is allowed and still owes the compression
+> (**D-027**). Compress by folding completed stages into Changelog lines and moving durable
+> gotchas to the ledger, not by cutting text into a new file. The ladder checks the caps, the
+> landing, and that `## Project` / `## Current state` /
 > `## Changelog` exist and are non-empty; it only *warns* if `## Owner queue` vanishes. Nothing
 > judges whether what survived is any good. Never drop an open owner-queue item.
 
@@ -51,7 +52,8 @@ re-litigate them. **D-016** and **D-017** carry the corrections — do not re-in
 - **D-022** — colon-less URL userinfo (the documented Azure DevOps PAT clone URL) is missed. Add
   a class requiring ≥ 20 characters of userinfo before the `@`, excluding `git@host` at three.
   Every negative fixture MID-LINE: for a filter that is also a gate, a false positive switches
-  the whole filter off while a miss leaks one secret. The row's second half is accepted, not open.
+  the whole filter off while a miss leaks one secret. The row's second half — `ASIA` + 16
+  uppercase characters redacting an ordinary identifier — is **accepted, not open**.
 - **D-023 — de-cite the shipped scripts.** A citation promises the ID resolves, and in an
   adopter's tree `D-004` never can. Strip the guard-visible tokens (D-007 ×5 in
   `command-guard.sh`, D-004 ×2 and D-019 ×1 in `ladder.sh`, D-004 ×1 in `redact.sh`), keep the
