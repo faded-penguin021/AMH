@@ -30,7 +30,11 @@
 > resolves here before you lean on or reword a row. Known Goodhart path, unguarded: the
 > cheapest way to strip a protected row's marker is to delete the code comment citing it,
 > which the guard then *requires*. If you find yourself doing that, you are removing the
-> warning rather than heeding it.
+> warning rather than heeding it. **One carve-out, and only one:** a citation inside a
+> SHIPPED script is not a citation at all in the tree that receives it — those rows are
+> ours and can never exist in an adopter's ledger — so removing one is correcting a false
+> promise, not evading a warning. The reasoning prose stays and the row is named in a form
+> the guard does not read (`AMH ledger row DNNN`). Anywhere else, the sentence above binds.
 
 - D-001 [cited]: **This repository is both the harness's source of truth and its reference
   instance.** The distributed product lives under `harness/`; the repo's own instance is
@@ -51,13 +55,16 @@
   `scripts/guards/*.sh` for repo-specific guards, and `scripts/verify.sh` for the full
   test/build/lint rung. A repo that finds itself editing `scripts/ladder.sh` has found a
   missing extension point — fix it upstream in the template, not locally.
-- D-004 [cited]: **The redaction filter is also the secret-shape scan.** The ladder does not carry a
+- D-004: **The redaction filter is also the secret-shape scan.** The ladder does not carry a
   second copy of the token patterns; it pipes each text file through `scripts/redact.sh` and
   fails if the output differs. The scan is therefore drift-free by construction. Two
   consequences that have already bitten: any fixture token must be generated at runtime
   (a stored literal makes a file permanently fail its own scan — `redact.sh`'s self-test
   caught exactly this on the day it was written), and the diagnostic reports the file and
   byte position only, never the match.
+  *(No `[cited]` marker, deliberately: the shipped `ladder.sh` and `redact.sh` lean on this
+  row in prose and name it as `AMH ledger row D004`, which the citation guard does not read
+  as a citation and cannot mark. Reword this row with those two files open; **D-030**.)*
 - D-005: **The founding units installed this repo's legislation with no fresh-context rule
   review.** AMH P12 requires a fresh-context, strongest-tier review for every binding-rule
   diff and allows no self-review fallback. For U1–U2 there was no prior constitution to
@@ -71,13 +78,16 @@
   declaration. Shipped live in `command-guard.sh`'s segment splitter on day one and broke
   every single check; the self-test caught it immediately, which is the argument for rails
   carrying their own matrices.
-- D-007 [cited]: **Matching a forbidden word anywhere in a command instead of in its argument
+- D-007: **Matching a forbidden word anywhere in a command instead of in its argument
   position.** The command guard scanned every token after `git` for `push`, so
   `git commit -m "never git push --force"` was blocked by its own commit message. Quoted
   text is DATA. The fix — resolve the git *subcommand* (skipping global flags), then judge
   only a real `push` — is the general rule: match a token's position, not its presence.
   This is the second of the two false-positive classes the harness warns about, and both
   surfaced within an hour of the guard existing.
+  *(No `[cited]` marker, deliberately: `command-guard.sh` leans on this row in four places
+  and names it as `AMH ledger row D007`, invisible to the citation guard by design. Reword
+  this row with that file open; **D-030**.)*
 - D-008: **A guard's fixture must be shown to fail without the guard.** Run the mutation
   before believing a new fixture — delete or neuter the guard and confirm the fixture goes
   red. A fixture that passes against the broken code is a false sense of protection, which is
@@ -386,6 +396,11 @@
   is a SHIPPED script, and a `D-NNN` citation inside one resolves against the ADOPTER's
   ledger, where no such row exists. The shipped `ladder.sh` already cites D-004 this way; the
   class is real, is not this unit's to fix, and is queued.
+  *(Correction pointer, 2026-07-26: the second sentence is now false and the class is closed —
+  no shipped script cites anything. Every `D-NNN` in the shipped scripts was rewritten as a
+  provenance token the citation regex does not match. Read this clause for why the absent
+  `D-006` citation was the right call, never for what the shipped scripts currently contain;
+  **D-030**.)*
 - D-023 [cited]: **A dangling citation is a symptom; the disease is that nobody ever walked the path.**
   D-017 B11 is closed — `CONTRIBUTING.md` and `scripts/amh-init.sh` exist, so RUNBOOK playbook
   5 is followable and the `.claude/settings.json` pre-allow points at a real script — and with
@@ -608,3 +623,36 @@
   Checked and clean, do not re-check: the `case $REMOTE_FLAG in` validation across 16 probed
   values (hyphen, empty, leading digit, space, `*`, `?`, `[abc]`, `A]B`, `a$b`, UTF-8, `!`,
   `PATH`, valid-but-unset, `_`) — no quoting or bracket-expression hazard.
+- D-030: **A citation is a promise that the ID resolves, so a shipped script must not make
+  one.** D-023 is closed, and closed by RETRACTING the previous fix rather than extending it.
+  The shipped scripts carried `D-NNN` comments naming this repository's ledger rows — D-007 ×5
+  in `command-guard.sh`, D-004 ×2 and D-019 ×2 in `ladder.sh`, D-004 ×1 in `redact.sh` — and
+  those rows are ours and can never exist in an adopter's ledger, so an adopter's very first
+  ladder run failed on rows they could not have written. The earlier repair excluded the
+  shipped scripts in the shipped `amh.conf.example`, and that was the wrong half: `amh.conf` is
+  the adopter's forever and this harness cannot upgrade it, so shipping the longer exclusion
+  list would have turned every EXISTING adopter's ladder red until they hand-edited a file they
+  were told they own. A fix that requires the person you broke to repair it by hand is not a
+  fix. The tokens are gone instead; the reasoning prose stays, and each row is named as
+  `AMH ledger row DNNN`, which the citation regex (`D[A-Z]?-[0-9]+`) does not match, so a
+  harness maintainer can still find it. Each shipped script says in its header why the
+  references are written that way, so the next editor does not helpfully "fix" them back.
+  **Accepted cost, owner-approved and paid in this unit:** D-004 and D-007 lose their `[cited]`
+  markers and the both-directions check that came with them, dropped here because a stale
+  marker fails the ladder. D-019 keeps its — `path-refs.sh`, a repo-local guard, still cites
+  it, and the guard is the authority, not the prose. Both demarked rows now carry a note saying
+  which shipped files lean on them, because the marker existed to warn a future editor and
+  nothing else does that job.
+  The review pass found no blocker, which is the first time in seventeen units, and it is worth
+  saying why: it did the thing D-023 exists to record. It instantiated a fresh adopter with
+  `amh-init.sh` and ran that repo's FULL ladder — `0 citation(s) resolve; markers in sync`, no
+  hand-editing — then proved the property is guarded by planting a `D-004` in `redact.sh` and
+  watching `test-init-e2e.sh` go red with the adopter's original error. **The first run of a
+  path is still worth more than any amount of reading it.** What it did catch was prose:
+  D-022's clause (c) asserted "the shipped `ladder.sh` already cites D-004 this way", true when
+  written and false now, so it gained a correction pointer; the `[cited]` preamble warns that
+  deleting a code comment to strip a marker is evading the warning, which is exactly what this
+  unit does and is right to do, so the preamble gained its one carve-out; and both the config
+  comment and the CHANGELOG entry had grown nine lines narrating a rejected fix no adopter ever
+  received, permanently, in files the harness cannot upgrade. **Generalisation: an
+  un-upgradeable artifact is the wrong place to explain yourself — say what is true now.**

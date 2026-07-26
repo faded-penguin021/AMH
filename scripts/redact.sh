@@ -21,6 +21,13 @@
 #                                 secret-shaped string in the tree)
 #
 # Shipped by the Agentic Maintenance Harness. Repo-agnostic: do not edit locally.
+#
+# On `AMH ledger row DNNN` references below: they point at the HARNESS's ledger, which
+# explains why this script is shaped the way it is. They are deliberately NOT written as
+# `D-NNN` citations, because a citation is a promise that the ID resolves — and in your
+# repository it never can, since those rows are ours and cannot appear in your ledger.
+# Written as citations they made the ladder's citation guard fail on a repo its owner had
+# not yet touched, for rows they could not have written.
 
 set -euo pipefail
 
@@ -320,8 +327,8 @@ self_test() {
 	# The comparison lives in its own function so the SC2094 waiver covers ONE pipeline
 	# and nothing else. Inline, the directive had to sit on the enclosing `if`, which
 	# silenced SC2094 for the whole body — and SC2094 is the check for clobbering a
-	# file. Blinding it inside the repo's entire secret scan (D-004) is the exact shape
-	# of hole this guard exists to prevent.
+	# file. Blinding it inside the repo's entire secret scan (AMH ledger row D004) is the
+	# exact shape of hole this guard exists to prevent.
 	if [ -f "${BASH_SOURCE[0]}" ]; then
 		if ! clean_under_filter "${BASH_SOURCE[0]}"; then
 			printf 'SELF-TEST FAIL: redact.sh is not clean under its own filter\n' >&2

@@ -38,10 +38,10 @@ did. What changed otherwise is the harness's form:
 
 ### Upgrading
 
-- **If you instantiated a 1.x harness by hand**, add the shipped scripts to
-  `CITATION_EXCLUDE` in your `amh.conf` (the template's current value lists them). Their
-  `D-NNN` comments cite the *harness's* ledger, and without the exclusion your citation
-  guard fails on rows your ledger cannot contain.
+- **Nothing to change in `amh.conf`.** The shipped scripts used to carry `D-NNN` comments
+  citing the *harness's* ledger, which failed your citation guard on rows your ledger cannot
+  contain. They no longer cite anything — the references are written in a form the guard does
+  not read as a citation — so no exclusion is needed and no config edit is asked of you.
 
 - **Check that `scripts/verify.sh` is executable** (`chmod 755 scripts/verify.sh`). It is the
   one file whose execute bit is load-bearing: the ladder refuses to run a verification set it

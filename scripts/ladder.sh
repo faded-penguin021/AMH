@@ -14,6 +14,13 @@
 #
 # No `set -e`: every guard must run so one change gets ONE complete report instead of
 # a whack-a-mole sequence of first failures. Failures are counted, not thrown.
+#
+# On `AMH ledger row DNNN` references below: they point at the HARNESS's ledger, which
+# explains why this script is shaped the way it is. They are deliberately NOT written as
+# `D-NNN` citations, because a citation is a promise that the ID resolves — and in your
+# repository it never can, since those rows are ours and cannot appear in your ledger.
+# Written as citations they made the ladder's citation guard fail on a repo its owner had
+# not yet touched, for rows they could not have written.
 
 set -uo pipefail
 
@@ -320,8 +327,8 @@ guard_citations() {
 
 guard_secret_shapes() {
 	section "Secret-shape scan (the redaction filter IS the scan)"
-	# This guard is the repo's ENTIRE secret scan (D-004), so it must not be possible
-	# to switch it off by accident. It used to test `-x` and print `skip` when the bit
+	# This guard is the repo's ENTIRE secret scan (AMH ledger row D004), so it must not be
+	# possible to switch it off by accident. It used to test `-x` and print `skip` when the bit
 	# was missing: `chmod -x scripts/redact.sh` — or an archive download, or
 	# core.fileMode=false — turned the scan into a green line with a live credential
 	# sitting in the tree. Presence is now the question, and the answer to "absent" is
@@ -337,7 +344,7 @@ guard_secret_shapes() {
 	# the rung prints ok. A positive control first, so the scan has to prove it can
 	# still catch something before its silence is allowed to mean anything. The token is
 	# generated at runtime: a stored literal would make this file fail its own scan
-	# (D-004).
+	# (AMH ledger row D004).
 	local canary
 	# Bounded read, then slice: `tr </dev/urandom | head -c N` leaves tr writing into a
 	# closed pipe, so every run printed `tr: write error: Broken pipe` into the ladder's
@@ -394,7 +401,7 @@ guard_poison_tokens() {
 		# WARN, not skip. Without `origin/$DEFAULT_BRANCH` this guard has nothing to diff
 		# against and checks nothing — it ran inert in the reference repo for its entire
 		# life while printing a line that read like a considered pass. A guard that is
-		# switched off must say so more loudly than one that passed (D-019).
+		# switched off must say so more loudly than one that passed (AMH ledger row D019).
 		warn "no $DEFAULT_BRANCH reference to compare against — this guard checked NOTHING. Fetch it (\`git fetch origin $DEFAULT_BRANCH\`) or accept that poison tokens are unguarded locally."
 		return
 	fi
@@ -440,8 +447,8 @@ guard_rail_selftests() {
 # count — and the ladder stayed green. An empty extension point is a legitimate state for
 # an adopter who has earned no repo-local guards yet; printing NOTHING for it is not, and
 # it is indistinguishable from five guards that all passed silently. The disabled state
-# must be louder than the passing one (D-019), so absence gets a `skip` line, the
-# convention this script uses everywhere else, and the count is stated either way.
+# must be louder than the passing one (AMH ledger row D019), so absence gets a `skip` line,
+# the convention this script uses everywhere else, and the count is stated either way.
 guard_repo_local() {
 	section "Repo-local guards"
 	if [ -e scripts/guards ] && [ ! -d scripts/guards ]; then

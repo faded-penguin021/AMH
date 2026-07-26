@@ -26,6 +26,13 @@
 # Exit codes: 0 = allowed (or fail-open), 2 = blocked (reason on stderr).
 #
 # Shipped by the Agentic Maintenance Harness. Repo-agnostic: do not edit locally.
+#
+# On `AMH ledger row DNNN` references below: they point at the HARNESS's ledger, which
+# explains why this script is shaped the way it is. They are deliberately NOT written as
+# `D-NNN` citations, because a citation is a promise that the ID resolves — and in your
+# repository it never can, since those rows are ours and cannot appear in your ledger.
+# Written as citations they made the ladder's citation guard fail on a repo its owner had
+# not yet touched, for rows they could not have written.
 
 set -uo pipefail
 
@@ -110,7 +117,8 @@ split_segments() {
 	# NUL-separated: a quoted NEWLINE stays inside its segment (a commit message body
 	# is one argument), and a newline-separated round-trip would re-split it — turning
 	# the body's second line into a leading command and blocking a commit on its own
-	# message. That is D-007's class arriving through the transport instead of the scan.
+	# message. That is the AMH ledger row D007 class arriving through the transport
+	# instead of the scan.
 	printf '%s\0' "${out[@]}"
 }
 
@@ -376,8 +384,8 @@ is_env_dump_builtin() {
 # Split a segment into words on UNQUOTED whitespace, then remove the quote
 # characters. `cat ".env"` names a file; the pattern in `grep -q "cat .env" f` is ONE
 # word containing a space and names nothing. Raw `${var}` word-splitting cannot tell
-# them apart — it is the same presence-vs-position error D-007 records for `<`, and it
-# is why the operand scan blocked a grep for the string ".env".
+# them apart — it is the same presence-vs-position error AMH ledger row D007 records for
+# `<`, and it is why the operand scan blocked a grep for the string ".env".
 split_words() {
 	local s=$1
 	local i=0 n=${#s} c q='' start=-1 w
@@ -433,8 +441,9 @@ UNQUOTED=''
 # Emit the target of each UNQUOTED input redirection, one per line. POSITION, not
 # presence: the shipped scan read the word-split argv, so any `<` anywhere was a
 # redirection and `git commit -m "never read < .env directly"` was BLOCKED on its own
-# commit message — D-007 verbatim, the exact false-positive class this guard's design
-# rules open with. Quoted text is data. `<<` and `<<<` redirect from text rather than
+# commit message — AMH ledger row D007 verbatim, the exact false-positive class this
+# guard's design rules open with. Quoted text is data. `<<` and `<<<` redirect from text
+# rather than
 # from a file and are skipped; a digit prefix (`0<file`) is just an fd number and
 # needs no special case, since the `<` is what this scan looks for.
 redirect_targets() {
@@ -975,8 +984,8 @@ printenv'
 	st_allowed 'grep -q "cat .env" <<< "$line"'
 	st_allowed 'echo $((1 << 8))'
 	# A commit BODY is one quoted argument. Splitting the guard's own segment stream on
-	# newlines re-split it and made the body's second line a leading command — D-007's
-	# class arriving through the transport rather than the scan.
+	# newlines re-split it and made the body's second line a leading command — that is
+	# the AMH ledger row D007 class, arriving through the transport rather than the scan.
 	st_allowed 'git commit -m "Fix the guard.
 
 cat .env was blocked by its own message.
@@ -984,7 +993,7 @@ cat .env was blocked by its own message.
 	st_allowed 'git commit -m "line one
 git push --force origin main
 "'
-	# `<` inside quoted text is prose, not a redirection (D-007).
+	# `<` inside quoted text is prose, not a redirection (AMH ledger row D007).
 	st_allowed 'git commit -m "never read < .env directly"'
 	st_allowed "git commit -m 'use < .env nowhere'"
 	st_allowed 'echo "a < b"'

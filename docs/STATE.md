@@ -47,13 +47,6 @@ re-litigate them. **D-016** and **D-017** carry the corrections — do not re-in
   Every negative fixture MID-LINE: for a filter that is also a gate, a false positive switches
   the whole filter off while a miss leaks one secret. The row's second half — `ASIA` + 16
   uppercase characters redacting an ordinary identifier — is **accepted, not open**.
-- **D-023 — de-cite the shipped scripts.** A citation promises the ID resolves, and in an
-  adopter's tree `D-004` never can. Strip the guard-visible tokens (D-007 ×5 in
-  `command-guard.sh`, D-004 ×2 and D-019 ×1 in `ladder.sh`, D-004 ×1 in `redact.sh`), keep the
-  prose, append a provenance token the citation regex does not match. Revert `CITATION_EXCLUDE`
-  in the shipped `amh.conf.example` to the fixtures only and drop the CHANGELOG note about it —
-  `amh.conf` is the adopter's forever. **Accepted cost:** D-004 and D-007 lose their `[cited]`
-  markers, dropped in the same unit or the ladder fails on stale markers; D-019 keeps its.
 ## Owner queue
 
 > **Protected section.** Never delete it, and never silently drop items during compression.
@@ -97,6 +90,10 @@ being on machinery consuming a self-report rather than on a sentence a human may
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-26 — **The shipped scripts stopped citing a ledger they do not ship with** (D-023).
+  Closed by RETRACTING the previous fix: the `CITATION_EXCLUDE` route would have turned every
+  existing adopter's ladder red until they hand-edited a config they own forever. D-004 and
+  D-007 lose their `[cited]` markers as the accepted cost; D-019 keeps its. **D-030**.
 - 2026-07-26 — **B7 + B8, the loudness rule applied** (D-019): `session-start.sh` validates
   `REMOTE_FLAG` and gates the bootstrap on presence rather than its exec bit; `guard_repo_local`
   always prints its header and the count it ran. Its pass found **D-027(a) repeated verbatim** in
