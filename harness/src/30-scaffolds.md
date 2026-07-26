@@ -22,6 +22,13 @@ inside the debounce band instead of reaching the compression floor. Pick numbers
 warn − compress-to spans many sessions of growth and hard − warn leaves one long session of
 margin — 9 / 14 / 16 KB is a working example.
 
+Say in the file itself that the compression floor is a **ceiling, not a target**. Every phrasing
+of the rule is naturally read as "land at the floor", and an agent that reads it that way will
+shave words one at a time until the guard goes quiet — the micro-trim reflex the band exists to
+break, reappearing one band lower and leaving no headroom for the next session. Do not add a
+second threshold to enforce the aim point: it would warn on a perfectly good compression pass,
+and "is 8 enough?" is a question with no answer.
+
 The landing check judges the shrink's *size* as well as where it lands, which is why
 `STATE_EDIT_DELTA_BYTES` exists. Its first form treated every byte lost above the soft cap as a
 compression pass in progress, and that reading fails a three-byte typo fix: go to the floor or

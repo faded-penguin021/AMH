@@ -646,6 +646,13 @@ inside the debounce band instead of reaching the compression floor. Pick numbers
 warn − compress-to spans many sessions of growth and hard − warn leaves one long session of
 margin — 9 / 14 / 16 KB is a working example.
 
+Say in the file itself that the compression floor is a **ceiling, not a target**. Every phrasing
+of the rule is naturally read as "land at the floor", and an agent that reads it that way will
+shave words one at a time until the guard goes quiet — the micro-trim reflex the band exists to
+break, reappearing one band lower and leaving no headroom for the next session. Do not add a
+second threshold to enforce the aim point: it would warn on a perfectly good compression pass,
+and "is 8 enough?" is a question with no answer.
+
 The landing check judges the shrink's *size* as well as where it lands, which is why
 `STATE_EDIT_DELTA_BYTES` exists. Its first form treated every byte lost above the soft cap as a
 compression pass in progress, and that reading fails a three-byte typo fix: go to the floor or
@@ -668,7 +675,10 @@ session's first read cheap.
 > **Length guard (read before editing — hysteresis).** Grow freely to **{{WARN_KB}} KB**; no
 > trimming below that line. When the guard warns, run ONE deep compression pass to
 > **≤ {{COMPRESS_TO_KB}} KB** — never trim to just under the threshold (micro-trims re-arm the
-> warning a session later; the wide band IS the debounce, statelessly). Fail above
+> warning a session later; the wide band IS the debounce, statelessly). That number is a
+> **ceiling, not a target**: aim comfortably below it. Trimming word by word until the guard
+> stops complaining is the same reflex the band exists to break, and it leaves no headroom for
+> the next session's growth. Fail above
 > **{{HARD_KB}} KB**. Compression means: collapse each completed work stage into one Changelog
 > line, fold changelog clusters, move any durable gotcha into the append-only ledger, delete
 > narrative prose. **Project**, **Current state** and **Owner queue** must always survive
