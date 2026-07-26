@@ -131,5 +131,40 @@ mkdir -p "$d/docs/plans"
 printf 'Build `scripts/does-not-exist.sh` next.\n' >"$d/docs/plans/future.md"
 expect pass "path-refs: a plan may name a path it has not built yet" "$d" path-refs.sh
 
+# A bare filename with no slash. The backtick pattern required an embedded slash, so a
+# repo-ROOT file could not match it and a citation to one could never fail — which is how
+# CONTRIBUTING.md stayed cited five times while absent, inside the guard admitted to close
+# that incident.
+d=$(snapshot refs_bare_missing)
+# shellcheck disable=SC2016 # literal backticks: same fixture form as above.
+printf '\nRead `NOTHING_HERE.md` first.\n' >>"$d/docs/RUNBOOK.md"
+expect fail "path-refs: a cited bare filename that exists nowhere" "$d" path-refs.sh "no file by that name"
+
+# The other half, and the reason bare names resolve by BASENAME rather than from the repo
+# root: the prose says `STATE.md`, never `docs/STATE.md`. A root-relative test would call
+# that broken, and a guard that cries wolf on the house style gets ignored — which is why
+# the root-relative widening was rejected at 24 hits for 2 true positives.
+d=$(snapshot refs_bare_subdir)
+# shellcheck disable=SC2016 # literal backticks: same fixture form as above.
+printf '\nRead `STATE.md` first.\n' >>"$d/docs/RUNBOOK.md"
+expect pass "path-refs: a bare filename resolves from a subdirectory" "$d" path-refs.sh
+
+# The match must be WHOLE-LINE. Dropping `-x` left every fixture above green while
+# `TATE.md` and `adder.sh` resolved as substrings of real basenames — a citation to a
+# file that does not exist, reported as resolving, which is the entire failure this
+# section was added to stop.
+d=$(snapshot refs_bare_substring)
+# shellcheck disable=SC2016 # literal backticks: same fixture form as above.
+printf '\nRead `TATE.md` first.\n' >>"$d/docs/RUNBOOK.md"
+expect fail "path-refs: a bare name that is only a substring of a real file" "$d" path-refs.sh "no file by that name"
+
+# `git ls-files` answers from the index, so a file removed with plain `rm` is still listed.
+# Resolving against that made a citation to a deleted file read as resolving.
+# `amh.conf` rather than a `.md` file: deleting one of the scanned documents would also
+# trip sections (a) and (b), so the fixture could pass without section (c) working.
+d=$(snapshot refs_bare_deleted)
+rm "$d/amh.conf"
+expect fail "path-refs: a bare name whose file was deleted but is still in the index" "$d" path-refs.sh "no file by that name"
+
 printf '\n%d passed, %d failed\n' "$PASSED" "$FAILED"
 [ "$FAILED" -eq 0 ]

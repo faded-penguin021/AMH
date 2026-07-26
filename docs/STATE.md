@@ -1,21 +1,12 @@
 # STATE — project state & session memory
 
-> **Length guard (read before editing — hysteresis).** Grow freely to **14 KB**; no trimming
-> below that line. When the guard warns, run ONE deep compression pass to **≤ 9 KB** — never
-> trim to just under the threshold (micro-trims re-arm the warning a session later; the wide
-> band IS the debounce). Fail above **16 KB**. Compression means: collapse each completed work
-> stage into one Changelog line, fold changelog clusters, move any durable gotcha into the
-> append-only ledger, delete narrative prose.
->
-> **What the ladder actually enforces**, so nobody mistakes prose for a gate: it fails over
-> 16 KB; it fails a trim that starts above 14 KB and stops above the 9 KB floor (in either
-> direction — crossing the cap or not); it fails if **`## Project`**, **`## Current state`**
-> or **`## Changelog`** is missing *or emptied of content*; and it **warns only** if
-> `## Owner queue` disappears, because closing the owner's items is the owner's call, not a
-> build failure. Everything else here is prose: nothing detects a 13 KB → 5 KB trim, nothing
-> can tell real compression from cutting 6 KB out into a new file, and no guard judges
-> whether what survived is any good. Owner-queue items are the owner's to close — compress
-> their prose, never drop an open item.
+> **Length guard (hysteresis).** Grow freely to **14 KB**; over it, ONE deep pass to **≤ 9
+> KB** — never to just under the cap, or the warning re-arms next session; the band IS the
+> debounce. Fail above **16 KB**. Compress by folding completed stages into Changelog lines
+> and moving durable gotchas to the ledger, not by cutting text into a new file. The ladder
+> checks the caps, the landing, and that `## Project` / `## Current state` / `## Changelog`
+> exist and are non-empty; it only *warns* if `## Owner queue` vanishes. Nothing judges
+> whether what survived is any good. Never drop an open owner-queue item.
 
 ## Project
 
@@ -30,47 +21,26 @@ scripts it ships.
 
 ## Current state
 
-> **Session handoff (2026-07-26).** Work is on `claude/owner-queue-attestation-fixes-guh973`,
-> stacked on `claude/owner-queue-attestation-der6bl` and through it on the founding branch.
-> The topology is a **branch train** and `amh.conf` now says so (owner decision, 2026-07-26).
-> **The defect list is D-016 and D-017 — read them, and do NOT re-investigate: both authorised
-> hostile passes have run and only the fixing is left.** Two of five planned units shipped
-> this session; **units 3, 4 and 5 below are the next session's scope, in order.** The build
-> plan is committed at `docs/plans/amh-meta-repository.md` with a status preamble recording
-> where the built tree departs from it.
+> **Session handoff (2026-07-26).** Work is on
+> `claude/owner-queue-attestation-fixes-8yq4br`, the tip of the branch train (main ←
+> `...-tb2myi` ← `...-der6bl` ← `...-guh973` ← `...-guzkor` ← here); `amh.conf` says
+> `branch-train` by owner decision. **All five repair units are shipped.** What is left is
+> the unbuilt half of U5/U6 and the unscoped findings below — not a defect list. The build
+> plan is at `docs/plans/amh-meta-repository.md`, stale by design about U6.
 
-Founding build (`claude/amh-meta-repository-tb2myi`): **U1–U4 done** — self-hosting core,
-legislation, adopter templates, harness prose + generated bundle.
+Founding build (`claude/amh-meta-repository-tb2myi`): **U1–U4 done**. Still open from the
+plan:
 
-- [~] **U5 — Version, changelog, upgrade path.** `VERSION`, `CHANGELOG`, `UPGRADING`,
-      `version-lockstep.sh`, MIT `LICENSE` in. Open: the release workflow, and
-      mirroring the review's prose corrections into `harness/templates/seed/**` and
-      `harness/src/**` (they landed in this repo's instance first).
-- [ ] **U6 — README, CONTRIBUTING, `amh-init.sh`, end-to-end test.**
+- **U5** — the release workflow; and the review's prose corrections need mirroring into
+  `harness/templates/seed/` and `harness/src/` (they landed in this repo's instance first).
+- **U6** — `README.md` is still the 5-byte stub the plan's own Context describes as the
+  *starting* condition, so U6's README was never written; and the planned end-to-end init
+  test does not exist, so instantiation is verified only by hand.
 
-**Repair units — 4 of 5 shipped.** Each takes ONE fresh-context reviewer, blocking, one pass
-(D-015): triage, apply, ship, no re-review. Spawning it is required, not a thing to ask about.
-
-- [x] **Unit 1 — the shipped command guard.** D-016 items 1–7 + D-017 B12. Shipped `d95dd1d`.
-- [x] **Unit 2 — the ladder blocker and the fixture gaps.** D-017 B1–B3, and B9/B10 which its
-      review pass reproduced (a truncated or pass-through `redact.sh` reported every file
-      clean). **D-019**, **D-020**. B4 is closed for the fixture suite; its second half —
-      `guard_poison_tokens` being inert in THIS repo because `origin/main` did not resolve
-      locally — is now a **WARN** rather than a silent skip. A fresh clone will warn again;
-      `git fetch origin main` is the fix and makes the guard real (done here, now `ok clean`).
-- [x] **Unit 3 — CI green for the first time in the repo's history** (run 14). D-016 items 8
-      and 9. Scripts fixed, `verify.sh` untouched; `checkout@v5` in both workflow and
-      template. The `tr: … Broken pipe` was noise, not a skip — removed anyway. Its review
-      pass found the fix had put two lint waivers on whole compound commands, blinding
-      SC2016 across `path-refs.sh`'s loop and SC2094 inside the secret scan: **D-021**.
-- [x] **Unit 4 — `redact.sh` now matches the live credential shapes.** D-017 B5/B6.
-      Open-ended lengths (no class may print a token's tail), an exact-match self-test
-      assertion — the change that makes B6 findable at all — and that assertion is itself
-      fixture-covered. Its review pass found the widened URL and Bearer classes eating
-      one-line JSON and ordinary prose: **D-022**.
-- [ ] **Unit 5 — `CONTRIBUTING.md` and `amh-init.sh` are cited but do not exist** (D-017 B11),
-      which makes RUNBOOK playbook 5 unfollowable. `path-refs.sh` cannot see repo-root files
-      by construction: its pattern requires an embedded slash.
+**Repair units — all 5 shipped** (D-016, D-017; see the Changelog and **D-019**…**D-025**).
+Each took ONE fresh-context reviewer, blocking, one pass (D-015): triage, apply, ship, no
+re-review — spawning it is required, not a thing to ask about. **Every one of the five had its
+blocker inside the fix, not in the original defect.** Budget for that.
 
 ## Owner queue
 
@@ -97,82 +67,82 @@ legislation, adopter templates, harness prose + generated bundle.
    relabel a corrected diff as a new unit and claim a fresh pass. No mechanical definition of a
    unit exists. Your call whether to bound it or accept it as prose-only.
 
-**Open findings.** **D-016** and **D-017** hold them; **read those rows before any new unit,
-and do not re-investigate — both authorised hostile passes have run and only the fixing is
-left.** Units 1–4 closed D-016 items 1–9, D-017 B1–B3, B5/B6, B9/B10 and B12; those rows
-carry the corrections. **Still open:** `CONTRIBUTING.md` and `amh-init.sh` are cited but do
-not exist, and `path-refs.sh` cannot see repo-root files by construction (**B11** → Unit 5).
-**Unscoped, no unit yet:** `session-start.sh` skips the toolchain bootstrap when
-`REMOTE_FLAG` is not a shell identifier (**B7**); `rm -rf scripts/guards` leaves the ladder
-green with no output at all (**B8**); the STATE landing check cannot tell a typo fix from a
-compression pass above the soft cap (**D-016 item 11**); two knowingly-deferred redaction
-gaps from **D-022** — colon-less URL userinfo (the Azure DevOps PAT clone URL) is missed, and
-`ASIA` + 16 uppercase characters redacts an ordinary identifier; and a class question that is
-bigger than any of them — a `D-NNN` citation inside a SHIPPED script resolves against the
-*adopter's* ledger, where the row does not exist (`ladder.sh` cites D-004 today).
+**Open findings.** Every finding that had a unit is fixed; **D-016** and **D-017** carry the
+corrections and should not be re-investigated. **Unscoped, still open:**
 
+- **B7** — `session-start.sh` skips the toolchain bootstrap when `REMOTE_FLAG` is not a shell
+  identifier. Narrowed at the source (`amh-init.sh` refuses to write such a value), not fixed.
+- **B8** — `rm -rf scripts/guards` leaves the ladder green with no output at all.
+- **D-016 item 11** — the STATE landing check cannot tell a typo fix from a compression pass
+  above the soft cap. Do **not** fix by widening the band; that reopens D-011.
+- **D-022** — two deliberately deferred redaction gaps: colon-less URL userinfo (the Azure
+  DevOps PAT clone URL) is missed, and `ASIA` + 16 uppercase characters redacts an ordinary
+  identifier.
+- **D-023, mitigated not resolved** — a `D-NNN` citation inside a SHIPPED script resolves
+  against the *adopter's* ledger, where the row cannot exist; it made an adopter's first run
+  red. The shipped `amh.conf.example` now excludes those scripts from the citation scan.
+  Whether shipped code should cite this ledger at all decides fix vs. plaster.
+- **D-025** — nothing binds `INIT_PLACEHOLDERS` in `amh-init.sh` to the `init` rows of
+  `harness/PLACEHOLDERS.md`; they agree today, and a new template placeholder would diverge
+  silently.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
-- **2026-07-25 — Rendering scripts from placeholder templates.** Declined. The shipped
-  scripts read `amh.conf` at runtime instead, which deletes the rendered-vs-template drift
-  class entirely rather than policing it. See D-002.
-- **2026-07-25 — Doc-fact guards (AMH P20) for this repo's prose. OVERTURNED same day.**
-  Declined on the grounds that no claim had drifted; the rule review then found five that
-  had (D-010). P20's incident bar is met, so `version-lockstep.sh` and `path-refs.sh` are
-  admitted. The bar itself stands: still no guard for a claim that has not yet rotted.
-- **2026-07-25 — A markdown link checker in the ladder. OVERTURNED same day.** Declined on
-  "no broken link has cost anything yet"; three dangling references were shipped within the
-  day, one of which made a playbook unfollowable. `path-refs.sh` is the narrow form: repo-
-  relative paths only, no network, no flake surface. Widening it to bare filenames was tried
-  and rejected — 24 hits for 2 true positives would train everyone to ignore it.
-- **2026-07-25 — Section-granular `RULE_FILES`.** Declined: the tripwire is file-granular, so
-  `docs/STATE.md` and `docs/LEDGER.md` stay out (they change nearly every unit; warn fatigue
-  kills tripwires) and `docs/RUNBOOK.md` stays in wholesale, accepting that operational
-  playbook fixes trip it. Building section-granularity is machinery in service of a warning.
-- **2026-07-25 — Self-reported checklists in commits or YAML.** Declined permanently (AMH
-  P3): an agent can emit an attestation without doing the work. Guards check artifacts. Scope
-  clarified the same day (D-014): the ban is on *machinery* — no guard, gate, CI step or
-  required field may consume a self-report — not on a commit-body sentence a human reads and
-  may disbelieve. A disclosure that graduates into a gate is the thing being banned.
+- **Rendering scripts from placeholder templates.** Declined: the shipped scripts read
+  `amh.conf` at runtime, which deletes the rendered-vs-template drift class instead of
+  policing it (D-002).
+- **Doc-fact guards (P20), and a markdown link checker. Both OVERTURNED the same day** — the
+  rule review found five drifted claims (D-010) and three dangling references shipped within
+  the day, one making a playbook unfollowable. `version-lockstep.sh` and `path-refs.sh` are
+  the narrow forms admitted. Resolving bare filenames *from the repo root* was tried and
+  rejected (24 hits, 2 true positives); by **basename anywhere in the tree** is what works
+  (D-023). The incident bar stands: no guard for a claim that has not yet rotted.
+- **Section-granular `RULE_FILES`.** Declined: the tripwire is file-granular, so `STATE.md`
+  and `LEDGER.md` stay out (warn fatigue kills tripwires) and `RUNBOOK.md` stays in
+  wholesale. This is the tripwire's scope, never the protocol's.
+- **Self-reported checklists in commits or YAML.** Declined permanently (P3); scope clarified
+  by D-014 — the ban is on *machinery* consuming a self-report, not on a commit-body sentence
+  a human reads and may disbelieve.
 
 ## Changelog
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history.
 
-- 2026-07-26 — **The redaction filter now matches the credential shapes that are actually in
-  circulation** — `sk-proj-`/`sk-svcacct-`/`sk-admin-`, `ASIA`, `glpat-`, `hf_`, Bearer
-  headers, URL userinfo — and no class can print a token's tail any more. The load-bearing
-  fix is the self-test assertion: it compares the filtered line exactly, so a partial
-  redaction is visible for the first time. Its review pass caught the new URL class deleting
-  the host and structure of any one-line JSON log and the Bearer class redacting the word
-  "authentication"; both narrowed, and every negative fixture moved off end-of-line, where it
-  passed by construction. D-017 B5/B6, **D-022**.
+- 2026-07-26 — **Repair units 4 and 5: the redaction filter and the adopter path.**
+  `redact.sh` matches the shapes actually in circulation (`sk-proj-` and siblings, `ASIA`,
+  `glpat-`, `hf_`, Bearer headers, URL userinfo) and no class can print a token's tail; the
+  load-bearing fix is a self-test comparing the filtered line **exactly**, which is what makes
+  partial redaction visible at all. `CONTRIBUTING.md` and `scripts/amh-init.sh` exist, so
+  playbook 5 is followable, and `path-refs.sh` resolves bare filenames by basename anywhere in
+  the tree. Instantiating a scratch repo for the first time found the real defect: an
+  adopter's first ladder run failed on ledger rows only this repo can have. Seed `verify.sh`
+  ships executable. D-017 B5/B6, B11, B13 — **D-022**, **D-023**, **D-025**.
+- 2026-07-26 — **A flaky fixture inside the secret scan, caught by CI.** The Bearer class
+  required a digit in a randomly-generated token, so ~1 run in 140 failed and the ladder went
+  red at random — about one push in five, and the local greens before it were luck, not
+  verification. The predicate was then wrong twice more: no length separates a word from a
+  token, and neither does one capital. **D-024.**
+- 2026-07-26 — **Server-side rails complete** (owner): branch protection on `main` plus
+  **secret-scanning push protection**, closing P13's server-side half. Recorded here because
+  the queue item was deleted in `38c809a` with no outcome written down — the one thing the
+  protected section forbids.
 - 2026-07-26 — **CI green for the first time in this repo's history** (run 14; runs 1–13 all
-  failed, always on shellcheck info notices in our own scripts). Fixed in the scripts — unused
-  `BRANCH_PREFIX` deleted, inline `disable=` with a reason at each SC2094/SC2016 site — with
-  `verify.sh` left as strict as it was. `actions/checkout@v5` in the workflow and the shipped
-  template. The review pass caught the fix widening two waivers to whole compound commands;
-  both narrowed and injection-tested. D-016 items 8–9, **D-021**.
+  failed on shellcheck info notices in our own scripts). Fixed in the scripts, with
+  `verify.sh` left as strict as it was; `actions/checkout@v5` in the workflow and the shipped
+  template. The review pass caught the fix widening two lint waivers to whole compound
+  commands. D-016 items 8–9, **D-021**.
 - 2026-07-26 — **The ladder's off switch closed, and the fixture builder's blind spots.**
-  `redact.sh` losing its exec bit no longer makes the secret scan and the rail self-tests
-  vanish silently; the citation guard and `path-refs.sh` no longer word-split their file
-  lists; the three guards that had zero coverage now fail when stubbed. `MERGE_MODE` set to
-  `branch-train` by owner decision; build plan committed at
-  `docs/plans/amh-meta-repository.md`. **D-019**, **D-020**.
+  `redact.sh` losing its exec bit no longer makes the secret scan vanish silently; two guards
+  no longer word-split their file lists; three guards with zero coverage now fail when
+  stubbed. `MERGE_MODE` set to `branch-train` by owner decision. **D-019**, **D-020**.
 - 2026-07-26 — **Shipped command guard repaired**: the `<<<` here-string regression that
   voided every rail, the `<`-in-quoted-text false positive (D-007 verbatim), three
   over-blocking classes, the false "reading" reason on write destinations, `+main`/`--mirror`/
   `source .env`, and a 14s → 0.87s fix at 32 KB. D-016 items 1–7, D-017 B12.
-- 2026-07-25 — **Env-dump rails closed** in `command-guard.sh` (builtins, `/proc`, `<`
-  redirections, echoed values); 24+36 fixtures; one pass, 9 findings applied. **Shipped with a
-  regression — D-016.**
-- 2026-07-25 — **P3/P12 attestation contradiction resolved** (owner: option (c)). P3 bans
-  attestation-based *machinery*; commit-body verdicts stay as prose for a human. **D-014.**
-- 2026-07-25 — **MIT `LICENSE`**, (c) faded-penguin021.
-- 2026-07-25 — **Rule review, constitution + runbook, applied.** 14 confirmed findings; 13
-  fixed, 1 escalated, 2 accepted as limits. New: `version-lockstep.sh`, `path-refs.sh`,
-  repo-local fixtures. **D-008**…**D-013.**
-- 2026-07-25 — **U1–U4**: self-hosting core, legislation, adopter templates, harness prose +
-  bundle. Founding decisions **D-001**…**D-007**.
+- 2026-07-25 — **Founding day.** U1–U4 (self-hosting core, legislation, adopter templates,
+  harness prose + bundle); the rule review applied (14 findings, 13 fixed — new
+  `version-lockstep.sh`, `path-refs.sh`, repo-local fixtures); env-dump rails closed in
+  `command-guard.sh`, **which shipped with a regression (D-016)**; the P3/P12 attestation
+  contradiction resolved by the owner; MIT `LICENSE`, (c) faded-penguin021.
+  **D-001**…**D-014.**

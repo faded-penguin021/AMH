@@ -32,7 +32,7 @@ Long-term memory: numbered deviations and discoveries live in `docs/LEDGER.md` �
 `[cited]` marker that you write and the ladder verifies in both directions — nothing syncs
 it for you; never compress or delete entries; append the next number in
 the live ledger file — each file caps at 800 lines: the final row may overflow the cap, the
-next row opens the next file, `D-… → DA-…` (`_A.md`) `→ DB-…`).
+next row opens the next file, `D-… → DA-…` (LEDGER_A.md) `→ DB-…`).
 
 ## Maintenance protocol (every session)
 

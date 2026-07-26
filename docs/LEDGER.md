@@ -17,8 +17,10 @@
 > **File cap & rollover.** This file holds at most **800 lines** (the cap bounds LINES, not
 > rows — it is read cost that is being bounded, and the number stays in lockstep with
 > `LEDGER_LINE_CAP` in `amh.conf`). The final row may finish past the cap, but no row may
-> ever *start* past it: when the file stands over the cap, create `LEDGER_A.md` with this
-> same header discipline, numbering from **DA-001** (then `_B.md`/`DB-001`, …). Existing
+> ever *start* past it: when the file stands over the cap, create LEDGER_A.md (this file's
+> name with an _A suffix) with this same header discipline, numbering from **DA-001** (then
+> LEDGER_B.md/`DB-001`, …). The exact spelling matters: the ladder globs for it, so a volume
+> named any other way is invisible to the line-cap and citation guards. Existing
 > rows are never moved or renumbered. A citation's prefix names its file.
 >
 > **`[cited]` marker (machine-CHECKED — you write it, the ladder verifies it).** A row cited
@@ -189,7 +191,7 @@
   11. **[repo-local guard] The STATE landing check cannot tell an edit from a compression pass.**
       Above the 14 KB soft cap, *any* shrink that does not reach the 9 KB floor fails the ladder
       — including a 3-byte typo fix. Hit live this session: correcting a wrong path in this very
-      file (`ladder.yml` → `ci.yml`) turned the ladder red, and the only compliant moves were to
+      file (a reference to ladder.yml, corrected to `ci.yml`) turned the ladder red, and the only compliant moves were to
       compress the whole file or revert the correction. Both are worse than the typo. The guard
       is right about the Goodhart hole it was built for (D-011); it is wrong that every byte lost
       above the cap is a compression attempt. Fix direction: only judge a shrink as compression
@@ -301,7 +303,7 @@
   are worth recording as well — a rail self-test overridden by a function appended AFTER the
   file's dispatcher never runs, and a single-line here-document fixture cannot exercise body
   mode, which only ever discards SUBSEQUENT lines.
-- D-021: **A lint waiver scoped to a compound command is not a waiver, it is a blind spot —
+- D-021 [cited]: **A lint waiver scoped to a compound command is not a waiver, it is a blind spot —
   and the first draft of the fix put two of them inside the guards.** D-016 items 8 and 9 are
   closed: CI is green for the first time (run 14, `8326627`), fixed in the SCRIPTS with
   `verify.sh` untouched — `BRANCH_PREFIX` deleted from `ladder.sh` (it never read it), and an
@@ -374,3 +376,94 @@
   is a SHIPPED script, and a `D-NNN` citation inside one resolves against the ADOPTER's
   ledger, where no such row exists. The shipped `ladder.sh` already cites D-004 this way; the
   class is real, is not this unit's to fix, and is queued.
+- D-023: **A dangling citation is a symptom; the disease is that nobody ever walked the path.**
+  D-017 B11 is closed — `CONTRIBUTING.md` and `scripts/amh-init.sh` exist, so RUNBOOK playbook
+  5 is followable and the `.claude/settings.json` pre-allow points at a real script — and with
+  them the guard that was supposed to have caught their absence. `path-refs.sh` resolved 64
+  references while five citations to a missing root file sat in front of it, because its
+  backtick pattern required an embedded slash and a repo-ROOT file therefore could not match:
+  the guard admitted to close that exact incident was blind to half of it. Bare names now
+  resolve by BASENAME anywhere in the tree, which is the narrow form that works — resolving
+  them from the repo root was tried and rejected at 24 hits for 2 true positives, because
+  `STATE.md` and `ci.yml` are simply how the prose names `docs/STATE.md` and
+  `.github/workflows/ci.yml`. Coverage roughly doubled. (No count is recorded here on purpose: it moves with every doc
+  edit, and D-008 is the row about a permanent entry embedding a live number.) The accepted residue:
+  four names that were deliberately hypothetical (a future ledger volume) or historical (a
+  path quoted BECAUSE it was wrong) read as citations, and no rule can tell those from real
+  ones, so the prose stopped code-spanning them — **a name in backticks is a citation, and a
+  name that is not a citation should not be in backticks.**
+  **The finding worth more than the fix**: writing `amh-init.sh` meant an adopter's first run
+  could finally be executed, and it was RED — `cited from code but no such ledger row: D-004
+  D-007 D-019`. The SHIPPED scripts cite this repo's ledger in their comments, those rows can
+  never exist in an adopter's ledger, and so the citation guard failed on a repo its owner had
+  not yet touched, for rows they could not have written. Nothing detected this for the harness's
+  entire life, because nobody had instantiated it; B11's dangling references were the *reason*
+  nobody could. Fixed in the shipped `amh.conf.example` by excluding the shipped scripts from
+  the adopter's citation scan — their `D-NNN` comments resolve against the HARNESS's ledger,
+  not the adopter's — while everything the adopter writes stays in scope. **Generalisation:
+  an artifact nobody can execute accumulates defects at full speed and reports none; the first
+  run of a path is worth more than any amount of reading it.** Also folded in, same family
+  (the adopter's first run is red for a reason that is not theirs): the seed `verify.sh`
+  shipped mode 100644 while the ladder requires `-x` (**B13** — mode fixed in git, and
+  `amh-init.sh` installs seed scripts 755 regardless, so a hand-copy cannot reintroduce it).
+  Two notes on how the init script is shaped by rules already in this ledger: it validates
+  `REMOTE_FLAG` as a shell identifier so it cannot write the value that makes the bootstrap
+  skip silently (B7 narrowed at the source, NOT fixed — the silent skip is still open), and
+  it builds its `{{…}}` patterns at runtime from a data list rather than spelling them out,
+  so the placeholder guard needs no exemption for it. The exemption was the obvious move and
+  was wrong: it would also have hidden a placeholder the script forgot to substitute.
+- D-024: **A predicate a fixture satisfies only USUALLY is a flake, however sound the
+  predicate looks — and this one shipped into the repo's entire secret scan.** Unit 4's
+  `bearer_header` class required the value to contain a digit or punctuation with twelve
+  characters after it; the fixture drew its token from `rand_alnum`, which guarantees no such
+  character. About one token in 140 had no digit early enough, the self-test failed, and the
+  ladder went red — at random. The ladder runs `redact.sh --self-test` once per fixture repo,
+  so ~30 draws per run compounded to roughly a **one-in-five chance of a red CI run per
+  push**. It passed locally several times before the push, which is exactly what a 0.7%
+  failure rate looks like from the inside: the local green was luck, and reporting it as
+  verification was wrong. Found by CI (run 16) and by the owner reading the log, not by any
+  guard here. Two separate lessons, and the second is the bigger one:
+  (a) **a fixture must satisfy its predicate BY CONSTRUCTION, never on average** — the token
+  is now built as uppercase/digits followed by alphanumerics, so it cannot miss; and
+  (b) **the predicate itself was wrong**, which the owner caught while it was being fixed.
+  The first repair was a length floor, on the reasoning that no English word is that long:
+  false (`antidisestablishmentarianism` is 28, `pneumonoultramicroscopicsilicovolcanoconiosis`
+  is 45, and a repo holding sequence data or long identifiers has no ceiling at all). The
+  second was "must contain one non-lowercase character": also false, because a word starting
+  a sentence is capitalised. What actually holds is **two** non-lowercase characters — an
+  English word carries exactly one capital wherever it sits, an opaque credential carries a
+  dozen — with the ANCHOR (`Authorization:` `Bearer`) doing the real discrimination and the
+  character rule only separating a token from the handful of words that appear in that exact
+  position. Generalisation beyond regexes: when a heuristic separates two populations, state
+  the property that actually distinguishes them and test the property, rather than reaching
+  for a threshold on a proxy — a threshold invites "is 24 enough?", which has no answer, while
+  "words are lowercase, tokens are not" can be checked against a counter-example and was,
+  twice, before it held.
+- D-025: **Unit 5's review pass, and the shape of what it caught.** D-017 B11 and B13 are
+  closed (D-023); this row carries the corrections its fresh-context pass returned, none of
+  which were in the artifacts the unit set out to build — they were all in the *guard* and the
+  *tool* written to close it. `path-refs.sh` resolved bare names against `git ls-files`, which
+  answers from the INDEX, so a file removed with plain `rm` still resolved and the guard's own
+  headline incident passed green with only a stray `grep` complaint on stderr (D-019's shape:
+  the disabled state quieter than the passing one). The new fixtures did not pin `grep -x`, so
+  dropping it left the suite green while TATE.md and adder.sh resolved as substrings. In
+  `amh-init.sh`, the value check rejected `|` (the sed delimiter) and nothing else, so `&`
+  silently wrote the placeholder back into a live config and a newline **injected a line into
+  `amh.conf`, a file every shipped script sources at runtime** — arbitrary shell on every
+  future ladder run of the adopter's repo, exit 0, no warning; the write also truncated its
+  destination before `sed` ran, so a failure emptied the file and then reported that it had
+  not written it. And the `keep` policy returned before `chmod`, so re-running init — the
+  documented recovery — could not repair a `verify.sh` that had lost its execute bit, which is
+  B13 recurring inside B13's own fix. **Generalisation: the dangerous half of a repair is the
+  new machinery it introduces, not the gap it closes.** Every unit this session had its blocker
+  inside the fix. Also corrected here: `CONTRIBUTING.md` first described `RULE_FILES` as the
+  rule-review protocol's scope, which the runbook names in as many words as "how a rule quietly
+  stops binding" (`STATE.md` and `LEDGER.md` preambles are legislation and are deliberately not
+  in that list); it restated the no-self-review rule with the "cannot means capability, not a
+  standing instruction" qualifier deleted, which would have parked every legislation change
+  forever; and it cited the link checker as a still-declined non-item when `path-refs.sh` IS
+  that checker, admitted the same day it was declined. Two deliberate non-fixes: nothing binds
+  `INIT_PLACEHOLDERS` in `amh-init.sh` to the rows marked `init` in `harness/PLACEHOLDERS.md`
+  (they agree today; adding a template placeholder and forgetting the list is silent, and the
+  guard for it needs its own fixture, so it is queued not bolted on), and the merge-mode placeholder in
+  the seed constitution stays a human's sentence even though the script knows the answer.

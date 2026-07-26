@@ -38,6 +38,11 @@ did. What changed otherwise is the harness's form:
 
 ### Upgrading
 
+- **If you instantiated a 1.x harness by hand**, add the shipped scripts to
+  `CITATION_EXCLUDE` in your `amh.conf` (the template's current value lists them). Their
+  `D-NNN` comments cite the *harness's* ledger, and without the exclusion your citation
+  guard fails on rows your ledger cannot contain.
+
 From a hand-instantiated copy of the 1.x document: there is no mechanical path, because the
 scripts described in the old document were specifications rather than code. Treat this as a
 fresh adoption — run the harness init script into a scratch directory, then port your existing

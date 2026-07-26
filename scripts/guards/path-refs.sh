@@ -17,6 +17,23 @@ cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." || exit 1
 fails=0
 checked=0
 
+# Every tracked/untracked file's BASENAME, for section (c). Computed once: the check runs
+# per citation, and re-listing the tree for each would be quadratic in a docs set that only
+# grows.
+#
+# `[ -e ]` per path, because `git ls-files` answers from the INDEX. A file deleted with
+# plain `rm` is still listed, so without this the guard's own headline incident — five
+# citations to a missing CONTRIBUTING.md — passes green, and the only signal is `grep`
+# complaining on stderr while the rung prints ok. A guard whose failure is quieter than its
+# pass is the D-019 shape.
+#
+# NUL-separated with quotePath off: `git ls-files` renders a non-ASCII path as a quoted
+# C-string, which would leave a stray `"` on the basename.
+basenames=$(git -c core.quotePath=false ls-files -co --exclude-standard -z |
+	while IFS= read -r -d '' p; do
+		[ -e "$p" ] && printf '%s\n' "${p##*/}"
+	done | sort -u)
+
 # harness/dist is generated (dist-drift owns it); harness/templates and harness/src
 # describe an ADOPTER's tree, where the paths are meant to resolve there, not here.
 #
@@ -75,6 +92,43 @@ while IFS= read -r -d '' f; do
 			fails=$((fails + 1))
 		fi
 	done <<<"$backticked"
+
+	# (c) Backticked BARE filenames: `CONTRIBUTING.md`, `ladder.sh`, `ci.yml`. Pattern (b)
+	#     requires an embedded slash, so a repo-ROOT file could never match it — and that
+	#     is not a theoretical gap. `CONTRIBUTING.md` was cited five times, listed in
+	#     RULE_FILES, and did not exist, while this guard reported every reference
+	#     resolving; the guard was admitted to close that exact incident and was blind to
+	#     half of it.
+	#
+	#     Resolved by BASENAME anywhere in the tree, NOT as a path from the repo root.
+	#     That distinction is the whole design. Widening (b) to bare filenames resolved
+	#     from the root was tried and rejected at 24 hits for 2 true positives, because
+	#     `STATE.md` and `ci.yml` are simply how the prose refers to `docs/STATE.md` and
+	#     `.github/workflows/ci.yml` — a guard that reports those as broken teaches
+	#     everyone to skim past it, which costs more than the drift it catches.
+	#
+	#     The residue this accepts: a name that is deliberately hypothetical (a future
+	#     ledger volume) or historical (a path being quoted BECAUSE it was wrong) reads
+	#     as a citation. There is no way to tell those apart mechanically, so the prose
+	#     stops code-spanning them — a name in backticks is a citation, and a name that
+	#     is not a citation should not be in backticks.
+	#
+	# Hoisted out of the loop so the SC2016 waiver covers this ONE command; a directive
+	# cannot sit before `done < <(...)`, and putting it on the `while` silences SC2016
+	# for the entire body (D-021).
+	# shellcheck disable=SC2016 # backticks are the pattern's own syntax: this matches
+	# markdown code spans literally, so single quotes are required, not a slip.
+	bare=$(grep -oE '`[A-Za-z0-9_.-]+\.(md|sh|json|yml|yaml|conf)`' "$f" | tr -d '`' | sort -u)
+	while IFS= read -r target; do
+		[ -n "$target" ] || continue
+		checked=$((checked + 1))
+		if ! printf '%s\n' "$basenames" | grep -qxF -- "$target"; then
+			# shellcheck disable=SC2016 # literal backticks: the message quotes the citation
+			# back in the same markdown form the prose used. No expansion wanted.
+			printf 'no file by that name anywhere in the tree, cited in %s: `%s`\n' "$f" "$target"
+			fails=$((fails + 1))
+		fi
+	done <<<"$bare"
 done < <(git ls-files -co --exclude-standard -z '*.md')
 
 [ "$fails" -eq 0 ] || exit 1

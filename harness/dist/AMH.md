@@ -604,7 +604,14 @@ LEDGER_LINE_CAP={{LINE_CAP}}
 # Where citations are scanned for: code and workflows only — NOT docs (prose mentions
 # IDs without citing them), and not the guard fixtures (which carry synthetic IDs).
 CITATION_SCAN_PATHS='{{CITATION_SCAN_PATHS}}'
-CITATION_EXCLUDE='scripts/test-ladder-guards.sh scripts/tests'
+# The SHIPPED scripts are excluded because their `D-NNN` comments cite the HARNESS's
+# ledger, not yours: those rows explain why the shipped code is shaped the way it is, and
+# they will never exist in your ledger. Without this, your very first ladder run fails with
+# "cited from code but no such ledger row" for rows you could not have written — a red
+# ladder on a repo you have not touched yet, from the guard that is supposed to catch YOUR
+# dangling citations. Everything you write (scripts/verify.sh, scripts/guards/*, workflows)
+# stays in scope, which is the part worth guarding.
+CITATION_EXCLUDE='scripts/ladder.sh scripts/command-guard.sh scripts/redact.sh scripts/session-start.sh scripts/test-ladder-guards.sh scripts/tests'
 
 # --- Commit hygiene ---------------------------------------------------------
 # Fixed strings that must never reach a commit message: a squash merge would fold them

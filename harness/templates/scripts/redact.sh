@@ -49,7 +49,7 @@ PATTERNS=$(
 		huggingface_token	hf_[A-Za-z0-9]{30,}
 		stripe_key	[sr]k_live_[A-Za-z0-9]{16,}
 		jwt	eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}
-		bearer_header	[Aa][Uu][Tt][Hh][Oo][Rr][Ii][Zz][Aa][Tt][Ii][Oo][Nn]:[[:space:]]*[Bb][Ee][Aa][Rr][Ee][Rr][[:space:]]+[A-Za-z0-9._~+/=-]*[0-9._~+/=][A-Za-z0-9._~+/=-]{12,}
+		bearer_header	[Aa][Uu][Tt][Hh][Oo][Rr][Ii][Zz][Aa][Tt][Ii][Oo][Nn]:[[:space:]]*[Bb][Ee][Aa][Rr][Ee][Rr][[:space:]]+[A-Za-z0-9._~+/=-]*[A-Z0-9._~+/=-][A-Za-z0-9._~+/=-]*[A-Z0-9._~+/=-][A-Za-z0-9._~+/=-]{14,}
 		url_credentials	[A-Za-z][A-Za-z0-9+.-]*://[^]:/?#@[:space:]"'`,;<>{}()]+:[^]/?#@[:space:]"'`,;<>{}()]+@
 		private_key_block	-----BEGIN [A-Z ]*PRIVATE KEY-----
 	PATS
@@ -66,11 +66,35 @@ PATTERNS=$(
 # `bearer_header` swallows the header name along with the value. Keeping the name and
 # redacting only the value would need a backreference, which the uniform builder cannot
 # express — and a special case inside the repo's entire secret scan costs more than a
-# preserved word. The value must contain a digit or punctuation and run to at least 13
-# characters, because the plain `{8,}` form ate any long word following the header:
-# "Authorization: Bearer authentication" redacted, in a repository whose prose is
-# *about* credential handling. A real bearer token is base64url or a JWT; an English
-# word is not.
+# preserved word. The plain `{8,}` form ate any long word after the header:
+# "Authorization: Bearer authentication" redacted, in a repository whose prose is *about*
+# credential handling.
+#
+# The discriminator is NOT length. There is no length that separates a token from a word —
+# English runs past 24 letters (`antidisestablishmentarianism`, and far past that in
+# technical text), and a repository holding protein sequences or long identifiers has no
+# ceiling at all. What actually holds is that a word appearing after `Bearer` in prose is
+# almost all lowercase letters, and an opaque credential is not: the value must contain at
+# least TWO characters that are not lowercase letters, with 14 more after the second.
+#
+# TWO, not one, and the difference is the whole rule. A word at the start of a sentence is
+# capitalised, so "one non-lowercase character" lets any long capitalised word through the
+# door — `Antidisestablishmentarianism` clears a length test and clears a single-capital
+# test. It does not clear this one: an English word carries exactly one capital, wherever
+# it sits, while a base64url token carries a dozen. The ANCHOR does the rest — this only
+# fires immediately after the header name, where prose puts "authentication", "tokens" and
+# "credentials" and nothing else.
+# Accepted residue: an ALL-CAPS or CamelCase identifier written directly after
+# `Authorization: Bearer` is redacted. That shape is a token, whoever wrote it.
+#
+# The fixture builds its token as uppercase/digits followed by alphanumerics, so it
+# satisfies that predicate BY CONSTRUCTION. It has to. The first fix required a digit and
+# drew the fixture from a plain alphanumeric generator, so about one run in 140 produced a
+# token with no digit early enough to match; the ladder runs this self-test once per
+# fixture repo, which compounded to roughly a one-in-five chance of a red CI run per push,
+# at random, on the repo's ENTIRE secret scan. **A predicate a fixture satisfies only
+# USUALLY is a flake, however sound the predicate looks** — and a flake in a guard is worse
+# than a missing test, because it teaches everyone that red means "run it again".
 #
 # `url_credentials` matches the userinfo and the `@` only, so the scheme and host
 # survive: `[REDACTED:url_credentials]host/path`. That keeps the diagnostic useful (a
@@ -203,7 +227,11 @@ self_test() {
 	# Both are assembled in pieces for the same reason as the private-key block above:
 	# written out whole, the fixture line would itself match the pattern it tests and
 	# this file would stop being clean under its own filter.
-	st_redacted bearer_header "$(printf '%s: %s %s' Authorization Bearer "$(rand_alnum 40)")"
+	# Uppercase/digits first, then alphanumerics: the pattern requires two non-lowercase
+	# characters with 14 more after, and this token has eight up front on every run.
+	# A `rand_alnum` token satisfies that predicate only usually, which is what made this
+	# fixture flaky.
+	st_redacted bearer_header "$(printf '%s: %s %s' Authorization Bearer "$(rand_upper 8)$(rand_alnum 32)")"
 	local url_prefix
 	url_prefix="postgres://amh:$(rand_alnum 16)"
 	st_redacted url_credentials "$url_prefix@db.internal.invalid/app" \
@@ -250,6 +278,12 @@ self_test() {
 	st_untouched semicolon_log "warning: http://cache:6379;contact=sre@team.io retry"
 	st_untouched header_no_value "Authorization: Bearer" # nothing to redact
 	st_untouched bearer_prose "Use Authorization: Bearer authentication for this endpoint"
+	# The long-word cases, which are why the threshold is not a length: an all-lowercase
+	# run stays untouched however long it gets, in prose or in a sequence dump.
+	st_untouched bearer_long_word "Authorization: Bearer antidisestablishmentarianism is not a token"
+	# Capitalised, because a word starting a sentence is — one capital is not a token.
+	st_untouched bearer_capitalised "Authorization: Bearer Antidisestablishmentarianism is a word"
+	st_untouched bearer_sequence "seq Authorization: Bearer acdefghiklmnpqrstvwyacdefghiklmnpqrstvwy end"
 	st_untouched sk_kebab "cache key sk-build-linux-x86-64-node20-pnpm9-abc123-def456 hit"
 
 	# The ASSERTION is under test too, not only the classes. Every fixture above proves

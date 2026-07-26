@@ -47,6 +47,10 @@ cp /path/to/AMH/harness/templates/scripts/*.sh scripts/
 chmod +x scripts/*.sh
 ```
 
+If you have the harness repo checked out, `scripts/amh-init.sh /path/to/your-repo` does the
+same thing and is safe to re-run: it overwrites exactly the shipped scripts and leaves every
+file you own — `amh.conf`, the seed prose, your workflow and adapter config — untouched.
+
 **5. Apply the changelog's Upgrading notes.** New `amh.conf` keys, seed-file changes you want,
 adapter or CI changes. Nothing here is automatic — that is the point.
 

@@ -16,6 +16,7 @@ disagrees with the code, trust the code and fix the doc.
 | `harness/VERSION` | the harness version | single source; lockstep-checked |
 | `scripts/*.sh` (five) | this repo's instance of the shipped scripts | byte-identical copies (D-002) |
 | `scripts/verify.sh`, `scripts/guards/*`, `scripts/tests/*` | this repo's local verification | the ladder's only two extension points; `tests/` hangs off `verify.sh` |
+| `scripts/amh-init.sh`, `scripts/build-dist.sh` | repo-local tooling: instantiate an adopter, generate the bundle | not shipped — they run FROM here, never inside an adopting repo |
 | `docs/STATE.md` | working memory | capped, compressible, Owner queue protected |
 | `docs/LEDGER.md` | permanent memory | append-only; never rewritten |
 
