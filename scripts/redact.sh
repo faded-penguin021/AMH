@@ -23,23 +23,75 @@ set -euo pipefail
 
 # class<TAB>extended-regex. Order matters: more specific prefixes first, because the
 # substitutions are applied in sequence (sk-ant- before the generic sk- shape).
+#
+# Every length is OPEN-ENDED ({n,}, never {n}). An exact count stops matching at the
+# n-th character and prints the rest: an over-long token came out as
+# `[REDACTED:<class>]` followed by its own tail, which is exactly the suffix the prose
+# rule forbids. A vendor lengthening a token must not silently downgrade this filter
+# from redaction to truncation.
 PATTERNS=$(
 	cat <<-'PATS'
-		aws_access_key_id	AKIA[0-9A-Z]{16}
+		aws_access_key_id	AKIA[0-9A-Z]{16,}
+		aws_temp_key	ASIA[0-9A-Z]{16,}
 		github_pat	github_pat_[A-Za-z0-9_]{20,}
 		github_token	gh[pousr]_[A-Za-z0-9]{20,}
+		gitlab_pat	glpat-[A-Za-z0-9_-]{20,}
 		slack_token	xox[abprs]-[A-Za-z0-9-]{10,}
-		slack_webhook	https://hooks\.slack\.com/services/[A-Za-z0-9/_-]{20,}
+		slack_webhook	https://([^]/?#@[:space:]"'`,;<>{}()]*@)?hooks\.slack\.com/services/[A-Za-z0-9/_-]{20,}
 		anthropic_key	sk-ant-[A-Za-z0-9_-]{20,}
+		openai_project_key	sk-proj-[A-Za-z0-9_-]{20,}
+		openai_service_key	sk-svcacct-[A-Za-z0-9_-]{20,}
+		openai_admin_key	sk-admin-[A-Za-z0-9_-]{20,}
 		openai_key	sk-[A-Za-z0-9]{32,}
-		google_api_key	AIza[0-9A-Za-z_-]{35}
-		npm_token	npm_[A-Za-z0-9]{36}
+		google_api_key	AIza[0-9A-Za-z_-]{35,}
+		npm_token	npm_[A-Za-z0-9]{36,}
 		pypi_token	pypi-[A-Za-z0-9_-]{16,}
+		huggingface_token	hf_[A-Za-z0-9]{30,}
 		stripe_key	[sr]k_live_[A-Za-z0-9]{16,}
 		jwt	eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}
+		bearer_header	[Aa][Uu][Tt][Hh][Oo][Rr][Ii][Zz][Aa][Tt][Ii][Oo][Nn]:[[:space:]]*[Bb][Ee][Aa][Rr][Ee][Rr][[:space:]]+[A-Za-z0-9._~+/=-]*[0-9._~+/=][A-Za-z0-9._~+/=-]{12,}
+		url_credentials	[A-Za-z][A-Za-z0-9+.-]*://[^]:/?#@[:space:]"'`,;<>{}()]+:[^]/?#@[:space:]"'`,;<>{}()]+@
 		private_key_block	-----BEGIN [A-Z ]*PRIVATE KEY-----
 	PATS
 )
+
+# No regex here may contain `|` or `&`: the generated substitution is `s|regex|repl|g`,
+# so a `|` would terminate the command and a `&` in a replacement would re-insert the
+# match. That is why the OpenAI families are four rows rather than one alternation.
+#
+# Notes on the two shapes that are not a bare token — both are far more able to eat
+# ordinary build output than a prefixed token is, and a filter that mangles ordinary
+# output gets switched off by its users, which is worse than the leak it prevents:
+#
+# `bearer_header` swallows the header name along with the value. Keeping the name and
+# redacting only the value would need a backreference, which the uniform builder cannot
+# express — and a special case inside the repo's entire secret scan costs more than a
+# preserved word. The value must contain a digit or punctuation and run to at least 13
+# characters, because the plain `{8,}` form ate any long word following the header:
+# "Authorization: Bearer authentication" redacted, in a repository whose prose is
+# *about* credential handling. A real bearer token is base64url or a JWT; an English
+# word is not.
+#
+# `url_credentials` matches the userinfo and the `@` only, so the scheme and host
+# survive: `[REDACTED:url_credentials]host/path`. That keeps the diagnostic useful (a
+# failed clone still names the host) while the credential is gone. This shape is not
+# hypothetical — a token-bearing remote appears in this repo's own `git remote -v`.
+# Both userinfo components exclude quoting and structural punctuation. Excluding only
+# `/ ? # @` and whitespace was a blocker: in one-line JSON or logfmt, `scheme://host:port`
+# plus any later `@` on the same line matched across the gap and deleted the host, the
+# port and the surrounding structure —
+# `{"url":"http://svc:8080","user":"a@b.com"}` came out as
+# `{"url":"[REDACTED:url_credentials]b.com"}`.
+#
+# `slack_webhook` tolerates optional userinfo so that it still fires on a webhook URL
+# carrying credentials. Substitutions run once, in list order: without this,
+# `url_credentials` rewrote the prefix and left the webhook token itself in the clear.
+#
+# Knowingly accepted false-positive surface, recorded rather than silently carried:
+# `ASIA` is an English word, so `ASIA` + 16 uppercase/digit characters redacts (e.g. a
+# run-together region identifier). AWS STS keys are worth the class, and the exposure is
+# the same shape `AKIA` has carried since the beginning — but if this ever fires on real
+# output, tighten it here rather than deleting the class.
 
 build_sed_script() {
 	local class regex
@@ -81,16 +133,36 @@ rand_upper() { rand_class 'A-Z0-9' "$1"; }
 clean_under_filter() { filter <"$1" | cmp -s - "$1"; }
 
 ST_FAILS=0
-st_redacted() { # <class> <token>  — token must be replaced, and must not survive
-	local class=$1 token=$2 out
+
+# <class> <token> [expected-replacement] — the filtered line must equal the expected
+# line EXACTLY.
+#
+# The old assertion was "the whole token is absent", which a PARTIAL redaction
+# satisfies: an exact-length class that matched the first 35 characters of a 40-
+# character token emitted `[REDACTED:google_api_key]` followed by five live characters
+# of the key, and this test called that a pass. A structural blind spot in the check
+# that guards the repo's entire secret scan is worse than the leak it missed, because
+# it guarantees no fixture can ever find it. Exact equality is the only assertion that
+# sees a surviving fragment, so the caller must state what the line becomes.
+st_redacted() {
+	local class=$1 token=$2 out want expect
+	# Split off its own line: inside a single `local`, bash declares every name before
+	# it assigns, so a default referring to `$class` reads it while still unset and
+	# `set -u` aborts the run.
+	expect=${3:-"[REDACTED:$class]"}
 	out=$(printf 'log line: %s trailing\n' "$token" | filter)
+	want="log line: $expect trailing"
+	[ "$out" = "$want" ] && return 0
 	if [[ "$out" != *"[REDACTED:$class]"* ]]; then
 		printf 'SELF-TEST FAIL: %s was not redacted\n' "$class" >&2
-		ST_FAILS=$((ST_FAILS + 1))
 	elif [[ "$out" == *"$token"* ]]; then
 		printf 'SELF-TEST FAIL: %s survived redaction\n' "$class" >&2
-		ST_FAILS=$((ST_FAILS + 1))
+	else
+		# Deliberately does NOT print the surviving text: a diagnostic that echoes the
+		# fragment leaks exactly the suffix this filter exists to suppress.
+		printf 'SELF-TEST FAIL: %s was redacted only in part — the line does not match the expected shape, so a fragment of the token survives\n' "$class" >&2
 	fi
+	ST_FAILS=$((ST_FAILS + 1))
 }
 
 st_untouched() { # <label> <text> — ordinary output must pass through byte-identical
@@ -119,6 +191,39 @@ self_test() {
 	# Assembled at runtime: a stored literal would make this file match its own filter.
 	st_redacted private_key_block "$(printf -- '-----%s RSA PRIVATE KEY-----' BEGIN)"
 
+	# Shapes that were live and unmatched. `sk-proj-` is the one that matters most: it is
+	# OpenAI's current format, and the class named after that vendor stopped matching it
+	# when the `-` arrived, so the filter reported a clean line on a real key.
+	st_redacted openai_project_key "sk-proj-$(rand_alnum 48)"
+	st_redacted openai_service_key "sk-svcacct-$(rand_alnum 48)"
+	st_redacted openai_admin_key "sk-admin-$(rand_alnum 48)"
+	st_redacted aws_temp_key "ASIA$(rand_upper 16)"
+	st_redacted gitlab_pat "glpat-$(rand_alnum 20)"
+	st_redacted huggingface_token "hf_$(rand_alnum 34)"
+	# Both are assembled in pieces for the same reason as the private-key block above:
+	# written out whole, the fixture line would itself match the pattern it tests and
+	# this file would stop being clean under its own filter.
+	st_redacted bearer_header "$(printf '%s: %s %s' Authorization Bearer "$(rand_alnum 40)")"
+	local url_prefix
+	url_prefix="postgres://amh:$(rand_alnum 16)"
+	st_redacted url_credentials "$url_prefix@db.internal.invalid/app" \
+		'[REDACTED:url_credentials]db.internal.invalid/app'
+
+	# Over-long tokens. These are the B6 regression fixtures: with an exact-length class
+	# each one used to emit the marker followed by its own tail, and the old "the whole
+	# token is absent" assertion passed them. They fail loudly now if a `{n,}` is ever
+	# tightened back to `{n}`.
+	st_redacted aws_access_key_id "AKIA$(rand_upper 24)"
+	st_redacted google_api_key "AIza$(rand_alnum 44)"
+	st_redacted npm_token "npm_$(rand_alnum 44)"
+
+	# A webhook URL that also carries userinfo. Substitutions run once and in order, so
+	# whichever class fires first decides: with `url_credentials` winning, the prefix was
+	# rewritten and the webhook token itself was left in the clear.
+	local hook_prefix
+	hook_prefix="https://amh:$(rand_alnum 16)"
+	st_redacted slack_webhook "$hook_prefix@hooks.slack.com/services/$(rand_alnum 30)"
+
 	# Negative cases: shapes that occur constantly in real build output and MUST
 	# survive untouched. A filter that eats these gets turned off.
 	st_untouched git_sha "commit 8f14e45fceea167a5a36dedd4bea2543dfd9e1b2 ok"
@@ -127,6 +232,50 @@ self_test() {
 	st_untouched semver "resolved react@18.3.1 in 412ms"
 	st_untouched path "writing /var/lib/build/AKIA-report.txt"
 	st_untouched env_presence "DATABASE_URL is set"
+	# The two non-token shapes are the ones most able to eat ordinary output, so they
+	# carry the negative cases: a URL is only a credential when it carries userinfo, and
+	# a header is only a credential when it carries a token.
+	#
+	# NOTE ON PLACEMENT, and it is the whole point: in every one of these the candidate
+	# sits MID-LINE, with more text after it. A negative fixture whose benign text runs
+	# to end-of-line passes by construction — the match had nothing left to run into —
+	# and this repo has already shipped a whole fixture family that was worthless for
+	# exactly that reason. The `,` and `"` cases below are the ones that were live
+	# blockers: they eat a compact JSON or logfmt line whole.
+	st_untouched plain_url "cloning https://github.com/faded-penguin021/AMH.git by ci@runner"
+	st_untouched ssh_url "remote origin git@github.com:faded-penguin021/AMH.git (fetch)"
+	st_untouched port_url "listening on http://localhost:8080/healthz owner=me@corp.example"
+	st_untouched json_log "{\"url\":\"http://svc:8080\",\"user\":\"alice@example.com\"}"
+	st_untouched logfmt "level=info url=http://db:5432,owner=me@x.com done"
+	st_untouched semicolon_log "warning: http://cache:6379;contact=sre@team.io retry"
+	st_untouched header_no_value "Authorization: Bearer" # nothing to redact
+	st_untouched bearer_prose "Use Authorization: Bearer authentication for this endpoint"
+	st_untouched sk_kebab "cache key sk-build-linux-x86-64-node20-pnpm9-abc123-def456 hit"
+
+	# The ASSERTION is under test too, not only the classes. Every fixture above proves
+	# something about the patterns; none of them proves the check can still SEE a partial
+	# redaction, and that check is the entire fix for the second half of B6. Reverting
+	# `st_redacted` to the old "the whole token is absent" form leaves every fixture
+	# above green while a token's tail prints again — the check is not covered by the
+	# things it checks. So: hand it a line that redacts only in part (a trailing
+	# character outside the class, which the match cannot consume) and require it to
+	# report a failure. The probe's own failure is then unwound, because a probe that
+	# behaved correctly must not be counted as a fault.
+	#
+	# The probe is called directly, NOT in `$(...)`: `st_redacted` records its verdict by
+	# incrementing ST_FAILS, and a command substitution runs it in a subshell where that
+	# increment is discarded — the probe then reads as "detected nothing" no matter how
+	# the assertion behaves. Its diagnostic goes to /dev/null because the probe is
+	# expected to fail and its message would read as a real fault.
+	local probe_before
+	probe_before=$ST_FAILS
+	st_redacted aws_access_key_id "AKIA$(rand_upper 16)z" 2>/dev/null
+	if [ "$ST_FAILS" -eq "$probe_before" ]; then
+		printf 'SELF-TEST FAIL: st_redacted no longer detects a surviving fragment — the B6 leak could return with this suite still green\n' >&2
+		ST_FAILS=$((probe_before + 1))
+	else
+		ST_FAILS=$probe_before
+	fi
 
 	# The filter must be clean under itself: its own patterns must not look like
 	# tokens, or the ladder's tree scan would flag this very file forever.

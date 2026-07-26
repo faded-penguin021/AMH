@@ -227,9 +227,12 @@
   - **B5 `redact.sh` misses live credential shapes**, verified by piping runtime-generated
     tokens: `sk-proj-…` (the *existing* `openai_key` class no longer matches OpenAI's format —
     `redact.sh:34` is `sk-[A-Za-z0-9]{32,}` and the `-` breaks the class), `ASIA…` (AWS STS),
-    `glpat-…`, `postgres://user:pw@host/db`, `https://user:token@host/repo.git`, `hf_…`,
+    `glpat-…`, a `postgres://` or `https://` URL carrying `user:secret@` userinfo, `hf_…`,
     `Authorization: Bearer …`. The URL-with-userinfo shape already appears in this repo's own
     `git remote -v` output. Negative cases are clean — no false positives found.
+    (Correction, 2026-07-26 — the two URL examples were written out whole here and became
+    live matches the moment the `url_credentials` class existed, failing the tree scan on
+    this very row. Rewritten as a description of the shape; the finding is unchanged. D-022.)
   - **B6 Exact-length classes leak the token tail.** `AKIA[0-9A-Z]{16}`, `AIza…{35}`,
     `npm_…{36}` are fixed-count; a longer token prints its remainder:
     `[REDACTED:google_api_key]AXThQ`. `AGENTS.md` forbids printing a suffix. The self-test
@@ -323,3 +326,51 @@
   `tr -dc … </dev/urandom | head -c N` leaves tr writing into a pipe `head` closed after
   taking its N bytes, so the token was always complete. Removed regardless (bounded read,
   then slice) because noise in a guard's output is how a real diagnostic gets skimmed past.
+- D-022: **A redaction pattern is judged by what it eats, not by what it catches — and the
+  first draft of the widened filter ate one-line JSON.** D-017 B5 and B6 are closed:
+  `redact.sh` now matches `sk-proj-`/`sk-svcacct-`/`sk-admin-`, `ASIA`, `glpat-`, `hf_`,
+  `Authorization: Bearer` headers and URL userinfo, every length is open-ended (`{n,}`, never
+  `{n}`) so an over-long token can no longer print its own tail, and `st_redacted` asserts
+  the filtered line EXACTLY rather than merely that the whole token is absent. That last one
+  is the load-bearing change: the old assertion was satisfied by a partial redaction, so no
+  fixture could ever have found B6 — proven by injection, restoring `AIza…{35}` now turns the
+  self-test red where it used to pass. What the review pass caught is again the interesting
+  half. The new `url_credentials` class excluded only `/ ? # @` and whitespace from the
+  userinfo, so on a compact JSON or logfmt line `scheme://host:port` plus any later `@`
+  matched across the gap: `{"url":"http://svc:8080","user":"a@b.com"}` was rewritten to
+  `{"url":"[REDACTED:url_credentials]b.com"}` — host, port and structure deleted, no
+  credential anywhere in the line. `bearer_header` with a bare `{8,}` value ate any long word
+  after the header name, so the sentence "Authorization: Bearer authentication" redacted, in
+  a repository whose prose is *about* credential handling. Both would have turned the tree
+  scan red on innocent content, which is how a filter gets switched off. Fixed by excluding
+  quoting and structural punctuation from userinfo, and by requiring a bearer value to carry
+  a digit or punctuation and run to 13 characters. **Generalisation: for a filter that is
+  also a gate, a false positive is not the mild failure — the miss leaks one secret, the
+  false positive gets the whole filter disabled.** Three further corrections from the same
+  pass: the widened `sk-[A-Za-z0-9_-]{32,}` redacted ordinary long kebab-case identifiers
+  (`sk-build-linux-x86-64-…`), so the OpenAI families are now four explicit rows and the
+  generic class went back to alphanumerics — an alternation would have been the obvious fix
+  and is impossible here, because `|` is the generated `s|…|…|g` delimiter; `slack_webhook`
+  now tolerates optional userinfo, without which `url_credentials` rewrote the prefix first
+  and left the webhook token in the clear; and every negative fixture now places its
+  candidate MID-LINE, because one whose benign text runs to end-of-line passes by
+  construction — the same defect D-016 item 12 recorded, re-shipped in new fixtures written
+  by someone who had read that row. **The assertion itself is now fixture-covered** (D-020):
+  a probe feeds `st_redacted` a deliberately partial redaction and requires it to object, so
+  the check that closes B6 cannot silently revert. Note the subshell trap it caught in
+  passing — the probe called through `$(...)` runs in a subshell where the counter increment
+  is discarded, so it reads as "detected nothing" however the assertion behaves.
+  Corrections to append-only rows above, recorded here per the D-021 precedent: (a) D-017 B5
+  spelled its two example URLs out in full, which became live matches the moment the
+  `url_credentials` class existed and failed the tree scan on the ledger itself. The row was
+  defanged IN PLACE — the only correction of a row's own text so far, and unavoidable,
+  because quoting the old text here would reproduce the match; the finding is unchanged and
+  the edit is annotated at the row. (b) Two gaps are known and deliberately NOT closed in
+  this unit, since each adds false-positive surface that would ship unreviewed: userinfo with
+  no colon (`https://<PAT>@dev.azure.com/…`, the documented Azure DevOps clone URL) is still
+  missed, and `ASIA` + 16 uppercase characters redacts an ordinary run-together identifier.
+  Both are in the Owner queue. (c) A `D-006` citation belongs in `redact.sh`'s note about
+  `local a=$1 b=${2:-"X$a"}` failing under `set -u`, and is deliberately absent: `redact.sh`
+  is a SHIPPED script, and a `D-NNN` citation inside one resolves against the ADOPTER's
+  ledger, where no such row exists. The shipped `ladder.sh` already cites D-004 this way; the
+  class is real, is not this unit's to fix, and is queued.

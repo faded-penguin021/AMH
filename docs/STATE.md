@@ -48,7 +48,7 @@ legislation, adopter templates, harness prose + generated bundle.
       `harness/src/**` (they landed in this repo's instance first).
 - [ ] **U6 — README, CONTRIBUTING, `amh-init.sh`, end-to-end test.**
 
-**Repair units — 2 of 5 shipped.** Each takes ONE fresh-context reviewer, blocking, one pass
+**Repair units — 4 of 5 shipped.** Each takes ONE fresh-context reviewer, blocking, one pass
 (D-015): triage, apply, ship, no re-review. Spawning it is required, not a thing to ask about.
 
 - [x] **Unit 1 — the shipped command guard.** D-016 items 1–7 + D-017 B12. Shipped `d95dd1d`.
@@ -63,10 +63,11 @@ legislation, adopter templates, harness prose + generated bundle.
       template. The `tr: … Broken pipe` was noise, not a skip — removed anyway. Its review
       pass found the fix had put two lint waivers on whole compound commands, blinding
       SC2016 across `path-refs.sh`'s loop and SC2094 inside the secret scan: **D-021**.
-- [ ] **Unit 4 — `redact.sh` misses live credential shapes** (D-017 B5/B6): `sk-proj-` (the
-      existing `openai_key` class no longer matches OpenAI's format), `ASIA`, `glpat-`,
-      credentials in URLs; and the exact-length classes leak the token tail. The self-test
-      **structurally cannot see partial redaction** — fix the assertion at `redact.sh:74` too.
+- [x] **Unit 4 — `redact.sh` now matches the live credential shapes.** D-017 B5/B6.
+      Open-ended lengths (no class may print a token's tail), an exact-match self-test
+      assertion — the change that makes B6 findable at all — and that assertion is itself
+      fixture-covered. Its review pass found the widened URL and Bearer classes eating
+      one-line JSON and ordinary prose: **D-022**.
 - [ ] **Unit 5 — `CONTRIBUTING.md` and `amh-init.sh` are cited but do not exist** (D-017 B11),
       which makes RUNBOOK playbook 5 unfollowable. `path-refs.sh` cannot see repo-root files
       by construction: its pattern requires an embedded slash.
@@ -98,18 +99,17 @@ legislation, adopter templates, harness prose + generated bundle.
 
 **Open findings.** **D-016** and **D-017** hold them; **read those rows before any new unit,
 and do not re-investigate — both authorised hostile passes have run and only the fixing is
-left.** Units 1 and 2 above closed D-016 items 1–7, D-017 B1–B3, B9/B10 and B12; those rows
-carry the corrections. **Still open**, mapped to the units above: `redact.sh` misses
-`sk-proj-`, `ASIA`, `glpat-` and credentials in URLs and leaks over-long tokens' tails, and
-its self-test structurally cannot see partial redaction (**B5/B6** → Unit 4); CI has failed on
-all 8 runs on shellcheck info notices, and `checkout@v4` is Node-20 deprecated in the workflow
-AND the shipped template (**D-016 items 8–9** → Unit 3); `CONTRIBUTING.md` and `amh-init.sh`
-are cited but do not exist, and `path-refs.sh` cannot see repo-root files by construction
-(**B11** → Unit 5). **Unscoped, no unit yet:** `session-start.sh` skips the toolchain
-bootstrap when `REMOTE_FLAG` is not a shell identifier (**B7**); `rm -rf scripts/guards` leaves
-the ladder green with no output at all (**B8**); the seed `verify.sh` ships mode 100644 while
-the ladder requires `-x`, so an adopter's first full run is red (**B13**); the STATE landing
-check cannot tell a typo fix from a compression pass above the soft cap (**D-016 item 11**).
+left.** Units 1–4 closed D-016 items 1–9, D-017 B1–B3, B5/B6, B9/B10 and B12; those rows
+carry the corrections. **Still open:** `CONTRIBUTING.md` and `amh-init.sh` are cited but do
+not exist, and `path-refs.sh` cannot see repo-root files by construction (**B11** → Unit 5).
+**Unscoped, no unit yet:** `session-start.sh` skips the toolchain bootstrap when
+`REMOTE_FLAG` is not a shell identifier (**B7**); `rm -rf scripts/guards` leaves the ladder
+green with no output at all (**B8**); the STATE landing check cannot tell a typo fix from a
+compression pass above the soft cap (**D-016 item 11**); two knowingly-deferred redaction
+gaps from **D-022** — colon-less URL userinfo (the Azure DevOps PAT clone URL) is missed, and
+`ASIA` + 16 uppercase characters redacts an ordinary identifier; and a class question that is
+bigger than any of them — a `D-NNN` citation inside a SHIPPED script resolves against the
+*adopter's* ledger, where the row does not exist (`ladder.sh` cites D-004 today).
 
 
 ## Decided non-items (don't re-litigate without new evidence)
@@ -141,6 +141,14 @@ check cannot tell a typo fix from a compression pass above the soft cap (**D-016
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history.
 
+- 2026-07-26 — **The redaction filter now matches the credential shapes that are actually in
+  circulation** — `sk-proj-`/`sk-svcacct-`/`sk-admin-`, `ASIA`, `glpat-`, `hf_`, Bearer
+  headers, URL userinfo — and no class can print a token's tail any more. The load-bearing
+  fix is the self-test assertion: it compares the filtered line exactly, so a partial
+  redaction is visible for the first time. Its review pass caught the new URL class deleting
+  the host and structure of any one-line JSON log and the Bearer class redacting the word
+  "authentication"; both narrowed, and every negative fixture moved off end-of-line, where it
+  passed by construction. D-017 B5/B6, **D-022**.
 - 2026-07-26 — **CI green for the first time in this repo's history** (run 14; runs 1–13 all
   failed, always on shellcheck info notices in our own scripts). Fixed in the scripts — unused
   `BRANCH_PREFIX` deleted, inline `disable=` with a reason at each SC2094/SC2016 site — with
