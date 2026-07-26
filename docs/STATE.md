@@ -50,7 +50,13 @@ blocker inside the fix, not in the original defect.** Budget for that.
    now exists, so the tag verifies the tree, checks itself against `harness/VERSION`, and
    publishes the bundle.
 2. **Merge the train as ONE squash PR** whose body describes the net `origin/main..HEAD` diff,
-   not the last branch's. No PR template exists yet — `.github/` holds only `workflows/`.
+   not the last branch's. No PR template exists — `.github/` holds only `workflows/`. The
+   drafted body is not yet written; it is the remaining half of the wrap-up unit.
+3. **A `scripts/bootstrap.sh` was proposed** that would install `shellcheck` on every remote
+   session, closing D-026's local-invisibility cost for good (`session-start.sh` already calls
+   that path when present). NOT built: the proposal arrived through an automated channel
+   rather than from you, and a script that fetches a binary from the network on every session
+   start is your call, not a session's.
 
 **Open questions:**
 
@@ -63,24 +69,44 @@ blocker inside the fix, not in the original defect.** Budget for that.
    relabel a corrected diff as a new unit and claim a fresh pass. No mechanical definition of a
    unit exists. Your call whether to bound it or accept it as prose-only.
 
-**Open findings.** Every finding that had a unit is fixed; **D-016** and **D-017** carry the
-corrections and should not be re-investigated. **Unscoped, still open:**
+**Open findings.** **D-016** and **D-017** carry the corrections and should not be
+re-investigated; **D-025 is closed** (the placeholder list is bound to its document). The
+owner has given a settled direction on each of the four below — build them, do not
+re-litigate them. **Still open:**
 
-- **B7** — `session-start.sh` skips the toolchain bootstrap when `REMOTE_FLAG` is not a shell
+- **B7 + B8, one theme — the disabled state must be louder than the passing state (D-019).**
+  B7: `session-start.sh` skips the toolchain bootstrap when `REMOTE_FLAG` is not a shell
   identifier. Narrowed at the source (`amh-init.sh` refuses to write such a value), not fixed.
-- **B8** — `rm -rf scripts/guards` leaves the ladder green with no output at all.
+  *Direction:* validate it and print a loud banner; do NOT make it fatal — a session-start
+  hook that hard-fails the session is worse than one that skips. B8: `rm -rf scripts/guards`
+  leaves the ladder green with no output at all. *Direction:* print `skip  scripts/guards
+  (directory absent)` and report the count actually run; keep it a skip, an adopter may
+  legitimately have none.
 - **D-016 item 11** — the STATE landing check cannot tell a typo fix from a compression pass
-  above the soft cap. Do **not** fix by widening the band; that reopens D-011.
-- **D-022** — two deliberately deferred redaction gaps: colon-less URL userinfo (the Azure
-  DevOps PAT clone URL) is missed, and `ASIA` + 16 uppercase characters redacts an ordinary
-  identifier.
+  above the soft cap. *Direction, decided:* judge the shrink's SIZE and whether it CROSSES the
+  cap. Three rules: a shrink crossing from above the cap to below must land ≤ 9 KB (D-011
+  exactly, stays closed); a shrink staying above the cap and smaller than a delta (suggest
+  1 KB, configurable) is an ordinary edit, allowed, warning still armed; a shrink staying
+  above the cap and exceeding the delta is an unfinished compression pass and must reach
+  9 KB. The guard must say which branch it took. A fixture per branch, and the existing D-011
+  fixture must still pass. Do **not** widen the band; that reopens D-011.
+- **D-022** — colon-less URL userinfo (the documented Azure DevOps PAT clone URL) is missed.
+  *Direction:* add a userinfo class requiring ≥ 20 characters before the `@`, which excludes
+  `git@host` at three. The row's second half — `ASIA` + 16 uppercase characters redacting an
+  ordinary identifier — is **accepted, not open**: same shape `AKIA` has carried since the
+  founding, and tightening it needs a word boundary ERE cannot express cleanly.
 - **D-023, mitigated not resolved** — a `D-NNN` citation inside a SHIPPED script resolves
   against the *adopter's* ledger, where the row cannot exist; it made an adopter's first run
-  red. The shipped `amh.conf.example` now excludes those scripts from the citation scan.
-  Whether shipped code should cite this ledger at all decides fix vs. plaster.
-- **D-025** — nothing binds `INIT_PLACEHOLDERS` in `amh-init.sh` to the `init` rows of
-  `harness/PLACEHOLDERS.md`; they agree today, and a new template placeholder would diverge
-  silently.
+  red. *Direction, decided:* **de-cite the shipped scripts.** A citation is a promise the ID
+  resolves, and in an adopter's tree `D-004` never can. Strip the guard-visible `D-NNN` tokens
+  from the five shipped scripts, keep the reasoning prose, and append a provenance token the
+  citation regex does not match. Revert `CITATION_EXCLUDE` in the shipped `amh.conf.example`
+  to the fixtures only, and drop the CHANGELOG note about adding the shipped scripts to it —
+  `amh.conf` is the adopter's forever, so shipping a sixth entry would turn every existing
+  adopter's ladder red until they hand-edit a file they were told they own. **Accepted cost,
+  owner-approved:** this repo loses the `[cited]` markers on D-004 and D-007 and the
+  both-directions check for them; `copy-drift.sh` already stops those scripts drifting from
+  the rows. (D-019 keeps its marker — `path-refs.sh`, a repo-local guard, still cites it.)
 
 ## Decided non-items (don't re-litigate without new evidence)
 
