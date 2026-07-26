@@ -483,7 +483,7 @@
   fixture the row asked for is in `scripts/tests/test-init-e2e.sh`, covering both directions.
   Read this row for why it was deferred, not for the current state. The second non-fix, the
   merge-mode placeholder in the seed constitution, stands.)*
-- D-026: **`shellcheck` is CI-only by constitutional carve-out, and the cost of that is a
+- D-026 [cited]: **`shellcheck` is CI-only by constitutional carve-out, and the cost of that is a
   verification rung the agent cannot see.** Recorded because it is repeatedly mistaken for a
   deviation from "no new dependencies" and is not one: `AGENTS.md` states the exception in the
   same breath as the rule ("a bare container with `bash`, `git` and coreutils; `shellcheck` is
@@ -533,3 +533,44 @@
   9215-byte landing, which an agent could answer by padding the file back — the very move this
   row exists to stop). Branch 1 deliberately consults no size and its wording no longer claims
   a classification the guard did not make.
+- D-028: **The toolchain bootstrap, and a fixture whose "offline by construction" PATH was
+  neither.** `scripts/bootstrap.sh` now exists and closes D-026's local-invisibility cost for
+  every remote session: it installs `shellcheck` to `~/.local/bin`, persists that directory to
+  `~/.bashrc` behind a marker so a container booting twenty sessions ends with one block, and
+  starts the `origin/<default>` fetch that `guard_poison_tokens` needs in the background (P14).
+  It is repo-local and deliberately NOT shipped — `session-start.sh` is the agent-neutral boot
+  sequence and this is the hook it leaves for a toolchain, so shipping ours would ship an
+  opinion about an adopter's stack. Non-fatal throughout: every failure exits non-zero, which
+  `session-start.sh` renders as a warning, because a boot hook that kills the session is worse
+  than one that skips a tool — and a hook that skips SILENTLY is worse than both (D-019).
+  **The blocker was in the fixture, for the fifteenth unit running.** The new suite built its
+  shellcheck-free PATH by SUBTRACTING every `$PATH` directory holding a `shellcheck`. On CI,
+  which apt-installs it to `/usr/bin`, that deletes `/usr/bin` — and `/bin` with it, being a
+  symlink to the same directory — leaving a PATH with no `bash`, `curl`, `tar`, `git` or
+  `grep`; all seven new cases died at exit 127 and the push would have been red on arrival. It
+  was green here only because this box keeps `shellcheck` in a directory holding nothing else
+  the script needs, which is a property of the box and not of the fixture. Now CONSTRUCTED: one
+  directory of symlinks to the tools the script uses and, by construction, nothing named
+  `shellcheck`. **Generalisation: a fixture that subtracts from the ambient environment inherits
+  it; only one that builds its environment can claim "by construction" (D-024).**
+  Four more from the same pass, three of them about a step that reported work it had not done.
+  `warm_up` announced the background fetch unconditionally, after redirections that could fail —
+  with an unwritable log directory the fetch never started and the line still said it was in
+  flight; the log is now opened where the failure can be reported, and every branch says which
+  one it took. The warm-up had ZERO coverage (`snapshot` creates no remote, so every case took
+  the early return and replacing the whole function with `:` left the suite green); it is now
+  exercised against a bare repository on the local filesystem. The install path needs `curl`,
+  which is outside the baseline toolchain `AGENTS.md` names, so those cases are gated on it,
+  LOUDLY and with a count — while the curl-free branch, which was pure assumption, gained a
+  fixture of its own. And the staging file was a fixed name under `$BIN_DIR`, so two bootstraps
+  racing on one `$HOME` had the loser report a failure for an install that had succeeded; the
+  warm-up log had the same shape in a world-writable directory, where a fixed name is also a
+  symlink someone else can pre-create. Both are PID-qualified now.
+  One finding accepted rather than fixed, recorded because it will look like a gap: the
+  pre-install and post-install `--version` checks cannot be separated by any fixture — deleting
+  either alone leaves the suite green, and only deleting both turns it red. That is not
+  laziness in the fixtures. Whenever a runnable `shellcheck` is already installed the install
+  function is never called, so "a bad download must not replace a good binary" is not a state
+  this script can reach. The two checks do different things — one refuses to write, the other
+  verifies what was written — both are cheap, and the comment at the site now says so instead
+  of claiming a rationale that does not hold.

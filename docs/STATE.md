@@ -61,12 +61,6 @@ re-litigate them. **D-016** and **D-017** carry the corrections — do not re-in
   in the shipped `amh.conf.example` to the fixtures only and drop the CHANGELOG note about it —
   `amh.conf` is the adopter's forever. **Accepted cost:** D-004 and D-007 lose their `[cited]`
   markers, dropped in the same unit or the ladder fails on stale markers; D-019 keeps its.
-- **scripts/bootstrap.sh, owner-authorised, not yet built.** Mode 755, repo-local (an adopter's
-  bootstrap is theirs). Installs shellcheck to `~/.local/bin`, puts it on PATH, warms a cache in
-  the background (P14). Runs only when `REMOTE_FLAG=1`, so it must not assume a network;
-  idempotent; a download failure loud but NON-FATAL; and it must verify the binary RUNS before
-  reporting success — a truncated download that exits 0 is the silent-skip class again.
-
 ## Owner queue
 
 > **Protected section.** Never delete it, and never silently drop items during compression.
@@ -110,6 +104,10 @@ being on machinery consuming a self-report rather than on a sentence a human may
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-26 — **`scripts/bootstrap.sh`**: the toolchain bootstrap `session-start.sh` had always
+  called and nothing provided. Installs shellcheck, persists PATH, warms the `origin/<default>`
+  fetch, loud and non-fatal throughout. Its review pass found the blocker in the FIXTURE again —
+  a shellcheck-free PATH built by subtraction deletes `/usr/bin` on CI. **D-028**.
 - 2026-07-26 — **The STATE landing check tells an edit from a compression pass** (D-016 item 11).
   It read every byte lost above the soft cap as a pass in progress, so a 15-byte deletion had to
   compress the whole file or be reverted; twice, the compliant move was to *pad the file back*.

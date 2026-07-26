@@ -166,5 +166,220 @@ d=$(snapshot refs_bare_deleted)
 rm "$d/amh.conf"
 expect fail "path-refs: a bare name whose file was deleted but is still in the index" "$d" path-refs.sh "no file by that name"
 
+# --- scripts/bootstrap.sh ----------------------------------------------------
+# Not a guard, so it gets its own runner rather than `expect`. It is repo-local for the
+# same reason the guards above are: session-start.sh is the shipped, agent-neutral boot
+# sequence, and this is the hook it leaves for whatever toolchain the repo happens to
+# need. That makes this file its only possible fixture home.
+#
+# Every case here runs OFFLINE, by construction. The download goes through a `file://`
+# URL at a tarball this suite builds, and the binary inside it is a five-line shell
+# script — not a copy of the real shellcheck, which would make the fixtures depend on
+# the very tool bootstrap.sh exists to install (D-024: a fixture must satisfy its
+# predicate by construction, never usually).
+
+# A PATH with no shellcheck on it. Without one, CI — which apt-installs shellcheck to
+# /usr/bin — would take bootstrap's already-present fast path in every case below and the
+# download half would be tested by nothing, green.
+#
+# It is CONSTRUCTED, one directory of symlinks to the tools bootstrap.sh actually uses,
+# and never `shellcheck`. The obvious form is to subtract instead — walk $PATH and drop
+# any directory holding a shellcheck — and it is wrong for a reason worth recording: on
+# CI that deletes /usr/bin, and /bin with it (a symlink to usr/bin), so the surviving
+# PATH has no bash, curl, tar, git or grep and every case here dies at exit 127. It
+# passes on a machine where shellcheck happens to live somewhere uninteresting, which is
+# not a property of the fixture at all — it is a property of the box.
+bs_shim() { # bs_shim <dir> <tool>... — a directory holding exactly these tools
+	local dir=$1 t p
+	shift
+	mkdir -p "$dir"
+	for t in "$@"; do
+		p=$(command -v "$t" 2>/dev/null) || continue
+		[ -n "$p" ] && ln -sf "$p" "$dir/$t"
+	done
+}
+BS_PATH="$WORK/bs_shim"
+bs_shim "$BS_PATH" bash sh env curl tar xz mktemp find grep sed chmod cp mv rm mkdir dirname cat git
+# The same set minus curl. `curl` is NOT in the harness's baseline toolchain (AGENTS.md
+# names bash, git and coreutils), so bootstrap.sh treats its absence as a supported,
+# non-fatal outcome — and that branch deserves a fixture more than it deserves an
+# assumption.
+BS_PATH_NOCURL="$WORK/bs_shim_nocurl"
+bs_shim "$BS_PATH_NOCURL" bash sh env tar xz mktemp find grep sed chmod cp mv rm mkdir dirname cat git
+
+bs_tarball() { # bs_tarball <absolute-out.tar.xz> <script-body>
+	local out=$1 body=$2 t
+	t=$(mktemp -d) || return 1
+	mkdir -p "$t/shellcheck-stable"
+	printf '%s' "$body" >"$t/shellcheck-stable/shellcheck"
+	chmod +x "$t/shellcheck-stable/shellcheck"
+	(cd "$t" && tar -cJf "$out" shellcheck-stable)
+	rm -rf "$t"
+}
+
+BS_OUT=''
+BS_RC=0
+bs_env_run() { # bs_env_run <repo-dir> <home> <url> <path> [VAR=VAL...]
+	local d=$1 home=$2 url=$3 path=$4
+	shift 4
+	BS_OUT=$(env HOME="$home" PATH="$path" AMH_SHELLCHECK_URL="$url" "$@" bash "$d/scripts/bootstrap.sh" 2>&1)
+	BS_RC=$?
+}
+bs_run() { bs_env_run "$1" "$2" "$3" "$BS_PATH"; }
+
+bs_expect() { # bs_expect <pass|fail> <name> <message-substring>
+	local want=$1 name=$2 want_msg=$3
+	if [ "$want" = pass ] && [ "$BS_RC" -ne 0 ]; then
+		FAILED=$((FAILED + 1))
+		printf '  FAIL %s — expected exit 0, got %d\n%s\n' "$name" "$BS_RC" "$BS_OUT" >&2
+	elif [ "$want" = fail ] && [ "$BS_RC" -eq 0 ]; then
+		FAILED=$((FAILED + 1))
+		printf '  FAIL %s — expected a non-zero exit, got 0\n%s\n' "$name" "$BS_OUT" >&2
+	elif ! printf '%s' "$BS_OUT" | grep -qF "$want_msg"; then
+		FAILED=$((FAILED + 1))
+		printf '  FAIL %s — verdict right but the output never mentioned %s\n%s\n' "$name" "$want_msg" "$BS_OUT" >&2
+	else
+		PASSED=$((PASSED + 1))
+	fi
+}
+
+bs_check() { # bs_check <name> <description> <test-expression...>
+	local name=$1
+	shift
+	if "$@"; then
+		PASSED=$((PASSED + 1))
+	else
+		FAILED=$((FAILED + 1))
+		printf '  FAIL %s\n' "$name" >&2
+	fi
+}
+
+d=$(snapshot bootstrap)
+# shellcheck disable=SC2016 # scoped to this one call: the body is a script this suite
+# WRITES, so `$1` must survive into the file and be expanded by the fixture binary when
+# bootstrap.sh runs it — expanding it here would delete what is on trial.
+bs_tarball "$d/good.tar.xz" '#!/bin/sh
+[ "$1" = --version ] && printf "version: 0.0.0-fixture\n"
+exit 0
+'
+# The silent-skip class in its purest form: a "binary" that installs, runs and exits 0
+# while being nothing at all. `command -v` is satisfied, an exit-status check is
+# satisfied, and the ladder's lint rung would print skip forever.
+bs_tarball "$d/mute.tar.xz" '#!/bin/sh
+exit 0
+'
+
+# The install cases need curl, and curl is outside the baseline toolchain. Gated rather
+# than assumed — and gated LOUDLY, with the count of what was skipped, because a suite
+# that quietly runs four fewer cases on some machines is the same defect as a guard that
+# quietly checks nothing. The curl-free branch below runs either way.
+if [ -e "$BS_PATH/curl" ]; then
+	h="$WORK/bs_home_ok"
+	mkdir -p "$h"
+	bs_run "$d" "$h" "file://$d/good.tar.xz"
+	bs_expect pass "bootstrap: a good download installs shellcheck" "installed at"
+	bs_check "bootstrap: the installed binary is the one later runs resolve" \
+		test -x "$h/.local/bin/shellcheck"
+	bs_check "bootstrap: the PATH block reaches the shells the session opens" \
+		grep -qF 'AMH toolchain bootstrap' "$h/.bashrc"
+
+	# Second run against a URL that cannot resolve: passing PROVES no download was
+	# attempted, which is what "idempotent and fast when shellcheck is already present"
+	# means operationally. The marker count proves the ~/.bashrc block is written once,
+	# not once per session — a container that boots twenty sessions must not end with
+	# twenty blocks.
+	bs_run "$d" "$h" "file://$d/does-not-exist.tar.xz"
+	bs_expect pass "bootstrap: a second run downloads nothing" "already installed"
+	bs_check "bootstrap: the PATH block is appended exactly once" \
+		test "$(grep -c 'AMH toolchain bootstrap' "$h/.bashrc")" = 1
+
+	h="$WORK/bs_home_mute"
+	mkdir -p "$h"
+	bs_run "$d" "$h" "file://$d/mute.tar.xz"
+	bs_expect fail "bootstrap: a binary that exits 0 without being shellcheck is rejected" "install FAILED"
+	bs_check "bootstrap: a rejected binary is not left behind for the next run to trust" \
+		test ! -e "$h/.local/bin/shellcheck"
+
+	h="$WORK/bs_home_nonet"
+	mkdir -p "$h"
+	bs_run "$d" "$h" "file://$d/no-such-file.tar.xz"
+	bs_expect fail "bootstrap: an unfetchable URL is loud" "install FAILED"
+else
+	printf '  SKIP 6 bootstrap install case(s): curl is not on this machine, and the install path cannot run without it\n' >&2
+fi
+
+h="$WORK/bs_home_nocurl"
+mkdir -p "$h"
+bs_env_run "$d" "$h" "file://$d/good.tar.xz" "$BS_PATH_NOCURL"
+bs_expect fail "bootstrap: no curl is a loud, non-fatal outcome" "curl is not available"
+
+# --- the P14 warm-up ---------------------------------------------------------
+# Uncovered entirely until these: `snapshot` creates no remote, so every case above takes
+# warm_up's early return and replacing the whole function with `:` left the suite green.
+# Each case here installs a working fixture shellcheck into $HOME first, so bootstrap
+# takes the fast path and the warm-up is the only thing under test.
+bs_ready_home() { # bs_ready_home <home>
+	mkdir -p "$1/.local/bin"
+	# shellcheck disable=SC2016 # scoped to this printf: `$1` belongs to the script being
+	# written, not to this function.
+	printf '%s\n' '#!/bin/sh' '[ "$1" = --version ] && printf "version: 0.0.0-fixture\n"' 'exit 0' \
+		>"$1/.local/bin/shellcheck"
+	chmod +x "$1/.local/bin/shellcheck"
+}
+
+h="$WORK/bs_home_warm_noremote"
+bs_ready_home "$h"
+bs_run "$d" "$h" "file://$d/good.tar.xz"
+bs_expect pass "warm-up: a repo with no origin says so instead of going quiet" "no 'origin' remote"
+
+# A bare remote on the local filesystem, so the fetch is real but never touches a network.
+bs_remote="$WORK/bs_remote.git"
+git init -q --bare "$bs_remote"
+dw=$(snapshot bootstrap_warm)
+bs_branch=$(sed -n 's/^DEFAULT_BRANCH=//p' "$dw/amh.conf")
+(
+	cd "$dw" || exit 1
+	git remote add origin "$bs_remote"
+	git push -q origin "HEAD:refs/heads/$bs_branch"
+	# The push creates the tracking ref; delete it, so its REAPPEARANCE is the evidence
+	# that the warm-up ran rather than something the fixture set up itself.
+	git update-ref -d "refs/remotes/origin/$bs_branch" 2>/dev/null
+)
+
+bs_no_ref() { # bs_no_ref <dir> <ref>
+	! (cd "$1" && git rev-parse --verify --quiet "$2" >/dev/null 2>&1)
+}
+
+# A bounded WAIT, not a probabilistic predicate — the distinction D-024 turns on. The
+# remote is a bare repository on this filesystem holding one commit, so the only thing
+# being waited for is a `git fetch` process starting and exiting; there is no draw, no
+# distribution and no tail. The ceiling exists so a hung fetch fails LOUDLY instead of
+# hanging the suite, and it is three orders of magnitude past what a local fetch costs.
+bs_await_ref() { # bs_await_ref <dir> <ref>
+	local i=0
+	while [ "$i" -lt 600 ]; do
+		(cd "$1" && git rev-parse --verify --quiet "$2" >/dev/null 2>&1) && return 0
+		sleep 0.1
+		i=$((i + 1))
+	done
+	return 1
+}
+
+# An unwritable log directory. The first draft opened the log inside the background job's
+# redirection, so this case printed a line announcing a fetch that had never started.
+h="$WORK/bs_home_warm_nolog"
+bs_ready_home "$h"
+bs_env_run "$dw" "$h" "file://$d/good.tar.xz" "$BS_PATH" TMPDIR="$WORK/no/such/dir"
+bs_expect pass "warm-up: an unwritable log is reported, not papered over" "was NOT started"
+bs_check "warm-up: and no fetch is claimed when none was started" \
+	bs_no_ref "$dw" "refs/remotes/origin/$bs_branch"
+
+h="$WORK/bs_home_warm_ok"
+bs_ready_home "$h"
+bs_env_run "$dw" "$h" "file://$d/good.tar.xz" "$BS_PATH"
+bs_expect pass "warm-up: an origin remote is fetched in the background" "in the background"
+bs_check "warm-up: and the ref the poison-token guard needs actually lands" \
+	bs_await_ref "$dw" "refs/remotes/origin/$bs_branch"
+
 printf '\n%d passed, %d failed\n' "$PASSED" "$FAILED"
 [ "$FAILED" -eq 0 ]
