@@ -29,6 +29,13 @@
 
 set -uo pipefail
 
+# Byte semantics, deliberately. Every scanner below indexes a string one character
+# at a time; under a UTF-8 locale bash decodes from the start of the string for each
+# index, which makes each scan quadratic in the command's length — 32 KB of command
+# text took ~14s here, and agents write multi-KB heredocs routinely. The guard makes
+# no linguistic judgements, only ASCII shell-syntax ones, so bytes are the right unit.
+export LC_ALL=C
+
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
 DEFAULT_BRANCH=main
@@ -36,50 +43,75 @@ BRANCH_PREFIX=session
 # shellcheck source=/dev/null
 [ -f "$ROOT/amh.conf" ] && . "$ROOT/amh.conf"
 
+# --- windowed character scanning --------------------------------------------
+# Every scanner below walks a string one character at a time. `${s:i:1}` re-walks the
+# string from the start on each index, so those scans are quadratic in the command's
+# length: 32 KB took ~14s before the locale fix above and ~3.5s after, and agents
+# write multi-KB heredocs routinely. A guard slow enough to hit the hook timeout is a
+# guard that gets removed, not fixed.
+#
+# So each loop copies a WINDOW out of the string and indexes inside that instead,
+# refreshing whenever fewer than CHAR_LOOKAHEAD characters remain ahead of the cursor.
+# The idiom is four lines and appears in each scanner (a helper function per character
+# costs more than it saves); this is the one place it is explained. Every one of these
+# cursors advances monotonically, which is what makes a forward-only window safe.
+#
+# Accepted miss: a variable name or redirection target longer than CHAR_LOOKAHEAD is
+# truncated before it is judged. That is the fail-open direction in `redirect_targets`
+# and `heredoc_delim`, but NOT uniformly: a name truncated mid-`${VAR:+…}` loses the
+# modifier and blocks, and a truncated `.env.example` stops looking like a template and
+# blocks. Both need a 512-character token to reach, so the direction is stated honestly
+# rather than defended.
+CHAR_WINDOW=2048
+CHAR_LOOKAHEAD=512
+
 # --- segment splitting ------------------------------------------------------
 # Emit one line per simple-command segment, splitting on UNQUOTED shell operators.
 # Quoted regions stay inside their segment and are therefore never a leading command.
+#
+# Slices, never accumulates: `seg+=$c` per character reallocates the segment on
+# every byte, which is the second half of the quadratic blow-up (the first is the
+# locale, above). Splitting on index boundaries copies each segment exactly once.
 split_segments() {
 	local s=$1
-	local i=0 n=${#s} c q='' seg=''
+	local i=0 n=${#s} c q='' start=0
+	local wbase=0 wbuf='' wsafe=0
 	local out=()
 	while [ "$i" -lt "$n" ]; do
-		c=${s:i:1}
+		if [ "$i" -ge "$wsafe" ]; then # windowed scan — see CHAR_WINDOW
+			wbase=$i
+			wbuf=${s:wbase:CHAR_WINDOW}
+			wsafe=$((wbase + CHAR_WINDOW - CHAR_LOOKAHEAD))
+		fi
+		c=${wbuf:i-wbase:1}
 		if [ -n "$q" ]; then
-			seg+=$c
 			[ "$c" = "$q" ] && q=''
 			i=$((i + 1))
 			continue
 		fi
 		case $c in
-		"'" | '"')
-			q=$c
-			seg+=$c
-			;;
-		'\')
-			seg+=$c
-			i=$((i + 1))
-			[ "$i" -lt "$n" ] && seg+=${s:i:1}
-			;;
+		"'" | '"') q=$c ;;
+		\\) i=$((i + 1)) ;;
 		';' | '&' | '|' | $'\n' | '(' | ')' | '{' | '}' | '`')
-			out+=("$seg")
-			seg=''
+			out+=("${s:start:i-start}")
+			start=$((i + 1))
 			;;
 		'$')
-			if [ "${s:i+1:1}" = '(' ]; then
-				out+=("$seg")
-				seg=''
+			if [ "${wbuf:i-wbase+1:1}" = '(' ]; then
+				out+=("${s:start:i-start}")
 				i=$((i + 1))
-			else
-				seg+=$c
+				start=$((i + 1))
 			fi
 			;;
-		*) seg+=$c ;;
 		esac
 		i=$((i + 1))
 	done
-	out+=("$seg")
-	printf '%s\n' "${out[@]}"
+	out+=("${s:start}")
+	# NUL-separated: a quoted NEWLINE stays inside its segment (a commit message body
+	# is one argument), and a newline-separated round-trip would re-split it — turning
+	# the body's second line into a leading command and blocking a commit on its own
+	# message. That is D-007's class arriving through the transport instead of the scan.
+	printf '%s\0' "${out[@]}"
 }
 
 # Remove here-document BODIES before segmenting. A heredoc body is data — a
@@ -93,28 +125,95 @@ split_segments() {
 # terminator, so a real dump command placed inside a heredoc body is not
 # judged. That is the fail-open direction, and heredoc-as-evasion is not the
 # agent mistake this guard targets.
+#
+# Opening body mode is the most dangerous thing this file does: every line until the
+# delimiter goes UNJUDGED, so a delimiter no line can ever match discards the rest of
+# the command whole. A substring test for `<<` matched three things that open no body
+# at all — `<<<` here-strings, `$((1<<8))` shifts, and `<<` inside quoted prose — and
+# each resolved to a delimiter (`<`, `8))`, a word) that never recurred, so
+# `grep -q x <<<"$v"; git push --force origin main` was ALLOWED. That voided every
+# rail, force-push and push-to-`main` included. So: this scan is fail-CLOSED. When the
+# operator is not unmistakably a here-document, do not open body mode.
+#
+# Sets HEREDOC_DELIM and returns 0 when $1 opens a here-document body.
+HEREDOC_DELIM=''
+heredoc_delim() {
+	local s=$1
+	local i=0 n=${#s} c q='' rest delim
+	local wbase=0 wbuf='' wsafe=0
+	HEREDOC_DELIM=''
+	case $s in *'<<'*) ;; *) return 1 ;; esac # no operator at all: skip the scan
+	while [ "$i" -lt "$n" ]; do
+		if [ "$i" -ge "$wsafe" ]; then # windowed scan — see CHAR_WINDOW
+			wbase=$i
+			wbuf=${s:wbase:CHAR_WINDOW}
+			wsafe=$((wbase + CHAR_WINDOW - CHAR_LOOKAHEAD))
+		fi
+		c=${wbuf:i-wbase:1}
+		if [ -n "$q" ]; then
+			[ "$c" = "$q" ] && q=''
+			i=$((i + 1))
+			continue
+		fi
+		case $c in
+		"'" | '"') q=$c ;;
+		\\) i=$((i + 1)) ;;
+		'<')
+			# `<<<` is a here-STRING: it redirects one line of text and opens no body.
+			if [ "${wbuf:i-wbase+1:1}" = '<' ] && [ "${wbuf:i-wbase+2:1}" != '<' ]; then
+				rest=${wbuf:i-wbase+2}
+				rest=${rest#-}
+				rest=${rest#"${rest%%[![:space:]]*}"}
+				delim=${rest%%[[:space:];|&<>)(\`]*}
+				# An operand the arithmetic close-paren terminates is a SHIFT, not a
+				# delimiter: `$((mask << bits))` names no here-document, and a digit
+				# test alone only catches the literal `$((1 << 8))` form. Checked
+				# before the quote and backslash strips below, which change the length.
+				case ${rest:${#delim}:1} in ')') delim='' ;; esac
+				delim=${delim#[\'\"]}
+				delim=${delim%[\'\"]}
+				# `cat <<\EOF` is a real here-document whose terminator is `EOF`: bash
+				# removes the quoting backslash from the delimiter word. Keeping it
+				# stores `\EOF`, which no line ever matches — body mode then never
+				# closes and every remaining line goes unjudged.
+				delim=${delim//\\/}
+				case $delim in
+				# A digit-led operand is an arithmetic shift (`$((1 << 8))`), not a
+				# delimiter — no shell accepts `8` as a here-document terminator word.
+				'' | [0-9]*) ;;
+				*)
+					HEREDOC_DELIM=$delim
+					return 0
+					;;
+				esac
+			fi
+			# Skip the whole operator either way, so `<<<` is never re-read as `<`.
+			i=$((i + 1))
+			;;
+		esac
+		i=$((i + 1))
+	done
+	return 1
+}
+
 strip_heredocs() {
 	local s=$1
-	local out='' line trimmed delim='' body=1
+	local line trimmed delim='' body=1
+	local out=()
 	while IFS= read -r line; do
 		if [ "$body" -eq 0 ]; then
 			trimmed=${line#"${line%%[![:space:]]*}"} # <<- strips leading tabs
 			[ "$trimmed" = "$delim" ] && body=1
 			continue
 		fi
-		out+=$line$'\n'
-		case $line in
-		*'<<'*)
-			delim=${line#*<<}
-			delim=${delim#-}
-			delim=${delim%%[[:space:];|&)]*}
-			delim=${delim#[\'\"]}
-			delim=${delim%[\'\"]}
-			[ -n "$delim" ] && body=0
-			;;
-		esac
+		out+=("$line")
+		if heredoc_delim "$line"; then
+			delim=$HEREDOC_DELIM
+			body=0
+		fi
 	done <<<"$s"
-	printf '%s' "$out"
+	[ "${#out[@]}" -gt 0 ] && printf '%s\n' "${out[@]}"
+	return 0
 }
 
 # --- rails ------------------------------------------------------------------
@@ -141,14 +240,44 @@ names_env_file() {
 # delimited component, never as a substring: `$AWS_SECRET_ACCESS_KEY` is a secret,
 # `$SSH_KEY_PATH` is a path, `$AWS_ACCESS_KEY_ID` is an identifier and `$MONKEY` is
 # a monkey. Substring matching blocks all four, and a rail that blocks
-# `echo "$SSH_KEY_PATH"` gets disabled, not fixed. Accepted miss: `$TOKEN_B64`.
+# `echo "$SSH_KEY_PATH"` gets disabled, not fixed.
+#
+# The last component ALONE overshoots the other way, which is what shipped: `$key`,
+# `$sort_key`, `$page_token`, `$csrf_token`, `$public_key` and `$LICENSE_KEY` are
+# ordinary program variables and were all blocked. Two narrowings, both deliberately
+# lists rather than heuristics — extend them when a false positive shows up:
+#   * `key` and `token` on their OWN are the generic-programming words (a loop
+#     variable, a map key, a pagination cursor), so a bare one is not a credential.
+#     Bare `secret`, `password` and `credentials` still are — nothing benign is called
+#     that.
+#   * a qualifier that names the thing as public (`public_key`) or as a structural
+#     key (`sort_key`, `page_token`, `csrf_token`) clears it. `api`, `access`,
+#     `private`, `auth` and everything not listed do NOT clear it.
+# Accepted misses, in the fail-open direction: `$TOKEN_B64`, `$KEY2`, `$MY_KEY_V2`.
+BENIGN_KEY_QUALIFIERS=' public sort page paging next prev previous cursor csrf xsrf license licence cache primary foreign partition idempotency map dict index order group row column col lookup shard '
 is_secret_name() {
-	case ${1##*_} in
-	[Kk][Ee][Yy] | [Tt][Oo][Kk][Ee][Nn] | [Ss][Ee][Cc][Rr][Ee][Tt]) return 0 ;;
-	[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd] | [Pp][Aa][Ss][Ss][Ww][Dd]) return 0 ;;
+	local name=$1 tail rest qual
+	tail=${name##*_}
+	case $tail in
+	[Kk][Ee][Yy] | [Tt][Oo][Kk][Ee][Nn]) ;;
+	[Ss][Ee][Cc][Rr][Ee][Tt] | [Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd] | [Pp][Aa][Ss][Ss][Ww][Dd]) return 0 ;;
 	[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll][Ss] | [Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]) return 0 ;;
+	*) return 1 ;;
 	esac
-	return 1
+	if [ "$tail" = "$name" ]; then
+		# A bare LOWERCASE `key`/`token` is the program variable the exemption is for.
+		# In the shell's uppercase convention a bare `$TOKEN` or `$KEY` is a credential
+		# name and one of the commonest there is — exempting it by case-insensitive
+		# match would hand back the rail this narrowing is supposed to keep.
+		case $name in [a-z_]*) return 1 ;; *) return 0 ;; esac
+	fi
+	rest=${name%_*}
+	qual=${rest##*_}
+	qual=$(printf '%s' "$qual" | tr '[:upper:]' '[:lower:]')
+	case $BENIGN_KEY_QUALIFIERS in
+	*" $qual "*) return 1 ;;
+	esac
+	return 0
 }
 
 # True if a raw argument would EXPAND a credential-shaped variable into output.
@@ -156,27 +285,56 @@ is_secret_name() {
 # and `echo "run with \$GITHUB_TOKEN"` expand nothing and are ADVICE — the shape an
 # agent writes when a credential is missing. Quoted text is DATA, never a command;
 # the remediation instead of the leak is the false positive that kills a rail.
+#
+# `${VAR:+set}` and `${VAR+set}` expand to the LITERAL, never to the value — the same
+# presence-not-value answer the block reason's own `[ -n "${MY_KEY:-}" ] && echo set`
+# gives, reached by a different modifier. Blocking it left the agent no spelling of the
+# thing the guard was telling it to do. `${#VAR}` is the length, which the rule forbids
+# printing, and was not caught at all.
 expands_secret_var() {
 	local s=$1 # split: `local s=$1 n=${#s}` expands ${#s} BEFORE s exists (set -u)
-	local i=0 n=${#s} c q='' rest name
+	local i=0 n=${#s} c q='' rest name op1 op2
+	local wbase=0 wbuf='' wsafe=0
+	case $s in *'$'*) ;; *) return 1 ;; esac # nothing to expand: skip the scan
 	while [ "$i" -lt "$n" ]; do
-		c=${s:i:1}
+		if [ "$i" -ge "$wsafe" ]; then # windowed scan — see CHAR_WINDOW
+			wbase=$i
+			wbuf=${s:wbase:CHAR_WINDOW}
+			wsafe=$((wbase + CHAR_WINDOW - CHAR_LOOKAHEAD))
+		fi
+		c=${wbuf:i-wbase:1}
 		case $c in
-		'\')
+		\\)
 			# Outside single quotes a backslash escapes the next character.
 			if [ "$q" != "'" ]; then
 				i=$((i + 2))
 				continue
 			fi
 			;;
-		"'") [ "$q" = "'" ] && q='' || { [ -z "$q" ] && q="'"; } ;;
-		'"') [ "$q" = '"' ] && q='' || { [ -z "$q" ] && q='"'; } ;;
+		"'")
+			if [ "$q" = "'" ]; then q=''; elif [ -z "$q" ]; then q="'"; fi
+			;;
+		'"')
+			if [ "$q" = '"' ]; then q=''; elif [ -z "$q" ]; then q='"'; fi
+			;;
 		'$')
 			if [ "$q" != "'" ]; then
-				rest=${s:i+1}
-				rest=${rest#\{}
-				name=${rest%%[!A-Za-z0-9_]*}
-				[ -n "$name" ] && is_secret_name "$name" && return 0
+				rest=${wbuf:i-wbase+1}
+				if [ "${rest:0:1}" = '{' ]; then
+					rest=${rest#\{}
+					rest=${rest#\#} # `${#VAR}` — the length is forbidden output too
+					name=${rest%%[!A-Za-z0-9_]*}
+					op1=${rest:${#name}:1}
+					op2=${rest:${#name}+1:1}
+					if [ "$op1" = '+' ] || { [ "$op1" = ':' ] && [ "$op2" = '+' ]; }; then
+						: # expands to the alternate literal, never to the value
+					elif [ -n "$name" ] && is_secret_name "$name"; then
+						return 0
+					fi
+				else
+					name=${rest%%[!A-Za-z0-9_]*}
+					[ -n "$name" ] && is_secret_name "$name" && return 0
+				fi
 			fi
 			;;
 		esac
@@ -197,7 +355,7 @@ is_env_dump_builtin() {
 		[ "$#" -eq 0 ] && return 0
 		return 1
 		;;
-	export | typeset | declare)
+	export | typeset | declare | readonly)
 		[ "$#" -eq 0 ] && return 0
 		local dump_flag=1 operand=1
 		for a in "$@"; do
@@ -215,34 +373,154 @@ is_env_dump_builtin() {
 	return 1
 }
 
-check_segment() {
-	local raw=$1
-	# shellcheck disable=SC2206  # deliberate word-splitting: we inspect argv shape
-	local words=($1)
-	local i=0 w
-
-	# A redirection reaches the same file a reader command would, from ANY command:
-	# `tr "\0" "\n" < /proc/self/environ` names no reader at all.
-	local k=0 target
-	while [ "$k" -lt "${#words[@]}" ]; do
-		case ${words[$k]} in
-		'<') target=${words[$((k + 1))]:-} ;;
-		'<'*) target=${words[$k]#<} ;;
-		*)
-			k=$((k + 1))
+# Split a segment into words on UNQUOTED whitespace, then remove the quote
+# characters. `cat ".env"` names a file; the pattern in `grep -q "cat .env" f` is ONE
+# word containing a space and names nothing. Raw `${var}` word-splitting cannot tell
+# them apart — it is the same presence-vs-position error D-007 records for `<`, and it
+# is why the operand scan blocked a grep for the string ".env".
+split_words() {
+	local s=$1
+	local i=0 n=${#s} c q='' start=-1 w
+	local wbase=0 wbuf='' wsafe=0
+	while [ "$i" -lt "$n" ]; do
+		if [ "$i" -ge "$wsafe" ]; then # windowed scan — see CHAR_WINDOW
+			wbase=$i
+			wbuf=${s:wbase:CHAR_WINDOW}
+			wsafe=$((wbase + CHAR_WINDOW - CHAR_LOOKAHEAD))
+		fi
+		c=${wbuf:i-wbase:1}
+		if [ -n "$q" ]; then
+			[ "$c" = "$q" ] && q=''
+			i=$((i + 1))
 			continue
+		fi
+		case $c in
+		' ' | $'\t' | $'\n')
+			if [ "$start" -ge 0 ]; then
+				w=${s:start:i-start}
+				printf '%s\0' "${w//[\'\"]/}"
+				start=-1
+			fi
+			;;
+		"'" | '"')
+			[ "$start" -lt 0 ] && start=$i
+			q=$c
+			;;
+		\\)
+			[ "$start" -lt 0 ] && start=$i
+			i=$((i + 1))
+			;;
+		*) [ "$start" -lt 0 ] && start=$i ;;
+		esac
+		i=$((i + 1))
+	done
+	if [ "$start" -ge 0 ]; then
+		w=${s:start}
+		printf '%s\0' "${w//[\'\"]/}"
+	fi
+	return 0
+}
+
+strip_quotes() { # sets UNQUOTED
+	UNQUOTED=$1
+	UNQUOTED=${UNQUOTED%\"}
+	UNQUOTED=${UNQUOTED#\"}
+	UNQUOTED=${UNQUOTED%\'}
+	UNQUOTED=${UNQUOTED#\'}
+}
+UNQUOTED=''
+
+# Emit the target of each UNQUOTED input redirection, one per line. POSITION, not
+# presence: the shipped scan read the word-split argv, so any `<` anywhere was a
+# redirection and `git commit -m "never read < .env directly"` was BLOCKED on its own
+# commit message — D-007 verbatim, the exact false-positive class this guard's design
+# rules open with. Quoted text is data. `<<` and `<<<` redirect from text rather than
+# from a file and are skipped; a digit prefix (`0<file`) is just an fd number and
+# needs no special case, since the `<` is what this scan looks for.
+redirect_targets() {
+	local s=$1
+	local i=0 n=${#s} c q='' rest target
+	local wbase=0 wbuf='' wsafe=0
+	case $s in *'<'*) ;; *) return 0 ;; esac
+	while [ "$i" -lt "$n" ]; do
+		if [ "$i" -ge "$wsafe" ]; then # windowed scan — see CHAR_WINDOW
+			wbase=$i
+			wbuf=${s:wbase:CHAR_WINDOW}
+			wsafe=$((wbase + CHAR_WINDOW - CHAR_LOOKAHEAD))
+		fi
+		c=${wbuf:i-wbase:1}
+		if [ -n "$q" ]; then
+			[ "$c" = "$q" ] && q=''
+			i=$((i + 1))
+			continue
+		fi
+		case $c in
+		"'" | '"') q=$c ;;
+		\\) i=$((i + 1)) ;;
+		'<')
+			if [ "${wbuf:i-wbase+1:1}" = '<' ]; then
+				i=$((i + 1)) # a here-doc or here-string, not a file
+			else
+				rest=${wbuf:i-wbase+1}
+				rest=${rest#"${rest%%[![:space:]]*}"}
+				target=${rest%%[[:space:];|&<>)(\`]*}
+				strip_quotes "$target"
+				[ -n "$UNQUOTED" ] && printf '%s\0' "$UNQUOTED"
+			fi
 			;;
 		esac
-		k=$((k + 1))
-		target=${target%\"}
-		target=${target#\"}
-		target=${target%\'}
-		target=${target#\'}
-		if [ -n "$target" ] && names_env_file "$target"; then
-			BLOCK_REASON="Redirecting from \`$target\` feeds credential values into the command (AMH P17). Check key presence instead, or ask the owner for a narrower evidence contract via the Owner queue."
+		i=$((i + 1))
+	done
+}
+
+# Block if any operand names a credential file. Used for the commands that PRINT
+# what they read; write DESTINATIONS are filtered out by the caller, because
+# `cp .env.example .env` exposes no value and "Reading `.env` exposes credential
+# values" is a reason that command does not earn.
+reads_env_operand() {
+	local a
+	for a in "$@"; do
+		case $a in -*) continue ;; esac
+		strip_quotes "$a"
+		if names_env_file "$UNQUOTED"; then
+			BLOCK_REASON="Reading \`$UNQUOTED\` exposes credential values (AMH P17). Check key presence instead, or ask the owner for a narrower evidence contract via the Owner queue."
 			return 1
 		fi
 	done
+	return 0
+}
+
+# The same check for a command that COPIES rather than prints. `cp .env /tmp/e` puts
+# no value in the transcript, so the reading reason would assert behaviour the command
+# lacks — the false-reason class again — but it does move credentials to a path
+# nothing here watches, which is its own thing worth blocking.
+copies_env_operand() {
+	local a
+	for a in "$@"; do
+		case $a in -*) continue ;; esac
+		strip_quotes "$a"
+		if names_env_file "$UNQUOTED"; then
+			BLOCK_REASON="\`$cmd\` copies \`$UNQUOTED\` — credential values — to another path, where no rail here can see what reads them next (AMH P17). Leave the file where it is; if a tool needs the values, let it read the file itself, or ask the owner for a narrower evidence contract via the Owner queue."
+			return 1
+		fi
+	done
+	return 0
+}
+
+check_segment() {
+	local raw=$1
+	local words=() i=0 w
+	while IFS= read -r -d '' w; do words+=("$w"); done < <(split_words "$raw")
+
+	# A redirection reaches the same file a reader command would, from ANY command:
+	# `tr "\0" "\n" < /proc/self/environ` names no reader at all.
+	local target
+	while IFS= read -r -d '' target; do
+		if names_env_file "$target"; then
+			BLOCK_REASON="Redirecting from \`$target\` feeds credential values into the command (AMH P17). Check key presence instead, or ask the owner for a narrower evidence contract via the Owner queue."
+			return 1
+		fi
+	done < <(redirect_targets "$raw")
 
 	# Strip leading variable assignments and transparent prefixes so that
 	# `env FOO=1 git push --force` is judged as a git command, not an env dump.
@@ -280,7 +558,7 @@ check_segment() {
 		BLOCK_REASON="\`printenv\` prints credential values (AMH P17). Report key PRESENCE only — never a value, prefix, suffix, length or hash."
 		return 1
 		;;
-	set | export | declare | typeset)
+	set | export | declare | typeset | readonly)
 		# A shell builtin can dump the whole environment without going near `env`.
 		if is_env_dump_builtin "$cmd" ${args[@]+"${args[@]}"}; then
 			BLOCK_REASON="\`$cmd\` in this form prints every variable's VALUE, which dumps the session's credentials (AMH P17). Report key PRESENCE only, e.g. \`[ -n \"\${MY_KEY:-}\" ] && echo set\`."
@@ -289,7 +567,9 @@ check_segment() {
 		# `declare -p NAME` PRINTS that variable's value. `export NAME` does not —
 		# it sets an attribute and prints nothing, so blocking it would be both a
 		# false positive and a block reason asserting behaviour the command lacks.
-		case $cmd in declare | typeset) ;; *) return 0 ;; esac
+		# `-p` is what separates them, so `export -p NAME` and `readonly -p NAME`
+		# belong on the printing side.
+		case $cmd in declare | typeset | export | readonly) ;; *) return 0 ;; esac
 		local a prints=1
 		for a in ${args[@]+"${args[@]}"}; do
 			case $a in -*p*) prints=0 ;; esac
@@ -331,6 +611,28 @@ check_segment() {
 				BLOCK_REASON="Force-push is denied (AMH P7): pushed checkpoints are immutable. If the branch diverged, merge the default branch in — never rewrite pushed history. A history rewrite is owner-executed and only for a leaked-credential incident."
 				return 1
 				;;
+			--mirror | --all)
+				BLOCK_REASON="\`git push $a\` pushes refs you did not name — including \`$DEFAULT_BRANCH\` (and, for \`--mirror\`, force-updating and deleting them). Both are denied (AMH P7, P13). Push one branch explicitly: \`git push -u origin $BRANCH_PREFIX/<codename>\`."
+				return 1
+				;;
+			# A leading `+` on a refspec IS a force push — `git push origin +main` needs
+			# no flag to rewrite the default branch, and passed both rail layers.
+			+*)
+				# `+main` is BOTH violations at once. This arm sits above the
+				# default-branch patterns, so it must say so itself — a reason that
+				# names only P7 and says "drop the +" points the agent at
+				# `git push origin main`, which the very next rail denies. One-step
+				# self-correction is the whole point of an instructive guard.
+				case ${a#+} in
+				"$DEFAULT_BRANCH" | "refs/heads/$DEFAULT_BRANCH" | *:"$DEFAULT_BRANCH" | *:"refs/heads/$DEFAULT_BRANCH")
+					BLOCK_REASON="\`$a\` is denied twice over: the leading \`+\` force-pushes (AMH P7, pushed checkpoints are immutable) and the target is \`$DEFAULT_BRANCH\` (AMH P13). Push your session branch instead: \`git push -u origin $BRANCH_PREFIX/<codename>\`. The owner merges via squash PR."
+					;;
+				*)
+					BLOCK_REASON="A leading \`+\` on the refspec \`$a\` force-pushes it (AMH P7), and pushed checkpoints are immutable. Drop the \`+\`; if the branch diverged, merge the default branch in — never rewrite pushed history."
+					;;
+				esac
+				return 1
+				;;
 			-*) ;;
 			"$DEFAULT_BRANCH" | "refs/heads/$DEFAULT_BRANCH" | *:"$DEFAULT_BRANCH" | *:"refs/heads/$DEFAULT_BRANCH")
 				BLOCK_REASON="Pushing to \`$DEFAULT_BRANCH\` is denied (AMH P13). Push your session branch instead: \`git push -u origin $BRANCH_PREFIX/<codename>\`. The owner merges via squash PR."
@@ -339,20 +641,95 @@ check_segment() {
 			esac
 		done
 		;;
-	cat | less | more | head | tail | bat | xxd | od | strings | nl | \
-		grep | egrep | fgrep | rg | awk | sed | cut | tr | cp | dd | base64 | tee | sort | uniq)
+	source | .)
+		# Sourcing does not print anything, so the reader reason would be false — but
+		# it loads every credential in the file into the shell, where any later command
+		# (including one this guard never sees) can print them.
 		local a
-		for a in "${args[@]:-}"; do
+		for a in ${args[@]+"${args[@]}"}; do
 			case $a in -*) continue ;; esac
-			a=${a%\"}
-			a=${a#\"}
-			a=${a%\'}
-			a=${a#\'}
-			if names_env_file "$a"; then
-				BLOCK_REASON="Reading \`$a\` exposes credential values (AMH P17). Check key presence instead, or ask the owner for a narrower evidence contract via the Owner queue."
+			strip_quotes "$a"
+			if names_env_file "$UNQUOTED"; then
+				BLOCK_REASON="\`$cmd $UNQUOTED\` loads every credential in that file into the session environment (AMH P17), where any later command can print them. Let the tool that needs them read the file itself (e.g. \`--env-file\`), or ask the owner for a narrower evidence contract via the Owner queue."
 				return 1
 			fi
 		done
+		;;
+	# Commands that PRINT what they read. `wc`, `md5sum` and friends are here because
+	# a length and a hash are exactly what P17 forbids reporting — not because they
+	# show the file. This list is a list: `python3 -c "open('.env')"` is an accepted
+	# miss and the prose must not claim otherwise.
+	cat | less | more | head | tail | bat | xxd | od | strings | nl | \
+		grep | egrep | fgrep | rg | awk | cut | tr | base64 | uniq | \
+		wc | md5sum | sha1sum | sha256sum | sha512sum | shasum | cksum | sum | cmp | diff)
+		reads_env_operand ${args[@]+"${args[@]}"} || return 1
+		;;
+	sed)
+		# `sed -i … .env` edits in place and prints NOTHING; every other form prints
+		# what it reads.
+		local a in_place=1
+		for a in ${args[@]+"${args[@]}"}; do
+			case $a in -i | -i.* | --in-place | --in-place=* | -*i) in_place=0 ;; esac
+		done
+		[ "$in_place" -eq 0 ] && return 0
+		reads_env_operand ${args[@]+"${args[@]}"} || return 1
+		;;
+	sort)
+		# `-o FILE` is a write destination, not a read.
+		local a skip=1 ops=()
+		for a in ${args[@]+"${args[@]}"}; do
+			if [ "$skip" -eq 0 ]; then
+				skip=1
+				continue
+			fi
+			case $a in -o) skip=0 ;; -o*) ;; *) ops+=("$a") ;; esac
+		done
+		reads_env_operand ${ops[@]+"${ops[@]}"} || return 1
+		;;
+	cp | mv | install | tee | dd)
+		# Write DESTINATIONS are not reads. `cp .env.example .env`, `tee .env` and
+		# `sed -i … .env` put no credential value anywhere it was not already, and
+		# were blocked with "Reading `.env` exposes credential values" — a reason the
+		# command has not earned. Only the SOURCE side is a read.
+		local a ops=()
+		case $cmd in
+		tee) ;; # every operand is a destination
+		dd)
+			for a in ${args[@]+"${args[@]}"}; do
+				case $a in if=*) ops+=("${a#if=}") ;; esac
+			done
+			;;
+		*)
+			# `-t DIR` / `--target-directory=DIR` INVERT the operand order: every
+			# operand is then a source, and dropping the last one as "the destination"
+			# hands `cp -t /tmp .env` a free pass.
+			local to_dir=1 skip=1
+			for a in ${args[@]+"${args[@]}"}; do
+				if [ "$skip" -eq 0 ]; then
+					skip=1
+					continue
+				fi
+				case $a in
+				-t | --target-directory)
+					to_dir=0
+					skip=0
+					;;
+				--target-directory=*) to_dir=0 ;;
+				-*) ;;
+				*) ops+=("$a") ;;
+				esac
+			done
+			# the last operand is the destination, unless a flag already named one
+			if [ "$to_dir" -ne 0 ]; then
+				if [ "${#ops[@]}" -gt 1 ]; then
+					unset "ops[$((${#ops[@]} - 1))]"
+				else
+					ops=() # a lone operand is the destination, or the command is malformed
+				fi
+			fi
+			;;
+		esac
+		copies_env_operand ${ops[@]+"${ops[@]}"} || return 1
 		;;
 	esac
 	return 0
@@ -363,7 +740,7 @@ check_command() {
 	local seg
 	BLOCK_REASON=''
 	cmd=$(strip_heredocs "$cmd")
-	while IFS= read -r seg; do
+	while IFS= read -r -d '' seg; do
 		[ -n "${seg// /}" ] || continue
 		check_segment "$seg" || return 1
 	done < <(split_segments "$cmd")
@@ -412,6 +789,9 @@ st_allowed() {
 	fi
 }
 
+# shellcheck disable=SC2016  # every fixture below is command TEXT to be judged, not
+# text to be evaluated: single quotes are what stop `$GITHUB_TOKEN` expanding in this
+# shell, and expanding it would test nothing. Scoped to this function on purpose.
 self_test() {
 	# --- must block: the rails themselves
 	st_blocked 'git push --force origin feature'
@@ -456,6 +836,57 @@ self_test() {
 	st_blocked 'tr "\0" "\n" < /proc/self/environ'
 	st_blocked 'grep DATABASE_URL .env'
 	st_blocked 'while read -r l; do echo "$l"; done < .env'
+	# A here-STRING opens no here-document body. Treating it as one discarded every
+	# later line unjudged and voided the two oldest rails outright.
+	st_blocked 'grep -q x <<< "$v"
+git push --force origin main'
+	st_blocked 'grep -q x <<<"$v"; git push --force origin feature'
+	st_blocked 'echo $((1 << 8)); printenv'
+	# Body mode only ever discards SUBSEQUENT lines, so a single-line fixture cannot
+	# exercise it — every one-line case above passes against the broken script too.
+	# These are the ones that discriminate: a shift with a VARIABLE operand, and the
+	# backslash-quoted delimiter form, each followed by a line that must still be judged.
+	st_blocked 'echo $((mask << bits))
+printenv'
+	st_blocked 'x=$((1<<n))
+git push --force origin main'
+	st_blocked 'cat <<\EOF
+hello
+EOF
+printenv'
+	st_blocked 'echo "write <<EOF into the doc"; cat .env'
+	# Redirections the word-split scan never saw.
+	st_blocked 'tr "\0" "\n" 0</proc/self/environ'
+	st_blocked 'cat<.env'
+	# Length, and the presence-check idiom's evil twin.
+	st_blocked 'echo "${#GITHUB_TOKEN}"'
+	st_blocked 'echo "${GITHUB_TOKEN:-none}"'
+	st_blocked 'readonly -p'
+	st_blocked 'readonly'
+	st_blocked 'export -p GITHUB_TOKEN'
+	# Refspec-level force, and the pushes that name no ref at all.
+	st_blocked "git push origin +$DEFAULT_BRANCH"
+	st_blocked "git push origin +HEAD:$DEFAULT_BRANCH"
+	st_blocked 'git push origin +feature'
+	st_blocked 'git push --mirror origin'
+	st_blocked 'git push --all origin'
+	# Sourcing loads the values into the shell.
+	st_blocked 'source .env'
+	st_blocked '. ./.env'
+	# Readers that print a hash or a length — exactly what P17 forbids reporting.
+	st_blocked 'wc -c .env'
+	st_blocked 'md5sum .env'
+	st_blocked 'sha256sum config/.env.production'
+	st_blocked 'cmp .env .env.example'
+	# Write destinations are not reads, but sources still are.
+	st_blocked 'cp .env /tmp/e'
+	st_blocked 'cp -t /tmp .env'
+	st_blocked 'cp --target-directory=/tmp .env'
+	st_blocked 'mv -t /tmp .env'
+	st_blocked 'tee /tmp/x < .env'
+	st_blocked 'dd if=.env of=/tmp/e'
+	st_blocked 'sed -n "/KEY/p" .env'
+	st_blocked 'sort .env'
 
 	# --- must allow: the known false-positive classes.
 	# Quoted text naming a forbidden command is DATA, not a command.
@@ -515,9 +946,60 @@ self_test() {
 	st_allowed 'export GITHUB_TOKEN'
 	st_allowed 'export NPM_TOKEN OPENAI_API_KEY'
 	st_allowed 'declare -p my_array'
+	# Names that END in a secret word but are ordinary program variables. Every
+	# fixture above puts the benign word LAST, so they passed by construction and
+	# hid the overshoot that shipped: `$key` and `$page_token` were both blocked.
+	st_allowed 'echo "$key"'
+	st_allowed 'echo "$token"'
+	st_allowed 'echo "$sort_key"'
+	st_allowed 'echo "$page_token"'
+	st_allowed 'echo "$csrf_token"'
+	st_allowed 'echo "$public_key"'
+	st_allowed 'echo "$LICENSE_KEY"'
+	st_allowed 'printf "%s\n" "${cursor_token}"'
+	# ...but the exemption is for the lowercase program variable, not for the shell's
+	# uppercase convention, where a bare `$TOKEN` is as credential-shaped as it gets.
+	st_blocked 'echo "$TOKEN"'
+	st_blocked 'echo "$KEY"'
+	st_blocked 'declare -p TOKEN'
+	# ...and the qualifier list is a list, not a wildcard.
+	st_blocked 'echo "$api_key"'
+	st_blocked 'echo "$access_token"'
+	st_blocked 'echo "$refresh_token"'
+	# `${VAR:+…}` and `${VAR+…}` expand to the literal — this IS the presence check
+	# the block reason recommends, and blocking it contradicted the remedy.
+	st_allowed 'echo "${GITHUB_TOKEN:+set}"'
+	st_allowed 'echo "${GITHUB_TOKEN+present}"'
+	st_allowed '[ -n "${AWS_SECRET_ACCESS_KEY:+x}" ] && echo set'
+	# A here-string is data, and an arithmetic shift is arithmetic.
+	st_allowed 'grep -q "cat .env" <<< "$line"'
+	st_allowed 'echo $((1 << 8))'
+	# A commit BODY is one quoted argument. Splitting the guard's own segment stream on
+	# newlines re-split it and made the body's second line a leading command — D-007's
+	# class arriving through the transport rather than the scan.
+	st_allowed 'git commit -m "Fix the guard.
+
+cat .env was blocked by its own message.
+"'
+	st_allowed 'git commit -m "line one
+git push --force origin main
+"'
+	# `<` inside quoted text is prose, not a redirection (D-007).
+	st_allowed 'git commit -m "never read < .env directly"'
+	st_allowed "git commit -m 'use < .env nowhere'"
+	st_allowed 'echo "a < b"'
+	# Write destinations expose nothing; the in-place edit prints nothing.
+	st_allowed 'cp .env.example .env'
+	st_allowed 'sed -i "s/x/y/" .env'
+	st_allowed 'tee .env'
+	st_allowed 'sort -o .env /tmp/pairs'
+	# Ordinary pushes that merely LOOK like the new rails.
+	st_allowed "git push -u origin $BRANCH_PREFIX/mirror-work"
+	st_allowed "git push -u origin $BRANCH_PREFIX/x:$BRANCH_PREFIX/x"
 	# Readers pointed at ordinary files, and a redirection from one.
-	st_allowed 'grep -rn "force-push" docs/RUNBOOK.md'
 	st_allowed 'awk 1 README.md'
+	st_allowed 'wc -l README.md'
+	st_allowed 'md5sum harness/dist/AMH.md'
 	st_allowed 'tr "a" "b" < README.md'
 	st_allowed 'sort docs/LEDGER.md'
 	# A branch whose name merely CONTAINS the default branch name.

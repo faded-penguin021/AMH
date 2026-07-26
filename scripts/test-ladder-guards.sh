@@ -24,7 +24,7 @@ FAILED=0
 
 # --- fixture construction ---------------------------------------------------
 mk() { # mk <name> -> prints the fixture path
-	local name=$1 d="$WORK/$1"
+	local d="$WORK/$1"
 	mkdir -p "$d/scripts/guards" "$d/docs"
 	cp "$ROOT/scripts/ladder.sh" "$ROOT/scripts/redact.sh" \
 		"$ROOT/scripts/command-guard.sh" "$d/scripts/"
@@ -62,12 +62,18 @@ mk() { # mk <name> -> prints the fixture path
 		## Changelog
 		- 2026-01-01 — nothing yet.
 	ST
-	cat >"$d/docs/LEDGER.md" <<-'LG'
-		# LEDGER
-
-		- D-001: a durable fact.
-		- D-002: another durable fact.
-	LG
+	# D-001 and D-002 are the citation fixtures' own material and must stay UNMARKED.
+	# Any row a shipped script cites in its comments has to exist here too, marked —
+	# otherwise the citation guard fails every fixture for a reason none of them is
+	# testing. Derived from the scripts just copied, never hardcoded: a hardcoded list
+	# rots the first time a shipped comment cites a new row (it did).
+	{
+		printf '# LEDGER\n\n- D-001: a durable fact.\n- D-002: another durable fact.\n'
+		grep -ohE 'D[A-Z]?-[0-9]+' "$d/scripts"/*.sh | sort -u | grep -vxE 'D-00[12]' |
+			while IFS= read -r id; do
+				printf -- '- %s [cited]: a durable fact a shipped script cites.\n' "$id"
+			done
+	} >"$d/docs/LEDGER.md"
 	(
 		cd "$d" || exit 1
 		git init -q .

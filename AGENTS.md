@@ -141,10 +141,13 @@ could not be — disclosure of real actions, never implied coverage.
   and that includes expanding one into an `echo`: report key presence only
   (`[ -n "${MY_KEY:-}" ] && echo set`).
 - **Which layer holds which half.** `scripts/command-guard.sh` blocks, with a reason: `env`,
-  `printenv`, the builtin dump forms, `declare -p <secret-named>`, reads of `.env` files and
-  `/proc/<pid>/environ` through a reader command or a `<` redirection, and an `echo`/`printf`
-  that expands a credential-shaped variable. The deny rails add the spellings a prefix matcher
-  can express. **Container and service inspect output is prose-only** — no guard sees
+  `printenv`, the builtin dump forms, `declare -p <secret-named>`, `source .env`, reads of
+  `.env` files and `/proc/<pid>/environ` through **a reader command it enumerates** or a `<`
+  redirection, and an `echo`/`printf` that expands a credential-shaped variable. That
+  enumeration is a list, not a category: it names `cat`, `grep`, `wc`, `md5sum` and about
+  thirty others, and anything outside it — `python3 -c "open('.env')"` above all — reaches the
+  file unjudged. The rule in the bullet above binds you whether or not a script can see the
+  shape you chose. The deny rails add the spellings a prefix matcher can express. **Container and service inspect output is prose-only** — no guard sees
   `docker inspect`, and none is proposed: it would block ordinary use to catch a shape this
   repo never runs. Treat that bullet as binding on you, not on a script.
 - **The owner's personal identifiers are secrets too**, and they leak through a door the

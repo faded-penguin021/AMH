@@ -69,7 +69,7 @@
   declaration. Shipped live in `command-guard.sh`'s segment splitter on day one and broke
   every single check; the self-test caught it immediately, which is the argument for rails
   carrying their own matrices.
-- D-007: **Matching a forbidden word anywhere in a command instead of in its argument
+- D-007 [cited]: **Matching a forbidden word anywhere in a command instead of in its argument
   position.** The command guard scanned every token after `git` for `push`, so
   `git commit -m "never git push --force"` was blocked by its own commit message. Quoted
   text is DATA. The fix — resolve the git *subcommand* (skipping global flags), then judge
