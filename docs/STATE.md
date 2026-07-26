@@ -58,11 +58,9 @@ legislation, adopter templates, harness prose + generated bundle.
       `guard_poison_tokens` being inert in THIS repo because `origin/main` did not resolve
       locally — is now a **WARN** rather than a silent skip. A fresh clone will warn again;
       `git fetch origin main` is the fix and makes the guard real (done here, now `ok clean`).
-- [ ] **Unit 3 — make CI green for the first time** (D-016 item 8). It has failed all 8 runs
-      on shellcheck info-level notices in this repo's own scripts. Fix the SCRIPTS; do NOT
-      narrow `verify.sh` — the runbook forbids weakening a gate to get green. Then bump
-      `actions/checkout@v4` → `@v5` in `.github/workflows/ci.yml` AND
-      `harness/templates/configs/ci.yml` (Node 20 deprecation, D-016 item 9).
+- [x] **Unit 3 — CI green for the first time in the repo's history.** D-016 items 8 and 9.
+      Scripts fixed, `verify.sh` untouched; `checkout@v5` in both workflow and template.
+      The `tr: … Broken pipe` was noise, not a skip — removed anyway.
 - [ ] **Unit 4 — `redact.sh` misses live credential shapes** (D-017 B5/B6): `sk-proj-` (the
       existing `openai_key` class no longer matches OpenAI's format), `ASIA`, `glpat-`,
       credentials in URLs; and the exact-length classes leak the token tail. The self-test
@@ -141,6 +139,11 @@ check cannot tell a typo fix from a compression pass above the soft cap (**D-016
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history.
 
+- 2026-07-26 — **CI green for the first time in this repo's history.** Eight runs had failed
+  on shellcheck info notices in our own scripts; fixed in the scripts (unused `BRANCH_PREFIX`
+  deleted, inline `disable=` with a reason at each SC2094/SC2016 site), with `verify.sh`
+  left as strict as it was. `actions/checkout@v5` in the workflow and the shipped template.
+  D-016 items 8–9.
 - 2026-07-26 — **The ladder's off switch closed, and the fixture builder's blind spots.**
   `redact.sh` losing its exec bit no longer makes the secret scan and the rail self-tests
   vanish silently; the citation guard and `path-refs.sh` no longer word-split their file

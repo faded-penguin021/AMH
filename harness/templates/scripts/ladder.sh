@@ -36,7 +36,9 @@ esac
 
 # --- configuration ----------------------------------------------------------
 DEFAULT_BRANCH=main
-BRANCH_PREFIX=session
+# No BRANCH_PREFIX default here: the ladder never reads it. A default for a key this
+# script does not use is a claim it honours one — command-guard.sh and session-start.sh
+# are where the prefix lives.
 STATE_FILE=docs/STATE.md
 STATE_COMPRESS_TO_KB=9
 STATE_WARN_KB=14
@@ -287,7 +289,14 @@ guard_secret_shapes() {
 	# generated at runtime: a stored literal would make this file fail its own scan
 	# (D-004).
 	local canary
-	canary="AKIA$(LC_ALL=C tr -dc 'A-Z0-9' </dev/urandom | head -c 16)"
+	# Bounded read, then slice: `tr </dev/urandom | head -c N` leaves tr writing into a
+	# closed pipe, so every run printed `tr: write error: Broken pipe` into the ladder's
+	# output. Harmless, but noise in a guard's output trains readers to skim it.
+	canary=''
+	while [ "${#canary}" -lt 16 ]; do
+		canary=$canary$(head -c 512 /dev/urandom | LC_ALL=C tr -dc 'A-Z0-9')
+	done
+	canary="AKIA${canary:0:16}"
 	if printf 'x %s x\n' "$canary" | bash scripts/redact.sh 2>/dev/null | grep -qF "$canary"; then
 		fail "scripts/redact.sh did not redact a generated test token — the filter is empty, broken or pass-through, and this scan would report green on everything"
 		return
@@ -307,6 +316,10 @@ guard_secret_shapes() {
 		# `cmp`'s stderr carries the truncation verdict (`EOF on -`) while its stdout
 		# carries the difference verdict. Discarding stderr made a filter that stopped
 		# mid-stream indistinguishable from a clean file.
+		# shellcheck disable=SC2094 # "$f" is opened twice for READING only — once as the
+		# filter's stdin, once as cmp's operand. SC2094 warns about a read/write pair;
+		# nothing in this pipeline writes "$f", and comparing a file against its own
+		# filtered stream is precisely what the scan is.
 		pos=$(bash scripts/redact.sh <"$f" 2>/dev/null | cmp - "$f" 2>"$cmperr")
 		if [ -s "$cmperr" ]; then
 			fail "scripts/redact.sh did not filter all of $f ($(tr -d '\n' <"$cmperr")) — a truncated stream reads as clean"

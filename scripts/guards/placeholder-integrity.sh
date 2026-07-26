@@ -28,6 +28,8 @@ trap 'rm -f "$documented" "$used"' EXIT
 
 # Documented names: the leading `| \`NAME\` |` cell of each table row. Slash-separated
 # cells (`QUESTION` / `DOC_PATH`) count as several names.
+# shellcheck disable=SC2016 # the backticks belong to the sed script — it matches markdown
+# code spans in the table cells. Expanding them would run the cell text as a command.
 sed -n 's/^| *`\([^`]*\)`\( *\/ *`\([^`]*\)`\)* *|.*/\1 \3/p' "$DOC" | tr ' ' '\n' | grep -v '^$' | sort -u >"$documented"
 
 grep -rhoE '\{\{[A-Z_][A-Z0-9_]*\}\}' "$TEMPLATES" 2>/dev/null |

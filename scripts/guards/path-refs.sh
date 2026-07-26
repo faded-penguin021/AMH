@@ -54,6 +54,9 @@ while IFS= read -r -d '' f; do
 	# (b) Backticked paths that look like real repo paths: contain a slash, end in a
 	#     known extension, and carry no glob, placeholder or shell expansion. Resolved
 	#     from the repo root, which is how prose here names files.
+	# shellcheck disable=SC2016 # every backtick in this loop is literal: they are the
+	# markdown code-span delimiters the pattern matches on, and the diagnostic quotes the
+	# citation back in the same form the prose used. Expanding either would be the bug.
 	while IFS= read -r target; do
 		[ -n "$target" ] || continue
 		case $target in

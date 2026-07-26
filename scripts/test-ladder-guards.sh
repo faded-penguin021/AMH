@@ -145,6 +145,17 @@ expect_warn() { # <name> <dir> <grep-pattern>
 
 filler() { head -c "$1" /dev/zero | tr '\0' 'x'; }
 
+# A runtime-generated AKIA-shaped token (D-004: never store a literal one). Bounded
+# read then slice — `tr </dev/urandom | head -c N` leaves tr writing into a pipe head
+# has closed, which printed `tr: write error: Broken pipe` three times per suite run.
+akia_token() {
+	local pool=''
+	while [ "${#pool}" -lt 16 ]; do
+		pool=$pool$(head -c 512 /dev/urandom | LC_ALL=C tr -dc 'A-Z0-9')
+	done
+	printf 'AKIA%s' "${pool:0:16}"
+}
+
 # =============================================================================
 printf 'ladder guard fixtures\n'
 
@@ -251,7 +262,7 @@ expect_fail "duplicate row numbers fail" "$d" "duplicate ledger row numbers"
 
 # --- secret shapes
 d=$(mk secret_plain)
-tok="AKIA$(LC_ALL=C tr -dc 'A-Z0-9' </dev/urandom | head -c 16)"
+tok=$(akia_token)
 printf 'key = %s\n' "$tok" >"$d/scripts/deploy.sh"
 out=$(run "$d")
 if printf '%s' "$out" | grep -q 'credential-shaped'; then
@@ -271,7 +282,7 @@ fi
 # A file name with a space: the file list must be NUL-separated, or the scan
 # silently skips it — a hole that looks exactly like a pass.
 d=$(mk secret_spacey)
-tok="AKIA$(LC_ALL=C tr -dc 'A-Z0-9' </dev/urandom | head -c 16)"
+tok=$(akia_token)
 printf 'key = %s\n' "$tok" >"$d/scripts/deploy notes.sh"
 expect_fail "a secret in a file name with a space is still caught" "$d" "credential-shaped"
 
@@ -290,7 +301,7 @@ expect_fail "a failing repo-local guard fails the ladder" "$d" "domain rule viol
 # download, core.fileMode=false, a stray chmod — used to turn it into `skip` and left
 # the ladder green with a live credential in the tree.
 d=$(mk secret_noexec)
-tok="AKIA$(LC_ALL=C tr -dc 'A-Z0-9' </dev/urandom | head -c 16)"
+tok=$(akia_token)
 printf 'key = %s\n' "$tok" >"$d/scripts/deploy.sh"
 chmod -x "$d/scripts/redact.sh"
 expect_fail "a non-executable redact.sh still scans" "$d" "credential-shaped"

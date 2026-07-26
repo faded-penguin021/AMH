@@ -9,7 +9,7 @@ jobs:
   ladder:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Full history: the poison-token guard compares commit messages against
           # origin/main, and a shallow clone would silently skip that check.

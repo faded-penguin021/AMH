@@ -111,12 +111,15 @@ printf '\nSee [the plan](docs/NOTHING_HERE.md).\n' >>"$d/docs/RUNBOOK.md"
 expect fail "path-refs: a broken relative link" "$d" path-refs.sh "broken link"
 
 d=$(snapshot refs_backtick)
+# shellcheck disable=SC2016 # the backticks are the fixture: path-refs.sh only sees a
+# citation inside a markdown code span, so expanding them would delete what is on trial.
 printf '\nRun `scripts/does-not-exist.sh` first.\n' >>"$d/docs/RUNBOOK.md"
 expect fail "path-refs: a cited path that does not exist" "$d" path-refs.sh "nonexistent path"
 
 # A file name with a space: `for f in $files` word-splits it away, and the guard then
 # prints a resolved count and a green line for a file it never opened.
 d=$(snapshot refs_spacey)
+# shellcheck disable=SC2016 # literal backticks: same fixture form as above.
 printf 'See `docs/NOTHING_HERE.md` for the details.\n' >"$d/notes with space.md"
 expect fail "path-refs: a bad ref in a file name with a space" "$d" path-refs.sh "nonexistent path"
 
@@ -124,6 +127,7 @@ expect fail "path-refs: a bad ref in a file name with a space" "$d" path-refs.sh
 # It is bounded to that directory and asserted here so the boundary is a tested one.
 d=$(snapshot refs_plans_excluded)
 mkdir -p "$d/docs/plans"
+# shellcheck disable=SC2016 # literal backticks: same fixture form as above.
 printf 'Build `scripts/does-not-exist.sh` next.\n' >"$d/docs/plans/future.md"
 expect pass "path-refs: a plan may name a path it has not built yet" "$d" path-refs.sh
 

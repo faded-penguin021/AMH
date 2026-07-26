@@ -61,8 +61,19 @@ list_classes() {
 
 # --- self-test --------------------------------------------------------------
 
-rand_alnum() { LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c "$1"; }
-rand_upper() { LC_ALL=C tr -dc 'A-Z0-9' </dev/urandom | head -c "$1"; }
+# Bounded read, then slice. The obvious form — `tr -dc … </dev/urandom | head -c N` —
+# leaves tr writing into a pipe head has already closed, so every self-test run printed
+# `tr: write error: Broken pipe`. The token was still correct; the noise was not, and
+# noise in a guard's output is how a real diagnostic gets skimmed past.
+rand_class() { # <class> <length>
+	local class=$1 n=$2 pool=''
+	while [ "${#pool}" -lt "$n" ]; do
+		pool=$pool$(head -c 512 /dev/urandom | LC_ALL=C tr -dc "$class")
+	done
+	printf '%s' "${pool:0:n}"
+}
+rand_alnum() { rand_class 'A-Za-z0-9' "$1"; }
+rand_upper() { rand_class 'A-Z0-9' "$1"; }
 
 ST_FAILS=0
 st_redacted() { # <class> <token>  — token must be replaced, and must not survive
@@ -115,6 +126,10 @@ self_test() {
 	# The filter must be clean under itself: its own patterns must not look like
 	# tokens, or the ladder's tree scan would flag this very file forever.
 	if [ -f "${BASH_SOURCE[0]}" ]; then
+		# shellcheck disable=SC2094 # this file is opened twice for READING only — once as
+		# the filter's stdin, once as cmp's operand. SC2094 warns about a read/write pair;
+		# nothing here writes it, and comparing the file against its own filtered stream
+		# is the whole point of the check.
 		if ! filter <"${BASH_SOURCE[0]}" | cmp -s - "${BASH_SOURCE[0]}"; then
 			printf 'SELF-TEST FAIL: redact.sh is not clean under its own filter\n' >&2
 			ST_FAILS=$((ST_FAILS + 1))

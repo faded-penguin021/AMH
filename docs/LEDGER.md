@@ -175,7 +175,7 @@
      constitution bullet over-claims.
   7. **[shipped] Guard is quadratic and now 2× slower.** 32 KB of command text takes ~21s;
      64 KB projects past a typical hook timeout. Agents write multi-KB heredocs routinely.
-  8. **[CI, never green] The ladder has failed on every run in the repo's history — all 8.**
+  8. **[FIXED 2026-07-26, CI green at last] The ladder had failed on every run — all 8.**
      The failing rung is always `shellcheck`, which `verify.sh` treats as failed on ANY output,
      including info-level notices: SC2094 (false positive at `ladder.sh:271`, `redact.sh:118` —
      both `cmp` a file against a filtered copy of itself), SC2034 (`test-ladder-guards.sh:27`
@@ -183,8 +183,18 @@
      intentional), SC2128/SC2178. Shellcheck is CI-only, so no local run can see it. Fix the
      scripts — do NOT narrow `verify.sh` to get green. Also: `tr: write error: Broken pipe`
      appears twice in the fixture-suite output; check it is not a silent skip.
-  9. **[CI] Node 20 deprecation.** `actions/checkout@v4` targets Node 20 and is being force-run
-     on Node 24. Bump to `@v5` in `.github/workflows/ci.yml` **and** in
+     **Fixed** by fixing the scripts, `verify.sh` untouched: `BRANCH_PREFIX` deleted from
+     `ladder.sh` (it never read it); inline `disable=` with a per-site reason for the two
+     SC2094 sites (a file opened twice for READING is not the read/write pair SC2094 means)
+     and the four SC2016 sites (literal backticks — markdown code spans are the subject).
+     The SC2128/SC2178 and `test-ladder-guards.sh:27` reports in this row were already gone
+     by the 8th run; the CI log, not this row, is the authority on what shellcheck says.
+     The broken pipe was **not** a silent skip: `tr -dc … </dev/urandom | head -c N` leaves
+     tr writing into a pipe `head` has closed after taking its N bytes, and the token is
+     complete. Removed anyway (bounded read, then slice in the shell) — noise in a guard's
+     output is how a real diagnostic gets skimmed past.
+  9. **[FIXED 2026-07-26] Node 20 deprecation.** `actions/checkout@v4` targeted Node 20 and
+     was being force-run on Node 24. Bumped to `@v5` in `.github/workflows/ci.yml` **and** in
      `harness/templates/configs/ci.yml` — adopters inherit the pin.
   11. **[repo-local guard] The STATE landing check cannot tell an edit from a compression pass.**
       Above the 14 KB soft cap, *any* shrink that does not reach the 9 KB floor fails the ladder
