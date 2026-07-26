@@ -43,6 +43,9 @@ STATE_FILE=docs/STATE.md
 STATE_COMPRESS_TO_KB=9
 STATE_WARN_KB=14
 STATE_HARD_KB=16
+# Largest shrink above the soft cap that still counts as an ordinary edit rather than a
+# compression pass that stopped short. See guard_state_size for why this exists.
+STATE_EDIT_DELTA_BYTES=1024
 STATE_REQUIRED_SECTIONS='## Project|## Current state|## Changelog'
 STATE_OWNER_QUEUE_SECTION='## Owner queue'
 LEDGER_DIR=docs
@@ -92,7 +95,7 @@ guard_state_size() {
 		fail "$STATE_FILE is missing — it is protocol step 1 for every session"
 		return
 	fi
-	local cur warn_b hard_b comp_b prev
+	local cur warn_b hard_b comp_b prev shrank delta
 	cur=$(wc -c <"$STATE_FILE")
 	warn_b=$((STATE_WARN_KB * 1024))
 	hard_b=$((STATE_HARD_KB * 1024))
@@ -111,19 +114,66 @@ guard_state_size() {
 	# committed size and require a compression, once started, to actually LAND on the
 	# floor.
 	#
-	# It fires on ANY shrink from over the soft cap that does not reach the floor —
-	# including one that stays over the cap. Checking only trims that cross below the
-	# cap leaves the same hole one band higher: 15.5 KB → 14.2 KB never crosses, so the
-	# check never evaluates, and grow-then-nibble repeats forever under a mere warning.
-	# Growth and edits that start below the cap never trip it.
+	# "Any shrink above the cap IS a compression pass" was the first form of that, and it
+	# is wrong in the other direction: it failed a 15-byte deletion twice, once for fixing
+	# a wrong path and once for closing a queue item, and the only compliant move each
+	# time was to pad the file back. So judge the shrink's SIZE and whether it CROSSES
+	# the cap, in three branches:
+	#
+	#   1. crosses from above the cap to at or below it — must land on the floor. This is
+	#      the original hole verbatim and stays closed.
+	#   2. stays above the cap and is smaller than the edit delta — an ordinary edit.
+	#      Allowed; the size warning above is still armed, so the compression is still owed.
+	#   3. stays above the cap and reaches the delta — a compression pass that stopped
+	#      short, which is the grow-to-15.5 / trim-to-14.2 loop the debounce exists to
+	#      prevent. Must reach the floor.
+	#
+	# The delta sits in a wide empty gap: no plausible ordinary edit runs to 1 KB, and no
+	# real compression pass on a file this size comes in under about 5 KB. It is the SHRINK
+	# that is being measured, never the band — widening the band is what reopens the
+	# original hole, and nothing here touches it. Growth, and edits that start below the
+	# cap, never reach this check at all.
 	has_git || return
 	prev=$(git show "HEAD:$STATE_FILE" 2>/dev/null | wc -c)
 	if [ "$prev" = "$cur" ]; then
 		prev=$(git show "HEAD~1:$STATE_FILE" 2>/dev/null | wc -c)
 	fi
 	[ "${prev:-0}" -gt 0 ] || return
-	if [ "$prev" -gt "$warn_b" ] && [ "$cur" -lt "$prev" ] && [ "$cur" -gt "$comp_b" ]; then
-		fail "trimmed from $((prev / 1024)) KB to $((cur / 1024)) KB but the floor is ${STATE_COMPRESS_TO_KB} KB — a compression pass that stops short re-arms the warning next session. Go to the floor or leave the file alone."
+	[ "$prev" -gt "$warn_b" ] && [ "$cur" -lt "$prev" ] || return
+	shrank=$((prev - cur))
+
+	# A threshold arriving from config is exactly the kind of property that is not this
+	# guard's subject, so a malformed one must not decide anything quietly. Left alone,
+	# `[ "$shrank" -lt "$delta" ]` on a non-numeric delta writes an error to stderr and
+	# takes the ELSE branch — the guard then fails an ordinary edit while printing two
+	# numbers that contradict its own verdict. Fall back to the shipped default, loudly.
+	delta=$STATE_EDIT_DELTA_BYTES
+	case $delta in
+	'' | 0 | *[!0-9]*)
+		warn "STATE_EDIT_DELTA_BYTES='$delta' is not a positive byte count — using 1024. Fix it in amh.conf; a guard that reads a malformed threshold and carries on quietly is how a band gets widened by accident."
+		delta=1024
+		;;
+	esac
+
+	# Byte counts, not KB, in every verdict below. Integer KB rounds toward zero on both
+	# sides of a comparison, so the honest outcomes print as contradictions: a pass that
+	# lands at 9215 reads `landed at 8 KB (floor 9 KB)`, which an agent could answer by
+	# padding the file back, and a 14848-byte stop reads `stops short at 14 KB, still
+	# above the 14 KB soft cap`. Bytes are what the guard actually compared.
+	if [ "$cur" -le "$warn_b" ]; then
+		# Branch 1 deliberately does NOT consult the shrink: once the file is back under
+		# the cap, how it got there does not matter — the floor is the floor. So the
+		# wording describes the CROSSING, and claims no classification the guard did not
+		# make. A one-byte deletion from 14337 lands here, and that is the owner's rule.
+		if [ "$cur" -gt "$comp_b" ]; then
+			fail "crossed below the soft cap but stops short at $cur bytes — the floor is $comp_b bytes (${STATE_COMPRESS_TO_KB} KB), and landing in the band re-arms the warning next session. Go to the floor or leave the file alone."
+		else
+			ok "crossed below the soft cap and landed at $cur bytes, at or under the $comp_b-byte floor (from $prev bytes)"
+		fi
+	elif [ "$shrank" -lt "$delta" ]; then
+		ok "edit above the soft cap (shrank $shrank bytes, under the $delta-byte edit delta); compression still owed"
+	else
+		fail "unfinished compression pass: shrank $shrank bytes, at or over the $delta-byte edit delta, and stopped at $cur bytes — still above the soft cap ($warn_b bytes), and the floor is $comp_b bytes. Go to the floor or leave the file alone."
 	fi
 }
 

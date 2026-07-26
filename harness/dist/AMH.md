@@ -595,6 +595,11 @@ STATE_FILE=docs/STATE.md
 STATE_COMPRESS_TO_KB={{COMPRESS_TO_KB}}
 STATE_WARN_KB={{WARN_KB}}
 STATE_HARD_KB={{HARD_KB}}
+# Above WARN, a shrink smaller than this is an ordinary edit (a typo fix, a closed queue
+# item) and is allowed with the warning still armed; a shrink this size or larger is a
+# compression pass and must reach COMPRESS_TO. Put it in the empty gap between the two
+# populations — an edit that large and a compression that small should both be unlikely.
+STATE_EDIT_DELTA_BYTES=1024
 
 # Section headers that must survive compression ('|' separated); a missing one fails.
 STATE_REQUIRED_SECTIONS='## Project|## Current state|## Changelog'
@@ -641,6 +646,16 @@ inside the debounce band instead of reaching the compression floor. Pick numbers
 warn − compress-to spans many sessions of growth and hard − warn leaves one long session of
 margin — 9 / 14 / 16 KB is a working example.
 
+The landing check judges the shrink's *size* as well as where it lands, which is why
+`STATE_EDIT_DELTA_BYTES` exists. Its first form treated every byte lost above the soft cap as a
+compression pass in progress, and that reading fails a three-byte typo fix: go to the floor or
+revert the correction, both worse than the typo. So a shrink smaller than the delta and still
+above the cap is an ordinary edit and is allowed, with the size warning left armed; one that
+reaches the delta is a compression pass and must land on the floor. Set the delta in the empty
+gap between the two populations — no ordinary edit runs to a kilobyte, no real compression pass
+comes in under several. Widen the *delta* if your file is unusual; never widen the *band*, which
+is the hole the landing check was built for.
+
 ``````
 # STATE — project state & session memory
 
@@ -660,7 +675,10 @@ session's first read cheap.
 > compression (Owner-queue items are the owner's to close — compress their prose, never drop
 > an open item). `scripts/ladder.sh` machine-checks the band, the required sections, and that
 > a compression pass actually lands on the {{COMPRESS_TO_KB}} KB floor rather than just
-> clearing the warning.
+> clearing the warning. Above the cap it distinguishes a compression pass from an ordinary
+> edit by how much the file shrank — `STATE_EDIT_DELTA_BYTES` in `amh.conf` is the line
+> between them — so fixing a typo up here does not oblige you to compress the whole file or
+> revert the fix.
 
 ## Project
 
@@ -944,7 +962,9 @@ The guards it ships with:
   compression target: the gap between them is the debounce. Plus the landing check described
   above, which supplies the state the size thresholds lack by comparing against the committed
   size (working tree vs HEAD, falling back to HEAD~1 for a just-committed trim). It fires only
-  on a shrink out of warn territory, so growth and sub-warn edits never trip it.
+  on a shrink from above the warn line, so growth and sub-warn edits never trip it, and it names
+  the branch it took in every outcome — an unfinished pass and an ordinary edit above the cap
+  look identical in the size alone, so saying which one it decided is half the guard.
 - **State structure** — fail if a required section header is missing (an over-compression
   tripwire); warn if the Owner-queue header vanished (data loss for the human).
 - **Ledger rollover** — warn approaching the line cap; fail when the live file's LAST row

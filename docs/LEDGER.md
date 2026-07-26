@@ -109,6 +109,11 @@
   a warning. Generalisation: when closing a threshold-gaming hole, ask what the same game looks
   like without crossing the threshold. The check now fires on any shrink from above the cap
   that misses the floor.
+  *(Final sentence superseded by **D-027**, 2026-07-26 — it was true when written and describes
+  a rule the guard no longer has: an ordinary edit above the cap, under a configured delta, is
+  now allowed. Left standing rather than reworded, per this file's supersede-and-point rule.
+  The hole THIS row is about is not reopened: a shrink crossing back under the cap must still
+  reach the floor, unconditionally, so nibbling cannot disarm the warning.)*
 - D-012: **A scope list must cover the file that defines the scope list.** `amh.conf` holds
   `STATE_HARD_KB`, `POISON_TOKENS`, `CITATION_SCAN_PATHS` and `RULE_FILES` itself, and was not
   in `RULE_FILES` — so raising a cap or blanking the poison tokens tripped no wire. Related:
@@ -483,3 +488,37 @@
   dependency carve-out that keeps the toolchain thin does not make the tool optional — it
   moves the moment of discovery from the edit to the push, and the fix is a habit, not a rule
   change. Reopening the carve-out is not the answer; installing the tool takes one command.
+- D-027: **The guard that could not tell a typo fix from an unfinished compression pass, and
+  the assertion that never asserted its own name.** D-016 item 11 is closed; **supersedes the
+  closing sentence of D-011** ("fires on any shrink from above the cap that misses the floor"),
+  which that row now points here for. The STATE landing
+  check read every byte lost above the soft cap as a compression pass in progress, so a 15-byte
+  deletion had to either compress the whole file or be reverted; it hit that twice, and the
+  second time the compliant move was to **pad the file back**, which is the guard paying to be
+  obeyed. It now branches on the shrink's SIZE and whether it CROSSES the cap: a crossing must
+  land on the floor (D-011 verbatim, untouched), a sub-delta shrink above the cap is an ordinary
+  edit, and a shrink at or over the delta above the cap is an unfinished pass. `STATE_EDIT_DELTA_BYTES`
+  defaults in the script, so no adopter has to edit the config file they were told they own. The
+  band is not widened anywhere — it is the SHRINK that gained a threshold, never the cap.
+  What the review pass caught is again the more interesting half, and both blockers were inside
+  the fix. **(a)** `expect_warn` had never checked that a warning was printed — it asserted exit
+  0 and a substring, and a substring can be an `ok` line. Turning the soft-cap `warn` into an
+  `ok` left the whole suite green. That is not a general nicety: the new edit branch is safe
+  ONLY because the size warning stays armed and the compression stays owed, so the single
+  property justifying the branch was the one property nothing verified. **Generalisation: an
+  assertion named for a condition must assert that condition, or the name is the only place it
+  exists.** **(b)** The fixture greps shared a phrase both failing branches emit, so rewriting
+  one branch in the other's words kept the suite green — a fixture that cannot tell which
+  branch fired is not testing the branch split at all. Also fixed from the same pass: the
+  delta's plumbing was exercised by nothing (every fixture conf set the key, so deleting the
+  script's default left the suite green while an adopter on an existing `amh.conf` would have
+  hit an unbound variable under `set -u` and aborted the ladder mid-run); a malformed delta
+  fell through to the failing branch while printing numbers that contradicted its own verdict,
+  and now warns and falls back; the fixture size helper appended a FIXED 18 KB of filler before
+  truncating, so any future request past that would have silently asserted against a size it
+  never got — `head -c` short of its request exits 0 (D-024's shape, in the helper written to
+  satisfy D-024); and every landing verdict now prints BYTES, because integer KB rounding made
+  the honest outcomes read as contradictions ("landed at 8 KB (floor 9 KB)" for a passing
+  9215-byte landing, which an agent could answer by padding the file back — the very move this
+  row exists to stop). Branch 1 deliberately consults no size and its wording no longer claims
+  a classification the guard did not make.

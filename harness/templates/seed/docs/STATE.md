@@ -16,7 +16,10 @@ session's first read cheap.
 > compression (Owner-queue items are the owner's to close — compress their prose, never drop
 > an open item). `scripts/ladder.sh` machine-checks the band, the required sections, and that
 > a compression pass actually lands on the {{COMPRESS_TO_KB}} KB floor rather than just
-> clearing the warning.
+> clearing the warning. Above the cap it distinguishes a compression pass from an ordinary
+> edit by how much the file shrank — `STATE_EDIT_DELTA_BYTES` in `amh.conf` is the line
+> between them — so fixing a typo up here does not oblige you to compress the whole file or
+> revert the fix.
 
 ## Project
 

@@ -22,6 +22,16 @@ inside the debounce band instead of reaching the compression floor. Pick numbers
 warn − compress-to spans many sessions of growth and hard − warn leaves one long session of
 margin — 9 / 14 / 16 KB is a working example.
 
+The landing check judges the shrink's *size* as well as where it lands, which is why
+`STATE_EDIT_DELTA_BYTES` exists. Its first form treated every byte lost above the soft cap as a
+compression pass in progress, and that reading fails a three-byte typo fix: go to the floor or
+revert the correction, both worse than the typo. So a shrink smaller than the delta and still
+above the cap is an ordinary edit and is allowed, with the size warning left armed; one that
+reaches the delta is a compression pass and must land on the floor. Set the delta in the empty
+gap between the two populations — no ordinary edit runs to a kilobyte, no real compression pass
+comes in under several. Widen the *delta* if your file is unusual; never widen the *band*, which
+is the hole the landing check was built for.
+
 <!-- amh:include harness/templates/seed/docs/STATE.md -->
 
 ### 3.3 `docs/RUNBOOK.md` — change-type playbooks
@@ -44,7 +54,9 @@ The guards it ships with:
   compression target: the gap between them is the debounce. Plus the landing check described
   above, which supplies the state the size thresholds lack by comparing against the committed
   size (working tree vs HEAD, falling back to HEAD~1 for a just-committed trim). It fires only
-  on a shrink out of warn territory, so growth and sub-warn edits never trip it.
+  on a shrink from above the warn line, so growth and sub-warn edits never trip it, and it names
+  the branch it took in every outcome — an unfinished pass and an ordinary edit above the cap
+  look identical in the size alone, so saying which one it decided is half the guard.
 - **State structure** — fail if a required section header is missing (an over-compression
   tripwire); warn if the Owner-queue header vanished (data loss for the human).
 - **Ledger rollover** — warn approaching the line cap; fail when the live file's LAST row

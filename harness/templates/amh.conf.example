@@ -30,6 +30,11 @@ STATE_FILE=docs/STATE.md
 STATE_COMPRESS_TO_KB={{COMPRESS_TO_KB}}
 STATE_WARN_KB={{WARN_KB}}
 STATE_HARD_KB={{HARD_KB}}
+# Above WARN, a shrink smaller than this is an ordinary edit (a typo fix, a closed queue
+# item) and is allowed with the warning still armed; a shrink this size or larger is a
+# compression pass and must reach COMPRESS_TO. Put it in the empty gap between the two
+# populations — an edit that large and a compression that small should both be unlikely.
+STATE_EDIT_DELTA_BYTES=1024
 
 # Section headers that must survive compression ('|' separated); a missing one fails.
 STATE_REQUIRED_SECTIONS='## Project|## Current state|## Changelog'

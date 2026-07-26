@@ -38,6 +38,7 @@ mk() { # mk <name> -> prints the fixture path
 		STATE_COMPRESS_TO_KB=9
 		STATE_WARN_KB=14
 		STATE_HARD_KB=16
+		STATE_EDIT_DELTA_BYTES=1024
 		STATE_REQUIRED_SECTIONS='## Project|## Current state|## Changelog'
 		STATE_OWNER_QUEUE_SECTION='## Owner queue'
 		LEDGER_DIR=docs
@@ -130,14 +131,22 @@ expect_fail() { # <name> <dir> <grep-pattern>
 	fi
 }
 
+# Asserts THREE things, and the third was missing for as long as this helper existed: exit
+# 0, the expected text, and that a WARN line was actually printed. Without the last one the
+# name was a lie — the text it greps for can be an `ok` line, so turning the soft-cap `warn`
+# into an `ok` left every expect_warn fixture green. That matters most for the landing
+# check's edit branch, which permits a shrink ONLY because the size warning stays armed: the
+# single property making that branch safe was verified by nothing.
 expect_warn() { # <name> <dir> <grep-pattern>
 	local out rc
 	out=$(run "$2")
 	rc=$?
 	if [ "$rc" -ne 0 ]; then
 		report no "$1" "expected exit 0 with a warning, got $rc" "$out"
+	elif ! printf '%s\n' "$out" | grep -q '^   WARN '; then
+		report no "$1" "expected a WARN line and there was none" "$out"
 	elif ! printf '%s' "$out" | grep -qF "$3"; then
-		report no "$1" "no warning mentioning '$3'" "$out"
+		report no "$1" "no output mentioning '$3'" "$out"
 	else
 		report ok
 	fi
@@ -178,34 +187,98 @@ d=$(mk state_warn)
 } >>"$d/docs/STATE.md"
 expect_warn "STATE over the soft cap warns only" "$d" "soft cap"
 
-# Landing check: a trim out of warn territory must reach the floor, not stop in
-# the debounce band. This is the Goodhart hole the size thresholds alone leave.
+# Landing check, one fixture per branch. Sizes are set with `state_bytes` — grow past
+# the target with filler, then truncate to an EXACT byte count — so every shrink these
+# assert on is what it is by construction, not by however long the fixture's STATE.md
+# prose happens to be. A margin that depends on the base file is a flake waiting for
+# someone to reword the fixture (D-024).
+#
+# The filler is sized FROM the request, and the result is checked. A fixed 18 KB of filler
+# was the first form and it is the same defect one level up: `head -c` on a file shorter
+# than the request silently yields a shorter file and exits 0, so the first fixture that
+# asked for a size past the filler — a hard-cap landing case is the obvious one — would
+# have asserted against a size it never got, and passed.
+state_bytes() { # <dir> <bytes> — leaves docs/STATE.md exactly <bytes> long
+	local f=$1/docs/STATE.md have got
+	have=$(wc -c <"$f")
+	if [ "$2" -le "$have" ]; then
+		printf 'FIXTURE ERROR: STATE.md is already %s bytes; cannot grow it to %s\n' "$have" "$2" >&2
+		exit 1
+	fi
+	{
+		echo
+		filler $(($2 - have))
+	} >>"$f"
+	head -c "$2" "$f" >"$1/docs/STATE.tmp" && mv "$1/docs/STATE.tmp" "$f"
+	got=$(wc -c <"$f")
+	if [ "$got" != "$2" ]; then
+		printf 'FIXTURE ERROR: STATE.md is %s bytes, wanted %s\n' "$got" "$2" >&2
+		exit 1
+	fi
+}
+
+# Branch 1 — a shrink that crosses from above the soft cap to below it must reach the
+# floor, not stop in the debounce band. This is the Goodhart hole the size thresholds
+# alone leave, and the branch split must not reopen it.
 d=$(mk state_landing_bad)
-{
-	echo
-	filler $((15 * 1024))
-} >>"$d/docs/STATE.md"
+state_bytes "$d" $((15 * 1024))
 (cd "$d" && git commit -qam "grow past the soft cap")
 head -c $((11 * 1024)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
-expect_fail "micro-trim that crosses below the cap but misses the floor fails" "$d" "stops short"
+# Greps branch 1's OWN wording, not the "stops short" both failing branches share: with the
+# shared phrase, rewriting branch 1's message in branch 3's words left the suite green, so
+# the fixture could not tell which branch had fired.
+expect_fail "micro-trim that crosses below the cap but misses the floor fails" "$d" "crossed below the soft cap but stops short"
 
-# The same hole one band higher: a trim that never crosses below the soft cap. If the
-# landing check only fires on a crossing, grow-to-15.5 / trim-to-14.2 repeats forever
-# under a mere warning, which is exactly what the debounce claims to prevent.
+# Branch 3 — the same hole one band higher: a compression pass that never crosses below
+# the cap. If the check only fired on a crossing, grow-to-15.5 / trim-to-14.2 would
+# repeat forever under a mere warning. 1.5 KB lost, against a 1 KB delta.
 d=$(mk state_landing_above_warn)
-{
-	echo
-	filler $((16 * 1024))
-} >>"$d/docs/STATE.md"
+state_bytes "$d" $((16 * 1024))
 (cd "$d" && git commit -qam "grow well past the soft cap")
-head -c $((15 * 1024)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
-expect_fail "a trim that stops short while still over the cap fails" "$d" "stops short"
+head -c $((14848)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
+expect_fail "a trim that stops short while still over the cap fails" "$d" "unfinished compression pass"
+
+# Branch 2 — the defect this split exists to fix. A 100-byte deletion above the cap is a
+# typo fix or a closed queue item, not a compression pass that stopped short; failing it
+# leaves padding the file back as the only compliant move. Allowed, and the size warning
+# above it stays armed, which is what `expect_warn` is checking alongside the branch line.
+d=$(mk state_landing_edit)
+state_bytes "$d" $((15 * 1024))
+(cd "$d" && git commit -qam "grow past the soft cap")
+head -c $((15 * 1024 - 100)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
+expect_warn "a small edit above the cap is allowed and says so" "$d" "edit above the soft cap (shrank 100 bytes"
+
+# The delta's plumbing, both directions. Neither the script's default nor the config read
+# was exercised by anything above: every fixture conf sets the key, so deleting the default
+# from the script left the suite green — while an adopter upgrading on an existing amh.conf,
+# which cannot have the key, would hit an unbound variable under `set -u` and abort the
+# ladder mid-run. And with the delta hardcoded back to a literal, the suite stayed green too.
+d=$(mk state_delta_default)
+grep -v '^STATE_EDIT_DELTA_BYTES=' "$d/amh.conf" >"$d/t" && mv "$d/t" "$d/amh.conf"
+state_bytes "$d" $((15 * 1024))
+(cd "$d" && git commit -qam "grow past the soft cap")
+head -c $((15 * 1024 - 100)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
+expect_warn "a conf without the delta key falls back to the shipped default" "$d" "edit above the soft cap (shrank 100 bytes"
+
+# Same 100-byte shrink, a delta of 64: it must now read as a compression pass. This is what
+# proves the value comes from the config rather than from a constant in the script.
+d=$(mk state_delta_configured)
+sed -i 's/^STATE_EDIT_DELTA_BYTES=.*/STATE_EDIT_DELTA_BYTES=64/' "$d/amh.conf"
+state_bytes "$d" $((15 * 1024))
+(cd "$d" && git commit -qam "grow past the soft cap")
+head -c $((15 * 1024 - 100)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
+expect_fail "the configured delta decides the branch" "$d" "unfinished compression pass"
+
+# A malformed delta must be loud and must not silently decide the branch.
+d=$(mk state_delta_malformed)
+sed -i 's/^STATE_EDIT_DELTA_BYTES=.*/STATE_EDIT_DELTA_BYTES=1KB/' "$d/amh.conf"
+state_bytes "$d" $((15 * 1024))
+(cd "$d" && git commit -qam "grow past the soft cap")
+head -c $((15 * 1024 - 100)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
+expect_warn "a malformed delta warns and falls back rather than deciding quietly" "$d" "is not a positive byte count"
 
 d=$(mk state_landing_good)
-{
-	echo
-	filler $((15 * 1024))
-} >>"$d/docs/STATE.md"
+state_bytes "$d" $((15 * 1024))
 (cd "$d" && git commit -qam "grow past the soft cap")
 head -c $((5 * 1024)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
 expect_pass "compression landing on the floor passes" "$d"
