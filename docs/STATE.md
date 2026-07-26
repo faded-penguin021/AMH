@@ -33,9 +33,8 @@ plan:
 
 - **U5** — the release workflow; and the review's prose corrections need mirroring into
   `harness/templates/seed/` and `harness/src/` (they landed in this repo's instance first).
-- **U6** — `README.md` is still the 5-byte stub the plan's own Context describes as the
-  *starting* condition, so U6's README was never written; and the planned end-to-end init
-  test does not exist, so instantiation is verified only by hand.
+- **U6** — the README is written; the planned end-to-end init test does not exist, so
+  instantiation is verified only by hand.
 
 **Repair units — all 5 shipped** (D-016, D-017; see the Changelog and **D-019**…**D-025**).
 Each took ONE fresh-context reviewer, blocking, one pass (D-015): triage, apply, ship, no
@@ -109,6 +108,14 @@ corrections and should not be re-investigated. **Unscoped, still open:**
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history.
 
+- 2026-07-26 — **`README.md`, the adopter's front door** (U6's first half). Was the 5-byte stub
+  the build plan's own Context describes as the repo's *starting* condition: what the harness is
+  and the failure modes it answers, who it is for and the two groups it explicitly is not for,
+  quickstart, the smallest-useful-subset path, the repo map, versioning and upgrades. The review
+  pass caught the version number: writing `1.8.0` in prose created a **fifth** hand-maintained
+  copy that `version-lockstep.sh` does not check, so the README points at `harness/VERSION`
+  instead of restating it. No guard catches an empty README — `path-refs.sh` checks that a cited
+  file exists, never that it says anything.
 - 2026-07-26 — **Repair units 4 and 5: the redaction filter and the adopter path.**
   `redact.sh` matches the shapes actually in circulation (`sk-proj-` and siblings, `ASIA`,
   `glpat-`, `hf_`, Bearer headers, URL userinfo) and no class can print a token's tail; the
