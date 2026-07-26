@@ -467,3 +467,19 @@
   (they agree today; adding a template placeholder and forgetting the list is silent, and the
   guard for it needs its own fixture, so it is queued not bolted on), and the merge-mode placeholder in
   the seed constitution stays a human's sentence even though the script knows the answer.
+- D-026: **`shellcheck` is CI-only by constitutional carve-out, and the cost of that is a
+  verification rung the agent cannot see.** Recorded because it is repeatedly mistaken for a
+  deviation from "no new dependencies" and is not one: `AGENTS.md` states the exception in the
+  same breath as the rule ("a bare container with `bash`, `git` and coreutils; `shellcheck` is
+  CI-only"), and `verify.sh` implements exactly that — run it when present, **fail** if it is
+  missing under `CI`, print `skip (not installed locally — CI runs it)` otherwise. The rule is
+  intact; this row is about the price. That price is not small: the shellcheck rung is the one
+  that has been red most often in this repo's history (runs 1–13, every failure), and it is
+  structurally invisible to a local ladder run, so a session that edits a script without
+  installing shellcheck first is editing blind and will discover it from CI after the push.
+  **Install it before touching any script** and run the ladder with it on `PATH`; local 0.11.0
+  and CI's apt 0.9.0 have agreed exactly every time they have been compared, but when they
+  disagree the CI log is the authority, never a ledger row (D-021). Generalisation: a
+  dependency carve-out that keeps the toolchain thin does not make the tool optional — it
+  moves the moment of discovery from the edit to the push, and the fix is a habit, not a rule
+  change. Reopening the carve-out is not the answer; installing the tool takes one command.
