@@ -61,6 +61,10 @@ LEDGER_LINE_CAP=800
 CITATION_SCAN_PATHS='scripts .github'
 CITATION_EXCLUDE=''
 POISON_TOKENS='[skip ci]|[ci skip]'
+# Extended regex an author/committer address must match WHOLE (it is wrapped in ^(…)$).
+# EMPTY here on purpose, and empty is a valid setting: see guard_author_identity. An
+# adopter who never sets this key still gets the half of that guard that needs no list.
+AUTHOR_EMAIL_ALLOW=''
 PLAN_DIR=docs/plans
 RULE_FILES=''
 # shellcheck source=/dev/null
@@ -421,6 +425,172 @@ guard_poison_tokens() {
 	[ "$hits" = 0 ] && ok "clean"
 }
 
+# Git author identity, over `%ae` AND `%ce` across origin/<default>..HEAD.
+#
+# **What this guard cannot do, plainly, because implying more than a guard delivers is
+# what stops the next reader checking by hand: it cannot tell a personal address from a
+# work one, nor a forge no-reply alias from the address it stands in for.** A
+# well-formed address that is simply the wrong identity for this project passes here.
+# Choosing which identity to commit under stays a prose rule; this rung catches only the
+# machine-generated case below, plus whatever pattern the repository chose to state.
+#
+# Two halves, deliberately unequal.
+#
+# ZERO-CONFIG: fail on the identities git invents when nobody configured one — `root@box`,
+# `you@localhost`, `you@laptop.local`, `you@box.localdomain`, `(none)`, an empty field,
+# anything with no `@` at all. These are machine names rather than addresses, which is why
+# this half needs no list of who is allowed to commit here. The surface is small but it is
+# NOT empty, and saying it was empty would be the false-coverage claim this file warns
+# about everywhere else: `.local` is a real Active Directory and mDNS suffix, and a build
+# account can legitimately be `root@` a real domain. That is what the override below is
+# for. Using the repository's OWN history as an allowlist was considered and rejected: a
+# first-time contributor and a misconfigured one are indistinguishable, so it would fail
+# every commit of a new branch and teach the reader to skip the rung.
+#
+# OPT-IN: AUTHOR_EMAIL_ALLOW, an extended regex matched against the WHOLE address, empty
+# by default IN THIS SCRIPT. That default is load-bearing rather than lazy — amh.conf is
+# yours forever and this harness cannot upgrade it, so a rung that needed a new key would
+# turn an existing adopter's ladder red until they hand-edited a file they were told they
+# own. Unset means the zero-config half alone, and the ok line says which.
+#
+# The allowlist is consulted FIRST and a match ends the check, so naming an address makes
+# it acceptable whatever shape it has. Without that ordering the zero-config half is a
+# dead end: `alice@corp.local` would be rejected, adding it to the very key this file
+# offers for "state your identities" would not help, and the only remedy left would be
+# editing a shipped script whose header says not to. No adopter should ever be told that.
+# With the key unset — the default — nothing overrides anything.
+#
+# One caveat about anchoring, since the wrapper cannot defend against everything: the
+# pattern is wrapped in `^(…)$`, so a top-level alternation is fine (`a@x\.com|b@y\.com`),
+# but one carrying unbalanced-looking parentheses of its own — `a)|(b` — reparses into
+# `^(a)|(b)$` and is silently unanchored. It is still a valid regex, so the probe below
+# cannot catch it. Write alternations without stray parentheses.
+#
+# The window is origin/<default>..HEAD because that is where the fix is still available:
+# an unpushed commit is amendable, a merged one is not, and a repo that forbids itself
+# force-push has no other chance. A PRE-commit guard is impossible here — an identity you
+# have not committed yet is not on disk to check — but that is a fact about one moment,
+# not about all of them.
+#
+# The failure lines print the offending identity. It is already in the commit object this
+# guard is naming, so the line publishes nothing the metadata does not, and a rung that
+# said only "some identity is wrong" would leave you grepping for which.
+guard_author_identity() {
+	section "Git author identity ($DEFAULT_BRANCH..HEAD)"
+	local base
+	base=$(upstream_ref)
+	if ! has_git || [ -z "$base" ]; then
+		# WARN, not skip, for the reason the poison-token scan states above: a guard that
+		# resolved no ref checked NOTHING and must say so louder than a pass does
+		# (AMH ledger row D019). The message LEADS with its own subject rather than with
+		# the condition, because the scan above emits the same condition in the same words:
+		# a fixture grepping the shared opening is satisfied by whichever rung printed it,
+		# and the distinguishing clause sat past a backtick no assertion could quote
+		# without tripping the linter.
+		warn "author identity is unguarded locally: no $DEFAULT_BRANCH reference to compare against, so this guard checked NOTHING. Fetch it (\`git fetch origin $DEFAULT_BRANCH\`)."
+		return
+	fi
+
+	# A malformed regex must not decide anything quietly. Left alone, `grep -E` on one
+	# exits 2 — indistinguishable from "no match" to an `if` — so every identity in the
+	# repository would fail on an allowlist that allows nothing. Probe it against empty
+	# input once: exit 0 or 1 is a verdict, 2 or more is a broken pattern.
+	# `state` carries WHY no allowlist was applied, so the ok line cannot claim the key is
+	# unset when it is set and invalid. A verdict line that contradicts the warning above
+	# it is the shape this script has already been burned by once.
+	local allow=$AUTHOR_EMAIL_ALLOW rc=0 state=unset
+	if [ -n "$allow" ]; then
+		state=applied
+		grep -qE "^($allow)$" </dev/null 2>/dev/null || rc=$?
+		if [ "$rc" -gt 1 ]; then
+			warn "AUTHOR_EMAIL_ALLOW is not a valid extended regex — ignoring it, so only the zero-config half of this guard ran. Fix it in amh.conf; an allowlist that silently allows nothing fails every identity for the wrong reason."
+			allow=''
+			state=ignored
+		fi
+	fi
+
+	local commits idents
+	commits=$(git rev-list --count "$base..HEAD" 2>/dev/null)
+	# One line per field per commit, so the diagnostic can name WHICH field is wrong. A
+	# rebase or an amend by another tool rewrites the committer while the author survives
+	# untouched, which is the case checking `%ae` alone misses entirely.
+	idents=$(git log --format='author %ae%ncommitter %ce' "$base..HEAD" 2>/dev/null | sort -u)
+	if [ -z "$idents" ]; then
+		ok "no new commits to check"
+		return
+	fi
+
+	# One arm per distinguishable shape, each with its OWN wording. A single message shared
+	# across the invented shapes reads fine and is untestable: with one fixture behind the
+	# lot, four of the five globs could be deleted and every assertion still passed, because
+	# nothing could tell which pattern had matched. `.local` and `.localdomain` do share an
+	# arm, and its message names both — they are one shape (a LAN machine name) reached by
+	# two suffixes, and each has its own fixture.
+	local line field addr lower bad hits=0 seen=0
+	while IFS= read -r line; do
+		field=${line%% *}
+		addr=${line#* }
+		[ "$addr" = "$line" ] && addr='' # "author" with an empty field and no trailing text
+		seen=$((seen + 1))
+
+		# The stated identities win over everything below — see the ordering note above.
+		if [ -n "$allow" ] && printf '%s' "$addr" | grep -qE "^($allow)$"; then
+			continue
+		fi
+
+		# Lower-cased for matching only; every message prints the address as committed.
+		# git stores what it was handed, so `ROOT@LOCALHOST` is a real thing to receive,
+		# and `case` globs are case-sensitive — without this the whole half below is
+		# bypassed by holding down shift.
+		lower=$(printf '%s' "$addr" | LC_ALL=C tr '[:upper:]' '[:lower:]')
+		bad=''
+		case $lower in
+		'')
+			bad="is EMPTY — git recorded no address at all in this field"
+			;;
+		*'(none)'*)
+			bad="carries git's '(none)' placeholder, which is what it writes when the machine's hostname has no domain — the usual identity of an unconfigured container"
+			;;
+		root@*)
+			bad="is the machine's root account, which git falls back to when no user.email is set — not an address anyone reads"
+			;;
+		*@localhost)
+			bad="names localhost, which is every machine and therefore no address"
+			;;
+		*@*.local | *@*.localdomain)
+			bad="names a local-only host (.local, .localdomain), which is an mDNS or LAN machine name rather than a deliverable address"
+			;;
+		*@*) ;;
+		*)
+			bad="is not an email address — it has no '@', so git took a bare name"
+			;;
+		esac
+		if [ -n "$bad" ]; then
+			fail "$field identity '$addr' $bad. Set user.email and amend before pushing; a pushed commit cannot be repaired without the rewrite this repo forbids."
+			hits=$((hits + 1))
+			continue
+		fi
+		if [ -n "$allow" ]; then
+			fail "$field identity '$addr' does not match AUTHOR_EMAIL_ALLOW — this repository states which identities its commits carry, and this is not one of them."
+			hits=$((hits + 1))
+		fi
+	done <<<"$idents"
+
+	if [ "$hits" = 0 ]; then
+		case $state in
+		applied)
+			ok "$seen distinct field/address pair(s) over $commits commit(s); all well-formed and admitted by AUTHOR_EMAIL_ALLOW"
+			;;
+		ignored)
+			ok "$seen distinct field/address pair(s) over $commits commit(s); all well-formed. AUTHOR_EMAIL_ALLOW was IGNORED as malformed (see the warning above), so no allowlist was applied"
+			;;
+		*)
+			ok "$seen distinct field/address pair(s) over $commits commit(s); all well-formed. AUTHOR_EMAIL_ALLOW is unset, so no allowlist was applied"
+			;;
+		esac
+	fi
+}
+
 guard_rail_selftests() {
 	section "Rail self-tests (a silently regressed rail is no rail)"
 	local s
@@ -572,6 +742,7 @@ run_guards() {
 	guard_citations
 	guard_secret_shapes
 	guard_poison_tokens
+	guard_author_identity
 	guard_rail_selftests
 	guard_repo_local
 	advisories

@@ -716,3 +716,45 @@
   carries the right alias. The owner's reason for overriding it stands on its own — the harm is
   a permanent leak that no later commit can repair — and is recorded so the override is a
   decision rather than a precedent that the bar is soft.**
+- D-033: **The identity guard D-032 designed, built — and the one-pass protocol's own silent
+  failure, discovered by running two passes at once.** A shipped rung `guard_author_identity`
+  reads `%ae` AND `%ce` across `origin/$DEFAULT_BRANCH..HEAD`. Zero-config half: git's
+  self-invented identities (`root@*`, `*@localhost`, `*@*.local`, `*@*.localdomain`, `(none)`,
+  empty, no `@`). Opt-in half: `AUTHOR_EMAIL_ALLOW`, an extended regex matched WHOLE, defaulted
+  empty IN THE SCRIPT — D-030's lesson applied before the mistake instead of after, since a new
+  mandatory `amh.conf` key would redden every existing adopter. This repo sets the key to its two
+  no-reply aliases, because the zero-config half alone does not catch the leak D-032 is about.
+  `AGENTS.md`, the seed, `10-principles.md` and `30-scaffolds.md` now say PRE-COMMIT rather than
+  never. **Knowingly overrides D-010's incident bar on the owner's decision** — nothing has
+  rotted, all 36 commits carry the right alias — because the harm is a permanent leak no later
+  commit can repair. Recorded as a decision, not a precedent that the bar is soft.
+  **Three findings sat in the fix, and the design's own premise was one of them.** (a) The
+  allowlist was consulted LAST, so an address the invented-shape patterns rejected could not be
+  rescued by naming it: `alice@corp.local` on an Active Directory domain had no remedy but
+  editing a shipped script whose header forbids it. `.local` is a real suffix and a build
+  account can be `root@` a real domain, so the spec's "no false-positive surface" was false as
+  written; the allowlist now runs FIRST and the prose says small-but-not-empty, at the price
+  that a permissive pattern switches the half off. (b) Five invented shapes shared ONE message
+  behind ONE fixture, so four globs could be deleted with the suite fully green — proven by
+  mutation. One arm, one message and one fixture per shape now. (c) The case-normalisation step
+  and the `(none)` arm — git's identity for every unconfigured container — were asserted by
+  nothing; deleting either stayed green.
+  **The protocol failure is the more general half.** A pass that dies and a pass that finds
+  nothing both end as "no findings", which is D-019's shape in the review process rather than in
+  a script: the disabled state was quieter than the passing one. A stalled-transcript heuristic
+  read a live reviewer mid-mutation as dead, a replacement was spawned, and the two then ran
+  concurrently — one mutating `scripts/ladder.sh` while the other's suite copied it into
+  fixtures, which manufactured a "flake" that was nothing of the kind. It cost nothing this time
+  and returned two passes' findings, but the lesson is not the watchdog. **A completion sentinel
+  is a self-report and P3 bans consuming those; it separates crashed from finished and nothing
+  else. What earns trust is a falsifiable claim the parent can replay** — every finding above
+  arrived as "mutation M, suite stayed green", each re-run here before it was believed.
+  Two assertions in the FIX repeated D-027(a) a third and fourth time, both caught by replaying
+  the reviewer's mutations rather than by reading: an `expect_warn` whose pattern omitted the
+  verdict word stayed green when the line it named was demoted from `ok` to `warn`, and the
+  no-upstream fixture greped text that survives a `warn`→`skip` demotion unchanged AND is shared
+  verbatim with the poison-token rung — so it was satisfied by the other guard's output. The
+  message now LEADS with its own subject. Two mutation runs also proved nothing and were redone:
+  a `sed` whose indentation never matched, and a `replace(…, 1)` that hit the poison-token
+  guard's identical first line instead of this one. **Generalisation: a mutation that does not
+  change the file proves exactly as much as a fixture that cannot fail, and both report green.**

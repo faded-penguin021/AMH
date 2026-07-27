@@ -300,10 +300,15 @@ next reader checking by hand (P20's companion failure).
 **The owner's personal identifiers are secrets of the same kind**, and they leak by a route
 credential rails do not watch: git author metadata, doc bylines, licence headers, changelog
 credits. Use the handle or the forge no-reply alias the owner publishes; never a personal
-address, even one the agent was handed in its own session context. This one is prose-only by
-construction — no guard can see an identity before it is committed — so check the git identity
-before the FIRST commit: an unpushed commit is amendable, a pushed one is immutable (P7), and
-the rewrite that would fix it is the thing this harness reserves for a leaked credential.
+address, even one the agent was handed in its own session context. No PRE-commit guard can see
+this — an identity not yet committed is not on disk to be checked — so check the git identity
+before the FIRST commit. That is a claim about one moment and not about all of them: once the
+commit exists the identity IS an artifact, and the ladder's author-identity rung reads it over
+`origin/<default>..HEAD`, the window in which an unpushed commit is still amendable and a
+pushed one is already immutable (P7) — the rewrite that would fix it is the thing this harness
+reserves for a leaked credential. **What no guard can do is tell a personal address from a
+work one**, so the choice of identity stays prose; the rung catches the identities git invents
+for itself and whatever list the repository chose to state.
 
 **Leak response is a protocol, not improvisation.** If a secret has already escaped — into a
 commit, a pushed branch, a log — stop normal work: containment outranks the checkpoint

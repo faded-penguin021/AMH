@@ -334,10 +334,15 @@ next reader checking by hand (P20's companion failure).
 **The owner's personal identifiers are secrets of the same kind**, and they leak by a route
 credential rails do not watch: git author metadata, doc bylines, licence headers, changelog
 credits. Use the handle or the forge no-reply alias the owner publishes; never a personal
-address, even one the agent was handed in its own session context. This one is prose-only by
-construction — no guard can see an identity before it is committed — so check the git identity
-before the FIRST commit: an unpushed commit is amendable, a pushed one is immutable (P7), and
-the rewrite that would fix it is the thing this harness reserves for a leaked credential.
+address, even one the agent was handed in its own session context. No PRE-commit guard can see
+this — an identity not yet committed is not on disk to be checked — so check the git identity
+before the FIRST commit. That is a claim about one moment and not about all of them: once the
+commit exists the identity IS an artifact, and the ladder's author-identity rung reads it over
+`origin/<default>..HEAD`, the window in which an unpushed commit is still amendable and a
+pushed one is already immutable (P7) — the rewrite that would fix it is the thing this harness
+reserves for a leaked credential. **What no guard can do is tell a personal address from a
+work one**, so the choice of identity stays prose; the rung catches the identities git invents
+for itself and whatever list the repository chose to state.
 
 **Leak response is a protocol, not improvisation.** If a secret has already escaped — into a
 commit, a pushed branch, a log — stop normal work: containment outranks the checkpoint
@@ -493,9 +498,14 @@ could NOT be verified locally — disclosure of real actions, never implied cove
 - **The owner's personal identifiers are secrets too**, and they leak through a door the
   credential rails do not cover: git author metadata, doc bylines, licence headers, changelog
   credits. Use the owner's handle or their forge no-reply alias — never a personal address,
-  including one handed to the agent in its own session context. **Prose-only:** no guard can
-  see an identity you have not committed yet. Check `git config user.email` before the first
-  commit — an unpushed commit is amendable, a pushed one is not.
+  including one handed to the agent in its own session context. **No PRE-COMMIT guard can see
+  this** — an identity you have not committed yet is not on disk to be checked — so check
+  `git config user.email` before your first commit. Once it is committed the ladder's
+  `guard_author_identity` rung reads `%ae` and `%ce` across `origin/<default>..HEAD` and fails
+  on the identities git invents for itself, plus any address outside `AUTHOR_EMAIL_ALLOW` if
+  this repo sets one. **It cannot tell a personal address from a work one**, so the choice of
+  identity stays yours. Fix what it finds before you push — an unpushed commit is amendable, a
+  pushed one is not.
 - A diagnostic that seems to need raw secret material becomes an Owner-queue open question
   (ask for a narrower evidence contract) — never raw output.
 - A **leaked** secret (commit, push, log): stop; never repeat the value — key name only;
@@ -625,6 +635,15 @@ CITATION_EXCLUDE='scripts/test-ladder-guards.sh scripts/tests'
 # Fixed strings that must never reach a commit message: a squash merge would fold them
 # onto the default branch, and force-push is forbidden, so it is permanent until merge.
 POISON_TOKENS='[skip ci]|[ci skip]|***NO_CI***'
+
+# Optional, and LEAVING IT OUT IS A SUPPORTED STATE — the key is deliberately absent
+# here. An extended regex every commit's author and committer address must match WHOLE,
+# checked over origin/<default>..HEAD. Without it the author-identity rung still fails on
+# the identities git invents for itself (root@host, @localhost, @host.local, a missing
+# @), which need no list; with it you also state which addresses this project's commits
+# carry. Set it if your repo has an answer to that — e.g. a forge no-reply alias:
+#   AUTHOR_EMAIL_ALLOW='[^@]+@users\.noreply\.github\.com'
+# Note what no regex can do: it cannot tell a personal address from a work one.
 
 # --- Multi-session plans ----------------------------------------------------
 PLAN_DIR=docs/plans
@@ -984,6 +1003,25 @@ The guards it ships with:
 - **Poison-token scan** — fixed strings that must never reach a commit message (CI-skip tokens
   a squash merge would fold onto the default branch), scanned over `origin/<default>..HEAD`
   before push. Because force-push is forbidden, a pushed mistake is permanent until merge.
+- **Git author identity** — `%ae` and `%ce` over the same `origin/<default>..HEAD` window, in
+  two unequal halves. Zero-config: fail on the identities git invents when nothing was
+  configured (`root@host`, `…@localhost`, `…@host.local`, `(none)`, no `@` at all). These are
+  machine names rather than addresses, which is why that half needs no list of who may commit
+  — but its false-positive surface is small, not empty, and claiming empty would be the
+  false-coverage move this document warns about elsewhere: `.local` is a real Active Directory
+  and mDNS suffix, and a build account can legitimately be `root@` a real domain. Opt-in:
+  `AUTHOR_EMAIL_ALLOW`, an extended regex matched against the whole address and **empty by
+  default in the script** — a rung that needed a new `amh.conf` key would turn every existing
+  adopter's ladder red until they hand-edited a file they were told they own. **Consult the
+  allowlist FIRST**, so a named address is admitted whatever shape it has: that is what keeps
+  the zero-config half from being a dead end an adopter can only escape by editing a shipped
+  script, and its price is that a permissive pattern switches that half off. Do not use the
+  repo's own history as the allowlist: a first-time contributor and a misconfigured one are
+  indistinguishable, so it fails every commit of a new branch. Both fields, because a rebase
+  rewrites the committer while the author survives. One arm and one message per shape, or a
+  single fixture covers the lot and the other patterns can be deleted green. And say in the
+  guard what it cannot do — it cannot tell a personal address from a work one, and prose that
+  implies otherwise is what stops the next reader checking by hand.
 - **Secret-shape tree scan** — fail if redacting any tracked or untracked text file with the
   `redact.sh` filter would change it. The scan IS the filter, so it is drift-free by
   construction. Report value-free (file and position, never the match — and test that

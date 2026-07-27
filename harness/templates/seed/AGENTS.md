@@ -85,9 +85,14 @@ could NOT be verified locally — disclosure of real actions, never implied cove
 - **The owner's personal identifiers are secrets too**, and they leak through a door the
   credential rails do not cover: git author metadata, doc bylines, licence headers, changelog
   credits. Use the owner's handle or their forge no-reply alias — never a personal address,
-  including one handed to the agent in its own session context. **Prose-only:** no guard can
-  see an identity you have not committed yet. Check `git config user.email` before the first
-  commit — an unpushed commit is amendable, a pushed one is not.
+  including one handed to the agent in its own session context. **No PRE-COMMIT guard can see
+  this** — an identity you have not committed yet is not on disk to be checked — so check
+  `git config user.email` before your first commit. Once it is committed the ladder's
+  `guard_author_identity` rung reads `%ae` and `%ce` across `origin/<default>..HEAD` and fails
+  on the identities git invents for itself, plus any address outside `AUTHOR_EMAIL_ALLOW` if
+  this repo sets one. **It cannot tell a personal address from a work one**, so the choice of
+  identity stays yours. Fix what it finds before you push — an unpushed commit is amendable, a
+  pushed one is not.
 - A diagnostic that seems to need raw secret material becomes an Owner-queue open question
   (ask for a narrower evidence contract) — never raw output.
 - A **leaked** secret (commit, push, log): stop; never repeat the value — key name only;

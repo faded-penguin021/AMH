@@ -61,6 +61,15 @@ CITATION_EXCLUDE='scripts/test-ladder-guards.sh scripts/tests'
 # onto the default branch, and force-push is forbidden, so it is permanent until merge.
 POISON_TOKENS='[skip ci]|[ci skip]|***NO_CI***'
 
+# Optional, and LEAVING IT OUT IS A SUPPORTED STATE — the key is deliberately absent
+# here. An extended regex every commit's author and committer address must match WHOLE,
+# checked over origin/<default>..HEAD. Without it the author-identity rung still fails on
+# the identities git invents for itself (root@host, @localhost, @host.local, a missing
+# @), which need no list; with it you also state which addresses this project's commits
+# carry. Set it if your repo has an answer to that — e.g. a forge no-reply alias:
+#   AUTHOR_EMAIL_ALLOW='[^@]+@users\.noreply\.github\.com'
+# Note what no regex can do: it cannot tell a personal address from a work one.
+
 # --- Multi-session plans ----------------------------------------------------
 PLAN_DIR=docs/plans
 

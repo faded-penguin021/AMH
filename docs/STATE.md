@@ -24,24 +24,62 @@ Adopted harness version: **AMH 1.8.0** — see `harness/VERSION`, which is the c
 
 ## Current state
 
-> **Session handoff (2026-07-27).** Work is on `claude/owner-queue-close-findings-ddmycw`, tip of
-> the branch train (main ← tb2myi ← der6bl ← guh973 ← guzkor ← 8yq4br ← b7fell ← 60rz4g ← here);
-> `branch-train` by owner decision.
+> **Session handoff (2026-07-27).** Work is on `claude/owner-queue-git-author-guard-bzpdxd`, tip
+> of the branch train (main ← tb2myi ← der6bl ← guh973 ← guzkor ← 8yq4br ← b7fell ← 60rz4g ←
+> ddmycw ← here); `branch-train` by owner decision. **Every carried finding is closed and the
+> train is ready for the owner's squash merge**, body drafted in `docs/SQUASH_PR_BODY.md`.
+> **This file is over the soft cap and owes ONE deep compression pass to ≤ 9 KB** — it went over
+> writing D-033 up, and stopping at 14335 to silence the warning is the move the band exists to
+> prevent. The warning is the debounce working; the pass is the next session's first act.
 
-**The four carried findings are CLOSED and the train is ready for the owner's squash merge.**
-B7+B8 (**D-029**), D-023 (**D-030**), D-022's first half (**D-031**) and the owner-requested
-`scripts/bootstrap.sh` (**D-028**) all shipped with their reviewer passes; the squash-PR body is
-drafted in `docs/SQUASH_PR_BODY.md`. Nothing here blocks the merge.
+**Every unit has had its blocker inside the FIX, not in the original defect** — eighteen of the
+last nineteen passes, this one included. Budget for it. Each unit takes ONE fresh-context
+reviewer, blocking, ONE pass (D-015): triage, apply, ship, no re-review. Spawning it is required,
+not a thing to ask about; do not relabel a corrected diff as a new unit for a fresh pass (D-018).
 
-**Every unit has had its blocker inside the FIX, not in the original defect** — seventeen of the
-last eighteen passes. Budget for that. Each unit takes ONE fresh-context reviewer, blocking, ONE
-pass (D-015): triage, apply, ship, no re-review. Spawning it is required, not a thing to ask
-about; do not relabel a corrected diff as a new unit to claim a fresh pass (D-018).
+`shellcheck` is CI-only and its rung load-bearing, so editing a script without installing it
+first is editing blind (**D-026**); `scripts/bootstrap.sh` installs it on every remote session.
+Run the ladder DIRECTLY, never piped — a pipe reports the pipe's status, and a red tree has been
+pushed that way.
 
-`shellcheck` is CI-only and its rung is load-bearing, so a session that edits a script without
-installing it first is editing blind (**D-026**); `scripts/bootstrap.sh` does that install on
-every remote session. Run the ladder DIRECTLY, never piped — a piped run reports the pipe's exit
-status, and a red tree has been pushed that way.
+**Open findings.** None — the identity guard is built and shipped (**D-033**).
+
+**The review protocol has D-019's own defect**: a pass that dies and one that finds nothing both
+end as "no findings". Do not answer it with a completion sentinel — that is a self-report and P3
+bans consuming those. **Ask a pass for falsifiable claims — "mutation M, suite stayed green" —
+and replay them before believing any.** Two were replayed here and proved nothing: see **D-033**.
+
+## Owner queue` vanishes. Nothing
+> judges whether what survived is any good. Never drop an open owner-queue item.
+
+## Project
+
+The AMH meta-repository: both the **source of truth** for the Agentic Maintenance Harness — a
+reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
+**reference instance**, maintained under the harness and running byte-identical copies of the
+scripts it ships. The distributed product lives in `harness/` (prose source, templates, generated
+bundle); this repo's own instance is `AGENTS.md` + `docs/` + `scripts/` + `amh.conf`.
+Adopted harness version: **AMH 1.8.0** — see `harness/VERSION`, which is the copy that counts.
+
+## Current state
+
+> **Session handoff (2026-07-27).** Work is on `claude/owner-queue-git-author-guard-bzpdxd`, tip
+> of the branch train (main ← tb2myi ← der6bl ← guh973 ← guzkor ← 8yq4br ← b7fell ← 60rz4g ←
+> ddmycw ← here); `branch-train` by owner decision. **Every carried finding is closed and the
+> train is ready for the owner's squash merge**, body drafted in `docs/SQUASH_PR_BODY.md`.
+> **This file is over the soft cap and owes ONE deep compression pass to ≤ 9 KB** — it went over
+> writing D-033 up, and stopping at 14335 to silence the warning is the move the band exists to
+> prevent. The warning is the debounce working; the pass is the next session's first act.
+
+**Every unit has had its blocker inside the FIX, not in the original defect** — eighteen of the
+last nineteen passes, this one included. Budget for it. Each unit takes ONE fresh-context
+reviewer, blocking, ONE pass (D-015): triage, apply, ship, no re-review. Spawning it is required,
+not a thing to ask about; do not relabel a corrected diff as a new unit for a fresh pass (D-018).
+
+`shellcheck` is CI-only and its rung load-bearing, so editing a script without installing it
+first is editing blind (**D-026**); `scripts/bootstrap.sh` installs it on every remote session.
+Run the ladder DIRECTLY, never piped — a pipe reports the pipe's status, and a red tree has been
+pushed that way.
 
 **Open findings.** One, owner-requested, with a settled direction. Build it; do not re-litigate.
 
@@ -84,17 +122,22 @@ status, and a red tree has been pushed that way.
    delete the file, since a merged PR is its own record.
 
 3. **Set `AMH_REMOTE=1` in the remote environment, or `scripts/bootstrap.sh` never runs.**
-   Verified 2026-07-27 by presence check: the flag is unset here, so `session-start.sh` skips the
-   bootstrap — correctly, since that gate is what stops it surprising someone on a laptop. The
-   consequence is that the script built this session to install `shellcheck` automatically
-   (**D-028**, closing **D-026**'s cost) fires for nobody, and every session still installs it by
-   hand. One environment variable in the Claude Code environment settings fixes it. Noted rather
-   than worked around: a bootstrap that silently never runs is the exact defect class this repo
-   keeps rediscovering, and it would have gone unnoticed for the same reason as all the others.
-4. **Decide whether the identity guard above is worth its bar.** You asked for it and I built
-   nothing: the design is above, the work was reverted unbuilt rather than landed unreviewed,
-   because `scripts/ladder.sh` is legislation and an unreviewed rung would have gone into your
-   squash. If you would rather merge the train first and add it after, that costs nothing.
+   Verified by presence check: the flag is unset, so `session-start.sh` skips the bootstrap —
+   correctly, since that gate is what stops it surprising someone on a laptop. So the script
+   built to install `shellcheck` automatically (**D-028**, closing **D-026**'s cost) fires for
+   nobody and every session still installs it by hand. One environment variable fixes it. Noted
+   rather than worked around: a bootstrap that silently never runs is this repo's own recurring
+   defect class, and it would have gone unnoticed for the same reason as all the others.
+4. **The identity guard is built (D-033) — confirm `AUTHOR_EMAIL_ALLOW` in `amh.conf`.** It
+   admits `noreply@anthropic.com` and `*@users.noreply.github.com`: every commit on this train,
+   plus one made through the GitHub web UI. Commit from a differently configured machine and the
+   ladder reddens until that line is widened; deleting the key leaves the zero-config half
+   running. An address the key admits is accepted whatever shape it has, so a permissive pattern
+   switches that half off.
+5. **`harness/src/30-scaffolds.md`'s citation bullet is stale** — out of this unit's scope, so
+   left alone. It still says the shipped `amh.conf` excludes the shipped scripts "whose `D-NNN`
+   comments cite the harness's ledger"; D-030 retracted that, the tokens are gone, and the
+   exclusion now covers only the fixture suite.
 
 **Open questions:**
 
@@ -109,21 +152,25 @@ status, and a red tree has been pushed that way.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
-Each is settled and its reasoning is in the ledger row named — read the row, not this line,
-before reopening. Rendering scripts from placeholder templates (**D-002**); doc-fact guards
-(P20) and a markdown link checker, both overturned the same day, with `version-lockstep.sh` and
-`path-refs.sh` the narrow forms admitted and the incident bar standing — no guard for a claim
-that has not yet rotted (**D-010**, **D-023**); section-granular `RULE_FILES`, the tripwire being
-file-granular (`docs/RUNBOOK.md`, which carries this one — no ledger row does); self-reported
-checklists in commits or YAML, permanently, the ban
-being on machinery consuming a self-report rather than on a sentence a human may disbelieve
-(P3, **D-014**).
+Each is settled and its reasoning is in the ledger row named — read the row, not this line, before
+reopening. Rendering scripts from placeholder templates (**D-002**); doc-fact guards (P20) and a
+markdown link checker, both overturned the same day, with `version-lockstep.sh` and `path-refs.sh`
+the narrow forms admitted and the incident bar standing — no guard for a claim that has not yet
+rotted (**D-010**, **D-023**); section-granular `RULE_FILES`, the tripwire being file-granular
+(`docs/RUNBOOK.md` carries this one — no ledger row does); self-reported checklists in commits or
+YAML, permanently, the ban being on machinery consuming a self-report rather than on a sentence a
+human may disbelieve (P3, **D-014**).
 
 ## Changelog
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-27 — **The git author identity guard** (D-032 built): a shipped rung over `%ae` and
+  `%ce`; git's invented identities fail with no config; `AUTHOR_EMAIL_ALLOW` opt-in, defaulted
+  empty in the script. Its passes found the allowlist ordering — a named address could not
+  override an invented-shape rejection, leaving "edit a shipped script" as the only remedy —
+  plus four globs and two arms asserted by nothing. **D-033**.
 - 2026-07-26 — **Colon-less URL userinfo is redacted** (D-022's first half; the second stays
   ACCEPTED). Its pass found the false positive that mattered — an unpadded markdown table row —
   and the userinfo class is now POSITIVE rather than negated, which ends that family. **D-031**.

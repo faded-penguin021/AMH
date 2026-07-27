@@ -153,10 +153,17 @@ could not be — disclosure of real actions, never implied coverage.
 - **The owner's personal identifiers are secrets too**, and they leak through a door the
   credential rails do not cover: git author metadata, doc bylines, licence headers, changelog
   credits. Use the owner's handle or their forge no-reply alias — never a personal address,
-  including one handed to the agent in its own session context. **Prose-only, deliberately:**
-  no guard can see an identity you have not committed yet. Check `git config user.email`
-  before the first commit — an unpushed commit is amendable, a pushed one is not, and this
-  repo forbids itself the rewrite that would fix it.
+  including one handed to the agent in its own session context. **No PRE-COMMIT guard can see
+  this** — an identity you have not committed yet is not on disk to be checked — so checking
+  `git config user.email` before your first commit is still yours to do. Once it is committed
+  the ladder's `guard_author_identity` rung reads `%ae` and `%ce` across
+  `origin/main..HEAD`: it fails on the identities git invents for itself (`root@…`,
+  `name@localhost`, `name@host.local`, `(none)`, anything with no `@`) and, because `amh.conf` sets
+  `AUTHOR_EMAIL_ALLOW`, on any address outside the no-reply aliases this repo commits under.
+  **It cannot tell a personal address from a work one**, so the choice of identity stays yours;
+  it catches the machine-generated case and the stated list, nothing beyond. Fix what it finds
+  before you push — an unpushed commit is amendable, a pushed one is not, and this repo forbids
+  itself the rewrite that would fix it.
 - A diagnostic that seems to need raw secret material becomes an Owner-queue open question
   (ask for a narrower evidence contract) — never raw output.
 - A **leaked** secret (commit, push, log): stop; never repeat the value — key name only;

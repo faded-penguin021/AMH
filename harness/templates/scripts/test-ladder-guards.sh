@@ -576,6 +576,152 @@ d=$(mk poison_clean)
 )
 expect_pass "an ordinary commit message passes" "$d"
 
+# --- git author identity
+# mk() commits as amh@test.invalid and points origin/<default> at that commit, so the
+# guard's window is EMPTY in every fixture that adds no commit of its own — including the
+# baseline, which is why none of the cases above had to care about this rung. Each case
+# below adds exactly one commit carrying the identity on trial.
+identity_commit() { # <dir> <author-email> <committer-email>
+	(
+		cd "$1" || exit 1
+		printf 'a change\n' >>docs/STATE.md
+		GIT_AUTHOR_EMAIL="$2" GIT_COMMITTER_EMAIL="$3" git commit -qam "an ordinary checkpoint"
+	)
+	# The environment already exports both variables for the whole suite, so a fixture
+	# that meant to override one and did not would commit as amh@test.invalid and assert
+	# against a guard that had nothing to find. Read the commit back: the fixture's
+	# premise is checkable in one command, and a premise that is merely probable is the
+	# flake this suite has already shipped once.
+	local got want="$2 $3"
+	got=$(cd "$1" && git log -1 --format='%ae %ce')
+	if [ "$got" != "$want" ]; then
+		printf 'FIXTURE ERROR: commit carries identities [%s], wanted [%s]\n' "$got" "$want" >&2
+		exit 1
+	fi
+}
+
+# A rebase or an amend by another tool rewrites the committer and leaves the author
+# alone, so a guard reading %ae only would see nothing here.
+d=$(mk identity_committer_only)
+identity_commit "$d" amh@test.invalid dev@localhost
+# `dev@`, not `root@`: with a root address this fixture is matched by the `root@*` arm
+# first and the localhost arm never executes — it could be deleted with the suite green.
+expect_fail "an invented identity in the committer field alone is caught" "$d" \
+	"committer identity 'dev@localhost' names localhost"
+
+d=$(mk identity_not_an_address)
+identity_commit "$d" amh-test amh@test.invalid
+expect_fail "an identity with no @ fails" "$d" "is not an email address"
+
+# ONE FIXTURE PER INVENTED SHAPE, and the reason is worth stating: with a single fixture
+# behind the whole set, four of the five patterns could be deleted and the suite stayed
+# fully green — proven by mutation, not supposed. Each case below feeds a shape no other
+# pattern matches, and asserts the wording belonging to that pattern alone.
+d=$(mk identity_root_account)
+identity_commit "$d" root@buildbox root@buildbox
+expect_fail "the machine's root account fails" "$d" "is the machine's root account"
+
+d=$(mk identity_mdns_local)
+identity_commit "$d" dev@laptop.local dev@laptop.local
+expect_fail "an mDNS .local machine name fails" "$d" "'dev@laptop.local' names a local-only host"
+
+d=$(mk identity_localdomain)
+identity_commit "$d" dev@box.localdomain dev@box.localdomain
+expect_fail "a .localdomain machine name fails" "$d" "'dev@box.localdomain' names a local-only host"
+
+# git's own fallback when the hostname has no resolvable domain — the identity of every
+# unconfigured container, and the likeliest thing this half will ever catch.
+d=$(mk identity_none_placeholder)
+identity_commit "$d" 'builder@host.(none)' 'builder@host.(none)'
+expect_fail "git's (none) placeholder fails" "$d" "carries git's '(none)' placeholder"
+
+# git accepts an empty address and stores it, so the empty field is reachable and needs
+# its own wording rather than sharing the placeholder's.
+d=$(mk identity_empty_field)
+identity_commit "$d" '' amh@test.invalid
+expect_fail "an empty identity field fails" "$d" "is EMPTY"
+
+# `case` globs are case-sensitive and git stores what it was handed, so without the
+# lower-casing step the entire section above is bypassed by holding down shift. Deleting
+# that one line left the suite green until this fixture existed.
+d=$(mk identity_uppercase)
+identity_commit "$d" ROOT@LOCALHOST ROOT@LOCALHOST
+expect_fail "an invented identity in capitals is still caught" "$d" "'ROOT@LOCALHOST' is the machine's root account"
+
+# The pair below is the whole opt-in half, and it only means something as a pair: SAME
+# address, once with the key absent and once with it set. Absent must pass — an adopter
+# upgrading on an amh.conf that cannot contain the key gets the zero-config half and
+# nothing else, which is the entire reason the default lives in the script. Set must
+# fail on that same address, or the default is permissive because the config is never
+# read rather than because empty means unset.
+d=$(mk identity_allow_absent)
+identity_commit "$d" someone@other.example someone@other.example
+expect_pass_saying "a conf without AUTHOR_EMAIL_ALLOW applies no allowlist and says so" "$d" \
+	"   ok    2 distinct field/address pair(s) over 1 commit(s); all well-formed. AUTHOR_EMAIL_ALLOW is unset, so no allowlist was applied"
+
+d=$(mk identity_allow_miss)
+printf "AUTHOR_EMAIL_ALLOW='.*@test\\\\.invalid'\n" >>"$d/amh.conf"
+identity_commit "$d" someone@other.example someone@other.example
+expect_fail "the same address fails once AUTHOR_EMAIL_ALLOW is set" "$d" \
+	"does not match AUTHOR_EMAIL_ALLOW"
+
+d=$(mk identity_allow_match)
+printf "AUTHOR_EMAIL_ALLOW='.*@test\\\\.invalid'\n" >>"$d/amh.conf"
+identity_commit "$d" amh@test.invalid amh@test.invalid
+expect_pass_saying "an address inside AUTHOR_EMAIL_ALLOW passes and the rung says the list ran" "$d" \
+	"   ok    2 distinct field/address pair(s) over 1 commit(s); all well-formed and admitted by AUTHOR_EMAIL_ALLOW"
+
+# The allowlist is matched anchored, so a pattern the adopter wrote for a substring must
+# not quietly allow the addresses around it.
+d=$(mk identity_allow_anchored)
+printf "AUTHOR_EMAIL_ALLOW='amh@test\\\\.invalid'\n" >>"$d/amh.conf"
+identity_commit "$d" not-amh@test.invalid.example not-amh@test.invalid.example
+expect_fail "the allowlist matches the whole address, not a substring of it" "$d" \
+	"does not match AUTHOR_EMAIL_ALLOW"
+
+# An unclosed group is the adopter typo that matters: `grep -E` exits 2 on it, which an
+# `if` reads as "no match", so the pattern would fail every identity in the repository
+# while the config looked like an allowlist. Warn, ignore it, keep the half that works.
+d=$(mk identity_allow_malformed)
+printf "AUTHOR_EMAIL_ALLOW='.*@(corp\\\\.example'\n" >>"$d/amh.conf"
+identity_commit "$d" someone@other.example someone@other.example
+expect_warn "a malformed AUTHOR_EMAIL_ALLOW warns and is ignored rather than failing everything" "$d" \
+	"is not a valid extended regex"
+# ...and the verdict line must not then claim the key is UNSET. It is set; it is invalid.
+# A green line contradicting the warning above it is how a reader concludes the repository
+# never configured one.
+# The verdict word is part of the pattern deliberately: `expect_warn` requires SOME warn
+# line and then greps the whole output, so without `   ok    ` in the pattern this text
+# could migrate onto the WARN line and the assertion would still pass — the helper's name
+# would be checking a condition it never asserted.
+expect_warn "...and the ok line says it was ignored, not that it was never set" "$d" \
+	"   ok    2 distinct field/address pair(s) over 1 commit(s); all well-formed. AUTHOR_EMAIL_ALLOW was IGNORED as malformed"
+
+# The allowlist is consulted BEFORE the invented-identity patterns, so an address the
+# repository has explicitly named is admitted whatever shape it has. Without this ordering
+# `alice@corp.local` — a real Active Directory domain — is rejected, adding it to the key
+# does not help, and the only remedy left is editing a shipped script. The fixture is what
+# stops a later simplification from reordering the two halves back.
+d=$(mk identity_allow_overrides_invented)
+printf "AUTHOR_EMAIL_ALLOW='alice@corp\\\\.local'\n" >>"$d/amh.conf"
+identity_commit "$d" alice@corp.local alice@corp.local
+expect_pass_saying "a named address overrides the invented-shape patterns" "$d" \
+	"   ok    2 distinct field/address pair(s) over 1 commit(s); all well-formed and admitted by AUTHOR_EMAIL_ALLOW"
+
+# AMH ledger row D019's shape, in the branch whose whole purpose is to be LOUDER when
+# the guard is switched off by something that is not its subject. Nothing covered it —
+# not for this guard and not for the poison-token scan it was modelled on — so demoting
+# the warn to a skip stayed green.
+d=$(mk identity_no_upstream)
+git -C "$d" update-ref -d "refs/remotes/origin/$DEFAULT_BRANCH_FIXTURE"
+# Verdict word AND subject, and both halves are load-bearing. Deleting the ref makes the
+# poison-token rung warn in nearly the same words, so a pattern matching only the shared
+# condition is satisfied whichever rung printed it; and the message text alone survives a
+# demotion to `skip` unchanged, so grepping the text proved only that the words exist
+# somewhere. Both mistakes were made here before this line read the way it does.
+expect_warn "with no upstream ref the guard says it checked NOTHING" "$d" \
+	"   WARN  author identity is unguarded locally: no main reference"
+
 # --- local advisories
 # Warn-only and skipped in CI, so `run()` can never reach them: assert on the text.
 d=$(mk advisory_rules)

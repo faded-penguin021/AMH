@@ -76,6 +76,25 @@ The guards it ships with:
 - **Poison-token scan** — fixed strings that must never reach a commit message (CI-skip tokens
   a squash merge would fold onto the default branch), scanned over `origin/<default>..HEAD`
   before push. Because force-push is forbidden, a pushed mistake is permanent until merge.
+- **Git author identity** — `%ae` and `%ce` over the same `origin/<default>..HEAD` window, in
+  two unequal halves. Zero-config: fail on the identities git invents when nothing was
+  configured (`root@host`, `…@localhost`, `…@host.local`, `(none)`, no `@` at all). These are
+  machine names rather than addresses, which is why that half needs no list of who may commit
+  — but its false-positive surface is small, not empty, and claiming empty would be the
+  false-coverage move this document warns about elsewhere: `.local` is a real Active Directory
+  and mDNS suffix, and a build account can legitimately be `root@` a real domain. Opt-in:
+  `AUTHOR_EMAIL_ALLOW`, an extended regex matched against the whole address and **empty by
+  default in the script** — a rung that needed a new `amh.conf` key would turn every existing
+  adopter's ladder red until they hand-edited a file they were told they own. **Consult the
+  allowlist FIRST**, so a named address is admitted whatever shape it has: that is what keeps
+  the zero-config half from being a dead end an adopter can only escape by editing a shipped
+  script, and its price is that a permissive pattern switches that half off. Do not use the
+  repo's own history as the allowlist: a first-time contributor and a misconfigured one are
+  indistinguishable, so it fails every commit of a new branch. Both fields, because a rebase
+  rewrites the committer while the author survives. One arm and one message per shape, or a
+  single fixture covers the lot and the other patterns can be deleted green. And say in the
+  guard what it cannot do — it cannot tell a personal address from a work one, and prose that
+  implies otherwise is what stops the next reader checking by hand.
 - **Secret-shape tree scan** — fail if redacting any tracked or untracked text file with the
   `redact.sh` filter would change it. The scan IS the filter, so it is drift-free by
   construction. Report value-free (file and position, never the match — and test that
