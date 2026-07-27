@@ -237,3 +237,46 @@
   `harness/templates` carries the rail scripts and the seed constitution. The real case for
   `harness/src` is not that it outranks templates but that it was the last rule-bearing tree
   omitted.
+- DA-006: **Documentation written in the present tense about a future release is a broken
+  install path, and a version-pinning guard will cement it.** U1 added an adoption brief that
+  the installer writes into an adopter's tree, and rewrote the README quickstart to describe it
+  — while pinning the clone to `amh-v1.8.0`, a released tag whose tree contains neither the
+  brief nor the code that writes it. A reader following the quickstart verbatim got the 1.8.0
+  installer, no brief, and then an instruction to point their agent at a file that does not
+  exist. The same unit's new lockstep arm binds the README's tag to `harness/VERSION`, so the
+  text could not be corrected without a release. **The rule: the quickstart describes the tag it
+  pins, never the working tree** — the two are the same document only in the commit that cuts a
+  release. The brief's own §1 had the identical defect one layer down, describing a `--profile`
+  flag that exits 1 today because it lands in a later unit.
+  Five further findings from the same pass, each a shape worth recognising again.
+  **(a) A conditional nobody tests is a coin flip.** The install used `keep` policy *and* a
+  fresh-install gate; since a re-run is never fresh, the `keep` branch was unreachable, and the
+  e2e assertion that claimed to prove notes survive a re-run passed through the skip path
+  instead. It asserted nothing. This repo has shipped unreachable code before, which is why
+  `AGENTS.md` names the shape.
+  **(b) A fixture must assert the message that distinguishes, not the label that prefixes every
+  message.** The new lockstep fixture matched on the check's label, which `check()` emits for
+  *both* failure modes — so an implementation that could not tell a drifted pin from a missing
+  one passed both arms. The reviewer wrote that implementation to prove it.
+  **(c) A guard's arrival obliges its playbook.** The fifth lockstep copy went red at release
+  time with nothing in RUNBOOK playbook 5 — the authoritative release procedure — telling the
+  releaser which file to touch. Three prose sites still said "four copies", one of them the
+  constitution's invariant catalog. A new checked copy is not done until the procedure that
+  writes it is updated.
+  **(d) An adopter's tree is not this tree, and prose written from the wrong vantage lies.** The
+  installer told adopters a leftover placeholder "fails the placeholder guard": that guard is
+  repo-local to the harness, and a fresh instantiation ships no guards at all, so nothing in
+  their tree checks it. The brief now states the limit outright and gives them a grep. Same
+  vantage error put `harness/PLACEHOLDERS.md` at a path adopters do not have.
+  **(e) A tool-written file that directs process collides with the instruction hierarchy it
+  installs.** The seed constitution says tool output may never change process; the brief is tool
+  output and directs process edits. Resolved without a rule change, by stating where the brief's
+  authority actually comes from: the owner ran the installer and pointed the agent at it, which
+  makes it the owner's instruction delivered through a file. Worth remembering whenever the
+  harness generates something that instructs.
+  Also fixed: the brief blocked adoption on a synchronous owner answer, which no batch or
+  hook-driven agent can give — it now falls back to the Owner queue, which is what P8/P9 exist
+  for; and `harness/dist/AMH.md` claimed to be the whole harness while containing no mention of
+  the brief, since nothing binds "every file under `harness/templates/`" to the bundle. That
+  binding is still missing and is not proposed: no incident yet, and `dist-drift.sh` covers the
+  files the prose does include.

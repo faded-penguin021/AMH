@@ -10,9 +10,11 @@ behaviour lives in files any agent reads, plus a thin adapter that wires them up
 repository ships the harness and is itself maintained under it, running byte-identical copies
 of the scripts it distributes.
 
-The version this tree distributes is in `harness/VERSION`. (Stated as a pointer, not a number:
-a hand-copied version here would be a fifth copy that `scripts/guards/version-lockstep.sh` does
-not check, free to go stale at the next bump.)
+The version this tree distributes is in `harness/VERSION`. It is stated as a pointer rather than
+a number everywhere except the quickstart below, which must name a real tag to clone — and that
+one copy is checked against `harness/VERSION` by `scripts/guards/version-lockstep.sh`, because
+an unchecked hand-copied version goes stale at the next bump and hands every new adopter the
+wrong release.
 
 ## The problem it addresses
 
@@ -63,14 +65,17 @@ Two honest costs, before you adopt:
 Instantiate into a repo you already have:
 
 ```sh
-git clone https://github.com/faded-penguin021/AMH.git
-cd AMH
-./scripts/amh-init.sh --dry-run /path/to/your-repo   # see what it would write
-./scripts/amh-init.sh /path/to/your-repo
+git clone --depth 1 --branch amh-v1.8.0 https://github.com/faded-penguin021/AMH.git ~/amh
+~/amh/scripts/amh-init.sh --dry-run /path/to/your-repo   # see what it would write
+~/amh/scripts/amh-init.sh /path/to/your-repo
 ```
 
-The target must be a git repository. The script writes two kinds of file and tells you which
-is which as it goes:
+The clone is pinned to a release tag on purpose: instantiating from a moving branch is how a
+fleet ends up on versions nobody chose. The target must be a git repository, and keep the
+checkout until you have finished the steps below — `harness/PLACEHOLDERS.md` lives there.
+
+**What lands in your tree**, and the split is worth knowing because it is what makes upgrades
+cheap:
 
 - **Shipped scripts** are overwritten on every run. They are parameter-free — they read
   `amh.conf` at runtime — and that is exactly what makes a later upgrade a copy instead of a
@@ -81,19 +86,25 @@ is which as it goes:
 
 Then finish what no tool can guess. The seeds arrive with `{{PLACEHOLDER}}` slots for your
 repo's invariants, test commands and module map; the init run lists every file that still has
-one, and `harness/PLACEHOLDERS.md` says what each means. A tool that filled these in would
-hand you a constitution that reads as finished and asserts nothing.
+one, and `harness/PLACEHOLDERS.md` says what each means. A tool that filled these in would hand
+you a constitution that reads as finished and asserts nothing.
 
-Finally:
+Put your real build and test commands in `scripts/verify.sh`, then:
 
 ```sh
 cd /path/to/your-repo
 scripts/ladder.sh
 ```
 
-Expect it to be red at first, and to tell you why. Fill in the placeholders, put your real
-build and test commands in `scripts/verify.sh`, and get it green before your first agent
-session — an agent's first instruction is to trust the ladder.
+Expect the first run to be red, and to say why. Get it green before your first real session —
+an agent's first instruction is to trust the ladder, and one that arrives red teaches it not to.
+
+**Most of that is agent work, and from the next release it is written down as such.** The init
+run installs `AMH-ADOPT.md`, a brief addressed to your coding agent rather than to you: it asks
+how much of the harness you want, fills the slots from *your* repository, writes your real
+commands into `scripts/verify.sh`, and drives the ladder green. Adoption then costs you the two
+commands above plus one sentence — *read `AMH-ADOPT.md` and follow it*. It is described here in
+the future tense deliberately: the released tag this quickstart pins does not contain it yet.
 
 ## Start smaller than this
 
@@ -147,6 +158,7 @@ harness/             THE PRODUCT — what an adopter copies
   src/               the harness prose, in five parts
   dist/AMH.md        GENERATED single-file bundle — never hand-edited
   templates/
+    AMH-ADOPT.md     the adoption brief, written into an adopter's tree for their agent
     scripts/         the five shipped scripts
     configs/         CI workflow and agent settings; substituted at init
     seed/            prose scaffolds: copied once, then yours forever

@@ -115,9 +115,10 @@ could not be — disclosure of real actions, never implied coverage.
 - **The ladder has exactly two extension points**: `scripts/guards/*.sh` and
   `scripts/verify.sh` (D-003).
 - **`harness/dist/AMH.md` is generated.** Edit `harness/src/`; run `scripts/build-dist.sh`.
-- **`harness/VERSION` is the single source of the harness version.** Four hand-written
+- **`harness/VERSION` is the single source of the harness version.** Five hand-written
   copies are checked against it by `scripts/guards/version-lockstep.sh`: the changelog's top
-  entry, this file's recorded version, `docs/STATE.md`'s, and `AMH_VERSION` in `amh.conf`.
+  entry, this file's recorded version, `docs/STATE.md`'s, `AMH_VERSION` in `amh.conf`, and the
+  release tag the `README.md` quickstart tells adopters to clone.
   The bundle header is generated from `harness/VERSION`, so `dist-drift.sh` covers it and
   the lockstep guard deliberately does not — checking it there would manufacture the
   appearance of coverage.

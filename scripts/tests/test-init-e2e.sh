@@ -156,6 +156,56 @@ else
 fi
 
 # =============================================================================
+# 3b. The adoption brief lands once, and STAYS deleted.
+#
+# The brief ends by telling the agent to delete it. Under plain `keep` that instruction is a
+# trap: the next upgrade run resurrects the file, and a repo that has been running the harness
+# for a year is handed a document telling it to adopt one. So the write is conditional on a
+# FRESH install, and both halves are asserted — a conditional nobody tests is a coin flip.
+# =============================================================================
+d=$(target adopt_brief)
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+if [ -f "$d/AMH-ADOPT.md" ]; then
+	pass
+else
+	fail "a fresh instantiation writes the adoption brief"
+fi
+
+# An annotated brief survives a re-run. This passes through the SKIP path, not the keep path —
+# a re-run is never fresh — so it is asserted for what it is: the brief an adopter is part-way
+# through is not touched, whichever branch protects it.
+printf '\nOWNER CHOSE STANDARD; placeholders half done\n' >>"$d/AMH-ADOPT.md"
+brief=$(cat "$d/AMH-ADOPT.md")
+out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
+if [ "$(cat "$d/AMH-ADOPT.md")" = "$brief" ] && printf '%s' "$out" | grep -qF 'already adopted'; then
+	pass
+else
+	fail "a re-run leaves an annotated brief alone and says why" "$out"
+fi
+
+# ...and once deleted, it stays deleted. THIS is the assertion the FRESH gate exists for:
+# replacing the condition with `true` must break it, and does.
+rm -f "$d/AMH-ADOPT.md"
+out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
+if [ ! -e "$d/AMH-ADOPT.md" ]; then
+	pass
+else
+	fail "an upgrade re-run does not resurrect a deleted adoption brief" "$out"
+fi
+
+# The gate needs BOTH markers, because either alone misfires on a real first-time adopter: a
+# repo that happened to have a file called amh.conf would silently never receive the brief,
+# and the symptom is a missing file with no diagnostic.
+d=$(target adopt_stray_conf)
+printf 'UNRELATED=1\n' >"$d/amh.conf"
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+if [ -f "$d/AMH-ADOPT.md" ]; then
+	pass
+else
+	fail "a first-time adopter with an unrelated amh.conf still gets the brief"
+fi
+
+# =============================================================================
 # 4. The init placeholder list is bound to the document describing it.
 #
 # Both directions, because the two are separately silent: a name documented as `init` but

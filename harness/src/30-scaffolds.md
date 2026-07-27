@@ -2,7 +2,7 @@
 
 ## Part 3 — Scaffolds
 
-Six files and one config directory. The prose scaffolds are **seeds**: copied once, then owned
+Seven files and one config directory. The prose scaffolds are **seeds**: copied once, then owned
 by the adopting repo. The scripts are **artifacts**: copied verbatim, parameter-free, and
 upgradeable — they read `amh.conf` at runtime, take repo-specific guards from
 `scripts/guards/*.sh`, and take the verification set from `scripts/verify.sh`. That split is
@@ -202,3 +202,27 @@ A worked adapter, for Claude Code:
 ### 3.9 CI — invoking the same entrypoint
 
 <!-- amh:include harness/templates/configs/ci.yml -->
+
+### 3.10 The adoption brief — the instantiation work, addressed to the agent
+
+Instantiating is mostly work a tool cannot do: the seeds carry slots only this repository can
+fill, the verification set is a stub, and how much of the harness a repo should adopt is the
+owner's call. That work is nobody's idea of a good use of the owner's evening, and it is
+exactly what an agent sitting in the codebase is good at.
+
+So the installer writes one more file into the adopting tree — `AMH-ADOPT.md`, addressed to
+the agent rather than to the human. It asks the owner how much of the harness they want,
+fills the slots from the repository itself, writes the real build and test commands into
+`scripts/verify.sh`, drives the ladder green, and ends by telling the agent to delete it.
+Adoption then costs the owner two commands and one sentence: *read the brief and follow it*.
+
+Three properties keep it honest, and each is a rule the harness states elsewhere applied to
+its own front door. It is written **only on a fresh install**, because a document that tells
+you to adopt a harness you have run for a year is noise — an upgrade never re-issues it. It
+carries **no checklist**: the brief says outright that reporting a completed step is worth
+nothing, since no gate consumes such a claim (P3). And it is explicit about the limit of its
+own acceptance test — a fresh tree has no repo-local guards, so a green ladder does **not**
+prove the placeholders were filled, and the brief says to grep for them by hand rather than
+implying a check that does not exist.
+
+<!-- amh:include harness/templates/AMH-ADOPT.md -->

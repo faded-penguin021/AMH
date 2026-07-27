@@ -106,6 +106,22 @@ expect fail "version-lockstep: amh.conf drifted" "$d" version-lockstep.sh "amh.c
 d=$(snapshot ver_tag)
 expect fail "version-lockstep: a tag that does not match" "$d" "version-lockstep.sh --tag amh-v9.9.9" "does not match"
 
+# The README's quickstart pins a release tag, so it is a fifth hand-written copy. Two arms,
+# because they fail for different reasons and one message would leave the other untested: a
+# tag naming the WRONG version, and a quickstart with no pin at all — which is the state the
+# README was in before this check existed, and the one a careless edit returns it to.
+# The expected substring is the DRIFT verdict, not the label. `README quickstart tag` prefixes
+# every message check() can emit, so asserting it would be satisfied by an implementation that
+# cannot tell a drifted pin from a missing one — a review pass built exactly that and both arms
+# still passed.
+d=$(snapshot ver_readme)
+sed -i 's/--branch amh-v[0-9][0-9.]*/--branch amh-v0.1.0/' "$d/README.md"
+expect fail "version-lockstep: README pins the wrong release tag" "$d" version-lockstep.sh "README.md says 0.1.0"
+
+d=$(snapshot ver_readme_gone)
+sed -i 's/--branch amh-v[0-9][0-9.]*//' "$d/README.md"
+expect fail "version-lockstep: README quickstart lost its pin" "$d" version-lockstep.sh "no version found"
+
 d=$(snapshot refs_broken)
 printf '\nSee [the plan](docs/NOTHING_HERE.md).\n' >>"$d/docs/RUNBOOK.md"
 expect fail "path-refs: a broken relative link" "$d" path-refs.sh "broken link"

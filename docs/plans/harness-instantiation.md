@@ -179,7 +179,20 @@ across both volumes (`live_ledger()` globs `LEDGER_*.md`).
 - **`scripts/tests/test-init-e2e.sh`:** assert `AMH-ADOPT.md` lands, and that a re-run does not
   clobber an edited one (mirrors the existing `amh.conf` assertion at `:146`).
 
+> **Sequencing correction (U1's review pass, DA-006).** U1 originally rewrote the README
+> quickstart to describe the brief and pinned `amh-v1.8.0` — a released tag whose tree contains
+> neither. The documented adoption path was dead on arrival, and the new lockstep guard *pinned
+> it there*, since the README tag must equal `harness/VERSION`. **Rule that follows: the
+> quickstart describes the pinned tag's behaviour, never the working tree's.** The quickstart
+> rewrite therefore moves to U4, alongside the version bump, where the tag will contain what the
+> text promises. U1 keeps the template, the init support, the guard and the fixtures.
+
 ### U2 — `--profile light|standard|full`, defaulting to **light**
+
+- **U2 must also update `harness/templates/AMH-ADOPT.md` §1**, which currently describes asking
+  the owner and pruning by hand because that is what exists today. When the flag lands, §1 gains
+  the escalation command — and not before: the first draft described `--profile` as though it
+  were already shipped, which is the same defect one layer down.
 
 - `scripts/amh-init.sh`: new option, validated in the `--merge-mode` style (`:177`) — an
   invalid value dies at init rather than inside a guard in someone else's repo. It selects

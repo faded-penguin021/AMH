@@ -17,6 +17,7 @@ This split is the whole reason upgrades are cheap, so it is worth internalising:
 | `scripts/verify.sh`, `scripts/guards/*` | — | yours; the ladder's extension points |
 | `AGENTS.md`, `docs/RUNBOOK.md`, `docs/STATE.md`, `docs/LEDGER.md` | — | yours; seed changes arrive as hand-applied notes |
 | `.claude/settings.json`, `.github/workflows/*` | — | yours; diff against the template and take what applies |
+| `AMH-ADOPT.md` | — | yours, and one-time: written only on a FRESH instantiation, and yours to delete when you have finished it. An upgrade run never re-issues it |
 
 The shipped scripts are the only files you copy, and they are safe to copy *because* they
 contain nothing specific to your repo. If you have edited one, stop and undo that first: the

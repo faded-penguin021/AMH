@@ -257,6 +257,16 @@ done
 
 WROTE=0
 KEPT=0
+# Fresh install or upgrade? Decided BEFORE anything is written, because every marker this could
+# key off is one this run is about to create.
+#
+# TWO signals, both required to call a tree already-adopted, because either alone misfires on a
+# real first-time adopter. `amh.conf` is a plausible name for an unrelated config file somebody
+# already had; `scripts/ladder.sh` alone could be a coincidence in a repo with its own ladder.
+# Together they mean the harness has been installed here before. A misfire costs a first-time
+# adopter the brief with no diagnostic, so it is worth two tests.
+FRESH=1
+[ -e "$TARGET/amh.conf" ] && [ -e "$TARGET/scripts/ladder.sh" ] && FRESH=0
 # Paths this run installed or kept, for the leftover-placeholder report. Scanning the
 # whole target instead would report every Jinja, Handlebars or Go template in the
 # adopter's repo — and, run against a harness checkout, its own template tree.
@@ -328,6 +338,25 @@ install_file "$TPL/amh.conf.example" amh.conf keep 644
 install_file "$TPL/configs/ci.yml" .github/workflows/ci.yml keep 644
 install_file "$TPL/configs/claude-settings.json" .claude/settings.json keep 644
 
+# The adoption brief: the work this tool cannot do, addressed to the agent that can.
+#
+# FRESH INSTALLS ONLY, and that condition is the whole design. The brief ends by telling the
+# agent to delete it, so `keep` alone would resurrect it on the next upgrade run — handing a
+# finished adopter a document telling them to adopt a harness they have run for a year.
+#
+# `keep` is still the policy rather than `overwrite`, and it is NOT redundant with the gate
+# even though a re-run can never be fresh: an adopter who ran init, kept notes in the brief,
+# and then deleted `amh.conf` or `scripts/ladder.sh` reaches this line fresh again, and their
+# annotated brief survives. The narrow case is the point — the wide one is handled above.
+if [ "$FRESH" = 1 ]; then
+	install_file "$TPL/AMH-ADOPT.md" AMH-ADOPT.md keep 644
+else
+	# Counted as a keep, not printed outside the tally: a line the summary does not account
+	# for reads as something that went wrong.
+	printf '   skip   %s\n' 'AMH-ADOPT.md (already adopted — the one-time brief is not re-issued)'
+	KEPT=$((KEPT + 1))
+fi
+
 printf '\n %d written, %d kept\n' "$WROTE" "$KEPT"
 
 # --- what is left for a human ----------------------------------------------
@@ -359,8 +388,14 @@ if [ -n "$remaining" ]; then
 	# printf's format is re-applied per ARGUMENT, not per line, so only the first file
 	# would have been indented.
 	printf '%s\n' "$remaining" | sed 's/^/   /'
-	printf '\n   Search for {{ and fill each one in. They are documented in this repo'"'"'s\n'
-	printf '   harness/PLACEHOLDERS.md; a leftover placeholder fails the placeholder guard.\n'
+	# Says where the doc is FROM THE ADOPTER'S POSITION — their tree has no harness/ — and
+	# does not claim a guard they were not given. The placeholder guard is repo-local to the
+	# harness; a fresh instantiation ships no guards at all, so a leftover placeholder fails
+	# nothing in the tree this text is being printed about. Claiming otherwise is the reason
+	# nobody would then check by hand.
+	printf '\n   Search for {{ and fill each one in. Each slot is documented in\n'
+	printf '   harness/PLACEHOLDERS.md in THIS checkout (%s).\n' "$ROOT"
+	printf '   Nothing in your repo checks these — grep for {{ before you call it done.\n'
 else
 	printf '   no placeholders remain\n'
 fi

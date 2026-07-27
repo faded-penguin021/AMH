@@ -111,6 +111,15 @@ is the accepted form, in U3b.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-27 — **U1: the adoption brief.** `amh-init.sh` now writes `AMH-ADOPT.md` into an
+  adopter's tree on fresh installs only, addressed to their agent: ask the owner how much
+  harness they want, fill the slots from the repo, write `verify.sh`, drive the ladder green,
+  delete the brief. The README quickstart pins a release tag, checked as a **fifth** lockstep
+  copy. Its review pass returned a REJECT worth the cost (**DA-006**): the quickstart described
+  the brief while pinning a tag that predates it, an unreachable `keep` branch was "proved" by a
+  tautological fixture, a lockstep fixture matched a label every failure emits, playbook 5 was
+  left unable to satisfy the guard it now trips, and the installer claimed a placeholder guard
+  adopters do not have. The quickstart rewrite moved to U4, where the tag will contain it.
 - 2026-07-27 — **The archive's stated intake was wrong and is corrected** (**DA-004**): folding
   is the compression method, the archive takes documents retired whole, and never another tier's
   live file — a Goodhart hole the review pass found in the first fix, where retiring `STATE.md`

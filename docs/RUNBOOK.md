@@ -106,10 +106,13 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
   major-vs-minor call is an Owner-queue question, not an agent's judgement call.
 - **Steps:** update `harness/VERSION` → add the `harness/CHANGELOG.md` entry, including its
   **Upgrading** subsection (what an adopter must actually do) → update the version recorded
-  in `AGENTS.md`, `docs/STATE.md` and `amh.conf` → `scripts/build-dist.sh` → ladder.
-- **Obligations:** `scripts/guards/version-lockstep.sh` binds `harness/VERSION` to four
-  hand-written copies — the changelog's top entry, `AGENTS.md`, `docs/STATE.md`, and
-  `AMH_VERSION` in `amh.conf`. Never edit one alone. The bundle header is generated from
+  in `AGENTS.md`, `docs/STATE.md` and `amh.conf` → **update the release tag in the `README.md`
+  quickstart's clone command** → `scripts/build-dist.sh` → ladder.
+- **Obligations:** `scripts/guards/version-lockstep.sh` binds `harness/VERSION` to five
+  hand-written copies — the changelog's top entry, `AGENTS.md`, `docs/STATE.md`,
+  `AMH_VERSION` in `amh.conf`, and the `README.md` quickstart's tag. Never edit one alone.
+  The README copy is the one this list forgot once: the guard went red at the end of a
+  release with nothing in these steps telling the releaser which file to touch. The bundle header is generated from
   `harness/VERSION`, so `dist-drift.sh` covers it and the lockstep guard deliberately does
   not. **Tagging and publishing are owner steps** — queue them, do not attempt them.
 - **Acceptance:** ladder green.
