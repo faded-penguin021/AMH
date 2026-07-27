@@ -255,14 +255,22 @@ The one piece of genuinely new machinery, and the only unit that touches a shipp
   the ledger is for, and a future session must find the reasoning rather than the precedent.
 - **Delete `docs/plans/harness-instantiation.md`** and its `docs/STATE.md` reference (P16).
 
-### Owner queue additions (not agent work)
+### Owner queue (settled 2026-07-27)
 
-1. Tag **`amh-v1.9.0`** after merge — the README's pinned-tag clone command names it, and until
-   the tag exists the command in the README does not work. This is the one place this plan
-   writes prose ahead of the artifact, and it is called out rather than hidden.
-2. `docs/SQUASH_PR_BODY.md` still exists: PR #1 merged, `34de3bf` deleted the file and `7d322d7`
-   reverted that deletion. `docs/STATE.md` says to delete it once the PR is open. Owner call —
-   this plan does not touch it.
+1. **AMH 1.8.0 is released** — `amh-v1.8.0` is tagged on the merged founding commit `7d322d7`.
+   The README quickstart therefore pins a tag that exists today. The remaining owner action is
+   to tag **amh-v1.9.0** after this plan's merge, in that order.
+2. **The spent squash-PR body is deleted**, together with the `docs/STATE.md` citation that
+   made the first attempt fail the ladder — the ordering rule is now **DA-002**.
+
+### U1 addendum — pin the tag with a guard, not with discipline
+
+The README naming a release tag is a fifth hand-written copy of the version, and this repo
+already knows what happens to those: `scripts/guards/version-lockstep.sh` exists because four
+of them drift. Add the README's pinned tag as a **fifth checked copy** in the same guard, so
+the quickstart cannot go stale against `harness/VERSION`. The merge-to-tag window (the README
+names the new tag before the owner creates it) is the same window every release already has,
+and it closes the moment the tag lands.
 
 ## Verification
 

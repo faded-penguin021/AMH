@@ -75,3 +75,29 @@
   machine-readable records the choice — deliberately, so no future code can branch on it.
   Moving light → full is re-running init at the higher profile: it adds the missing seeds and,
   under keep policy, changes nothing the adopter has written.
+- DA-002: **A prose citation is a delete-blocker, so a file and the prose citing it must go in
+  the SAME commit.** docs/SQUASH_PR_BODY.md — named here without backticks, for the reason this
+  row is about — had done its job once PR #1 merged, and deleting
+  it turned the release red: `scripts/guards/path-refs.sh` resolves backticked paths against
+  the real tree, and `docs/STATE.md` still cited the file. The deletion was reverted (`7d322d7`)
+  to unblock the release, which is the right call under time pressure and leaves the tree
+  carrying a spent artifact. The generalisation is an ordering rule, not a guard change — the
+  guard behaved correctly, and this is the cost it is supposed to impose: **removing a file
+  means removing its citations first or alongside, never after.** `path-refs.sh` makes prose a
+  referential dependency of the tree, which is the entire point of admitting it (D-023), so
+  "grep for the name before `git rm`" is now part of deleting anything this repository's docs
+  discuss. Note the asymmetry that makes this bite at release time specifically: `docs/plans/*`
+  is exempt from the guard, so a plan may name a file that does not exist, and only the live
+  docs impose the ordering.
+  **This row failed the ladder on its first run, for its own subject.** A permanent ledger row
+  about a deleted file necessarily names that file, and a name in backticks is a citation — so
+  the row recording the delete-ordering rule was itself blocked by it. That is the accepted
+  residue `path-refs.sh` documents (a name quoted BECAUSE it is historical), and the remedy is
+  the one the guard prescribes: do not code-span a name that is not a live citation. Every
+  future row naming something deleted has the same obligation, and the ledger is append-only,
+  so getting it wrong here would have been permanent.
+  A second, smaller lesson from the same exchange, recorded because it is a claim-honesty
+  failure rather than a mechanical one: a session reported "no tag exists" from `git tag` in a
+  clone that had never fetched tags. `amh-v1.8.0` existed the whole time. **A local read of a
+  distributed fact is a claim about the clone, not about the repository** — `git ls-remote
+  --tags origin` is the question that was actually being asked.

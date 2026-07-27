@@ -66,14 +66,10 @@ because the structure guard asked whether sections EXIST rather than how many (*
 
 **Pending owner actions:**
 
-1. **Tag `amh-v1.8.0`** on the merged founding commit if that release is still wanted — the
-   release workflow verifies the tree, checks the tag against `harness/VERSION`, and publishes
-   the bundle. No tag exists yet. If you would rather let 1.8.0 pass and tag only **`amh-v1.9.0`**
-   at the end of the current plan, say so: the README's quickstart will name a pinned tag, and
-   it must be one that exists, so this is the decision that unblocks U1.
-2. **`docs/SQUASH_PR_BODY.md` is still in the tree.** PR #1 merged; `34de3bf` deleted the file
-   and `7d322d7` reverted that deletion, so it survived on purpose or by accident — only you
-   know which. A merged PR is its own record, so the file has no remaining job. Delete it?
+None right now. **AMH 1.8.0 is released** — `amh-v1.8.0` is tagged on the merged founding
+commit `7d322d7`, so the README's quickstart has a real tag to pin. The next owner action
+arrives at the end of the current plan: tag **amh-v1.9.0** after the merge, in that order
+(**DA-002**).
 
 **Open questions:** none. D-005, D-014 and D-018 were closed 2026-07-27 on the owner's
 delegation — see the Changelog and **D-035**. D-014's outside look was commissioned as the
