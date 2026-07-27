@@ -177,14 +177,14 @@ guard_state_size() {
 		# wording describes the CROSSING, and claims no classification the guard did not
 		# make. A one-byte deletion from 14337 lands here, and that is the owner's rule.
 		if [ "$cur" -gt "$comp_b" ]; then
-			fail "crossed below the soft cap but stops short at $cur bytes — the floor is $comp_b bytes (${STATE_COMPRESS_TO_KB} KB), and landing in the band re-arms the warning next session. Go to the floor or leave the file alone."
+			fail "crossed below the soft cap but stops short at $cur bytes — the floor is $comp_b bytes (${STATE_COMPRESS_TO_KB} KB), and landing in the band re-arms the warning next session. Fold more completed stages into single Changelog lines or move content to the ledger — do not micro-trim."
 		else
 			ok "crossed below the soft cap and landed at $cur bytes, at or under the $comp_b-byte floor (from $prev bytes)"
 		fi
 	elif [ "$shrank" -lt "$delta" ]; then
 		ok "edit above the soft cap (shrank $shrank bytes, under the $delta-byte edit delta); compression still owed"
 	else
-		fail "unfinished compression pass: shrank $shrank bytes, at or over the $delta-byte edit delta, and stopped at $cur bytes — still above the soft cap ($warn_b bytes), and the floor is $comp_b bytes. Go to the floor or leave the file alone."
+		fail "unfinished compression pass: shrank $shrank bytes, at or over the $delta-byte edit delta, and stopped at $cur bytes — still above the soft cap ($warn_b bytes), and the floor is $comp_b bytes. Fold more completed stages into single Changelog lines or move content to the ledger — do not micro-trim."
 	fi
 }
 

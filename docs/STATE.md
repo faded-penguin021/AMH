@@ -4,8 +4,10 @@
 > **≤ 9 KB** — a ceiling, not a target; anywhere below it is fine and 7–8 KB is comfortable, but
 > do not keep shaving once you are under (owner, 2026-07-27). Fail above **16 KB**.
 > **Compress by folding whole completed stages into Changelog pointer lines and moving durable
-> lessons to the ledger** — never by shaving clauses until the guard goes quiet, which is the
-> micro-trim reflex the band exists to break, and never by cutting text into a new file.
+> lessons to the ledger** — never by shaving clauses until the guard goes quiet. If the first
+> pass lands short, fold MORE stages; do not micro-trim toward the floor — that is the same
+> reflex the band exists to break, reappearing one threshold lower. Never cut text into a new
+> file.
 > A typo fix above the cap is allowed and still owes the pass (**D-027**). The ladder checks
 > sizes, structure and repeated headings (**D-034**); nothing judges whether what survived is any
 > good, and it will not stop you dropping an open owner-queue item. Never drop one.
@@ -108,6 +110,13 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-27 — **Guard fail messages now coach toward deep-folding, and the Quick Start prompt
+  primes the agent for the profile question** (**DA-013**). Two failures observed in a real
+  deployment: (1) a compression pass that landed short triggered micro-trim iterations because
+  the guard said "go to the floor" without saying how; (2) the agent skipped the profile
+  question because the owner's prompt didn't mention it, so nothing primed the expectation
+  before AMH-ADOPT.md. The seed template preamble now addresses the short-first-pass pattern
+  explicitly.
 - 2026-07-27 — **AMH 2.1.0: the release window became visible, and the queue learned to test itself.**
   `session-start.sh` now looks for the tag the version file implies — clone first, then `origin`
   — and reports present / absent / could-not-ask as three outcomes; `VERSION_FILE` and

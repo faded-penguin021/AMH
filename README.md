@@ -73,6 +73,8 @@ Run:
     /tmp/amh/scripts/amh-init.sh .
 
 Once the harness has been instantiated, read `AMH-ADOPT.md` and follow it completely.
+It will ask you which installation profile to use — present the options and wait for my
+answer before proceeding.
 
 Drive `scripts/ladder.sh` to green, explain any manual actions that require my attention, and
 delete `AMH-ADOPT.md` once adoption is complete.

@@ -773,9 +773,9 @@ session's first read cheap.
 > trimming below that line. When the guard warns, run ONE deep compression pass to
 > **≤ {{COMPRESS_TO_KB}} KB** — never trim to just under the threshold (micro-trims re-arm the
 > warning a session later; the wide band IS the debounce, statelessly). That number is a
-> **ceiling, not a target**: aim comfortably below it. Trimming word by word until the guard
-> stops complaining is the same reflex the band exists to break, and it leaves no headroom for
-> the next session's growth. Fail above
+> **ceiling, not a target**: aim comfortably below it. If the pass lands short, fold MORE
+> completed stages — do not micro-trim toward the floor; that is the same reflex the band
+> exists to break, reappearing one threshold lower. Fail above
 > **{{HARD_KB}} KB**. Compression means: collapse each completed work stage into one Changelog
 > line, fold changelog clusters, move any durable gotcha into the append-only ledger, delete
 > narrative prose. **Project**, **Current state** and **Owner queue** must always survive
