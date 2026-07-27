@@ -459,3 +459,39 @@
   general rule: when documentation pins an artifact the owner creates later, the ordering
   belongs in the Owner queue as an ordering, not as two independent items — and the thing
   bounding the gap is that queue entry, not whichever guard happens to be nearby.**
+- DA-011: **An Owner-queue item is a claim about the world, and this repo had no step that
+  tested one before repeating it.** DA-010 closed by making the Owner queue the thing that
+  bounds the merge-to-tag window — a human step, correctly, since no guard can see a tag. What
+  that row did not ask is what the *next session* does with the entry. The answer was: repeat
+  it. On 2026-07-27 a session opened after `amh-v2.0.0` was merged AND tagged, read "merge,
+  then tag" in the queue, did the unrelated work it was asked for, and restated the item to the
+  owner as pending. `git ls-remote --tags origin` would have settled it in one command and was
+  never run, because nothing named it as a step. The owner reports this recurring across
+  sessions, which makes it a protocol hole rather than one session's slip.
+  **(a) The failure is structural, and the protocol's own wording invites it.** "Every
+  session's final chat message restates this queue" makes restating an *obligation* and
+  verifying nothing, so the cheapest compliant act is to copy the text forward. A queue item is
+  written at the moment of maximum knowledge and read at the moment of minimum; carrying it
+  verbatim is not neutral, it asserts to a human that the item is still true. Worse, the stale
+  restatement is *indistinguishable* from a correct one at the point of reading — the owner
+  cannot tell "checked, still pending" from "copied without looking", so the queue's whole
+  signal degrades. **A protocol that mandates repeating a claim must mandate testing it.**
+  **(b) The fix that suggests itself is a required field, and it Goodharts on contact.** The
+  first draft here gave every item a mandatory `Done when:` line. Item 1 of the live queue —
+  branch protection, readable only through an admin-only API — got "Done when: the owner says
+  so", which is a check the way a checkbox is evidence (**D-014**). A field every item must
+  carry is a field every item will carry, and a queue of them reads as verified while asserting
+  nothing. The shipped shape makes the check **optional and load-bearing**: items whose truth
+  is observable carry the command, items whose truth is not say so and name who settles them,
+  and the *absence* of a check is information rather than a gap to be filled.
+  **(c) What a guard may check here, and what it may not.** No guard can ask "is this item
+  still true" — the items are prose. It can only run an item's own stated command, which means
+  the mechanical form has to be a queue that carries commands, not a queue that carries
+  attestations. Anything that checks whether a session "verified the queue" is the banned shape
+  (**D-014**), and the ban's own test applies: does anything downstream consume it?
+  **(d) Generalises past the queue.** Any durable instruction addressed to a future session —
+  queue item, TODO, handoff paragraph — has this shape, and the same session that restated the
+  tag item also inherited a handoff saying "cut the next branch from `…-ol544l`, not from main"
+  after that branch had merged. **Written-once state read by a session that cannot see when it
+  was written must carry the means of testing itself, or it becomes confident misinformation
+  with age.**
