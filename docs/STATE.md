@@ -71,12 +71,19 @@ is why template findings have to be carried here by hand.
 > outcome as a Changelog line or a ledger row. Every session's final chat message restates
 > this queue.
 
-**Pending owner action — one, and it is the release.** Merge `claude/state-review-planning-ol544l`,
-then **tag `amh-v2.0.0`**, in that order: the release workflow checks the tag against
-`harness/VERSION`, so the tag follows the merged bump rather than leading it. Until the tag
-exists the README's quickstart names a clone target that 404s — the window every release has,
-and the reason the ordering is stated rather than assumed. `amh-v1.8.0` remains tagged on
-`7d322d7`.
+**Pending owner actions — two.**
+
+1. **The release.** Merge `claude/state-review-planning-ol544l` (draft PR open), then **tag
+   `amh-v2.0.0`**, in that order: the release workflow checks the tag against `harness/VERSION`,
+   so the tag follows the merged bump rather than leading it. Until the tag exists the README's
+   quickstart names a clone target that 404s, and no guard reports it (**DA-010**) — this queue
+   entry is what closes the window. `amh-v1.8.0` remains tagged on `7d322d7`.
+2. **`main`'s branch protection requires a check named `build`, which nothing here emits.**
+   `ci.yml`'s job is `ladder` and is the only check that reports on a PR (`release.yml` fires on
+   tag push only), so the required context stays "Expected" forever and blocks the merge above.
+   Repoint the requirement at `ladder`. Agent-unfixable: branch protection is owner-only, and
+   renaming the job to `build` would fix the symptom by making the ladder answer to a name that
+   describes nothing.
 
 **Open questions:** none. Answered 2026-07-27 (**DA-005**): this release is a **MAJOR, 2.0.0**,
 because the archive correction deleted a clause adopters could have relied on; and `harness/src`
