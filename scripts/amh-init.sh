@@ -385,8 +385,20 @@ install_file() { # <src> <dest-relative> <overwrite|keep> <mode>
 
 printf 'amh-init: AMH %s (%s profile) -> %s\n\n' "$AMH_VERSION" "$PROFILE" "$TARGET"
 printf ' shipped scripts (overwritten — this is the upgrade path)\n'
-for src in "$TPL"/scripts/*.sh; do
-	install_file "$src" "scripts/$(basename -- "$src")" overwrite 755
+# Every file in the template directory, not only the *.sh ones: MANIFEST.sha256 ships beside
+# the scripts it hashes, and it has to arrive in the SAME pass that writes them or the
+# adopter's next ladder run reports the scripts it just received as locally edited. Keeping
+# the manifest in that directory is what makes a plain `cp .../scripts/* scripts/` upgrade
+# correct too.
+#
+# `overwrite` for the manifest, like the scripts: it is a shipped artifact, never the
+# adopter's. Mode by extension — only the scripts are executable.
+for src in "$TPL"/scripts/*; do
+	[ -f "$src" ] || continue
+	case $src in
+	*.sh) install_file "$src" "scripts/$(basename -- "$src")" overwrite 755 ;;
+	*) install_file "$src" "scripts/$(basename -- "$src")" overwrite 644 ;;
+	esac
 done
 
 printf '\n yours (written only when absent) — %s profile\n' "$PROFILE"

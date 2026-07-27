@@ -12,11 +12,12 @@ disagrees with the code, trust the code and fix the doc.
 | `harness/templates/scripts/*.sh` | the shipped scripts | repo-agnostic; parameter-free (D-002, D-003) |
 | `harness/templates/seed/**` | prose scaffolds for adopters | copied once, then owned by the adopter; never drift-checked |
 | `harness/templates/configs/**` | JSON/YAML for adopters | carries `{{PLACEHOLDER}}`s; substituted at init |
+| `harness/templates/scripts/MANIFEST.sha256` | hashes of the shipped scripts, installed beside them | **generated** — rebuilt and diffed by a guard |
 | `harness/dist/AMH.md` | the single-file bundle | **generated** — rebuilt and diffed by a guard |
 | `harness/VERSION` | the harness version | single source; lockstep-checked |
-| `scripts/*.sh` (five) | this repo's instance of the shipped scripts | byte-identical copies (D-002) |
+| `scripts/*.sh` (five) + `scripts/MANIFEST.sha256` | this repo's instance of the shipped files | byte-identical copies (D-002) |
 | `scripts/verify.sh`, `scripts/guards/*`, `scripts/tests/*` | this repo's local verification | the ladder's only two extension points; `tests/` hangs off `verify.sh` |
-| `scripts/amh-init.sh`, `scripts/build-dist.sh` | repo-local tooling: instantiate an adopter, generate the bundle | not shipped — they run FROM here, never inside an adopting repo |
+| `scripts/amh-init.sh`, `scripts/build-dist.sh`, `scripts/build-manifest.sh` | repo-local tooling: instantiate an adopter, generate the bundle, generate the integrity manifest | not shipped — they run FROM here, never inside an adopting repo |
 | `docs/STATE.md` | working memory | capped, compressible, Owner queue protected |
 | `docs/LEDGER.md` | permanent memory | append-only; never rewritten |
 
@@ -62,7 +63,9 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
   fail, and the fix is always in the same direction (D-002).
 - **Obligations:** the script must stay repo-agnostic. Needing a repo-specific branch means
   an extension point is missing — add the extension point instead (D-003). New behaviour
-  lands with its fixture in the same change. **Rule-review protocol applies** (guard
+  lands with its fixture in the same change. **Run `scripts/build-manifest.sh` in the same
+  change**: the shipped scripts' hashes ship with them, and `manifest-drift.sh` fails on a
+  manifest that describes bytes nobody has. **Rule-review protocol applies** (guard
   semantics are legislation).
 - **Acceptance:** `scripts/ladder.sh` green, including the fixture suite and both rail
   self-tests; the new fixture must FAIL against the old script — check by stashing the

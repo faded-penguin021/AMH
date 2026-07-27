@@ -72,14 +72,17 @@ could not be — disclosure of real actions, never implied coverage.
   source for everything in `harness/dist/`.
 - `harness/templates/scripts/` — the shipped, repo-agnostic scripts. Parameter-free: values
   come from `amh.conf`, extra guards from `scripts/guards/`, the verification set from
-  `scripts/verify.sh` (D-003). **Never** add a repo-specific branch to one of these.
+  `scripts/verify.sh` (D-003). **Never** add a repo-specific branch to one of these. The
+  `MANIFEST.sha256` beside them is **generated** (`scripts/build-manifest.sh`) and ships with
+  them: it is how an adopter's ladder tells an upgraded script from a locally edited one, so
+  changing a shipped script means regenerating it in the same change.
 - `harness/templates/seed/` — prose scaffolds copied ONCE into an adopting repo and owned by
   it thereafter. Never drift-checked; an adopter's constitution is theirs.
 - `harness/templates/configs/` — JSON/YAML that cannot read `amh.conf`, so these do carry
   `{{PLACEHOLDER}}`s, substituted once at init.
 - `harness/dist/AMH.md` — **generated**. Never hand-edited; a guard rebuilds and diffs it.
-- `scripts/` — this repo's instance: the five shipped copies, plus local-only `verify.sh`,
-  `guards/*`, `tests/*`, `build-dist.sh`.
+- `scripts/` — this repo's instance: the five shipped copies and their manifest, plus
+  local-only `verify.sh`, `guards/*`, `tests/*`, `build-dist.sh`, `build-manifest.sh`.
 - `docs/` — `STATE.md` (working memory, capped), `LEDGER.md` (permanent, append-only),
   `RUNBOOK.md` (playbooks), `UPGRADING.md` (for adopters), `history/` (frozen archive).
 
@@ -108,8 +111,12 @@ could not be — disclosure of real actions, never implied coverage.
 
 ## Invariants that still bind (full catalog: `docs/LEDGER.md`)
 
-- **This repo runs what it ships.** `scripts/*.sh` are byte-identical to
-  `harness/templates/scripts/*.sh`; `scripts/guards/copy-drift.sh` enforces it (D-001, D-002).
+- **This repo runs what it ships.** Every file in `scripts/` that also exists in
+  `harness/templates/scripts/` is byte-identical to it — the five scripts and the generated
+  `MANIFEST.sha256`; `scripts/guards/copy-drift.sh` enforces it over the whole directory, not
+  over an extension (D-001, D-002).
+- **`MANIFEST.sha256` is generated.** Change a shipped script, run
+  `scripts/build-manifest.sh`; `scripts/guards/manifest-drift.sh` enforces it.
 - **The redaction filter IS the secret scan.** Never write a second copy of the token
   patterns into the ladder — pipe files through `scripts/redact.sh` (D-004).
 - **The ladder has exactly two extension points**: `scripts/guards/*.sh` and

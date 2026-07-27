@@ -92,6 +92,7 @@ places.
 | | What it is | Rule |
 |---|---|---|
 | `scripts/ladder.sh`, `session-start.sh`, `command-guard.sh`, `redact.sh`, `test-ladder-guards.sh` | shipped artifacts | **Never edit them.** They are parameter-free and read `amh.conf` at runtime; that is what makes upgrading a copy instead of a merge. Re-running init overwrites them on purpose. |
+| `scripts/MANIFEST.sha256` | shipped artifact | The hashes of those five scripts, checked by a ladder rung every run — so an edit to one of them is reported rather than discovered a year later by whoever upgrades. Generated at release; never hand-edited. |
 | `amh.conf` | your settings | Yours forever. The harness cannot upgrade it, so new keys arrive with defaults in the scripts. |
 | `scripts/verify.sh`, `scripts/guards/*.sh` | the ladder's two extension points | Yours entirely — you write them, you edit them, you delete them. The installer ships a stub `verify.sh` and no guards at all. |
 | `AGENTS.md`, `CLAUDE.md`, `docs/**` | seed prose | Copied once, yours thereafter. Re-running init never touches them. |

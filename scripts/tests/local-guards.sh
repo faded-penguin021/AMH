@@ -68,6 +68,7 @@ expect pass "dist-drift: clean tree" "$base" dist-drift.sh
 expect pass "placeholder-integrity: clean tree" "$base" placeholder-integrity.sh
 expect pass "version-lockstep: clean tree" "$base" version-lockstep.sh
 expect pass "path-refs: clean tree" "$base" path-refs.sh
+expect pass "manifest-drift: clean tree" "$base" manifest-drift.sh
 
 d=$(snapshot drift_script)
 printf '# local edit\n' >>"$d/scripts/redact.sh"
@@ -76,6 +77,30 @@ expect fail "copy-drift: an edited shipped script" "$d" copy-drift.sh "drift:"
 d=$(snapshot drift_missing)
 rm "$d/scripts/session-start.sh"
 expect fail "copy-drift: a shipped script not installed" "$d" copy-drift.sh "not installed here"
+
+# The manifest is a shipped artifact that is not a *.sh file, and the copy-drift glob used to
+# stop at the extension. That gap is not cosmetic: this repo's copy of the manifest could
+# drift from the one adopters receive while the guard's own line said the shipped set was
+# identical.
+d=$(snapshot drift_manifest_copy)
+printf '# a local edit\n' >>"$d/scripts/MANIFEST.sha256"
+expect fail "copy-drift: an edited shipped file that is not a script" "$d" copy-drift.sh "drift:"
+
+# The failure that reaches an adopter rather than us: a shipped script edited without
+# regenerating the manifest publishes hashes for bytes nobody has. Their next upgrade then
+# reports every script the harness sent them as locally edited.
+d=$(snapshot drift_manifest_stale)
+printf '\n# an upstream change\n' >>"$d/harness/templates/scripts/session-start.sh"
+expect fail "manifest-drift: a shipped script changed without a rebuild" "$d" manifest-drift.sh "stale or hand-edited"
+
+d=$(snapshot drift_manifest_edited)
+sed -i 's/^[0-9a-f]\{64\}/0000000000000000000000000000000000000000000000000000000000000000/' \
+	"$d/harness/templates/scripts/MANIFEST.sha256"
+expect fail "manifest-drift: a hand-edited manifest" "$d" manifest-drift.sh "stale or hand-edited"
+
+d=$(snapshot drift_manifest_gone)
+rm "$d/harness/templates/scripts/MANIFEST.sha256"
+expect fail "manifest-drift: no manifest at all" "$d" manifest-drift.sh "has not been built"
 
 d=$(snapshot drift_dist)
 printf 'hand edit\n' >>"$d/harness/dist/AMH.md"
@@ -322,6 +347,19 @@ if [ -e "$BS_PATH/curl" ]; then
 	bs_expect fail "bootstrap: an unfetchable URL is loud" "install FAILED"
 else
 	printf '  SKIP 6 bootstrap install case(s): curl is not on this machine, and the install path cannot run without it\n' >&2
+fi
+
+# manifest-drift with no hashing tool on PATH. The shim above holds a fixed tool list and
+# never a hasher, so this is the one condition under which the guard's rebuild cannot happen —
+# and it must say THAT rather than reporting a stale manifest, which is what a diff against a
+# generator that produced nothing looks like. Placed here because BS_PATH is built above.
+out=$(cd "$base" && env PATH="$BS_PATH" bash scripts/guards/manifest-drift.sh 2>&1)
+rc=$?
+if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'this guard checked NOTHING'; then
+	PASSED=$((PASSED + 1))
+else
+	FAILED=$((FAILED + 1))
+	printf '  FAIL manifest-drift: a missing hasher is named, not reported as drift — rc=%s\n%s\n' "$rc" "$out" >&2
 fi
 
 h="$WORK/bs_home_nocurl"

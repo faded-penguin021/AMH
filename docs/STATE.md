@@ -25,9 +25,10 @@ Adopted harness version: **AMH 1.8.0** — see `harness/VERSION`, which is the c
 ## Current state
 
 > **Session handoff (2026-07-27).** The founding train MERGED (PR #1, squashed to `7d322d7`);
-> every branch of it is superseded. `claude/state-review-planning-ushoux` carries U0–U2 and is
-> **green and pushed**. `branch-train` is the mode, so cut the next branch **from that branch,
-> not from main**, and start at U3. Nothing is half-finished.
+> every branch of it is superseded. `claude/state-review-planning-jandv0` carries U0–U3 (it
+> contains `…-ushoux` whole) and is **green and pushed**. `branch-train` is the mode, so cut
+> the next branch **from that branch, not from main**, and start at U4 — the last unit, which
+> ends with the plan file deleted. Nothing is half-finished.
 
 **Active plan: `docs/plans/harness-instantiation.md`** (owner-approved 2026-07-27) — making the
 harness cheap to instantiate, plus the architectural verdicts on an external RFC (**DA-001**).
@@ -37,19 +38,20 @@ harness cheap to instantiate, plus the architectural verdicts on an external RFC
   README's pinned tag as a fifth lockstep copy.
 - **U2 ✅** `--profile light|standard|full`, defaulting to light; the `docs/history/` seed (under
   `full` only — three profiles must be three distinct file sets); brief §1; both findings closed.
-- **U3 — next.** The shipped-script integrity manifest and its rung; **U3b** one session-start
-  banner line under `branch-train` (**DA-003**). Note U2 already made that script's protocol
-  pointer conditional, so U3b edits a file with a fresh fixture pair around it.
-- **U4** the **MAJOR 2.0.0** bump across five lockstep copies, the README quickstart rewrite
+- **U3 ✅** the integrity manifest (`scripts/build-manifest.sh` → `MANIFEST.sha256`, shipped
+  beside the scripts it hashes), the shipped rung, `manifest-drift.sh`, and **U3b**'s
+  session-start line under `branch-train` (**DA-008**, **DA-009**).
+- **U4 — next.** The **MAJOR 2.0.0** bump across five lockstep copies, the README quickstart rewrite
   (deferred on purpose — **DA-006**: the quickstart describes the tag it pins, so the tag must
   contain the brief first), the changelog's Upgrading section, and deleting the plan file.
 
-U3–U4 are legislation diffs: ONE blocking fresh-context reviewer each, strongest tier, one pass,
+U4 is a legislation diff: ONE blocking fresh-context reviewer, strongest tier, one pass,
 triage and ship, no self-review fallback (D-015, bounded by **D-035**). Budget for it —
-**twenty-four of twenty-five passes have found a real defect inside the FIX**, including two in
+**twenty-five of twenty-six passes have found a real defect inside the FIX**, including three in
 ledger rows about the very lesson they were recording. This session's standing instruction
 forbade subagents; the runbook's answer is to ASK rather than park, the owner granted the spawn,
-and U2's pass returned one HIGH defect reaching every existing adopter (**DA-007**).
+and U3's pass returned one HIGH — an enforcement claim one line stronger than the code, in the
+adopter-facing contract and in the ledger row asserting it (**DA-008**).
 
 `shellcheck` is CI-only and its rung load-bearing, so editing a script without it is editing
 blind (**D-026**); `AMH_REMOTE=1` is set, so `scripts/bootstrap.sh` installs it every remote
@@ -102,6 +104,17 @@ accepted form (U3b). Assurance levels as configuration, in every presented form 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-27 — **U3: the shipped-script integrity manifest, and U3b's squash-history line.**
+  `MANIFEST.sha256` is generated from `harness/templates/scripts/*.sh` and installed beside
+  them; a shipped rung hashes each one against it. Absence warns, an empty manifest fails, and
+  a manifest not covering the ladder itself fails — the guard can refuse the self-serving
+  omission and count the rest, which is a weaker claim than the first draft's prose made and is
+  now what the prose says (**DA-008**). Admitted ahead of the incident bar by owner decision —
+  with no adopters the incident is only discoverable at an adopter's expense. Two consequences
+  worth carrying: the documented hand-upgrade had to become `cp .../scripts/*` (scripts without
+  their manifest read as five edited files), and `copy-drift.sh`'s `*.sh` glob would have let
+  this repo's copy drift from the shipped one. `session-start.sh` now says under
+  `branch-train` that the default branch's log is not this repo's past (**DA-009**).
 - 2026-07-27 — **U2: install profiles.** `amh-init.sh --profile light|standard|full`, default
   light, selecting seed prose only — nothing records the level, so nothing can branch on it
   (**DA-001**). The archive tier finally ships as a seed. Its pass (**DA-007**) returned six

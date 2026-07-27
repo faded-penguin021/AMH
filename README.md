@@ -159,16 +159,18 @@ harness/             THE PRODUCT — what an adopter copies
   dist/AMH.md        GENERATED single-file bundle — never hand-edited
   templates/
     AMH-ADOPT.md     the adoption brief, written into an adopter's tree for their agent
-    scripts/         the five shipped scripts
+    scripts/         the five shipped scripts, plus their generated integrity manifest
     configs/         CI workflow and agent settings; substituted at init
     seed/            prose scaffolds: copied once, then yours forever
     amh.conf.example
 scripts/             THE INSTANCE — this repo living under what it ships
   ladder.sh redact.sh command-guard.sh session-start.sh test-ladder-guards.sh
                      byte-identical copies of the shipped scripts, held by a cmp guard
+  MANIFEST.sha256    their hashes, as shipped — the copy an adopter's ladder checks
   verify.sh          this repo's verification set — the ladder's extension point
   amh-init.sh        instantiate the harness into a target repo
   build-dist.sh      regenerate the bundle
+  build-manifest.sh  regenerate the integrity manifest
   guards/            repo-local guards; the ladder runs every one it finds here
   tests/             fixtures for the repo-local guards, and the end-to-end init test
 .github/workflows/   CI, which runs the same ladder and nothing else

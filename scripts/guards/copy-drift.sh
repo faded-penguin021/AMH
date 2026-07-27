@@ -17,10 +17,21 @@ cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." || exit 1
 SRC=harness/templates/scripts
 DST=scripts
 fails=0
+# Counted in the loop, never re-derived afterwards. The closing number used to come from a
+# recursive `find`, which stops being the set the loop compared the moment anyone adds a
+# subdirectory here — a guard whose final line describes a different set from the one it
+# checked is the same prose/code lockstep defect this repo keeps finding elsewhere.
+compared=0
 
-for t in "$SRC"/*.sh; do
+# EVERY file under harness/templates/scripts/, not only the *.sh ones. The manifest that
+# ships beside them (MANIFEST.sha256) is a shipped artifact exactly as they are, and one
+# glob's worth of narrowness would have left this repo's copy of it free to drift from the
+# copy adopters receive — while the guard's own line claimed the shipped set was identical.
+for t in "$SRC"/*; do
+	[ -f "$t" ] || continue
+	compared=$((compared + 1))
 	name=$(basename "$t")
-	if [ ! -f "$DST/$name" ]; then
+	if [ ! -e "$DST/$name" ]; then
 		printf 'shipped but not installed here: %s (this repo must run what it ships)\n' "$name"
 		fails=$((fails + 1))
 		continue
@@ -36,4 +47,4 @@ done
 # scripts/guards/* and the repo's own tooling are local by design.
 
 [ "$fails" -eq 0 ] || exit 1
-printf '%s shipped script(s) identical to their templates\n' "$(find "$SRC" -name '*.sh' | wc -l | tr -d ' ')"
+printf '%s shipped file(s) identical to their templates\n' "$compared"

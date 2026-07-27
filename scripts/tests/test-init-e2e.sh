@@ -207,6 +207,65 @@ else
 fi
 
 # =============================================================================
+# 3c. The integrity manifest reaches the adopter, and works THERE.
+#
+# Everything the shipped suite asserts about this rung it asserts against a synthesised
+# fixture repo whose manifest the suite itself wrote. That proves the rung's logic and
+# nothing about the delivery: an installer that never wrote the manifest, or wrote it before
+# the scripts it hashes, would leave every one of those fixtures green while every real
+# adopter got a permanent `skip` — or worse, a red ladder on a tree nobody had touched.
+# =============================================================================
+d=$(target manifest)
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+
+if cmp -s "$ROOT/harness/templates/scripts/MANIFEST.sha256" "$d/scripts/MANIFEST.sha256"; then
+	pass
+else
+	fail "a fresh instantiation installs the shipped integrity manifest"
+fi
+
+# The rung is live in the new tree, not skipping. The count is part of the assertion: a
+# manifest that arrived truncated, or one written before the scripts, would still produce an
+# `ok` line — with a smaller number.
+out=$(target_ladder "$d")
+if printf '%s' "$out" | grep -qF '   ok    5 shipped script(s) match the published hashes'; then
+	pass
+else
+	fail "the instantiated repo verifies all five shipped scripts against the manifest" "$out"
+fi
+
+# The defect the whole unit exists to catch, exercised where it actually happens: a local edit
+# to a shipped script in somebody else's repo.
+printf '\n# a local edit to a shipped rail\n' >>"$d/scripts/redact.sh"
+out=$(target_ladder "$d")
+rc=$?
+if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'scripts/redact.sh does not match the hash'; then
+	pass
+else
+	fail "an edited shipped script turns the adopter's ladder red" "exit $rc" "$out"
+fi
+
+# ...and the documented repair puts both halves back. The manifest is `overwrite` policy for
+# this reason: an adopter who edited it — to silence the rung, or by accident — must not keep
+# that edit through an upgrade, or the guard is disabled by its own subject.
+printf '# an edit to the manifest itself\n' >>"$d/scripts/MANIFEST.sha256"
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+if cmp -s "$ROOT/harness/templates/scripts/redact.sh" "$d/scripts/redact.sh" &&
+	cmp -s "$ROOT/harness/templates/scripts/MANIFEST.sha256" "$d/scripts/MANIFEST.sha256"; then
+	pass
+else
+	fail "re-running init restores both the edited script and an edited manifest"
+fi
+
+out=$(target_ladder "$d")
+rc=$?
+if [ "$rc" -eq 0 ]; then
+	pass
+else
+	fail "the repaired repo's ladder is green again" "exit $rc" "$out"
+fi
+
+# =============================================================================
 # 4. The init placeholder list is bound to the document describing it.
 #
 # Both directions, because the two are separately silent: a name documented as `init` but

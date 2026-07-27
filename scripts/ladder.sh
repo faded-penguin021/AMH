@@ -632,6 +632,153 @@ guard_rail_selftests() {
 	done
 }
 
+# sha256 for one file, through whichever tool this machine has. Reads from STDIN rather than
+# passing the path, so no filename ever reaches a tool's argument parsing and both tools emit
+# the same `<hash>  -` shape. The trailing `sed` keeps the leading hex run and drops the rest.
+# Prints nothing if neither tool exists — the caller decides what that means, and it is
+# not allowed to mean "clean".
+amh_sha256_tool() {
+	if command -v sha256sum >/dev/null 2>&1; then
+		printf 'sha256sum'
+	elif command -v shasum >/dev/null 2>&1; then
+		printf 'shasum'
+	fi
+}
+amh_sha256() { # <tool> <file>
+	case $1 in
+	sha256sum) sha256sum <"$2" ;;
+	shasum) shasum -a 256 <"$2" ;;
+	esac | sed 's/[^0-9a-f].*//'
+}
+
+# The shipped scripts are still the ones the harness shipped.
+#
+# This is the SECOND integrity check over these files in the harness's own repository and
+# the FIRST one in yours, and the distinction is the whole point: the meta-repo's copy-drift
+# guard proves *it runs what it ships*, this rung proves *you still run what we shipped you*.
+# Different claims, different trees, and only this one travels.
+#
+# What it is actually defending against is not malice. A shipped script edited locally —
+# a threshold nudged, a rung deleted, a `return` added at the top of a guard — turns every
+# future upgrade from a copy into a merge, and does it silently: the edit works, the ladder
+# stays green, and the cost lands on whoever runs the next upgrade a year later. The three
+# places a local change legitimately goes are amh.conf, scripts/guards/*.sh and
+# scripts/verify.sh, and this rung's failure message names them, because a guard that only
+# says "no" teaches people to delete the guard.
+#
+# WHAT IT CANNOT SEE, stated plainly because the rest of this comment is a coverage claim and
+# an overstated one is what stops the next reader checking by hand:
+#
+#   1. The edit that DELETES this rung. A ladder that no longer calls this function reports
+#      nothing, and no rung inside a script can be the thing that notices the script was cut.
+#      The manifest is checkable by hand for exactly this reason — `sha256sum -c` against it
+#      needs none of this code — and the header of the manifest says so.
+#   2. A line REMOVED from the manifest excuses that file. This rung refuses the one removal
+#      that would be self-serving (the entry for the ladder itself, see below) and reports the
+#      count of what it checked, so a shrinking count is the signal for the rest. That is a
+#      weaker claim than "no file can be excused", and the prose around this feature must not
+#      make the stronger one.
+#
+# ABSENCE IS NOT A FAILURE, and that asymmetry is deliberate. The documented upgrade path is a
+# copy out of the harness checkout; someone who copied only `*.sh` before the manifest existed
+# has no manifest at all, and a rung that failed on absence would turn their ladder red for
+# having followed the instructions in front of them — a fix that bills the person it broke.
+#
+# It is a WARN rather than a `skip`, which is the one place this rung breaks the convention the
+# rest of this file uses for an absent artifact (no ledger, no repo-local guards). Those are
+# repo-shape choices that assert nothing; this one is different in kind — deleting the manifest
+# is also the documented way to live with a deliberate local patch, so the state an adopter
+# reaches ON PURPOSE to switch the rung off must not be the quietest line the ladder prints. A
+# disabled guard has to be louder than a passing one, and `skip` is counted by nothing.
+#
+# The same reasoning governs the STALE case, which is the likelier one and is worth stating
+# in the failure text rather than leaving to be discovered: an adopter who upgrades with
+# `cp .../scripts/*.sh scripts/` gets new scripts against last version's manifest, and every
+# one of them then reads as tampered. The manifest sits in the same directory as the scripts
+# it describes precisely so that copying the directory keeps them together.
+#
+# The path is a CONSTANT here, not an amh.conf key. A configurable path is a supported way
+# to point the rung at nothing and collect a green `skip` — the shape this harness has
+# already been burned by, one layer down, and the reason the secret scan stopped consulting
+# a file mode.
+guard_shipped_integrity() {
+	section "Shipped scripts: integrity against the install manifest"
+	local manifest=scripts/MANIFEST.sha256 self=scripts/ladder.sh
+	if [ ! -f "$manifest" ]; then
+		warn "$manifest is absent, so the shipped scripts were NOT checked against the hashes the harness published for them — this rung checked NOTHING. An install or upgrade through the harness's init script writes one; a hand copy of *.sh alone does not."
+		return
+	fi
+	local tool
+	tool=$(amh_sha256_tool)
+	if [ -z "$tool" ]; then
+		# WARN, not skip: absence of the manifest is a state the adopter chose, absence of a
+		# hashing tool is a property of the machine that has nothing to do with the subject.
+		warn "neither sha256sum nor shasum is on PATH, so $manifest was NOT verified — this rung checked NOTHING. Install coreutils (or Perl's shasum) if you want the shipped scripts covered here."
+		return
+	fi
+	local line n=0 checked=0 bad=0 covers_self=0 want rest file got
+	while IFS= read -r line || [ -n "$line" ]; do
+		n=$((n + 1))
+		case $line in '' | '#'*) continue ;; esac
+		# sha256sum's own format: `<hash>  <path>`, with `*` marking binary mode. Parsed
+		# rather than trusted — a manifest this cannot read is a manifest that checked
+		# nothing, so a malformed line FAILS instead of being skipped past.
+		want=${line%% *}
+		rest=${line#"$want"}
+		rest=${rest#"${rest%%[![:space:]]*}"}
+		file=${rest#\*}
+		case $want in
+		*[!0-9a-f]* | '') file='' ;;
+		esac
+		# A manifest entry names a shipped script and nothing else: `scripts/<name>`, one
+		# level, no `..` and no absolute path. Without this the rung will happily hash
+		# /etc/hostname and then tell you re-running the harness's init script will restore
+		# it — a true verdict wrapped in a false description of what was checked, which is
+		# worse than no verdict. The constraint is also what bounds the damage a hand-edited
+		# manifest can do: it can excuse a shipped script, it cannot point the rung at
+		# somewhere else entirely.
+		case $file in
+		scripts/*/* | scripts/ | *'..'*) file='' ;;
+		scripts/?*) ;;
+		*) file='' ;;
+		esac
+		if [ -z "$file" ] || [ "${#want}" -ne 64 ]; then
+			fail "$manifest line $n is not a sha256 entry naming a shipped script — the form is a 64-character hash, two spaces, then scripts/<name>. The file is corrupt or hand-edited, and a manifest that cannot be read verifies nothing. Re-install it from the harness checkout."
+			bad=$((bad + 1))
+			continue
+		fi
+		[ "$file" = "$self" ] && covers_self=1
+		checked=$((checked + 1))
+		if [ ! -f "$file" ]; then
+			fail "$manifest names $file, which is not in this tree — a shipped script has been deleted, or the manifest belongs to a different version. Re-run the harness's init script against this repo to restore both."
+			bad=$((bad + 1))
+			continue
+		fi
+		got=$(amh_sha256 "$tool" "$file")
+		if [ "$got" != "$want" ]; then
+			fail "$file does not match the hash the harness published for it. If you edited it: the change belongs in amh.conf, in a guard under scripts/guards/, or in scripts/verify.sh — re-running the harness's init script puts the shipped copy back. If you upgraded by copying *.sh by hand: copy $manifest out of the same directory too, or this rung reports every new script as edited."
+			bad=$((bad + 1))
+		fi
+	done <"$manifest"
+	if [ "$checked" = 0 ] && [ "$bad" = 0 ]; then
+		# Every line a comment, or no lines at all. Green here would be a pass earned by an
+		# empty file, which is the one verdict this rung must never give.
+		fail "$manifest lists no scripts — an empty manifest passes everything. Re-install it from the harness checkout."
+		return
+	fi
+	# The one entry that may never go missing is the one covering the file you are reading.
+	# Deleting a line excuses that script; deleting THIS line excuses the script that decides
+	# whether anything else is excused, and from there every other verdict here is worth
+	# nothing. It is the only self-serving omission, so it is the only one that can be refused
+	# without a list of shipped names — which this script must not carry, since the set changes
+	# between versions and yours may be older or newer than the manifest's.
+	if [ "$covers_self" = 0 ]; then
+		fail "$manifest does not cover $self — a manifest that omits the ladder cannot vouch for anything, because the ladder is what reads it. Re-install it from the harness checkout."
+		bad=$((bad + 1))
+	fi
+	[ "$bad" = 0 ] && ok "$checked shipped script(s) match the published hashes ($tool) — a lower count than your version ships means the manifest was edited"
+}
+
 # The section header is printed unconditionally, and the number of guards that actually
 # RAN is always reported. Both were conditional on finding a guard, so `rm -rf
 # scripts/guards` left this rung emitting nothing whatsoever — no header, no skip, no
@@ -765,6 +912,7 @@ run_guards() {
 	guard_poison_tokens
 	guard_author_identity
 	guard_rail_selftests
+	guard_shipped_integrity
 	guard_repo_local
 	advisories
 }

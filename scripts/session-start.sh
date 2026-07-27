@@ -17,6 +17,11 @@ cd "$ROOT" || exit 0
 
 DEFAULT_BRANCH=main
 BRANCH_PREFIX=session
+# Defaulted here because this script did not read the key until the squash-history line
+# below existed. An adopter's amh.conf is theirs forever and the harness cannot upgrade it,
+# so a key this script needs but their file predates must have a value in the script or the
+# whole banner dies under `set -u` on the first upgraded session.
+MERGE_MODE='branch-per-change'
 STATE_FILE=docs/STATE.md
 STATE_WARN_KB=14
 STATE_COMPRESS_TO_KB=9
@@ -78,6 +83,22 @@ elif [ "$branch" = "$DEFAULT_BRANCH" ]; then
 	say "    git checkout -b $BRANCH_PREFIX/<codename>"
 else
 	say "· branch: $branch"
+fi
+
+# 2b. Under branch-train, say once what the default branch's history is NOT.
+#
+# A train squashes each superset branch into one commit on the default branch, so `git log`
+# there is a list of merges, not a record of how anything was decided — and a session that
+# reaches for it to answer "why is this like this?" gets a plausible, wrong answer and
+# carries on. The memory tiers are the history; that is what P2 is for.
+#
+# Printed only under branch-train, because under branch-per-change the default branch's log
+# IS the record and this line would be false. A pre-execution warning on `git log` itself was
+# considered and declined: the rail is binary, the command is right nearly every time (two
+# shipped rungs run it), and the mistake is the generalisation rather than the command.
+if [ "$MERGE_MODE" = branch-train ]; then
+	say "· merge mode: branch-train — $DEFAULT_BRANCH's history is squashed, so \`git log\` there is"
+	say "  not this repo's past. The state file and the ledger are (AMH P2)."
 fi
 
 # 3. Working-memory headroom, BEFORE any writing — so a session that needs to

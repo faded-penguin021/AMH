@@ -13,6 +13,7 @@ This split is the whole reason upgrades are cheap, so it is worth internalising:
 | | Upgradeable | Yours forever |
 |---|---|---|
 | `scripts/ladder.sh`, `session-start.sh`, `command-guard.sh`, `redact.sh`, `test-ladder-guards.sh` | **copy over** — they are parameter-free | — |
+| `scripts/MANIFEST.sha256` | **copy over** — generated at release, it holds the hashes of the five scripts above | — |
 | `amh.conf` | — | yours; new keys are additive, listed in the changelog |
 | `scripts/verify.sh`, `scripts/guards/*` | — | yours; the ladder's extension points |
 | `AGENTS.md`, `docs/RUNBOOK.md`, `docs/STATE.md`, `docs/LEDGER.md` | — | yours; seed changes arrive as hand-applied notes |
@@ -44,9 +45,16 @@ half-upgraded harness is a harness whose rules disagree with its guards.
 **4. Copy the shipped scripts.**
 
 ```bash
-cp /path/to/AMH/harness/templates/scripts/*.sh scripts/
+cp /path/to/AMH/harness/templates/scripts/* scripts/
 chmod +x scripts/*.sh
 ```
+
+**Copy the whole directory, not just `*.sh`.** `scripts/MANIFEST.sha256` sits beside the
+scripts because it holds their hashes, and your ladder's integrity rung compares the two. New
+scripts against last version's manifest reads exactly like five locally edited scripts — the
+rung will say so, and this is the fix. If you have no manifest at all (you upgraded before
+this file existed), the rung warns on every run that the shipped scripts went unchecked;
+copying it is what turns the rung on.
 
 If you have the harness repo checked out, `scripts/amh-init.sh /path/to/your-repo` does the
 same thing and is safe to re-run: it overwrites exactly the shipped scripts and leaves every
@@ -74,6 +82,21 @@ string that was always there. These are findings, not upgrade damage. Fix them; 
 weaken the guard to get green. If a new guard is genuinely wrong for your repo, delete it
 from your copy of `ladder.sh` and record *why* in your ledger — but understand you have now
 taken a local patch, with the merge cost that implies.
+
+That patch is also exactly what the integrity rung reports, so it will not be quiet about it.
+The way to live with a deliberate local patch is to delete `scripts/MANIFEST.sha256`: the rung
+then warns, every run, that the shipped scripts went unchecked — a true description of your
+tree, and deliberately not a silent one. Restore the manifest by copying it again once the
+patch is gone.
+
+Deleting the file is the *supported* way, not the only mechanical one, and the difference is
+worth stating rather than implying: the manifest is an ordinary text file in your repo, so
+removing one line excuses one script. Two things bound that. The rung refuses a manifest which
+does not cover `scripts/ladder.sh` — the entry whose removal would excuse the file that decides
+whether anything else is excused — and it prints the number of scripts it checked on every run,
+so a count below what your version ships is the signal. Nothing else stops you. A guard cannot
+defend a file you own against you, and a harness that claimed otherwise would only be teaching
+you not to look.
 
 **7. Record it.** Set `AMH_VERSION` in `amh.conf`, update the version in your constitution,
 add a ledger row for anything the upgrade taught you, and add the changelog line.

@@ -332,3 +332,96 @@
   three distinct file sets. The plan called for the new `docs/history/` seed under both
   `standard` and `full`, which would have made those two byte-identical and the third name
   decorative; it ships under `full` only, matching the brief's own table.
+
+- DA-008: **The shipped-script integrity manifest — the second guard in this repo's history
+  admitted before its violation, on the same authority as the first.** (The identity guard was
+  also admitted pre-incident and also by owner decision — **D-032**, **D-033**. The first
+  draft of this row claimed the owner-decision half was novel here; it is not, and the pattern
+  now has two instances rather than one precedent.) `CONTRIBUTING.md` sets an incident bar: new machinery earns its place
+  after a real violation, never after a hypothesis, and `docs/RUNBOOK.md`'s playbook 3 repeats
+  it. This one deviates, by owner decision 2026-07-27, and the
+  reasoning is recorded here rather than left as a precedent a future session can cite
+  loosely: with zero adopters the incident can only ever be discovered **at an adopter's
+  expense**, and they are the one party who cannot pay it. The bar still stands for everything
+  else; what this row licenses is *an owner overriding it on a stated argument*, not "the
+  incident bar is negotiable".
+  What ships: `scripts/build-manifest.sh` generates `MANIFEST.sha256` over
+  `harness/templates/scripts/*.sh`; `amh-init.sh` installs it beside the scripts it describes
+  (policy `overwrite` — it is a shipped artifact, not the adopter's);
+  `guard_shipped_integrity` in the shipped ladder hashes each named file against it;
+  `scripts/guards/manifest-drift.sh` rebuilds and diffs it here, the way `dist-drift.sh` does
+  for the bundle. It is deliberately the SECOND integrity check over these bytes in this
+  repository and the FIRST in an adopter's: `copy-drift.sh` proves *this repo runs what it
+  ships*, the manifest proves *an adopter still runs what we shipped them*. Different claims,
+  different trees, and only one of them travels.
+  **(a) A guard that can fail on the documented upgrade path is a guard that will be
+  deleted.** The upgrade instruction was `cp .../scripts/*.sh scripts/`, which delivers new
+  scripts against the previous version's manifest — every one of them then reads as locally
+  edited. Two changes close it and both were needed: the manifest lives IN the same directory
+  as the scripts so that copying the directory keeps them together, and `docs/UPGRADING.md`
+  now says to copy the whole directory. The failure text names this case too, because the
+  reader who hits it will be reading that line and not this row. Same family as **D-030**: a
+  fix whose repair falls on the person it broke is not a fix.
+  **(b) Absence WARNS, a missing hashing tool warns, and an empty manifest fails — and the
+  first of those was a `skip` until the review pass.** Absence is a state the adopter is
+  legitimately in (they upgraded by hand before this existed), so it cannot be fatal, and the
+  ladder's convention for an absent artifact is `skip`. The convention is wrong here, for a
+  reason specific to this rung: deleting the manifest is ALSO the documented way to live with a
+  deliberate local patch, so absence is the one off-switch someone reaches on purpose — and
+  `skip` increments no counter and leaves no trace in the summary line, making the deliberate
+  disable quieter than the accidental one. That inverts **D-019**. It warns. (No `sha256sum` or
+  `shasum` warns too, for the plainer D-019 reason: the machine is not the subject.) A manifest
+  whose every line is a comment parses cleanly and checks nothing, which would print
+  `ok 0 shipped script(s)`: green earned by an empty file is the one verdict this rung may
+  never give, so it fails.
+  **(c) A guard cannot defend a file the adopter owns against the adopter — so state the
+  residue and refuse only the self-serving case.** The manifest path is a constant rather than
+  an `amh.conf` key, because a configurable path is a supported way to point the rung at
+  nothing and collect a green verdict. But the manifest itself is a text file in their repo,
+  and the first draft of this row and of `docs/UPGRADING.md` both claimed "there is no way to
+  excuse a single file" — which the review falsified in one command: comment out a line, edit
+  that script, ladder green. What the code can honestly do is refuse the ONE omission that is
+  self-serving (an entry missing for `scripts/ladder.sh`, the file that decides whether
+  anything else is excused) and print the count it checked, so a shrinking count is the signal
+  for the rest. Both now ship, with a fixture each, and the prose says exactly that much.
+  **The general rule: when a guard's subject is a file its target owns, the guard's claim is
+  bounded by what it can refuse, and the documentation must state the bound. An enforcement
+  claim one line stronger than the code is worse than no claim — it is what stops the next
+  reader checking by hand (D-010).**
+  **(d) A generator that fails open publishes an artifact that verifies nothing.**
+  `build-manifest.sh` resolved its hashing tool inside the function that used it, with `exit 1`
+  in the else-branch — and `exit` inside `$(…)` kills the substitution's subshell only. With no
+  hasher on PATH it printed its refusal five times, wrote a manifest of empty hashes over both
+  copies, and reported success, rc 0. The same defect was in the fixture suite's copy of the
+  helper, where its comment claimed the opposite. **Resolve a required tool once, at the top
+  level, where `exit` means exit.**
+  **(e) A guard scoped by file extension stops being the guard it claims to be the moment a
+  non-`.sh` artifact ships.** `copy-drift.sh` globbed `"$SRC"/*.sh`, so this repo's copy of
+  the manifest could have drifted from the one adopters receive while the guard's own line
+  said the shipped set was identical. It now compares every file under
+  `harness/templates/scripts/`. Worth generalising: an artifact set defined by extension is a
+  bet that the set will never gain a member of a different kind. Its closing count moved into
+  the loop in the same change — it was a recursive `find` describing a non-recursive glob's
+  work, which is the same lockstep defect one size down.
+  **(f) The rung's own blind spots are in its header, not left to be discovered.** It cannot
+  see the edit that deletes it from `run_guards` (nothing inside a script can), and it cannot
+  see a removed manifest line except as a lower count. Both are written where the next reader
+  will be standing, and the manifest is `sha256sum -c`-compatible so the check survives without
+  any of this code.
+- DA-009: **The squash-history banner line (U3b), and a shipped script's first read of a key
+  it had never read before.** `session-start.sh` now prints, under `MERGE_MODE`
+  `branch-train` only, that the default branch's history is squashed and the memory tiers are
+  the record. The decision to put it here rather than in a pre-execution rail is **DA-003**;
+  this row is only what implementing it cost. The key had never been read by this script, so
+  it needed a default IN THE SCRIPT — a shipped script that reads a key without defaulting it
+  dies under `set -u` and takes the whole banner with it. **Be precise about which config file
+  that defends against, because the first draft of this row was not**: `MERGE_MODE` is a
+  substituted placeholder in `amh.conf.example`, so every repo instantiated by `amh-init.sh`
+  already has the key, and the "existing adopters' files predate it" story the review checked
+  is false for all of them. What remains is real and is the actual rule: `amh.conf` is the
+  adopter's forever, the harness cannot upgrade it, and they may edit or delete any line in it
+  — so a shipped script may never assume a key is present, whatever the template ships. That
+  is `AUTHOR_EMAIL_ALLOW`'s rule (**D-033**) arriving from a second direction, which is what
+  makes it a rule rather than a detail: **every key a shipped script reads gets a default in
+  the script, and its fixture is a config file with the key removed.** The gating is asserted in both directions — printed under `branch-train`, absent
+  under `branch-per-change`, where the same sentence would be false.
