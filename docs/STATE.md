@@ -46,7 +46,15 @@ blind (**D-026**); `AMH_REMOTE=1` is now set, so `scripts/bootstrap.sh` installs
 session (**D-028**). Run the ladder DIRECTLY, never piped — a pipe reports the pipe's status,
 and a red tree has been pushed that way.
 
-**Open findings.** None. **The ledger has rolled over**: `docs/LEDGER.md` is closed at 826
+**Open finding — the harness ships three memory tiers and describes four.** P2's table names
+`docs/history/` (cold storage); `harness/templates/seed/` contains no such directory, so an
+adopter never gets one, while the seed runbook tells their agent to "consult the ledger and
+the archive". `path-refs.sh` cannot see it: it skips `harness/templates/*` by design, because
+those paths are meant to resolve in the adopter's tree, not here. Fix belongs in U2, where the
+profile file-lists are decided. **This repo's own `docs/history/` is correctly empty** —
+`docs/STATE.md` has never crossed its soft cap, so no compression pass has ever run.
+
+**The ledger has rolled over**: `docs/LEDGER.md` is closed at 826
 lines (last row D-035) and `docs/LEDGER_A.md` is the live volume, numbering from `DA-001`.
 Append there; rows in the closed volume are never moved or renumbered, and a citation's prefix
 names its file.
@@ -66,7 +74,17 @@ because the structure guard asked whether sections EXIST rather than how many (*
 
 **Pending owner actions:**
 
-None right now. **AMH 1.8.0 is released** — `amh-v1.8.0` is tagged on the merged founding
+**Open question — where does compressed narrative go?** Two shipped documents disagree.
+`docs/history/README.md` says spent narrative from compressed STATE passes lands there; the
+STATE preamble above says to compress by folding stages into Changelog lines and moving
+durable gotchas to the ledger, *"not by cutting text into a new file"*. Normative, so the
+code cannot settle it. Options: **(a)** the archive takes whole retired STATE sections and the
+preamble's clause is narrowed to "do not invent new files ad hoc"; **(b)** folding is the only
+compression method, and the archive exists for material retired by other means — which is what
+the empty directory here suggests in practice. Recommend (a): the tier is real in your origin
+repo, and (b) leaves P2 describing storage this harness never writes to.
+
+**Pending owner actions:** none right now. **AMH 1.8.0 is released** — `amh-v1.8.0` is tagged on the merged founding
 commit `7d322d7`, so the README's quickstart has a real tag to pin. The next owner action
 arrives at the end of the current plan: tag **amh-v1.9.0** after the merge, in that order
 (**DA-002**).

@@ -202,6 +202,18 @@ across both volumes (`live_ledger()` globs `LEDGER_*.md`).
   seed prose it kept — fold the runbook into the constitution, drop the ledger sentences —
   which is advice `harness/src/40-adaptation.md` already gives (owner-confirmed: agent-side
   reconciliation, not a second forked seed set).
+- **Fix the missing fourth tier while the file lists are open.** P2 describes four memory
+  tiers; `harness/templates/seed/` ships three — there is no `docs/history/`, so no adopter
+  has ever received the archive tier, while the seed runbook instructs their agent to "consult
+  the ledger and the archive". `path-refs.sh` is structurally blind to this: it skips
+  `harness/templates/*` because those paths are meant to resolve in the adopter's tree. Ship a
+  seeded `docs/history/README.md` (`standard` and `full`; under `light` the brief tells the
+  agent to drop the archive sentence from the runbook it folded in).
+- **And settle where compressed narrative actually goes**, because two shipped documents
+  disagree: the archive README says "spent narrative from compressed STATE passes lands here",
+  while the STATE preamble says to compress "by folding completed stages into Changelog lines
+  … **not by cutting text into a new file**". Both ship. This is normative, not descriptive —
+  the ground-truth rule cannot settle it — so it is an owner question, carried below.
 - `test-init-e2e.sh`: one case per profile — instantiate, run **that repo's** ladder, require
   green. `light` is the load-bearing one: it proves presence-derived degradation actually
   works end to end (ledger rung prints `skip`, ladder still green, planted-credential positive
