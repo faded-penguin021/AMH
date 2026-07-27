@@ -110,12 +110,17 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
 - **Steps:** update `harness/VERSION` → add the `harness/CHANGELOG.md` entry, including its
   **Upgrading** subsection (what an adopter must actually do) → update the version recorded
   in `AGENTS.md`, `docs/STATE.md` and `amh.conf` → **update the release tag in the `README.md`
-  Quick Start's clone command** → `scripts/build-dist.sh` → ladder.
+  Quick Start's clone command** → `scripts/build-dist.sh` → **`scripts/build-manifest.sh`** →
+  ladder.
 - **Obligations:** `scripts/guards/version-lockstep.sh` binds `harness/VERSION` to five
   hand-written copies — the changelog's top entry, `AGENTS.md`, `docs/STATE.md`,
   `AMH_VERSION` in `amh.conf`, and the `README.md` Quick Start's tag. Never edit one alone.
   The README copy is the one this list forgot once: the guard went red at the end of a
-  release with nothing in these steps telling the releaser which file to touch. The bundle header is generated from
+  release with nothing in these steps telling the releaser which file to touch. **The manifest
+  is the second**, found the same way in 2.1.0 — `MANIFEST.sha256`'s header carries the version,
+  so a bump makes it stale even though no shipped script changed, and `manifest-drift.sh`
+  reports it as a script edited without its manifest. Neither copy is lockstep-checked: they are
+  generated, so the rebuild steps above are what keep them true. The bundle header is generated from
   `harness/VERSION`, so `dist-drift.sh` covers it and the lockstep guard deliberately does
   not. **Tagging and publishing are owner steps** — queue them, do not attempt them.
 - **Acceptance:** ladder green.

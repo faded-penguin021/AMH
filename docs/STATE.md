@@ -16,21 +16,23 @@ The AMH meta-repository: both the **source of truth** for the Agentic Maintenanc
 reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
 **reference instance**, running byte-identical copies of the scripts it ships. The product is
 `harness/` (prose source, templates, generated bundle); this repo's instance is `AGENTS.md` +
-`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 2.0.0** — see `harness/VERSION`,
+`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 2.1.0** — see `harness/VERSION`,
 the copy that counts.
 
 ## Current state
 
-> **Session handoff (2026-07-27).** **AMH 2.0.0 is RELEASED**: PR #3 merged the train to `main`
-> (`afd990e`) and `amh-v2.0.0` is tagged there — verified with `git ls-remote --tags`, not
-> inherited from the previous handoff, which had it pending. The train branch `…-ol544l` is
-> spent: cut the next branch **from `main`**. `amh-v1.8.0` still points at `7d322d7`. **No plan
-> is active** (P16). Next work comes from the Owner queue, or from the owner.
+> **Session handoff (2026-07-27).** **2.0.0 is released and tagged** (`afd990e`, verified with
+> `git ls-remote --tags` rather than inherited from the previous handoff, which had it pending).
+> **2.1.0 is written and pushed** on `claude/readme-quick-start-4g4ala`, cut from `main`
+> (`git merge-base origin/main HEAD` = `afd990e`), and awaiting merge and tag. `amh-v1.8.0`
+> still points at `7d322d7`. **No plan is active** (P16). Next work comes from the Owner queue,
+> or from the owner.
 
 **A queue item outlives its own truth, and a session that restates it ships nonsense** — the
-release item above was restated as pending in a session that began after both the merge and the
-tag, and the owner reports the shape recurring (**DA-011**). Until queue item 2 lands, the
-obligation is prose in the queue's own preamble and **no rule file carries it**.
+2.0.0 release item was restated as pending in a session that began after both the merge and the
+tag (**DA-011**). 2.1.0 is the fix: the rule is now in `AGENTS.md`, the runbook, P9 and the
+seeds, and the session banner reports the release window it could not see. What a check can
+honestly claim, and where the first draft over-claimed, is **DA-012**.
 
 Legislation (a diff touching `RULE_FILES`) means ONE blocking fresh-context reviewer, strongest
 tier, one pass, no self-review fallback (D-015, bounded by **D-035**); **twenty-six of
@@ -55,9 +57,11 @@ about this repo's past**, the memory tiers ARE the history (**DA-003**); `path-r
 >
 > **Test each item before you restate it.** Where an item's truth is observable from a session,
 > it carries a **Check:** line with the command — run it at the point you would repeat the item,
-> and if it passes the item is DONE: delete it and write the changelog line in the same session,
-> never restate it with a caveat. Where it is not observable, the item says so and names who can
-> settle it; restate that as *unverified*, never as pending.
+> and read its OUTPUT against the resolution the item states, never its exit status (a check
+> written to detect the unresolved condition exits 0 exactly when the item is still open). An
+> item the output shows resolved is DONE: delete it and write the changelog line in the same
+> session, never restate it with a caveat. Where it is not observable, the item says so and names
+> who can settle it; restate that as *unverified*, never as pending.
 >
 > **`Check:` is deliberately NOT a required field.** An item that must carry one will get one —
 > "the owner says so" is a check the way a checkbox is evidence, and a queue full of those reads
@@ -68,21 +72,16 @@ about this repo's past**, the memory tiers ARE the history (**DA-003**); `path-r
 verified against `git ls-remote`), and `main`'s branch protection, which the owner repointed from
 the phantom `build` context at `ladder`.
 
-1. **Decide whether the queue-staleness work is released, and if so cut it.** It changes shipped
-   artifacts — `session-start.sh`'s release line, two `amh.conf` keys, seed prose — so adopters
-   only receive it through a release. Assessed **MINOR (2.1.0)**: additive, nothing an adopter
-   must act on, both new keys default empty so an `amh.conf` predating them changes nothing. The
-   version call is the owner's (CONTRIBUTING semantics), and the release itself is RUNBOOK
-   playbook 5 — its own unit, its own review pass, tag last.
-   Two things its Upgrading section must say, both easy to get wrong: the prose rule reaches
-   **new adopters only** (seeds are copied once and never re-synced, so an existing adopter's
-   `AGENTS.md` will not gain it), and cutting the release **re-opens the merge-to-tag window**
-   because the README pin moves to a tag that does not exist until it is cut — which the banner
-   below now says out loud instead of leaving silent.
+1. **Merge `claude/readme-quick-start-4g4ala`, then tag `amh-v2.1.0`** — in that order, because
+   the release workflow
+   checks the tag against `harness/VERSION`, so the tag follows the merged bump. The owner called
+   the MINOR on 2026-07-27. Until the tag exists the README's Quick Start names a clone target
+   that 404s; unlike every release before it, **the session banner now says so on every run**
+   instead of leaving the window silent, which is what this release is largely about.
    Check: `git ls-remote --tags origin 'refs/tags/amh-v2.1.0'` — a line back means it is cut and
-   this item is done; empty output means it is not, and says nothing about whether it should be.
+   this item is done; empty output means it is not, and is not evidence about anything else.
 
-**Open questions:** item 2 above. Everything asked before it has been answered and recorded —
+**Open questions:** none. Everything asked before it has been answered and recorded —
 the 2.0.0 severity call and the rule-scope additions in **DA-005**, the delegated closures of
 D-005, D-014 and D-018 in **D-035**.
 
@@ -108,7 +107,7 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
-- 2026-07-27 — **The release window became visible, and the queue learned to test itself.**
+- 2026-07-27 — **AMH 2.1.0: the release window became visible, and the queue learned to test itself.**
   `session-start.sh` now looks for the tag the version file implies — clone first, then `origin`
   — and reports present / absent / could-not-ask as three outcomes; `VERSION_FILE` and
   `RELEASE_TAG_PREFIX` are new `amh.conf` keys, empty by default so no existing adopter changes.
