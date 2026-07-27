@@ -100,4 +100,29 @@
   failure rather than a mechanical one: a session reported "no tag exists" from `git tag` in a
   clone that had never fetched tags. `amh-v1.8.0` existed the whole time. **A local read of a
   distributed fact is a claim about the clone, not about the repository** — `git ls-remote
-  --tags origin` is the question that was actually being asked.
+  --tags origin` is the question that was actually being asked. Generalised by **DA-003**,
+  which is the same failure through a second door and should be read with this one.
+- DA-003: **This repository has no file history, by construction — so `git log` cannot answer a
+  question about its past.** A session asserted that `docs/STATE.md` "has never crossed its soft
+  cap, so no compression pass has ever run", from `git log --follow` on the default branch. It
+  is false: the file has been over the cap repeatedly, and two ledger rows exist *because* of
+  it — D-011 records the grow-to-15.5 / trim-to-14.2 loop, D-027 records the landing check
+  firing twice and once making "pad the file back" the compliant move. The reason the log
+  disagreed with reality is structural: `MERGE_MODE=branch-train` plus squash-merge means an
+  entire train of sessions arrives as ONE commit and the branches are then pruned, so on `main`
+  the file has three commits and no past. **Every intermediate state is destroyed on purpose.**
+  The generalisation, and the reason this is a ledger row rather than an apology: **in a
+  squash-merged repository the memory tiers ARE the history — the ledger and the STATE
+  changelog are not a convenience layer over git, they are the only surviving record**, which
+  is the strongest argument for P2 the harness has produced so far. An agent reconstructing the
+  past from `git log` here will be confidently and systematically wrong. Ask the ledger.
+  Both this row and the tag error in DA-002 share one shape, and it is worth naming once:
+  **a local artifact was read, and the answer was reported as a property of the repository.**
+  The tell in both cases was available before the claim — the ledger rows were already read,
+  and the merge mode is declared in `amh.conf`. The check is not "did I run a command", it is
+  **"could this command see the thing I am claiming?"**
+  One consequence, immediately: this repo's `docs/history/` is empty *despite* many compression
+  passes, not because none ran. That falsifies the archive README's stated intake ("spent
+  narrative from compressed STATE passes lands here") — a flow that has had many chances to
+  happen and never has, which is the D-010 class arriving from the evidence side rather than
+  the review side. Carried as an owner question; the correction is normative, not descriptive.

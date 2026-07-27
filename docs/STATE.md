@@ -51,8 +51,10 @@ and a red tree has been pushed that way.
 adopter never gets one, while the seed runbook tells their agent to "consult the ledger and
 the archive". `path-refs.sh` cannot see it: it skips `harness/templates/*` by design, because
 those paths are meant to resolve in the adopter's tree, not here. Fix belongs in U2, where the
-profile file-lists are decided. **This repo's own `docs/history/` is correctly empty** —
-`docs/STATE.md` has never crossed its soft cap, so no compression pass has ever run.
+profile file-lists are decided. **And the archive's stated intake has been falsified by
+practice**: this file has been over its cap many times (**D-011**, **D-027**), every pass
+compressed by folding into Changelog lines, and `docs/history/` has never once received
+anything. Prose describing a flow that has never happened is the same D-010 class.
 
 **The ledger has rolled over**: `docs/LEDGER.md` is closed at 826
 lines (last row D-035) and `docs/LEDGER_A.md` is the live volume, numbering from `DA-001`.
@@ -77,12 +79,14 @@ because the structure guard asked whether sections EXIST rather than how many (*
 **Open question — where does compressed narrative go?** Two shipped documents disagree.
 `docs/history/README.md` says spent narrative from compressed STATE passes lands there; the
 STATE preamble above says to compress by folding stages into Changelog lines and moving
-durable gotchas to the ledger, *"not by cutting text into a new file"*. Normative, so the
-code cannot settle it. Options: **(a)** the archive takes whole retired STATE sections and the
-preamble's clause is narrowed to "do not invent new files ad hoc"; **(b)** folding is the only
-compression method, and the archive exists for material retired by other means — which is what
-the empty directory here suggests in practice. Recommend (a): the tier is real in your origin
-repo, and (b) leaves P2 describing storage this harness never writes to.
+durable gotchas to the ledger, *"not by cutting text into a new file"*. Normative, so the code
+cannot settle it — but practice can narrow it, and does: across every compression pass this
+repo has run, folding won and the archive received nothing. Options: **(a)** the archive takes
+whole retired STATE sections and the preamble's clause narrows to "do not invent new files ad
+hoc"; **(b)** folding is the only compression method and the archive holds material retired by
+other means, which is what this repo has actually done. Recommend **(b)**, with the archive
+README corrected to describe what it really receives — it is the reading the evidence supports,
+and the origin repo's populated archive shows the tier still earns its place.
 
 **Pending owner actions:** none right now. **AMH 1.8.0 is released** — `amh-v1.8.0` is tagged on the merged founding
 commit `7d322d7`, so the README's quickstart has a real tag to pin. The next owner action
