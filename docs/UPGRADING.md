@@ -6,6 +6,52 @@ For maintainers of a repo that has adopted the AMH. If you maintain *this* repo,
 Upgrading is deliberately not automatic. The harness is process, and process that changes
 under you without your reading it is worse than process that lags a version behind.
 
+## Hand it to your agent
+
+Open your coding agent in the repository you want to upgrade, and paste this:
+
+```text
+Upgrade this repository's Agentic Maintenance Harness (AMH) to the newest release.
+
+Find where we are first: AMH_VERSION in amh.conf, and the version recorded in the constitution.
+If those two disagree, believe amh.conf and tell me.
+
+Then resolve the newest release tag and clone exactly that tag — never a branch:
+
+    git ls-remote --tags --refs https://github.com/faded-penguin021/AMH.git 'refs/tags/amh-v*' \
+      | sed 's|.*refs/tags/||' | sort -V | tail -1
+    git clone --depth 1 --branch <that tag> https://github.com/faded-penguin021/AMH.git /tmp/amh
+
+Read /tmp/amh/harness/CHANGELOG.md forward, from our version to that one, oldest first. Each
+entry's Upgrading section is the complete list for that step. Tell me what any MAJOR requires
+before you act on it.
+
+Copy the shipped scripts — the whole directory, not just the .sh files, because the manifest
+beside them holds their hashes:
+
+    cp /tmp/amh/harness/templates/scripts/* scripts/ && chmod +x scripts/*.sh
+
+Then apply the changelog's Upgrading notes: new amh.conf keys, seed-prose changes I want by
+hand, adapter or CI changes. Files I own are never overwritten — amh.conf, the seed documents,
+scripts/verify.sh, scripts/guards, my workflow and adapter config — and AMH-ADOPT.md is never
+re-issued on an upgrade.
+
+Run scripts/ladder.sh directly, never through a pipe, and drive it to green. A new guard
+failing on something that was always there is a finding, not upgrade damage: fix the finding,
+never weaken the guard to get green.
+
+Record it: AMH_VERSION, the constitution's version line, a changelog line, and a ledger row for
+anything this taught us.
+
+Finally, delete /tmp/amh and tell me which version we moved from and to, what you changed by
+hand, and anything that needs my attention. Do not invent repository information — derive it
+from this repository and from the changelog.
+```
+
+If you are moving to a *specific* version rather than the newest, say so in that first line and
+let the agent clone that tag instead. The rest of this document is what those instructions do,
+in the order they do it, and it is worth reading before a MAJOR.
+
 ## What is upgradeable and what is yours
 
 This split is the whole reason upgrades are cheap, so it is worth internalising:

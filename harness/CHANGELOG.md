@@ -51,6 +51,12 @@ change is prose in a seed, which means it reaches new adopters only — see Upgr
   reads as verified while asserting nothing. Its absence is information: it means nothing but a
   human settles that item. Nothing consumes a session's claim to have checked, and nothing may.
 
+- **`docs/UPGRADING.md` opens with a block you paste into your coding agent**, the counterpart
+  to the README's Quick Start. It resolves the newest release tag rather than naming a version,
+  so it cannot go stale between releases, and it states the boundaries the prose already set:
+  clone a tag and never a branch, copy the whole scripts directory, never overwrite a file you
+  own, never re-issue `AMH-ADOPT.md`, and fix a finding rather than weakening a guard.
+
 ### Upgrading
 
 This is the complete list for 2.0.0 → 2.1.0. All of it is optional.

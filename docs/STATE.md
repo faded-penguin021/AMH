@@ -117,6 +117,11 @@ rows and in git history — this section is a pointer index, not a narrative.
   whether the tag *exists*, which in this clone (tags never fetched) would have cried wolf every
   session forever — with a fixture pinning the false alarm as correct (**DA-012**).
   Owner, same day: branch protection repointed at `ladder`, closing the phantom `build` context.
+- 2026-07-27 — **`docs/UPGRADING.md` gained the upgrade counterpart to the Quick Start block**
+  (owner: the instantiation path had one, the upgrade path did not). It resolves the newest tag
+  with `ls-remote | sort -V | tail -1` instead of naming a version, so it is not a sixth
+  hand-written copy for `version-lockstep.sh` to miss — verified against the real remote, which
+  returns `amh-v2.0.0` until 2.1.0 is tagged.
 - 2026-07-27 — **README Quick Start is a paste-into-your-agent block** (owner request), by-hand
   path under it. The pinned tag stays a SINGLE occurrence: `version-lockstep.sh` checks the first
   match only, so the manual block reuses the clone rather than repeating the tag.
