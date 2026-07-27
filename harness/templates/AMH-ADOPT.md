@@ -28,30 +28,64 @@ verification set can be green. Step 3 says how to check that half by hand.
 
 ## 1. Ask the owner how much of the harness they want
 
-The installer wrote every scaffold the harness has. That is more process than a small or
-low-risk repository needs, and adopting all of it on day one is the common mistake — the
-harness's cost scales with what a mistake costs *here*, not with repo size.
+**This install used the `{{PROFILE}}` profile.** The profile chose which scaffolds landed in
+your tree, and nothing else: the shipped scripts are byte-identical at every profile, and no
+guard is switched off by any of them. The three:
 
-So ask, before you fill anything in. Roughly three shapes:
-
-| Shape | Keep | Right when |
+| Profile | What it installs | Right when |
 |---|---|---|
-| **light** | constitution, working memory with an Owner queue, one verification command | mistakes are cheap and quickly noticed |
+| **light** — the default | constitution, working memory with an Owner queue, one verification command | mistakes are cheap and quickly noticed |
 | **standard** | + the runbook, + the append-only ledger | mistakes cost developer time; more than one session will touch this repo |
-| **heavy** | everything, including the archive tier and the review protocols | mistakes cost trust or correctness |
+| **full** | + the frozen archive tier (`docs/history/`) | mistakes cost trust or correctness |
+
+The default is `light` because adopting every scaffold on day one is the common mistake — the
+harness's cost should scale with what a mistake costs *here*, not with repo size. But the
+default is not a decision anyone made about *this* repo, so **ask the owner before you fill
+anything in**, and present the three with their costs.
 
 Say that growing later is cheap: adding the ledger the first time you re-explain a past mistake
 to a fresh session is exactly when it earns its keep, and the same is true of every guard.
 
+**To escalate**, re-run the installer from the harness checkout the owner used:
+
+```sh
+/path/to/amh/scripts/amh-init.sh --profile standard .
+```
+
+That adds the missing seeds and touches nothing you have written — every seed file is written
+only when absent, and a file you already have is kept whatever profile the run names.
+
+**Two things about that, both of which will bite otherwise.** First, the line above saying
+which profile this install used does *not* update when you escalate: this file is yours from
+the moment it was written, and the installer never rewrites a file you own. After escalating,
+trust the tree, not that sentence. Second, this brief is the only place the profile is written
+down at all, and you delete it when you finish — that is deliberate, so that no future script
+can branch on a level. Presence of the files is the durable record.
+
+There is no downgrade command, and that asymmetry is on purpose. Removing a scaffold you
+already have is an **owner decision**, not a step a session takes to tidy up: the ladder's
+rungs activate on artifact presence, so deleting `docs/LEDGER.md` deletes the rung that
+watches it. If the owner wants a smaller tree, `git rm` plus the reconciliation below does it —
+but ask first, and never reach for it because a rung is inconvenient.
+
 **If you have no way to ask** — no interactive channel, a batch or hook-driven run — do not
-block and do not guess silently. Keep everything the installer wrote, record the question under
+block and do not guess silently. Keep what the installer wrote, record the question under
 **Owner queue → Open questions** in `docs/STATE.md`, and carry on. That queue is the harness's
 standing channel for exactly this, and the owner reads it at the start of the next session.
 
-**If the owner picks something smaller**, delete what they declined *and* reconcile the prose
-that referenced it. A constitution pointing at a runbook you removed teaches the next session
-to distrust it — fold that guidance into the constitution instead, and remove the sentences
-about the ledger and the archive.
+**Reconcile the prose for whatever you end up with.** The seed constitution is written assuming
+the runbook, the ledger and the archive all exist, because a template cannot know which
+profile it will be read under. Under `light` it points at two files you do not have, and a
+constitution citing a document that is not there teaches the next session to distrust it. So:
+
+- fold the guidance the runbook would have carried — the playbooks, session discipline, the
+  review protocols — into the constitution, rather than leaving a dangling pointer;
+- delete the sentences about the ledger, or install it;
+- delete the sentences about `docs/history/` unless you took `full`.
+
+Under `standard`, only the last of those applies. This is prose work, not deletion work: what
+the removed file *said* still binds, and the smaller tree is supposed to say it in fewer
+places.
 
 ## 2. Know which files are yours and which are not
 

@@ -25,9 +25,9 @@ Adopted harness version: **AMH 1.8.0** — see `harness/VERSION`, which is the c
 ## Current state
 
 > **Session handoff (2026-07-27).** The founding train MERGED (PR #1, squashed to `7d322d7`);
-> every branch of it is superseded. `claude/harness-instantiation-materializer-7xhxbr` carries
-> U0 and U1 and is **green and pushed**. `branch-train` is the mode, so cut the next branch
-> **from that branch, not from main**, and start at U2. Nothing is half-finished.
+> every branch of it is superseded. `claude/state-review-planning-ushoux` carries U0–U2 and is
+> **green and pushed**. `branch-train` is the mode, so cut the next branch **from that branch,
+> not from main**, and start at U3. Nothing is half-finished.
 
 **Active plan: `docs/plans/harness-instantiation.md`** (owner-approved 2026-07-27) — making the
 harness cheap to instantiate, plus the architectural verdicts on an external RFC (**DA-001**).
@@ -35,18 +35,21 @@ harness cheap to instantiate, plus the architectural verdicts on an external RFC
 - **U0 ✅** plan landed, ledger rolled to volume A. **U1 ✅** the adoption brief
   (`harness/templates/AMH-ADOPT.md` → an adopter's `AMH-ADOPT.md`, fresh installs only) and the
   README's pinned tag as a fifth lockstep copy.
-- **U2 — next.** `--profile light|standard|full` in `amh-init.sh`, defaulting to light; update
-  the brief's §1 to match; ship the missing `docs/history/` seed; fix both findings below.
-- **U3** the shipped-script integrity manifest and its rung; **U3b** one session-start banner
-  line under `branch-train` (**DA-003**).
+- **U2 ✅** `--profile light|standard|full`, defaulting to light; the `docs/history/` seed (under
+  `full` only — three profiles must be three distinct file sets); brief §1; both findings closed.
+- **U3 — next.** The shipped-script integrity manifest and its rung; **U3b** one session-start
+  banner line under `branch-train` (**DA-003**). Note U2 already made that script's protocol
+  pointer conditional, so U3b edits a file with a fresh fixture pair around it.
 - **U4** the **MAJOR 2.0.0** bump across five lockstep copies, the README quickstart rewrite
   (deferred on purpose — **DA-006**: the quickstart describes the tag it pins, so the tag must
   contain the brief first), the changelog's Upgrading section, and deleting the plan file.
 
-U2–U4 are legislation diffs: ONE blocking fresh-context reviewer each, strongest tier, one pass,
+U3–U4 are legislation diffs: ONE blocking fresh-context reviewer each, strongest tier, one pass,
 triage and ship, no self-review fallback (D-015, bounded by **D-035**). Budget for it —
-**twenty-three of twenty-four passes have found a real defect inside the FIX**, including two in
-ledger rows about the very lesson they were recording.
+**twenty-four of twenty-five passes have found a real defect inside the FIX**, including two in
+ledger rows about the very lesson they were recording. This session's standing instruction
+forbade subagents; the runbook's answer is to ASK rather than park, the owner granted the spawn,
+and U2's pass returned one HIGH defect reaching every existing adopter (**DA-007**).
 
 `shellcheck` is CI-only and its rung load-bearing, so editing a script without it is editing
 blind (**D-026**); `AMH_REMOTE=1` is set, so `scripts/bootstrap.sh` installs it every remote
@@ -54,12 +57,10 @@ session (**D-028**). Run the ladder DIRECTLY, never piped — a pipe reports the
 and a red tree has been pushed that way. **`git log` cannot answer a question about this repo's
 past**: squash-merge destroys it, and the memory tiers ARE the history (**DA-003**).
 
-**Two open findings, both in `harness/templates/`, both for U2.** (1) The harness ships three
-memory tiers and describes four: no `docs/history/` seed exists, so an adopter never gets the
-archive while their seed runbook tells their agent to consult it. (2) The shipped
-`amh.conf.example` omits `amh.conf` from its own `RULE_FILES`, three lines under a comment
-saying a scope list not covering the file defining the scope list is not a scope list. Neither
-is visible to `path-refs.sh`, which skips `harness/templates/*` by design.
+**No open findings.** Both U2 ones are closed: the `docs/history/` seed ships, and
+`amh.conf.example` lists `amh.conf` in its own `RULE_FILES`. Neither was visible to
+`path-refs.sh`, which skips `harness/templates/*` by design — that blind spot is unchanged and
+is why template findings have to be carried here by hand.
 
 **The ledger has rolled over**: `docs/LEDGER.md` is closed at 826 lines (last row D-035);
 `docs/LEDGER_A.md` is live from `DA-001`. Append there; a citation's prefix names its file.
@@ -101,6 +102,15 @@ accepted form (U3b). Assurance levels as configuration, in every presented form 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-27 — **U2: install profiles.** `amh-init.sh --profile light|standard|full`, default
+  light, selecting seed prose only — nothing records the level, so nothing can branch on it
+  (**DA-001**). The archive tier finally ships as a seed. Its pass (**DA-007**) returned six
+  findings, one HIGH: the profile gate ran *before* the presence test, so the documented plain
+  re-run told existing adopters their runbook and ledger were "not in the light profile" while
+  both sat in their tree — and silently dropped them from the unfilled-placeholder report.
+  Presence outranks configuration; a switch governs absence only. Also: an untested default
+  survived being flipped, a fixture stopped one word short of the advice it checked, and a
+  shipped script named a file the default profile declines.
 - 2026-07-27 — **U1: the adoption brief.** `amh-init.sh` writes `AMH-ADOPT.md` into an adopter's
   tree on fresh installs only, addressed to their agent: ask the owner how much harness they
   want, fill the slots from the repo, write `verify.sh`, drive the ladder green, delete the

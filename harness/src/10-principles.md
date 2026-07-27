@@ -54,9 +54,9 @@ is a judgement an agent makes about its own work, so this rule is **prose-only**
 construction — no guard reads the archive, and none is proposed, because the discriminator is
 exactly the kind of self-assessment P3 forbids building machinery on.
 
-Two honest notes. The archive is the tier a repo is likeliest not to have: nothing scaffolds it
-at instantiation, and a project with nothing yet retired simply has no such directory — these
-rules bind where it exists and are inert where it does not. And be deliberate rather than
+Two honest notes. The archive is the tier a repo is likeliest not to have: only the `full`
+install profile scaffolds it, and a project with nothing yet retired simply has no such
+directory — these rules bind where it exists and are inert where it does not. And be deliberate rather than
 reassured about what folding costs: under a squash-merge topology the intermediate states are
 destroyed by design, so what the fold does not preserve is genuinely gone. That is the intended
 trade — but make the extraction to the ledger before you compress, not after.

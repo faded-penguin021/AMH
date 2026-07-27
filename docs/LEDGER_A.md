@@ -280,3 +280,55 @@
   the brief, since nothing binds "every file under `harness/templates/`" to the bundle. That
   binding is still missing and is not proposed: no incident yet, and `dist-drift.sh` covers the
   files the prose does include.
+
+- DA-007: **A gate ordered before a presence test turns an upgrade into a lie, and the profile
+  mechanism's own review found it in the fix rather than in the design.** `--profile
+  light|standard|full` landed in `scripts/amh-init.sh`, defaulting to `light`, selecting which
+  `harness/templates/seed/**` files a fresh install receives. The architecture was already
+  settled by **DA-001**(d) — init-time choice of what to install, nothing machine-readable
+  recorded, assurance emergent from artifact presence — and implementing it raised no new
+  architectural question. Every defect below was in the implementation, and the review pass
+  found all of them; this is the twenty-fourth of twenty-five passes to find a real defect
+  inside a FIX rather than in the thing being fixed.
+  **(a) Presence outranks configuration, and the test order is the rule.** The first draft
+  gated on the profile *before* asking whether the file was already there. `docs/UPGRADING.md`
+  documents a bare `amh-init.sh <target>` as the upgrade path and the default had just become
+  the smallest profile, so an existing adopter's plain re-run told them their runbook and
+  ledger were "not in the light profile — add it with `--profile standard`" while both sat in
+  their tree, and printed a tally that counted them as declined. The silent half was worse: a
+  declined file never entered the installed list, so those files also vanished from the
+  unfilled-placeholder report while the seed runbook's twelve real `{{…}}` slots sat in one of
+  them — the D-025 shape (a list quietly diverging from what it describes) reproduced in the
+  script whose own comment cites D-025 for it. **The general rule: when a new switch decides
+  what a tool installs, the switch governs absence only. What already exists belongs to the
+  person whose tree it is.**
+  **(b) A default value is behaviour, and an untested default is an untested feature.** Every
+  profile assertion passed `--profile` explicitly, so changing `PROFILE=light` to
+  `PROFILE=full` left the whole suite green — the diff's headline claim, asserted nowhere. A
+  flag's default needs its own fixture precisely because it is what nearly every caller gets.
+  **(c) An assertion that stops one word short leaves the load-bearing word untested.** The
+  fixture matched `docs/LEDGER.md (not in the light profile` and stopped before the advice,
+  so deleting the standard/full distinction — making the ledger's line read "add it with
+  `--profile full`", telling an adopter to install the archive tier to obtain a ledger — passed.
+  D-007's "matched the word but not its position", this time in a fixture rather than a guard.
+  **(d) A shipped script may not name a file an install profile declines.**
+  `session-start.sh` printed "then the matching playbook in `docs/RUNBOOK.md`" unconditionally,
+  which under the new default pointed every session's first screen at a file that is not there
+  — and the adopter cannot fix it, because shipped scripts are overwritten on every upgrade.
+  Now conditional on the file existing, with fixtures in both directions. Any prose in a
+  *shipped* artifact that names a *profile-gated* file has this bug.
+  **(e) "Prune what you do not have" is a rule change wearing housekeeping's clothes.** A draft
+  comment in `amh.conf.example` told adopters to drop `RULE_FILES` entries for files their
+  profile skipped. Escalating later would then deliver the runbook — legislation — with the
+  tripwire no longer covering it and nothing saying so. A stale entry is inert (the tripwire
+  matches paths in a diff; a path that cannot appear never matches) and starts working by
+  itself when the file arrives, so the correct advice is the opposite: leave it.
+  **(f) Naming the escape hatch in a shipped brief is not the same as it being possible.**
+  `git rm` as the documented downgrade is the green button **DA-001**(c) refused, respelled:
+  the ladder is presence-activated, so deleting a seed deletes its rung. Always mechanically
+  possible; what a brief must not do is present it as the routine move. It is now marked an
+  owner decision.
+  One consequence outside the diff, recorded because it will recur: three profiles must be
+  three distinct file sets. The plan called for the new `docs/history/` seed under both
+  `standard` and `full`, which would have made those two byte-identical and the third name
+  decorative; it ships under `full` only, matching the brief's own table.

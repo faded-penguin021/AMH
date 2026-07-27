@@ -556,6 +556,31 @@ else
 	report ok
 fi
 
+# --- the protocol pointer names only documents that exist
+# Not every install profile ships a runbook — the smallest one, which is the default,
+# deliberately does not. The banner used to name docs/RUNBOOK.md unconditionally, so the
+# first thing a fresh session in such a repo read was a pointer to a file that is not
+# there. The adopter cannot fix it either: this script is overwritten on every upgrade.
+#
+# Both directions, because each is separately silent: a banner that never names the runbook
+# would satisfy the absent case while breaking every repo that has one.
+d=$(mk ss_no_runbook)
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qF "docs/RUNBOOK.md"; then
+	report no "the protocol pointer omits a runbook the repo does not have" "it named it anyway" "$out"
+else
+	report ok
+fi
+
+d=$(mk ss_with_runbook)
+printf '# RUNBOOK\n' >"$d/docs/RUNBOOK.md"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qF "playbook in docs/RUNBOOK.md"; then
+	report ok
+else
+	report no "the protocol pointer names the runbook when there is one" "it did not" "$out"
+fi
+
 # --- the secret scan cannot be switched off by a file mode
 # The scan IS the repo's entire secret defence (D-004), so the ways it can vanish are
 # worth more fixtures than the ways it can fire. Losing the exec bit — an archive

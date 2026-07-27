@@ -52,6 +52,13 @@ If you have the harness repo checked out, `scripts/amh-init.sh /path/to/your-rep
 same thing and is safe to re-run: it overwrites exactly the shipped scripts and leaves every
 file you own — `amh.conf`, the seed prose, your workflow and adapter config — untouched.
 
+The `--profile` flag it grew in 2.0.0 does not change that, and you do not need to pass it on
+an upgrade. It decides which seed prose a **fresh** install receives; a file you already have
+is kept whatever profile the run names, so a bare re-run never removes or declines a scaffold
+you are using. Pass a larger profile only when you actually want the extra scaffolds — e.g.
+`--profile full` to pick up `docs/history/`, the archive tier, which installs no longer ship by
+default.
+
 **5. Apply the changelog's Upgrading notes.** New `amh.conf` keys, seed-file changes you want,
 adapter or CI changes. Nothing here is automatic — that is the point.
 

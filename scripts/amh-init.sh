@@ -19,6 +19,14 @@
 # That split is also what makes this script idempotent in the way that matters: running it
 # twice upgrades the machinery and leaves the judgement alone.
 #
+# --profile cuts across the YOURS half only, and only at install time. It selects which seed
+# prose files land; it is not written into the target tree and no script reads it, so there is
+# no "level" anywhere afterwards for a future guard to branch on. The rungs of the shipped
+# ladder activate on artifact presence — no ledger means the ledger rung skips and says so —
+# which is why a smaller profile degrades to a green ladder rather than a red one. Escalating
+# is a re-run with a larger profile: the new seeds are added and, because every seed is
+# keep-policy, nothing the adopter wrote is touched.
+#
 # What it deliberately does NOT do: fill in the {{PLACEHOLDER}}s that only the adopter can
 # answer (their invariants, their test commands, their module map). Those are listed at the
 # end of the run. A tool that guessed them would produce a constitution that reads as
@@ -53,6 +61,7 @@ usage() {
 	cat <<'USAGE'
 usage: scripts/amh-init.sh [options] <target-repo>
 
+  --profile NAME            light | standard | full               (default: light)
   --default-branch NAME     branch agents must never push to      (default: main)
   --branch-prefix NAME      session-branch namespace              (default: claude)
   --merge-mode MODE         branch-per-change | branch-train      (default: branch-per-change)
@@ -67,9 +76,21 @@ usage: scripts/amh-init.sh [options] <target-repo>
 
 Re-running is safe: shipped scripts are overwritten (that is the upgrade path), everything
 you own is left untouched.
+
+The profile selects which seed PROSE is installed, and nothing else. The shipped scripts are
+byte-identical for every profile, and no profile disables a guard — the ladder's rungs
+activate on artifact presence, so a repo without a ledger reports the ledger rung as skipped
+rather than failing. Nothing in the target tree records which profile was used: escalating is
+`--profile standard <target>`, which adds the missing seeds and, because everything already
+present is yours, changes nothing you have written.
+
+  light      constitution, working memory, one verification command
+  standard   + the runbook and the append-only ledger
+  full       + the frozen archive tier
 USAGE
 }
 
+PROFILE=light
 DEFAULT_BRANCH=main
 BRANCH_PREFIX=claude
 MERGE_MODE_KEY=branch-per-change
@@ -84,6 +105,14 @@ TARGET=''
 
 while [ $# -gt 0 ]; do
 	case $1 in
+	--profile)
+		need_value --profile "${2:-}"
+		# shellcheck disable=SC2034 # read indirectly through ${!name} in the
+		# INIT_PLACEHOLDERS loop, which shellcheck cannot follow. Scoped to this one
+		# assignment: a file-level directive would also hide a genuinely dead variable.
+		PROFILE=$2
+		shift 2
+		;;
 	--default-branch)
 		need_value --default-branch "${2:-}"
 		# shellcheck disable=SC2034 # read indirectly through ${!name} in the
@@ -179,6 +208,17 @@ branch-per-change | branch-train) ;;
 *) die "--merge-mode must be branch-per-change or branch-train, not '$MERGE_MODE_KEY'" ;;
 esac
 
+# Validated HERE rather than tolerated and reported later, for the --merge-mode reason: a
+# typo'd profile that fell through to "install everything" would hand an adopter more process
+# than they asked for and say nothing, and one that fell through to "install nothing" would
+# hand them a tree with no constitution.
+case $PROFILE in
+light) PROFILE_RANK=1 ;;
+standard) PROFILE_RANK=2 ;;
+full) PROFILE_RANK=3 ;;
+*) die "--profile must be light, standard or full, not '$PROFILE'" ;;
+esac
+
 # REMOTE_FLAG becomes the NAME of a shell variable the bootstrap reads indirectly. A value
 # like AMH-REMOTE is not a shell identifier, so the read fails at runtime and the toolchain
 # bootstrap is skipped — quietly, which is the worst way for it to fail. Reject it here.
@@ -204,7 +244,7 @@ done
 # file — they are built at runtime — so the placeholder guard does not have to carve out an
 # exemption for the one script whose whole job is filling placeholders in. An exemption
 # would have been a standing hole: it would also hide a placeholder this script forgot.
-INIT_PLACEHOLDERS='AMH_VERSION DEFAULT_BRANCH BRANCH_PREFIX MERGE_MODE_KEY REMOTE_FLAG COMPRESS_TO_KB WARN_KB HARD_KB LINE_CAP CITATION_SCAN_PATHS'
+INIT_PLACEHOLDERS='AMH_VERSION PROFILE DEFAULT_BRANCH BRANCH_PREFIX MERGE_MODE_KEY REMOTE_FLAG COMPRESS_TO_KB WARN_KB HARD_KB LINE_CAP CITATION_SCAN_PATHS'
 
 # ...and that table is bound to harness/PLACEHOLDERS.md, whose `init` rows are the same
 # set said in prose. Nothing bound them before: they agreed, and a new template
@@ -257,6 +297,33 @@ done
 
 WROTE=0
 KEPT=0
+DECLINED=0
+
+# Which profile first installs each seed file. The table is EXHAUSTIVE and unmatched is fatal
+# — a new seed file added without a line here would otherwise land silently in whichever
+# bucket the catch-all named, for every adopter, with no diagnostic. It dies for the harness
+# maintainer, never for an adopter (nobody runs this script against their own repo), and
+# scripts/tests/test-init-e2e.sh instantiates the real tree, so the omission fails there
+# rather than at somebody's adoption (the D-025 shape).
+#
+# The ordering is cumulative: `standard` installs everything `light` does, `full` everything
+# `standard` does. Nothing records the choice in the target tree — see the usage text.
+#
+# It reports through a global rather than stdout, deliberately: `die` inside a command
+# substitution kills only the subshell, so an unclassified file would print its diagnostic and
+# let the run carry on — a fatal check that is not fatal, which is worse than no check. Fatal
+# is all it claims: the run aborts wherever the loop had got to, leaving a partly-written
+# target. Acceptable because it can only fire for a harness maintainer who added a seed file
+# and did not classify it, and the repair is to classify it and re-run.
+SEED_RANK=0
+seed_min_rank() { # <rel> -> sets SEED_RANK to 1 (light), 2 (standard) or 3 (full)
+	case $1 in
+	AGENTS.md | CLAUDE.md | docs/STATE.md | scripts/verify.sh) SEED_RANK=1 ;;
+	docs/RUNBOOK.md | docs/LEDGER.md) SEED_RANK=2 ;;
+	docs/history/README.md) SEED_RANK=3 ;;
+	*) die "seed file has no profile classification: $1 (add it to seed_min_rank)" ;;
+	esac
+}
 # Fresh install or upgrade? Decided BEFORE anything is written, because every marker this could
 # key off is one this run is about to create.
 #
@@ -316,18 +383,38 @@ install_file() { # <src> <dest-relative> <overwrite|keep> <mode>
 	WROTE=$((WROTE + 1))
 }
 
-printf 'amh-init: AMH %s -> %s\n\n' "$AMH_VERSION" "$TARGET"
+printf 'amh-init: AMH %s (%s profile) -> %s\n\n' "$AMH_VERSION" "$PROFILE" "$TARGET"
 printf ' shipped scripts (overwritten — this is the upgrade path)\n'
 for src in "$TPL"/scripts/*.sh; do
 	install_file "$src" "scripts/$(basename -- "$src")" overwrite 755
 done
 
-printf '\n yours (written only when absent)\n'
+printf '\n yours (written only when absent) — %s profile\n' "$PROFILE"
 # The seed scripts are executable for the same reason the shipped ones are: the ladder
 # refuses to run a verification set it cannot execute, so a seed arriving as 0644 makes an
 # adopter's very first full run red for a reason that has nothing to do with their repo.
 while IFS= read -r src; do
 	rel=${src#"$TPL"/seed/}
+	seed_min_rank "$rel"
+	# PRESENCE OUTRANKS THE PROFILE, and the order of these two tests is the whole point.
+	# docs/UPGRADING.md documents a bare `amh-init.sh <target>` as the upgrade path, and the
+	# default is now `light` — so gating first would tell a 1.8.0 adopter who has a runbook and
+	# a ledger that those files are "not in the light profile — add it with --profile
+	# standard", print a tally counting them as declined, and, silently, drop them from the
+	# unfilled-placeholder report while their real {{...}} slots sat there. A file that exists
+	# is the adopter's, whatever profile this run names: it falls through to the keep path
+	# below, which says so and counts it.
+	if [ "$SEED_RANK" -gt "$PROFILE_RANK" ] && [ ! -e "$TARGET/$rel" ]; then
+		# Named, not silently omitted: an adopter must be able to see what they did not get
+		# and the command that would give it to them. A file that is simply absent teaches
+		# nothing, and the profile is recorded nowhere else in their tree.
+		needs=full
+		[ "$SEED_RANK" = 2 ] && needs=standard
+		printf '   skip   %s (not in the %s profile — add it with --profile %s)\n' \
+			"$rel" "$PROFILE" "$needs"
+		DECLINED=$((DECLINED + 1))
+		continue
+	fi
 	case $rel in
 	scripts/*) install_file "$src" "$rel" keep 755 ;;
 	*) install_file "$src" "$rel" keep 644 ;;
@@ -357,7 +444,7 @@ else
 	KEPT=$((KEPT + 1))
 fi
 
-printf '\n %d written, %d kept\n' "$WROTE" "$KEPT"
+printf '\n %d written, %d kept, %d not in the %s profile\n' "$WROTE" "$KEPT" "$DECLINED" "$PROFILE"
 
 # --- what is left for a human ----------------------------------------------
 #

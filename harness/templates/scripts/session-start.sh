@@ -94,7 +94,17 @@ else
 fi
 
 # 4. Protocol pointer.
-say "· protocol: read $STATE_FILE first (incl. the Owner queue), then the matching"
-say "  playbook in docs/RUNBOOK.md. Verify with scripts/ladder.sh. Never leave the branch red."
+#
+# The runbook clause is conditional on the file EXISTING, because not every install profile
+# ships one and the smallest profile — the default — deliberately does not. Pointing a fresh
+# session at a document that is not there teaches it to distrust the banner, and the adopter
+# cannot fix it themselves: this script is overwritten on every upgrade by design.
+if [ -f "$ROOT/docs/RUNBOOK.md" ]; then
+	say "· protocol: read $STATE_FILE first (incl. the Owner queue), then the matching"
+	say "  playbook in docs/RUNBOOK.md. Verify with scripts/ladder.sh. Never leave the branch red."
+else
+	say "· protocol: read $STATE_FILE first (incl. the Owner queue), then the constitution's"
+	say "  playbooks. Verify with scripts/ladder.sh. Never leave the branch red."
+fi
 say "──────────────────────────────────────────────────────────────"
 exit 0
