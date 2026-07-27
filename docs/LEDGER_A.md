@@ -425,3 +425,37 @@
   makes it a rule rather than a detail: **every key a shipped script reads gets a default in
   the script, and its fixture is a config file with the key removed.** The gating is asserted in both directions — printed under `branch-train`, absent
   under `branch-per-change`, where the same sentence would be false.
+- DA-010: **A release's Upgrading section is the only part of a changelog with a reader who is
+  obliged to act — so it is written from the adopter's tree, not from the diff.** AMH 2.0.0's
+  entry is this repo's first MAJOR, and the drafting error to avoid was writing the notes as a
+  summary of what changed here. Three things follow, and they generalise past this release.
+  **(a) The MAJOR is the deleted clause, not the size of the release.** 2.0.0 ships two
+  substantial additions (install profiles, the integrity rung) and neither one earns a major:
+  both are additive, and an adopter who ignores them keeps working. What earns it is a single
+  sentence removed from P2's table — "consult, never extend" permitted relocating compression
+  residue into `docs/history/`, and the corrected wording forbids it (**DA-004**). Semver here
+  is a promise about the adopter's workload, so the version is decided by what stops being
+  allowed, never by diff volume (**DA-005** records the owner making exactly that call).
+  **(b) An Upgrading note for a prose-only rule must say that nothing enforces it, in the note
+  itself.** No guard reads the archive and none is proposed, because the discriminator is the
+  self-assessment P3 bans machinery on. An adopter reading a MAJOR reasonably expects their
+  ladder to tell them if they missed something; here it will not, and the note that omitted
+  that sentence would be the **D-010** shape — an enforcement claim, by implication, one line
+  stronger than the code. It also has to answer "and what about the residue I already moved?",
+  because a rule change with no story for existing state gets ignored or over-applied.
+  **(c) The quickstart describes the tag it pins, which makes the merge-to-tag window a real
+  interval rather than a formality.** `README.md` now names `amh-v2.0.0`, a tag that does not
+  exist until the owner cuts it after the merge — so the documented clone command 404s for that
+  window. This is the ordering **DA-006** paid for from the other direction (that time the tag
+  existed and lacked the feature the text described). The window is not removable — the release
+  workflow checks the tag against `harness/VERSION`, so the tag must follow the merged bump.
+  **Be exact about what closes it, because the first draft of this row was not, in the
+  subsection that cites D-010 for that exact failure mode.** `version-lockstep.sh` cannot see
+  tags: it checks the README's pinned *string* against `harness/VERSION`, and its only
+  tag-aware arm (`--tag`) is invoked by `.github/workflows/release.yml`, which fires on a tag
+  push — i.e. after the tag exists. So merged-but-never-tagged is a state every guard in this
+  repo reports as green while the README's clone command 404s for every new adopter, forever.
+  What bounds the window is the **Owner-queue item**, a human step, and nothing else. **The
+  general rule: when documentation pins an artifact the owner creates later, the ordering
+  belongs in the Owner queue as an ordering, not as two independent items — and the thing
+  bounding the gap is that queue entry, not whichever guard happens to be nearby.**

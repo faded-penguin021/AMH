@@ -20,6 +20,14 @@ This split is the whole reason upgrades are cheap, so it is worth internalising:
 | `.claude/settings.json`, `.github/workflows/*` | — | yours; diff against the template and take what applies |
 | `AMH-ADOPT.md` | — | yours, and one-time: written only on a FRESH instantiation, and yours to delete when you have finished it. An upgrade run never re-issues it |
 
+One invariant underwrites the whole table, and it is worth stating rather than inferring:
+**nothing `amh-init.sh` does may be needed again after it exits.** Your tree is self-describing
+and runs on `bash`, `git` and coreutils alone — the harness is never on your *runtime* path. It
+is a claim about running your repo, not about never running the installer again: re-running it
+is the supported way to upgrade the scripts and to escalate a profile, and both are you
+choosing to copy files in. If a future release ever needed the harness present for your ladder
+to work, that would be a defect in the release, not a new requirement on you.
+
 The shipped scripts are the only files you copy, and they are safe to copy *because* they
 contain nothing specific to your repo. If you have edited one, stop and undo that first: the
 edit belongs in `amh.conf`, in a `scripts/guards/*.sh`, or in `scripts/verify.sh`. If it fits

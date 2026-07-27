@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 1.8.0.** Repos that adopt it record the version they took
+**Harness version 2.0.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -1555,6 +1555,37 @@ file with the Owner queue + a single verification command. For small repos, fold
 into the constitution — fewer files to keep straight; split only when the playbooks multiply.
 Add the ledger the first time you catch yourself re-explaining a past mistake; add guards the
 first time a rule is violated.
+
+**Install profiles are that subset made executable.** `amh-init.sh --profile light|standard|full`
+selects which seed prose lands in the target tree, and nothing else:
+
+| Profile | Seeds it installs | When it is right |
+|---|---|---|
+| `light` — the default | constitution, agent pointer, working memory, `verify.sh` | a new adoption, and most repos indefinitely |
+| `standard` | + runbook, ledger | the playbooks have multiplied, or a past mistake has been re-explained |
+| `full` | + the archive tier (`docs/history/`) | something has been retired whole and needs a home |
+
+The layers are deliberately unlike each other. The **shipped scripts are parametric** —
+byte-identical at every profile, so an upgrade stays a copy rather than a merge. The **seed
+prose is materialised** — chosen once at init, owned by the adopter thereafter, never
+drift-checked. And **rung activation is presence-derived**: no ledger means the citation rung
+prints `skip`, no `scripts/guards/` means zero repo-local guards ran, and the ladder is green
+either way, saying which checks it did not perform.
+
+**Nothing records the level.** The profile reaches the adopter's agent through their adoption
+brief and is written nowhere a script reads, so no future guard can branch on it and no session
+can reach for a smaller level to make a red rung quiet. That is the point: a declared level is a
+claim about intent, whereas the presence of a ledger file is an artifact the work produces
+anyway (P3). Escalating is therefore not a setting but a re-run — `amh-init.sh --profile
+standard <target>` adds the missing seeds and, because every seed is written only when absent,
+changes nothing the adopter has written. Moving up a profile is a visible diff of added files,
+which is what makes light-by-default safe.
+
+**Nothing `amh-init.sh` does may be needed again after it exits.** The tree it leaves behind is
+self-describing and independently executable with `bash`, `git` and coreutils; the harness is
+never on the runtime path, and no tool sits between an agent and the raw files. That is why the
+init script may materialise as much as it likes without becoming a dependency — and it is the
+line any proposed sync tooling has to stay behind.
 
 **Bootstrap `ladder.sh` as nothing but the verification commands.** Guards accrete one at a
 time, each earning its place after a real violation, and each landing with a fixture test in

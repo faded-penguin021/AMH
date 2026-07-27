@@ -20,38 +20,35 @@ reusable operating prompt plus scaffolds for repos maintained by agentic AI sess
 **reference instance**, maintained under the harness and running byte-identical copies of the
 scripts it ships. The distributed product lives in `harness/` (prose source, templates, generated
 bundle); this repo's own instance is `AGENTS.md` + `docs/` + `scripts/` + `amh.conf`.
-Adopted harness version: **AMH 1.8.0** — see `harness/VERSION`, which is the copy that counts.
+Adopted harness version: **AMH 2.0.0** — see `harness/VERSION`, which is the copy that counts.
 
 ## Current state
 
-> **Session handoff (2026-07-27).** The founding train MERGED (PR #1, squashed to `7d322d7`);
-> every branch of it is superseded. `claude/state-review-planning-jandv0` carries U0–U3 (it
-> contains `…-ushoux` whole) and is **green and pushed**. `branch-train` is the mode, so cut
-> the next branch **from that branch, not from main**, and start at U4 — the last unit, which
-> ends with the plan file deleted. Nothing is half-finished.
+> **Session handoff (2026-07-27).** The founding train MERGED (PR #1, squashed to `a659da6`;
+> `7d322d7` is PR #2, a revert, and it is what `amh-v1.8.0` points at).
+> `claude/state-review-planning-ol544l` carries the whole instantiation plan, U0–U4, and is
+> **green and pushed**; it contains `…-jandv0`, which contains `…-ushoux`. `branch-train` is
+> the mode, so cut the next branch **from `…-ol544l`, not from main**. **No plan is active** —
+> the instantiation plan is complete and its file is deleted (P16). The next session takes new
+> work from the Owner queue, or from the owner.
 
-**Active plan: `docs/plans/harness-instantiation.md`** (owner-approved 2026-07-27) — making the
-harness cheap to instantiate, plus the architectural verdicts on an external RFC (**DA-001**).
+**AMH 2.0.0 is written but not yet released**: the version bump is on the branch, the tag is
+the owner's step after the merge, and `README.md`'s quickstart already pins `amh-v2.0.0`. Every
+release from now on has that window — the pin and its lockstep arm are new in this plan.
+**Nothing mechanical closes it**: `version-lockstep.sh` checks the pinned string against
+`harness/VERSION`, never against the tags that exist, so merged-but-untagged is green in every
+guard while the documented clone command 404s. The Owner-queue item below is the only thing
+bounding it (**DA-010**).
 
-- **U0 ✅** plan landed, ledger rolled to volume A. **U1 ✅** the adoption brief
-  (`harness/templates/AMH-ADOPT.md` → an adopter's `AMH-ADOPT.md`, fresh installs only) and the
-  README's pinned tag as a fifth lockstep copy.
-- **U2 ✅** `--profile light|standard|full`, defaulting to light; the `docs/history/` seed (under
-  `full` only — three profiles must be three distinct file sets); brief §1; both findings closed.
-- **U3 ✅** the integrity manifest (`scripts/build-manifest.sh` → `MANIFEST.sha256`, shipped
-  beside the scripts it hashes), the shipped rung, `manifest-drift.sh`, and **U3b**'s
-  session-start line under `branch-train` (**DA-008**, **DA-009**).
-- **U4 — next.** The **MAJOR 2.0.0** bump across five lockstep copies, the README quickstart rewrite
-  (deferred on purpose — **DA-006**: the quickstart describes the tag it pins, so the tag must
-  contain the brief first), the changelog's Upgrading section, and deleting the plan file.
-
-U4 is a legislation diff: ONE blocking fresh-context reviewer, strongest tier, one pass,
-triage and ship, no self-review fallback (D-015, bounded by **D-035**). Budget for it —
-**twenty-five of twenty-six passes have found a real defect inside the FIX**, including three in
-ledger rows about the very lesson they were recording. This session's standing instruction
-forbade subagents; the runbook's answer is to ASK rather than park, the owner granted the spawn,
-and U3's pass returned one HIGH — an enforcement claim one line stronger than the code, in the
-adopter-facing contract and in the ledger row asserting it (**DA-008**).
+Every unit of that plan that touched `RULE_FILES` was a legislation diff — U1 through U4; U0
+moved only STATE, the ledger and the plan file and needed no pass. Legislation means ONE
+blocking fresh-context reviewer, strongest tier, one pass, triage and ship, no self-review
+fallback (D-015, bounded by **D-035**). Budget for it: **twenty-six of twenty-seven passes have
+found a real defect inside the FIX**, including four in ledger rows about the very lesson they
+were recording — U4's HIGH was a false enforcement claim sitting in the subsection that cites
+D-010 for exactly that shape (**DA-010**), and U3's was an enforcement claim one line stronger
+than the code (**DA-008**). This session's standing instruction forbade subagents; the runbook's
+answer is to ASK rather than park, and the owner granted the spawn.
 
 `shellcheck` is CI-only and its rung load-bearing, so editing a script without it is editing
 blind (**D-026**); `AMH_REMOTE=1` is set, so `scripts/bootstrap.sh` installs it every remote
@@ -74,10 +71,12 @@ is why template findings have to be carried here by hand.
 > outcome as a Changelog line or a ledger row. Every session's final chat message restates
 > this queue.
 
-**Pending owner actions:** none right now. **AMH 1.8.0 is released** (`amh-v1.8.0` on `7d322d7`).
-The next owner action arrives at the end of this plan: tag **amh-v2.0.0** after the merge, in
-that order — the release workflow checks the tag against `harness/VERSION`, so the tag follows
-the merged bump rather than leading it.
+**Pending owner action — one, and it is the release.** Merge `claude/state-review-planning-ol544l`,
+then **tag `amh-v2.0.0`**, in that order: the release workflow checks the tag against
+`harness/VERSION`, so the tag follows the merged bump rather than leading it. Until the tag
+exists the README's quickstart names a clone target that 404s — the window every release has,
+and the reason the ordering is stated rather than assumed. `amh-v1.8.0` remains tagged on
+`7d322d7`.
 
 **Open questions:** none. Answered 2026-07-27 (**DA-005**): this release is a **MAJOR, 2.0.0**,
 because the archive correction deleted a clause adopters could have relied on; and `harness/src`
@@ -98,12 +97,25 @@ under branch-train (**DA-003**): right incident, wrong layer — the rail is bin
 correct nearly every time, and the shape is not enumerable; a session-start banner line is the
 accepted form (U3b). Assurance levels as configuration, in every presented form including
 `amh.conf` feature flags (**DA-001**), and a packaged CLI for distribution (**DA-001**).
+Per-level rendered scripts — generating structurally different shipped scripts per assurance
+level, which would re-create the rendered-vs-template drift class **D-002** deleted and break
+the `cmp` guard that makes the dogfooding claim checkable (**DA-001**); the accepted shape is
+that only *seed prose* is profile-selected, and that nothing a script reads records the choice.
 
 ## Changelog
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-27 — **U4: AMH 2.0.0 written, and the instantiation plan closed.** The MAJOR bump
+  across five lockstep copies, the changelog entry whose Upgrading section is the complete
+  1.8.0 → 2.0.0 list (the archive-intake correction is the only breaking item, and it is
+  prose-only — nothing reads the archive), `harness/src/40-adaptation.md`'s profile table and
+  the "nothing records the level" sentence, `docs/UPGRADING.md`'s statement of the ADR-1
+  invariant (nothing `amh-init.sh` does may be needed again after it exits), and the README
+  quickstart rewritten to two commands plus one sentence, pinning `amh-v2.0.0` — the rewrite
+  **DA-006** deferred to here precisely so the pinned tag would contain what the text promises.
+  The plan file is deleted (P16): its durable content is in these lines and in `DA-001`…`DA-010`.
 - 2026-07-27 — **U3: the shipped-script integrity manifest, and U3b's squash-history line.**
   `MANIFEST.sha256` is generated from `harness/templates/scripts/*.sh` and installed beside
   them; a shipped rung hashes each one against it. Absence warns, an empty manifest fails, and

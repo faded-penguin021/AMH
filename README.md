@@ -65,14 +65,21 @@ Two honest costs, before you adopt:
 Instantiate into a repo you already have:
 
 ```sh
-git clone --depth 1 --branch amh-v1.8.0 https://github.com/faded-penguin021/AMH.git ~/amh
+git clone --depth 1 --branch amh-v2.0.0 https://github.com/faded-penguin021/AMH.git ~/amh
 ~/amh/scripts/amh-init.sh --dry-run /path/to/your-repo   # see what it would write
 ~/amh/scripts/amh-init.sh /path/to/your-repo
 ```
 
+Then one sentence to your coding agent, in the repo you just instantiated into:
+
+> Read `AMH-ADOPT.md` and follow it.
+
+That is the whole adoption path. The rest of this section is what those three lines do, and
+you can skip it until something surprises you.
+
 The clone is pinned to a release tag on purpose: instantiating from a moving branch is how a
 fleet ends up on versions nobody chose. The target must be a git repository, and keep the
-checkout until you have finished the steps below — `harness/PLACEHOLDERS.md` lives there.
+checkout until your agent has finished — `harness/PLACEHOLDERS.md` lives there.
 
 **What lands in your tree**, and the split is worth knowing because it is what makes upgrades
 cheap:
@@ -84,27 +91,34 @@ cheap:
 - **Everything else is yours**, written only when absent: the seed prose, `amh.conf`, the CI
   workflow, the agent adapter config. Re-running never clobbers a word you wrote.
 
-Then finish what no tool can guess. The seeds arrive with `{{PLACEHOLDER}}` slots for your
-repo's invariants, test commands and module map; the init run lists every file that still has
-one, and `harness/PLACEHOLDERS.md` says what each means. A tool that filled these in would hand
-you a constitution that reads as finished and asserts nothing.
+**What is left over is agent work, which is why the second step is a sentence rather than an
+afternoon.** The seeds arrive with `{{PLACEHOLDER}}` slots for your repo's invariants, test
+commands and module map; `scripts/verify.sh` arrives without your build commands in it; the
+first `scripts/ladder.sh` run is red, and says why. A tool that filled those in from nothing
+would hand you a constitution that reads as finished and asserts nothing — but an agent sitting
+*in your repository* can read it and fill them honestly.
 
-Put your real build and test commands in `scripts/verify.sh`, then:
+So the init run installs `AMH-ADOPT.md`, a brief addressed to that agent rather than to you. It
+tells the agent to ask you how much of the harness you want, fill the slots from your
+repository, put your real commands in `scripts/verify.sh`, drive the ladder green, and then
+delete the brief. It carries no checkboxes and nothing downstream reads a word of it:
+**acceptance is the ladder**, run in your repo, green.
 
 ```sh
 cd /path/to/your-repo
 scripts/ladder.sh
 ```
 
-Expect the first run to be red, and to say why. Get it green before your first real session —
-an agent's first instruction is to trust the ladder, and one that arrives red teaches it not to.
+That is the check worth watching, whether your agent ran it or you did. Get it green before
+your first real session — an agent's first instruction is to trust the ladder, and one that
+arrives red teaches it not to.
 
-**Most of that is agent work, and from the next release it is written down as such.** The init
-run installs `AMH-ADOPT.md`, a brief addressed to your coding agent rather than to you: it asks
-how much of the harness you want, fills the slots from *your* repository, writes your real
-commands into `scripts/verify.sh`, and drives the ladder green. Adoption then costs you the two
-commands above plus one sentence — *read `AMH-ADOPT.md` and follow it*. It is described here in
-the future tense deliberately: the released tag this quickstart pins does not contain it yet.
+**How much lands is your call, and the default is small.** `--profile light` (the default)
+installs the constitution, the state file and one verification command; `--profile standard`
+adds the runbook and the ledger; `--profile full` adds the archive tier. The brief's first
+instruction is to ask you which you want rather than to assume the default. Escalating later is
+the same command with a larger profile — it adds the missing files and touches nothing you have
+written, so starting small costs nothing.
 
 ## Start smaller than this
 
@@ -114,6 +128,9 @@ Adopting all of it on day one is the common mistake. For a repo with light AI ma
 1. the constitution,
 2. a state file with an Owner queue,
 3. a single verification command.
+
+`--profile light`, the default, installs those three plus a pointer stub for your agent — so
+you already start here; what follows is how to grow out of it.
 
 Fold the runbook into the constitution while there are only a couple of playbooks; split it
 when they multiply. Add the ledger the first time you catch yourself re-explaining a past
