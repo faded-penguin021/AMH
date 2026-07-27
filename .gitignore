@@ -1,0 +1,7 @@
+# Editor / OS noise
+.DS_Store
+*.swp
+*~
+
+# Scratch space; never committed
+/tmp/

@@ -1,0 +1,78 @@
+{
+  "$comment": "Claude Code adapter for the AMH. Wiring only — all behaviour lives in AGENTS.md and scripts/. Layers provided here: instructive pre-execution command guard, static deny rails, pre-allowed verification commands. Output redaction is NOT wired (this agent has no output-filter hook); scripts/redact.sh remains available for manual piping and is what the ladder's secret scan uses.",
+  "permissions": {
+    "allow": [
+      "Bash(scripts/ladder.sh)",
+      "Bash(scripts/ladder.sh --guards-only)",
+      "Bash(scripts/verify.sh)",
+      "Bash(scripts/session-start.sh)",
+      "Bash(scripts/test-ladder-guards.sh)",
+      "Bash(scripts/redact.sh:*)",
+      "Bash(scripts/command-guard.sh:*)",
+      "Bash(scripts/build-dist.sh:*)",
+      "Bash(scripts/amh-init.sh:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git switch:*)",
+      "Bash(git ls-files:*)",
+      "Bash(git ls-remote:*)"
+    ],
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force-with-lease:*)",
+      "Bash(git push origin main:*)",
+      "Bash(git push origin HEAD:main)",
+      "Bash(git push origin +main:*)",
+      "Bash(git push origin +HEAD:main)",
+      "Bash(git push --mirror:*)",
+      "Bash(git push --all:*)",
+      "Bash(source .env:*)",
+      "Bash(source ./.env:*)",
+      "Bash(. .env:*)",
+      "Bash(. ./.env:*)",
+      "Bash(env)",
+      "Bash(env:*)",
+      "Bash(printenv:*)",
+      "Bash(set)",
+      "Bash(export -p)",
+      "Bash(declare -p)",
+      "Bash(declare -x)",
+      "Bash(typeset -p)",
+      "Bash(typeset -x)",
+      "Read(/proc/*/environ)",
+      "Read(/proc/**/environ)",
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "scripts/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "scripts/command-guard.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
