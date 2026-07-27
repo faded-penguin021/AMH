@@ -72,17 +72,9 @@ about this repo's past**, the memory tiers ARE the history (**DA-003**); `path-r
 > as verified while asserting nothing (**D-014**). Its absence is information: it means no
 > command settles this, which is itself worth knowing before you repeat the item to a human.
 
-**Pending owner actions — one.** Two closed on 2026-07-27: the 2.0.0 release (merged and tagged,
-verified against `git ls-remote`), and `main`'s branch protection, which the owner repointed from
-the phantom `build` context at `ladder`.
-
-1. **Merge PR #4, then tag `amh-v2.1.0`** — in that order, because the release workflow
-   checks the tag against `harness/VERSION`, so the tag follows the merged bump. The owner called
-   the MINOR on 2026-07-27. Until the tag exists the README's Quick Start names a clone target
-   that 404s; unlike every release before it, **the session banner now says so on every run**
-   instead of leaving the window silent, which is what this release is largely about.
-   Check: `git ls-remote --tags origin 'refs/tags/amh-v2.1.0'` — a line back means it is cut and
-   this item is done; empty output means it is not, and is not evidence about anything else.
+**Pending owner actions — none.** Three closed on 2026-07-27: the 2.0.0 release (merged and
+tagged, verified against `git ls-remote`), `main`'s branch protection repointed at `ladder`,
+and the 2.1.0 release (PR #4 merged, tag `amh-v2.1.0` verified via `git ls-remote`).
 
 **Open questions:** none. Everything asked before it has been answered and recorded —
 the 2.0.0 severity call and the rule-scope additions in **DA-005**, the delegated closures of
