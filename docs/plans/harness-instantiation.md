@@ -246,6 +246,22 @@ The one piece of genuinely new machinery, and the only unit that touches a shipp
   rather than redundant: `copy-drift.sh` proves *this repo runs what it ships*, the manifest
   proves *an adopter still runs what we shipped them*. Different claims, different trees.
 
+### U3b — One banner line for the squash-history blind spot
+
+Small, and it ships in the same unit as U3 because both touch shipped scripts and both owe
+`copy-drift.sh` a matching copy into `scripts/`.
+
+`scripts/session-start.sh` already sources `amh.conf` and prints the branch, the state file's
+headroom and the protocol pointer (P14 step 4). Add one line, emitted **only** when
+`MERGE_MODE` is `branch-train`: history on the default branch is squashed, so `git log` there
+is not this repo's past — the ledger and the STATE changelog are. Needs a `MERGE_MODE=` default
+alongside the others at the top of the script, since the script does not read the key today.
+
+Rejected alternative, with reasoning, in **DA-003**: a pre-execution warning on `git log`. It
+clears the incident bar and is still the wrong layer — the rail is binary, the command is
+correct nearly every time (two shipped rungs use it), the defect was the generalisation rather
+than the command, and the shape is not enumerable.
+
 ### U4 — Prose, version, release
 
 - `harness/src/40-adaptation.md` gains the profile table and the "nothing records the level"

@@ -126,3 +126,21 @@
   narrative from compressed STATE passes lands here") — a flow that has had many chances to
   happen and never has, which is the D-010 class arriving from the evidence side rather than
   the review side. Carried as an owner question; the correction is normative, not descriptive.
+  **Mechanism considered and declined: a pre-execution warning on `git log`.** It clears the
+  incident bar — this row IS the incident — and it was still the wrong layer, for four reasons
+  worth keeping because the idea will recur. (1) `command-guard.sh` is binary, exit 0 or 2,
+  with the reason fed back only on a block; a warn channel is new capability in the harness's
+  highest-privilege rail, carrying something that is not an enforcement decision (P13 reserves
+  that layer for denials that must never be crossed). (2) It fires on a command that is correct
+  nearly every time, including inside two shipped rungs — the poison-token and author-identity
+  guards both read `git log` over `origin/<default>..HEAD`, the one window squashing does not
+  touch. That is the 24-hits-for-2-true-positives arithmetic that already sank a broadened
+  `path-refs.sh`. (3) The defect was not the command but the generalisation from its output,
+  and no pre-execution hook can see a belief formed afterwards (P3: what cannot be derived from
+  an artifact stays prose). (4) The shape is not enumerable — `git show`, `blame`, `diff HEAD~5`,
+  `branch -a`, `tag`, `shortlog` all reach it; the category is "reading local git state", which
+  is most of git. **Accepted instead:** one line in `scripts/session-start.sh`'s banner, emitted
+  only when `MERGE_MODE` is `branch-train`, saying that history on the default branch is
+  squashed and the ledger is the record. It fires once, before any belief is formed, in the
+  script whose job is orienting a fresh session (P14), and has no false-positive population at
+  all.

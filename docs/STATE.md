@@ -107,7 +107,11 @@ rotted (**D-010**, **D-023**); section-granular `RULE_FILES`, the tripwire being
 (`docs/RUNBOOK.md` carries this one — no ledger row does); self-reported checklists in commits or
 YAML, permanently, the ban being on machinery consuming a self-report rather than on a sentence a
 human may disbelieve (P3, **D-014**) — the operative test is **does anything downstream consume
-it?**, and it is the test rather than the artifact that decides.
+it?**, and it is the test rather than the artifact that decides. A pre-execution warning on
+`git log` under branch-train (**DA-003**) — right incident, wrong layer: the rail is binary,
+the command is correct nearly every time (two shipped rungs use it), the defect was the
+generalisation not the command, and the shape is not enumerable. A session-start banner line
+is the accepted form, in U3b.
 
 ## Changelog
 
