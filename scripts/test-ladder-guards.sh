@@ -621,6 +621,174 @@ else
 	report no "the protocol pointer names the runbook when there is one" "it did not" "$out"
 fi
 
+# --- the release-window line: tagged, untagged, off, and misconfigured
+# The line exists because merged-but-untagged is invisible to every check in the harness: a
+# version-consistency guard compares strings inside the tree, and a release workflow keyed on a
+# tag runs after the tag exists (DA-010). A queue item about the tagging then outlives the
+# tagging itself, and the next session restates it as pending (DA-011).
+#
+# Four cases, because each failure is silent in a different direction: claiming a tag that is
+# not there, missing one that is, printing at all for the adopter who never set the keys, and
+# asserting a version out of a file that does not exist.
+mk_git_repo() { # <dir> [tag]
+	git -C "$1" init -q 2>/dev/null || return 1
+	git -C "$1" -c user.email=f@example.invalid -c user.name=fixture \
+		commit -q --allow-empty -m fixture 2>/dev/null || return 1
+	[ -z "${2:-}" ] || git -C "$1" tag "$2" 2>/dev/null || return 1
+}
+
+# An `origin` that is a local directory, so the remote branches are exercised with no network:
+# <dir> gets an origin pointing at a bare repo that either carries the tag or does not.
+mk_origin_with() { # <dir> <tag-or-empty>
+	local src="$WORK/origin_src_$$_$RANDOM" bare="$WORK/origin_$$_$RANDOM.git"
+	mkdir -p "$src" || return 1
+	mk_git_repo "$src" "${2:-}" || return 1
+	git clone -q --bare "$src" "$bare" 2>/dev/null || return 1
+	git -C "$1" remote add origin "$bare" 2>/dev/null || return 1
+}
+
+set_release_keys() { # <dir> <version-file-path> <prefix>
+	printf 'VERSION_FILE=%s\nRELEASE_TAG_PREFIX=%s\n' "$2" "$3" >>"$1/amh.conf"
+}
+
+d=$(mk ss_release_tagged)
+printf '3.1.0\n' >"$d/VERSION"
+set_release_keys "$d" VERSION v
+d2=$(mk ss_release_untagged)
+printf '3.1.0\n' >"$d2/VERSION"
+set_release_keys "$d2" VERSION v
+
+d3=$(mk ss_release_on_origin)
+printf '3.1.0\n' >"$d3/VERSION"
+set_release_keys "$d3" VERSION v
+d4=$(mk ss_release_unreachable)
+printf '3.1.0\n' >"$d4/VERSION"
+set_release_keys "$d4" VERSION v
+
+# These need real repos to hold real refs, and a local bare repo as `origin` so the remote
+# branches run with no network. `git` is in the harness's stated baseline, so this is not a tool
+# gate like the hasher one — but a sandbox that forbids `git init`/`clone` or has no committer
+# identity would fail them for a reason that is not the code, so they are gated and COUNTED.
+if ! mk_git_repo "$d" v3.1.0 || ! mk_git_repo "$d2" ||
+	! mk_git_repo "$d3" || ! mk_origin_with "$d3" v3.1.0 ||
+	! mk_git_repo "$d4" || ! mk_origin_with "$d2" ""; then
+	printf '  SKIP 4 release-window case(s): could not build the git fixture repos (init, clone or commit failed)\n' >&2
+else
+	# (a) Local ref present: the fast path answers without touching the network.
+	out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+	if printf '%s' "$out" | grep -qF "tag v3.1.0 is in this clone"; then
+		report ok
+	else
+		report no "an existing local release tag is reported as present" "it was not" "$out"
+	fi
+
+	# (b) The state the line EXISTS for: no such tag anywhere. Only this one may say UNRELEASED.
+	out=$(cd "$d2" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+	if printf '%s' "$out" | grep -qF "NO tag v3.1.0 exists on origin — UNRELEASED"; then
+		report ok
+	else
+		report no "a version with no tag on origin is reported as unreleased" "it was not" "$out"
+	fi
+
+	# (c) The regression this suite previously LOCKED IN: tagged on origin, absent locally.
+	# A clone that never fetched tags is the steady state, not an incident, and reporting it as
+	# unreleased made the line cry wolf on every session in the repo that ships it. It must
+	# name the tag as existing and must NOT say UNRELEASED.
+	out=$(cd "$d3" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+	if printf '%s' "$out" | grep -qF "tag v3.1.0 exists on origin" &&
+		! printf '%s' "$out" | grep -qF "UNRELEASED"; then
+		report ok
+	else
+		report no "a tag on origin but not in the clone is reported as existing, not as unreleased" \
+			"it was not, or it cried unreleased" "$out"
+	fi
+
+	# (d) Cannot ask is not an answer. A repo with no origin at all must say so and must make no
+	# claim in either direction — the failure being refused is "unreachable" rendering as "absent".
+	out=$(cd "$d4" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+	if printf '%s' "$out" | grep -qF "not be reached to check" &&
+		! printf '%s' "$out" | grep -qF "UNRELEASED"; then
+		report ok
+	else
+		report no "an unreachable origin is reported as unreachable, with no tag claim" \
+			"it claimed something anyway" "$out"
+	fi
+fi
+
+# The empty-version branch, which had no fixture for as long as the comment above it claimed the
+# case was refused. Without the branch the banner prints "says , and NO tag v ... UNRELEASED" —
+# a confident verdict about a version nobody stated.
+d=$(mk ss_release_empty_version)
+: >"$d/VERSION"
+set_release_keys "$d" VERSION v
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qF "no version on its first line" &&
+	! printf '%s' "$out" | grep -qF "UNRELEASED"; then
+	report ok
+else
+	report no "an empty VERSION_FILE is reported and no tag claim is made" "it claimed one anyway" "$out"
+fi
+
+# Half-configuration is a typo, and silence would render it identically to the adopter who
+# deliberately set neither key.
+d=$(mk ss_release_half_configured)
+printf '3.1.0\n' >"$d/VERSION"
+printf 'VERSION_FILE=VERSION\n' >>"$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qF "needs BOTH VERSION_FILE and RELEASE_TAG_PREFIX"; then
+	report ok
+else
+	report no "setting one release key and not the other is reported" "it was silent" "$out"
+fi
+
+# A directory is not a missing file, and saying so costs one branch.
+d=$(mk ss_release_dir_version)
+set_release_keys "$d" docs v
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qF "is a directory, not a file"; then
+	report ok
+else
+	report no "a VERSION_FILE that is a directory says so" "it reported something else" "$out"
+fi
+
+# Only the first line is the version: a trailing note would otherwise be concatenated into a tag
+# name no release can match, and the banner would report that mangled string as unreleased.
+d=$(mk ss_release_multiline_version)
+printf '3.1.0\nnotes about the release\n' >"$d/VERSION"
+set_release_keys "$d" VERSION v
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qF "says 3.1.0" && ! printf '%s' "$out" | grep -qF "notes"; then
+	report ok
+else
+	report no "only the first line of VERSION_FILE is read" "the rest leaked into the version" "$out"
+fi
+
+# The negative control, and the one that protects every existing adopter: amh.conf files
+# written before these keys existed leave them empty, and an empty key means silence — not a
+# line about a tag prefix nobody chose. A VERSION file is present to make the case sharp.
+d=$(mk ss_release_off)
+printf '3.1.0\n' >"$d/VERSION"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qiF "release:"; then
+	report no "the release line stays off when the keys are unset" "it printed anyway" "$out"
+else
+	report ok
+fi
+
+# Misconfiguration is loud and makes no claim about the tag either way. The failure mode being
+# refused is a banner that reads a missing file, gets an empty version, and announces that the
+# tag for "" is absent.
+d=$(mk ss_release_no_version_file)
+set_release_keys "$d" harness/VERSION v
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qF "does not exist — release line SKIPPED" &&
+	! printf '%s' "$out" | grep -qF "in this clone"; then
+	report ok
+else
+	report no "a VERSION_FILE that does not exist is reported and no tag claim is made" \
+		"it claimed something anyway" "$out"
+fi
+
 # --- the secret scan cannot be switched off by a file mode
 # The scan IS the repo's entire secret defence (D-004), so the ways it can vanish are
 # worth more fixtures than the ways it can fire. Losing the exec bit — an archive

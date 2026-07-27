@@ -39,6 +39,22 @@ its checklist / "no active work".}}
 > ladder guard warns if the header vanishes). Items leave only when done, answered or triaged
 > — then delete the item and record the outcome as a Changelog line or a ledger row. Every
 > session's final chat message restates this queue.
+>
+> **Test each item before you restate it.** Where an item's truth is observable from a session,
+> it carries a **Check:** line with the command — run it, read its OUTPUT against the resolution
+> the item states (not its exit status), and if the item is resolved it is done: delete it and
+> record the outcome in the same session, never restate it with a caveat. Where it is not
+> observable, the item says so and names who settles it; restate that as *unverified*.
+> **`Check:` is deliberately not a required field** — an item that must carry one will get one,
+> and "the owner says so" is a check the way a checkbox is evidence. Its absence is information.
+>
+> The form, with the resolution spelled out so the next session is not guessing at it:
+>
+> ```
+> 1. Publish the 1.4.0 release once the changelog PR is merged.
+>    Check: `git ls-remote --tags origin 'refs/tags/v1.4.0'` — a line back means it is cut; done.
+> 2. Rotate the staging API key (owner-only; no session can see the secret store).
+> ```
 
 **Pending owner actions:** (none)
 

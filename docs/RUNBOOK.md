@@ -110,10 +110,10 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
 - **Steps:** update `harness/VERSION` → add the `harness/CHANGELOG.md` entry, including its
   **Upgrading** subsection (what an adopter must actually do) → update the version recorded
   in `AGENTS.md`, `docs/STATE.md` and `amh.conf` → **update the release tag in the `README.md`
-  quickstart's clone command** → `scripts/build-dist.sh` → ladder.
+  Quick Start's clone command** → `scripts/build-dist.sh` → ladder.
 - **Obligations:** `scripts/guards/version-lockstep.sh` binds `harness/VERSION` to five
   hand-written copies — the changelog's top entry, `AGENTS.md`, `docs/STATE.md`,
-  `AMH_VERSION` in `amh.conf`, and the `README.md` quickstart's tag. Never edit one alone.
+  `AMH_VERSION` in `amh.conf`, and the `README.md` Quick Start's tag. Never edit one alone.
   The README copy is the one this list forgot once: the guard went red at the end of a
   release with nothing in these steps telling the releaser which file to touch. The bundle header is generated from
   `harness/VERSION`, so `dist-drift.sh` covers it and the lockstep guard deliberately does
@@ -158,7 +158,13 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
    independent work. Genuinely unsure whether something is a fork? Treat it as one —
    escalation costs the owner one read; a wrong guess can cost a segment. Routine engineering
    judgement inside a unit's stated scope is NOT a fork. The final chat message restates the
-   Owner queue.
+   Owner queue — **each item tested first, never copied forward.** Run the `Check:` command an
+   item carries and read its OUTPUT against the resolution the item states — not its exit
+   status, which is a property of the command and says nothing about the item (a check written
+   to detect the unresolved condition exits 0 precisely when the item is still open). Resolved
+   means done in this session: delete it and record the outcome, rather than restating it with a
+   caveat. An item with no check is restated as *unverified*, naming who settles it. Nothing
+   enforces this and nothing may: a gate consuming "I checked" is the D-014 shape (DA-011).
 8. **Verification disclosure.** Every commit body states which ladder rungs actually ran and
    names what could NOT be verified locally. Disclosure of real actions, addressed to a human
    — never something a gate consumes (D-014).

@@ -138,6 +138,30 @@ done, answered or triaged, with the outcome recorded as a changelog line or a le
 session's **final chat message restates the queue**, so the human never has to open the file to
 know what is pending. A guard warns if a compression pass deletes the section.
 
+**A queue item is a claim about the world, and restating one without testing it is how the
+channel fills with confident nonsense.** The item is written at the moment of maximum knowledge
+and read at the moment of minimum; a session that copies it forward is not being neutral, it is
+telling the human the item is still true. So where an item's truth is observable, it carries the
+command that settles it, and the session runs that command before repeating the item — an item
+whose check passes is done in that same session, deleted with its outcome recorded, never
+restated with a caveat. Where no command settles it, the item says so and names who can, and it
+is restated as *unverified* rather than as pending.
+
+**Do not make that check a required field.** An item that must carry one will get one, and "the
+owner says so" is a check the way a checkbox is evidence — a queue of those reads as verified
+while asserting nothing, which is P3's ban arriving through the back door. Its absence is
+information: it means nothing but a human settles this. For the same reason, no gate may consume
+a session's claim to have checked; the most a machine may do is run an item's own stated command,
+or state the underlying fact where the session cannot miss it.
+
+The harness ships one instance of that second form, and its bounds are the point. The
+session-start banner's release line looks for the tag the version file implies — in the clone
+first, then on the remote — and reports **present, absent, or could-not-ask** as three distinct
+outcomes. The third is not a nicety: a check that renders "I could not reach the remote" as "the
+tag is not there" manufactures a fact, and one that reports a clone's unfetched tags as an
+unreleased version alarms every session until nobody reads the line at all. Neither failure is
+visible from the line itself, which is why both are fixtures.
+
 **P10. Keep negative memory: "Decided non-items."** A standing list of things considered and
 rejected, with dates and reasons ("don't re-litigate without new evidence"). Agents — and
 external AI reviewers — endlessly re-propose plausible-sounding ideas the owner already

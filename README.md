@@ -11,7 +11,7 @@ repository ships the harness and is itself maintained under it, running byte-ide
 of the scripts it distributes.
 
 The version this tree distributes is in `harness/VERSION`. It is stated as a pointer rather than
-a number everywhere except the quickstart below, which must name a real tag to clone — and that
+a number everywhere except the Quick Start below, which must name a real tag to clone — and that
 one copy is checked against `harness/VERSION` by `scripts/guards/version-lockstep.sh`, because
 an unchecked hand-copied version goes stale at the next bump and hands every new adopter the
 wrong release.

@@ -172,6 +172,30 @@ done, answered or triaged, with the outcome recorded as a changelog line or a le
 session's **final chat message restates the queue**, so the human never has to open the file to
 know what is pending. A guard warns if a compression pass deletes the section.
 
+**A queue item is a claim about the world, and restating one without testing it is how the
+channel fills with confident nonsense.** The item is written at the moment of maximum knowledge
+and read at the moment of minimum; a session that copies it forward is not being neutral, it is
+telling the human the item is still true. So where an item's truth is observable, it carries the
+command that settles it, and the session runs that command before repeating the item — an item
+whose check passes is done in that same session, deleted with its outcome recorded, never
+restated with a caveat. Where no command settles it, the item says so and names who can, and it
+is restated as *unverified* rather than as pending.
+
+**Do not make that check a required field.** An item that must carry one will get one, and "the
+owner says so" is a check the way a checkbox is evidence — a queue of those reads as verified
+while asserting nothing, which is P3's ban arriving through the back door. Its absence is
+information: it means nothing but a human settles this. For the same reason, no gate may consume
+a session's claim to have checked; the most a machine may do is run an item's own stated command,
+or state the underlying fact where the session cannot miss it.
+
+The harness ships one instance of that second form, and its bounds are the point. The
+session-start banner's release line looks for the tag the version file implies — in the clone
+first, then on the remote — and reports **present, absent, or could-not-ask** as three distinct
+outcomes. The third is not a nicety: a check that renders "I could not reach the remote" as "the
+tag is not there" manufactures a fact, and one that reports a clone's unfetched tags as an
+unreleased version alarms every session until nobody reads the line at all. Neither failure is
+visible from the line itself, which is why both are fixtures.
+
 **P10. Keep negative memory: "Decided non-items."** A standing list of things considered and
 rejected, with dates and reasons ("don't re-litigate without new evidence"). Agents — and
 external AI reviewers — endlessly re-propose plausible-sounding ideas the owner already
@@ -464,6 +488,10 @@ cap, the next row opens the next file, `D-… → DA-…` (`_A.md`) `→ DB-…`
 
 1. {{BOOTSTRAP_STEP}}
 2. Read `docs/STATE.md` — current project state, active and staged work, and the Owner queue.
+   **A queue item is a claim about the world, not a fact: test it before you act on it or
+   restate it.** Items whose truth is observable carry the command that settles them; run it.
+   Read its OUTPUT against the resolution the item states, never its exit status; an item the
+   output shows resolved is done in this session, not repeated with a caveat.
 3. Open the matching change-type playbook in `docs/RUNBOOK.md`; read the reference docs it
    names before touching code.
 4. Do the work under RUNBOOK **Session discipline**: sequential, small checkpointed units,
@@ -620,6 +648,16 @@ MERGE_MODE={{MERGE_MODE_KEY}}
 # on their own machine.
 REMOTE_FLAG={{REMOTE_FLAG}}
 
+# --- Release window (session-start banner) ----------------------------------
+# Optional, and both must be set for the line to appear. If your repository keeps its
+# release version in a file and tags releases from it, name the file and the tag prefix
+# here — e.g. VERSION and 'v' for a tag v1.4.0 — and every session's banner says whether
+# that tag exists in the clone yet. The window between merging a version bump and cutting
+# the tag is one where release docs naming the tag are false and no check can see it: the
+# banner reports, it does not enforce. Leave empty if you do not tag releases.
+VERSION_FILE=
+RELEASE_TAG_PREFIX=
+
 # --- Working memory: the state file's size band (hysteresis) ----------------
 # Grow freely to WARN. Over WARN, one deep compression pass must land at or below
 # COMPRESS_TO — landing between them fails, because a micro-trim to just under the
@@ -764,6 +802,22 @@ its checklist / "no active work".}}
 > ladder guard warns if the header vanishes). Items leave only when done, answered or triaged
 > — then delete the item and record the outcome as a Changelog line or a ledger row. Every
 > session's final chat message restates this queue.
+>
+> **Test each item before you restate it.** Where an item's truth is observable from a session,
+> it carries a **Check:** line with the command — run it, read its OUTPUT against the resolution
+> the item states (not its exit status), and if the item is resolved it is done: delete it and
+> record the outcome in the same session, never restate it with a caveat. Where it is not
+> observable, the item says so and names who settles it; restate that as *unverified*.
+> **`Check:` is deliberately not a required field** — an item that must carry one will get one,
+> and "the owner says so" is a check the way a checkbox is evidence. Its absence is information.
+>
+> The form, with the resolution spelled out so the next session is not guessing at it:
+>
+> ```
+> 1. Publish the 1.4.0 release once the changelog PR is merged.
+>    Check: `git ls-remote --tags origin 'refs/tags/v1.4.0'` — a line back means it is cut; done.
+> 2. Rotate the staging API key (owner-only; no session can see the secret store).
+> ```
 
 **Pending owner actions:** (none)
 
@@ -862,7 +916,13 @@ cut (version invariants; the owner does the tagging), etc.}}
    whether something is a fork? Treat it as one — the queue entry already carries your
    recommendation, so escalation costs the owner one read, while a wrong guess can cost a
    segment. Routine engineering judgement inside a unit's stated scope is NOT a fork. The
-   final chat message restates the Owner queue.
+   final chat message restates the Owner queue — **each item tested first, never copied
+   forward.** Run the `Check:` command an item carries and read its OUTPUT against the
+   resolution the item states, not its exit status (a check written to detect the unresolved
+   condition exits 0 exactly when the item is still open). Resolved means done in this session:
+   delete it and record the outcome, rather than restating it with a caveat. An item with no
+   check is restated as *unverified*, naming who settles it. Nothing enforces this and nothing
+   may: a gate that consumes "I checked" is a self-report.
 8. **Verification disclosure.** Every commit body states what was actually verified (which
    ladder rungs and tests ran) and names what could NOT be verified locally. Disclosure of
    real actions, addressed to a human — never something a gate consumes.

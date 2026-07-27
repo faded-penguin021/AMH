@@ -20,6 +20,16 @@ MERGE_MODE={{MERGE_MODE_KEY}}
 # on their own machine.
 REMOTE_FLAG={{REMOTE_FLAG}}
 
+# --- Release window (session-start banner) ----------------------------------
+# Optional, and both must be set for the line to appear. If your repository keeps its
+# release version in a file and tags releases from it, name the file and the tag prefix
+# here — e.g. VERSION and 'v' for a tag v1.4.0 — and every session's banner says whether
+# that tag exists in the clone yet. The window between merging a version bump and cutting
+# the tag is one where release docs naming the tag are false and no check can see it: the
+# banner reports, it does not enforce. Leave empty if you do not tag releases.
+VERSION_FILE=
+RELEASE_TAG_PREFIX=
+
 # --- Working memory: the state file's size band (hysteresis) ----------------
 # Grow freely to WARN. Over WARN, one deep compression pass must land at or below
 # COMPRESS_TO — landing between them fails, because a micro-trim to just under the

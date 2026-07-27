@@ -495,3 +495,34 @@
   after that branch had merged. **Written-once state read by a session that cannot see when it
   was written must carry the means of testing itself, or it becomes confident misinformation
   with age.**
+- DA-012: **A presence check answers the question it can reach, not the question it was asked —
+  and the gap between the two is invisible from its own output.** The fix for DA-011 added a
+  session-start line reporting whether the release tag named by the version file exists. It
+  asked `git rev-parse --verify refs/tags/<tag>`, which reads refs in the local clone, while
+  `AGENTS.md` and P9 said it reported whether the tag *existed*. Both statements look identical
+  in a repo where clones carry tags. This one does not: the default fetch refspec covers heads,
+  so `git tag` here is empty while `git ls-remote --tags origin` lists two — the very command
+  DA-011 records as the one that settles the question.
+  **(a) The wrong-layer check does not fail, it alarms — and an alarm that is always on is
+  worse than no alarm.** Every session in this repo would have read "NO tag amh-v2.0.0 in this
+  clone" from the moment it shipped, for a tag that had been cut before the line was written.
+  The load-bearing state (merged-but-untagged) would have been byte-identical to the steady
+  state, so the tripwire would have been decorative on its first day. `amh.conf` already names
+  this failure — warn fatigue kills tripwires — and the diff walked into it anyway.
+  **(b) The fixture pinned the defect as the specification.** `ss_release_untagged` asserted the
+  false-alarm text was correct behaviour, so the suite would have gone green forever on it, and
+  a later session reading the fixture would have concluded the alarm was intended. **A fixture
+  written from the implementation inherits its bugs as requirements**; the fixture that would
+  have caught this — tagged on origin, absent locally — was the one case nobody thought to
+  write, because the implementation had no branch for it. Write the fixture from the CLAIM.
+  **(c) "Cannot tell" is a third outcome and needs its own branch.** The first draft had two:
+  found, and not-found. No git, no repo, no remote, network down and a credential prompt all
+  fell into not-found, so the banner manufactured a fact whenever it was least able to check
+  one. The shipped form reports present / absent / unreachable, bounds the probe with `timeout`
+  and `GIT_TERMINAL_PROMPT=0`, and never lets an unanswerable question render as an answer.
+  **(d) The prose is where the over-claim lands, and rule files are the expensive place for it.**
+  The script's own comment was accurate ("this reads refs in THIS clone"); the constitution and
+  P9 dropped the bound, and P9 ships to every adopter. This is D-010's shape for the third time
+  (**DA-008**, **DA-010**), which is enough repetitions to state the rule flatly: **when a check
+  and a sentence about the check are written in the same change, the sentence is the part to
+  distrust** — the code was tested, the sentence was not, and only one of them is legislation.

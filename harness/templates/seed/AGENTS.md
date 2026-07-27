@@ -26,6 +26,10 @@ cap, the next row opens the next file, `D-… → DA-…` (`_A.md`) `→ DB-…`
 
 1. {{BOOTSTRAP_STEP}}
 2. Read `docs/STATE.md` — current project state, active and staged work, and the Owner queue.
+   **A queue item is a claim about the world, not a fact: test it before you act on it or
+   restate it.** Items whose truth is observable carry the command that settles them; run it.
+   Read its OUTPUT against the resolution the item states, never its exit status; an item the
+   output shows resolved is done in this session, not repeated with a caveat.
 3. Open the matching change-type playbook in `docs/RUNBOOK.md`; read the reference docs it
    names before touching code.
 4. Do the work under RUNBOOK **Session discipline**: sequential, small checkpointed units,

@@ -64,21 +64,23 @@ about this repo's past**, the memory tiers ARE the history (**DA-003**); `path-r
 > as verified while asserting nothing (**D-014**). Its absence is information: it means no
 > command settles this, which is itself worth knowing before you repeat the item to a human.
 
-**Pending owner actions — two.** (The release is DONE: merged and tagged, verified 2026-07-27.)
+**Pending owner actions — one.** Two closed on 2026-07-27: the 2.0.0 release (merged and tagged,
+verified against `git ls-remote`), and `main`'s branch protection, which the owner repointed from
+the phantom `build` context at `ladder`.
 
-1. **`main`'s branch protection requires a check named `build`, which nothing here emits.**
-   `ci.yml`'s job is `ladder`, the only check reporting on a PR (`release.yml` fires on tag push
-   only), so the required context stays "Expected" forever. Repoint it at `ladder`. Agent-
-   unfixable: branch protection is owner-only, and renaming the job would make the ladder answer
-   to a name describing nothing. **No check exists** — the protection API is admin-only and
-   `list_branches` returns `protected: true` with no contexts, so a session cannot tell whether
-   this was repointed or PR #3 merged around it. **Restate as unverified, never as blocking.**
-2. **Decide the shape of queue-staleness enforcement** — the diagnosis, the Goodhart trap in the
-   obvious fix, and what a guard may legitimately check are **DA-011**. The preamble above is
-   the manual half and lives here, in a file no rule file references. The mechanical half is a
-   rule-file diff (AGENTS.md protocol step 2, RUNBOOK, and possibly a `scripts/guards/` arm or a
-   `session-start.sh` line), so it needs one blocking fresh-context pass — which this session's
-   standing instruction forbids spawning. Candidate shapes are in the chat handoff.
+1. **Decide whether the queue-staleness work is released, and if so cut it.** It changes shipped
+   artifacts — `session-start.sh`'s release line, two `amh.conf` keys, seed prose — so adopters
+   only receive it through a release. Assessed **MINOR (2.1.0)**: additive, nothing an adopter
+   must act on, both new keys default empty so an `amh.conf` predating them changes nothing. The
+   version call is the owner's (CONTRIBUTING semantics), and the release itself is RUNBOOK
+   playbook 5 — its own unit, its own review pass, tag last.
+   Two things its Upgrading section must say, both easy to get wrong: the prose rule reaches
+   **new adopters only** (seeds are copied once and never re-synced, so an existing adopter's
+   `AGENTS.md` will not gain it), and cutting the release **re-opens the merge-to-tag window**
+   because the README pin moves to a tag that does not exist until it is cut — which the banner
+   below now says out loud instead of leaving silent.
+   Check: `git ls-remote --tags origin 'refs/tags/amh-v2.1.0'` — a line back means it is cut and
+   this item is done; empty output means it is not, and says nothing about whether it should be.
 
 **Open questions:** item 2 above. Everything asked before it has been answered and recorded —
 the 2.0.0 severity call and the rule-scope additions in **DA-005**, the delegated closures of
@@ -106,10 +108,15 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
-- 2026-07-27 — **AMH 2.0.0 released** (PR #3 → `afd990e`, tagged `amh-v2.0.0`), and the queue
-  item tracking it was caught **restated as pending after the fact** (**DA-011**). Items now
-  carry a **Check:** command *where one exists* — optional by design, since a required field
-  gets filled by typing. Mechanical half is queue item 2, unbuilt.
+- 2026-07-27 — **The release window became visible, and the queue learned to test itself.**
+  `session-start.sh` now looks for the tag the version file implies — clone first, then `origin`
+  — and reports present / absent / could-not-ask as three outcomes; `VERSION_FILE` and
+  `RELEASE_TAG_PREFIX` are new `amh.conf` keys, empty by default so no existing adopter changes.
+  Queue items carry a **Check:** command where one exists, optional by design. Its pass found the
+  fix's own defects: the first draft read local refs while the constitution claimed it answered
+  whether the tag *exists*, which in this clone (tags never fetched) would have cried wolf every
+  session forever — with a fixture pinning the false alarm as correct (**DA-012**).
+  Owner, same day: branch protection repointed at `ladder`, closing the phantom `build` context.
 - 2026-07-27 — **README Quick Start is a paste-into-your-agent block** (owner request), by-hand
   path under it. The pinned tag stays a SINGLE occurrence: `version-lockstep.sh` checks the first
   match only, so the manual block reuses the clone rather than repeating the tag.
