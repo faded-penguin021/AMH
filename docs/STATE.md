@@ -24,7 +24,9 @@ the copy that counts.
 > **Session handoff (2026-07-27).** **2.0.0 is released and tagged** (`afd990e`, verified with
 > `git ls-remote --tags` rather than inherited from the previous handoff, which had it pending).
 > **2.1.0 is written and pushed** on `claude/readme-quick-start-4g4ala`, cut from `main`
-> (`git merge-base origin/main HEAD` = `afd990e`), and awaiting merge and tag. `amh-v1.8.0`
+> (`git merge-base origin/main HEAD` = `afd990e`), and awaiting merge and tag. **PR #4 is open**
+> on head `19ba842` — verified with `list_pull_requests`, after the first draft of this handoff
+> asserted a PR that did not exist (**DA-011**, inside the release that fixes it). `amh-v1.8.0`
 > still points at `7d322d7`. **No plan is active** (P16). Next work comes from the Owner queue,
 > or from the owner.
 
@@ -72,8 +74,7 @@ about this repo's past**, the memory tiers ARE the history (**DA-003**); `path-r
 verified against `git ls-remote`), and `main`'s branch protection, which the owner repointed from
 the phantom `build` context at `ladder`.
 
-1. **Merge `claude/readme-quick-start-4g4ala`, then tag `amh-v2.1.0`** — in that order, because
-   the release workflow
+1. **Merge PR #4, then tag `amh-v2.1.0`** — in that order, because the release workflow
    checks the tag against `harness/VERSION`, so the tag follows the merged bump. The owner called
    the MINOR on 2026-07-27. Until the tag exists the README's Quick Start names a clone target
    that 404s; unlike every release before it, **the session banner now says so on every run**
