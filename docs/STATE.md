@@ -24,23 +24,48 @@ Adopted harness version: **AMH 1.8.0** — see `harness/VERSION`, which is the c
 
 ## Current state
 
-> **Session handoff (2026-07-26).** Work is on `claude/owner-queue-close-findings-60rz4g`, tip of
-> the branch train (main ← tb2myi ← der6bl ← guh973 ← guzkor ← 8yq4br ← b7fell ← here);
+> **Session handoff (2026-07-27).** Work is on `claude/owner-queue-close-findings-ddmycw`, tip of
+> the branch train (main ← tb2myi ← der6bl ← guh973 ← guzkor ← 8yq4br ← b7fell ← 60rz4g ← here);
 > `branch-train` by owner decision.
 
-The founding build, the five repair units and the build plan are done. What is left is the
-findings below, not a defect list. **Every unit so far has had its blocker inside the FIX, not in
-the original defect** — twelve running. Budget for that. Each takes ONE fresh-context reviewer,
-blocking, ONE pass (D-015): triage, apply, ship, no re-review. Spawning it is required, not a
-thing to ask about; do not relabel a corrected diff as a new unit to claim a fresh pass (D-018).
+**The four carried findings are CLOSED and the train is ready for the owner's squash merge.**
+B7+B8 (**D-029**), D-023 (**D-030**), D-022's first half (**D-031**) and the owner-requested
+`scripts/bootstrap.sh` (**D-028**) all shipped with their reviewer passes; the squash-PR body is
+drafted in `docs/SQUASH_PR_BODY.md`. Nothing here blocks the merge.
+
+**Every unit has had its blocker inside the FIX, not in the original defect** — seventeen of the
+last eighteen passes. Budget for that. Each unit takes ONE fresh-context reviewer, blocking, ONE
+pass (D-015): triage, apply, ship, no re-review. Spawning it is required, not a thing to ask
+about; do not relabel a corrected diff as a new unit to claim a fresh pass (D-018).
 
 `shellcheck` is CI-only and its rung is load-bearing, so a session that edits a script without
-installing it first is editing blind (**D-026**); scripts/bootstrap.sh does that install on every
-remote session. Run the ladder DIRECTLY, never piped — a piped run reports the pipe's exit
+installing it first is editing blind (**D-026**); `scripts/bootstrap.sh` does that install on
+every remote session. Run the ladder DIRECTLY, never piped — a piped run reports the pipe's exit
 status, and a red tree has been pushed that way.
 
-**Open findings.** The owner has given a settled direction on each; build them, do not
-re-litigate them. **D-016** and **D-017** carry the corrections — do not re-investigate.
+**Open findings.** One, owner-requested, with a settled direction. Build it; do not re-litigate.
+
+- **A machine check on git author identity (owner-requested 2026-07-27, NOT yet built).**
+  `AGENTS.md:153-159` makes the owner's personal identifiers a secret that leaks through git
+  author metadata, and calls itself "prose-only, deliberately: no guard can see an identity you
+  have not committed yet". That justifies no PRE-COMMIT guard and nothing more — the rule's own
+  next clause ("an unpushed commit is amendable, a pushed one is not") names the window the
+  ladder runs in, and this repo forbids the force-push that would fix a pushed one.
+  Direction: a new shipped rung `guard_author_identity` over `%ae` and `%ce` across
+  `origin/$DEFAULT_BRANCH..HEAD`. **Zero-config half** — FAIL on identities git invented for
+  itself (`root@*`, `*@localhost`, `*@*.local`, `*@*.localdomain`, `*(none)*`, empty, anything
+  with no `@`): never a real address, so no false-positive surface. **Opt-in half** —
+  `AUTHOR_EMAIL_ALLOW`, an extended regex, defaulted to empty IN THE SCRIPT so no adopter is
+  ever asked to add a key to make their ladder green (D-027's pattern, and D-030's whole
+  lesson). Do NOT use the repo's own history as an allowlist: a first-time contributor is
+  indistinguishable from a misconfigured one, and this branch would warn on all 30 of its own
+  commits. Say plainly in the guard's comment that it cannot tell a personal address from a work
+  one — implying more than it does is D-010's class. Fixtures: committer-field-only (a rebase
+  writes it while the author survives), not-an-address, allowlist match/miss, and the key ABSENT
+  with an address the allowlist would reject, or hardcoding a permissive default stays green.
+  Amend the `AGENTS.md` claim to say pre-commit rather than never. It trips D-010's incident bar
+  (nothing has rotted; all 33 commits carry the right alias) — overridden by the owner because
+  the harm is a permanent, unfixable-by-policy leak.
 
 ## Owner queue
 
@@ -57,6 +82,11 @@ re-litigate them. **D-016** and **D-017** carry the corrections — do not re-in
    not the last branch's. No PR template exists — `.github/` holds only `workflows/`. The body
    is drafted and waiting in `docs/SQUASH_PR_BODY.md`: copy it into the PR description and
    delete the file, since a merged PR is its own record.
+
+3. **Decide whether the identity guard above is worth its bar.** You asked for it and I built
+   nothing: the design is above, the work was reverted unbuilt rather than landed unreviewed,
+   because `scripts/ladder.sh` is legislation and an unreviewed rung would have gone into your
+   squash. If you would rather merge the train first and add it after, that costs nothing.
 
 **Open questions:**
 

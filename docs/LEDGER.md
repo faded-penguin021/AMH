@@ -691,4 +691,28 @@
   Recorded for the next session, because the guard caught it and the guard was right: writing
   `D-022` in this script's new comment failed the ladder on the citation rung one commit after
   D-030 removed every such token. The de-citation is not self-enforcing for NEW prose — the
-  guard fires, but only after you have written it.**
+  guard fires, but only after you have written it.
+- D-032: **"No guard can see it" was a claim about one moment, read as a claim about all of
+  them.** Owner-requested, DESIGNED AND NOT BUILT — the direction is in `docs/STATE.md` and the
+  work was reverted rather than landed unreviewed at the session's end. Recorded now because the
+  reasoning is the durable part and it generalises past this guard.
+  `AGENTS.md` makes the owner's personal identifiers a secret that leaks through git author
+  metadata, and defends being prose-only with "no guard can see an identity you have not
+  committed yet". That sentence is true and proves less than it is doing: it rules out a
+  PRE-COMMIT guard, while the rule's very next clause — an unpushed commit is amendable, a
+  pushed one is not — names a window in which the identity is on disk, checkable, and still
+  fixable, which is exactly when the ladder runs. In a repository that forbids itself
+  force-push, that window is the only chance there is. **Generalisation: when prose explains why
+  something cannot be checked, check WHICH MOMENT the explanation is about. "Not yet knowable"
+  and "never knowable" read identically in a sentence and are not the same claim.**
+  Two constraints the design is shaped by, both learned in this session. The zero-config half
+  checks only identities git invented for itself, because those are never anyone's address and
+  so carry no false-positive surface; using the repo's own history as an allowlist was
+  considered and rejected, since a first-time contributor and a misconfigured one are
+  indistinguishable and this very branch would warn on all of its own commits — warn fatigue in
+  the first run. The opt-in half is a regex defaulted IN THE SCRIPT, never a required `amh.conf`
+  key, which is D-030's lesson applied before making the same mistake rather than after.
+  This also knowingly overrides D-010's incident bar: nothing has rotted here, every commit
+  carries the right alias. The owner's reason for overriding it stands on its own — the harm is
+  a permanent leak that no later commit can repair — and is recorded so the override is a
+  decision rather than a precedent that the bar is soft.**
