@@ -72,7 +72,13 @@ cut (version invariants; the owner does the tagging), etc.}}
    whether something is a fork? Treat it as one — the queue entry already carries your
    recommendation, so escalation costs the owner one read, while a wrong guess can cost a
    segment. Routine engineering judgement inside a unit's stated scope is NOT a fork. The
-   final chat message restates the Owner queue.
+   final chat message restates the Owner queue — **each item tested first, never copied
+   forward.** Run the `Check:` command an item carries and read its OUTPUT against the
+   resolution the item states, not its exit status (a check written to detect the unresolved
+   condition exits 0 exactly when the item is still open). Resolved means done in this session:
+   delete it and record the outcome, rather than restating it with a caveat. An item with no
+   check is restated as *unverified*, naming who settles it. Nothing enforces this and nothing
+   may: a gate that consumes "I checked" is a self-report.
 8. **Verification disclosure.** Every commit body states what was actually verified (which
    ladder rungs and tests ran) and names what could NOT be verified locally. Disclosure of
    real actions, addressed to a human — never something a gate consumes.

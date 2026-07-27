@@ -11,6 +11,85 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 2.1.0 — 2026-07-27
+
+The session banner learns to say whether the release your version file names has actually been
+cut, and the Owner queue learns that its items are claims rather than facts.
+
+**Nothing here requires action.** Both new config keys default to empty, which switches the new
+line off, so an `amh.conf` written before this version behaves exactly as it did. The rule
+change is prose in a seed, which means it reaches new adopters only — see Upgrading.
+
+- **A release-window line in `session-start.sh`.** Set `VERSION_FILE` and `RELEASE_TAG_PREFIX`
+  in `amh.conf` and every session's banner reports whether the tag your version file implies
+  exists: in the clone first, then on `origin`. It distinguishes three verdicts across four
+  branches — present (in the clone, or on origin and not yet fetched), absent, and
+  **could-not-ask** (no git, no repo, no remote, network down) — because a check that reports
+  "I could not reach the remote" as "the tag is not there" manufactures a fact at the moment it
+  knows least. `RELEASE_TAG_PREFIX` must be non-empty, so a project whose tags are bare version
+  numbers cannot use the line as shipped. The remote probe is bounded by `timeout` where that exists and by
+  `GIT_TERMINAL_PROMPT=0` always: a boot sequence that blocks on a credential prompt is worse
+  than one that says it could not look.
+
+  The interval it exists for is the one between merging a version bump and cutting the tag. In
+  that window your release docs — an install command naming a tag above all — are false, and
+  nothing else in the harness can see it: a version-consistency guard compares strings inside
+  the tree, and a release workflow keyed on a tag runs after the tag exists. **The line reports;
+  it enforces nothing**, and it cannot: whether the release *should* be cut is not a fact about
+  the repository.
+
+- **Owner-queue items are tested before they are restated.** An item is written at the moment of
+  maximum knowledge and read at the moment of minimum, so a session that copies one forward is
+  not being neutral — it is telling you the item is still true. Items whose truth is observable
+  now carry a `Check:` command, and the protocol says to run it and read its **output** against
+  the stated resolution (not its exit status — a check written to detect the unresolved
+  condition exits 0 exactly when the item is still open). Items nothing can check say so and
+  name who settles them, and are restated as *unverified* rather than as pending.
+
+  **`Check:` is deliberately not a required field.** An item that must carry one will get one,
+  and "the owner says so" is a check the way a checkbox is evidence — a queue full of those
+  reads as verified while asserting nothing. Its absence is information: it means nothing but a
+  human settles that item. Nothing consumes a session's claim to have checked, and nothing may.
+
+- **`docs/UPGRADING.md` opens with a block you paste into your coding agent**, the counterpart
+  to the README's Quick Start. It resolves the newest release tag rather than naming a version,
+  so it cannot go stale between releases, and it states the boundaries the prose already set:
+  clone a tag and never a branch, copy the whole scripts directory, never overwrite a file you
+  own, never re-issue `AMH-ADOPT.md`, and fix a finding rather than weakening a guard.
+
+### Upgrading
+
+This is the complete list for 2.0.0 → 2.1.0. All of it is optional.
+
+- **Copy the shipped scripts as usual** — `cp .../harness/templates/scripts/* scripts/`,
+  including `MANIFEST.sha256`, then re-run your ladder. Nothing else is required, and if you
+  stop here the banner is byte-for-byte what it was.
+
+- **To switch the release line on, add two keys to `amh.conf`** (it is yours, so this is a hand
+  edit the harness cannot do for you):
+
+  ```sh
+  VERSION_FILE=VERSION          # the file holding your release version
+  RELEASE_TAG_PREFIX=v          # so 1.4.0 in that file means the tag v1.4.0
+  ```
+
+  Both must be set: with one set and the other empty the banner tells you so rather than staying
+  silent, because half-configuration is a typo and silence would render it identically to the
+  adopter who deliberately set neither. Leave both empty if you do not tag releases.
+
+- **Record the version**: set `AMH_VERSION=2.1.0` in `amh.conf` and update the version line in
+  your constitution. Nothing checks this for you and nothing goes red if you skip it — which is
+  precisely why it is easy to lose. `docs/UPGRADING.md` opens by comparing those two against
+  `harness/VERSION` to work out where you are, so a tree running 2.1.0 scripts while recording
+  2.0.0 misreports its own position at the *next* upgrade.
+
+- **The queue-testing rule reaches new adopters only, and this is the one thing worth knowing.**
+  It lives in the seed constitution, seed runbook and seed state file — and seeds are copied once
+  at init and owned by you forever, so upgrading will never touch your copies. If you want the
+  rule, hand-add it: the short form is "test a queue item before restating it; items whose truth
+  is observable carry the command that settles them; `Check:` is never a required field." The
+  bundle's P9 has the full text.
+
 ## 2.0.0 — 2026-07-27
 
 Adoption becomes agent work, installs become sized, and the shipped scripts start carrying

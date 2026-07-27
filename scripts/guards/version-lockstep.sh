@@ -55,11 +55,11 @@ check "changelog top entry" harness/CHANGELOG.md 's/^## \([0-9][0-9.]*\).*/\1/p'
 check "constitution" AGENTS.md 's/.*Adopted harness version: \*\*AMH \([0-9][0-9.]*\)\*\*.*/\1/p'
 check "state file" docs/STATE.md 's/.*Adopted harness version: \*\*AMH \([0-9][0-9.]*\)\*\*.*/\1/p'
 check "amh.conf" amh.conf 's/^AMH_VERSION=\([0-9][0-9.]*\).*/\1/p'
-# The README's quickstart pins a release tag, which makes it a FIFTH hand-written copy of the
+# The README's Quick Start pins a release tag, which makes it a FIFTH hand-written copy of the
 # version — and an unchecked one drifts the moment a release lands, handing every new adopter
 # the previous version while the repo claims the current one. Checked here rather than trusted
 # to the release checklist, because a checklist is a thing a human remembers.
-check "README quickstart tag" README.md 's/.*--branch amh-v\([0-9][0-9.]*\).*/\1/p'
+check "README Quick Start tag" README.md 's/.*--branch amh-v\([0-9][0-9.]*\).*/\1/p'
 
 if [ "${1:-}" = "--tag" ]; then
 	tag=${2:-}

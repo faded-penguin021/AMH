@@ -5,7 +5,7 @@ reusable operating prompt plus scaffolds for repositories maintained by agentic 
 with a human in the loop — and it is also the harness's **reference instance**: it is
 maintained under the AMH and runs byte-identical copies of the scripts it ships. Its product
 is shell and markdown; its lifecycle stage is active development of the harness itself.
-Adopted harness version: **AMH 2.0.0** (`harness/VERSION`).
+Adopted harness version: **AMH 2.1.0** (`harness/VERSION`).
 
 The two roles are deliberately distinct, and confusing them is the most likely mistake here:
 
@@ -37,7 +37,14 @@ next row opens the next file, `D-… → DA-…` (LEDGER_A.md) `→ DB-…`).
 ## Maintenance protocol (every session)
 
 1. Run `scripts/session-start.sh` if your harness has no session-start hook that does it.
-2. Read `docs/STATE.md` — current state, active work, and the Owner queue.
+2. Read `docs/STATE.md` — current state, active work, and the Owner queue. **A queue item is a
+   claim about the world, not a fact: test it before you act on it or restate it.** Items whose
+   truth is observable carry the command that settles them; run it and read its OUTPUT against
+   the resolution the item states, never its exit status. An item the output shows resolved is
+   done in this session, not repeated with a caveat. The session-start banner covers one such item for
+   you: it looks for the tag `harness/VERSION` implies, locally and then on `origin`, and says
+   which of the three it found — present, absent, or unreachable. It reports; nothing enforces
+   (DA-011).
 3. Open the matching change-type playbook in `docs/RUNBOOK.md`; read what it names before
    touching anything.
 4. Do the work under RUNBOOK **Session discipline**: sequential, small checkpointed units,
@@ -125,7 +132,7 @@ could not be — disclosure of real actions, never implied coverage.
 - **`harness/VERSION` is the single source of the harness version.** Five hand-written
   copies are checked against it by `scripts/guards/version-lockstep.sh`: the changelog's top
   entry, this file's recorded version, `docs/STATE.md`'s, `AMH_VERSION` in `amh.conf`, and the
-  release tag the `README.md` quickstart tells adopters to clone.
+  release tag the `README.md` Quick Start tells adopters to clone.
   The bundle header is generated from `harness/VERSION`, so `dist-drift.sh` covers it and
   the lockstep guard deliberately does not — checking it there would manufacture the
   appearance of coverage.

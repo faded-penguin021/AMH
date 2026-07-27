@@ -459,3 +459,70 @@
   general rule: when documentation pins an artifact the owner creates later, the ordering
   belongs in the Owner queue as an ordering, not as two independent items — and the thing
   bounding the gap is that queue entry, not whichever guard happens to be nearby.**
+- DA-011: **An Owner-queue item is a claim about the world, and this repo had no step that
+  tested one before repeating it.** DA-010 closed by making the Owner queue the thing that
+  bounds the merge-to-tag window — a human step, correctly, since no guard can see a tag. What
+  that row did not ask is what the *next session* does with the entry. The answer was: repeat
+  it. On 2026-07-27 a session opened after `amh-v2.0.0` was merged AND tagged, read "merge,
+  then tag" in the queue, did the unrelated work it was asked for, and restated the item to the
+  owner as pending. `git ls-remote --tags origin` would have settled it in one command and was
+  never run, because nothing named it as a step. The owner reports this recurring across
+  sessions, which makes it a protocol hole rather than one session's slip.
+  **(a) The failure is structural, and the protocol's own wording invites it.** "Every
+  session's final chat message restates this queue" makes restating an *obligation* and
+  verifying nothing, so the cheapest compliant act is to copy the text forward. A queue item is
+  written at the moment of maximum knowledge and read at the moment of minimum; carrying it
+  verbatim is not neutral, it asserts to a human that the item is still true. Worse, the stale
+  restatement is *indistinguishable* from a correct one at the point of reading — the owner
+  cannot tell "checked, still pending" from "copied without looking", so the queue's whole
+  signal degrades. **A protocol that mandates repeating a claim must mandate testing it.**
+  **(b) The fix that suggests itself is a required field, and it Goodharts on contact.** The
+  first draft here gave every item a mandatory `Done when:` line. Item 1 of the live queue —
+  branch protection, readable only through an admin-only API — got "Done when: the owner says
+  so", which is a check the way a checkbox is evidence (**D-014**). A field every item must
+  carry is a field every item will carry, and a queue of them reads as verified while asserting
+  nothing. The shipped shape makes the check **optional and load-bearing**: items whose truth
+  is observable carry the command, items whose truth is not say so and name who settles them,
+  and the *absence* of a check is information rather than a gap to be filled.
+  **(c) What a guard may check here, and what it may not.** No guard can ask "is this item
+  still true" — the items are prose. It can only run an item's own stated command, which means
+  the mechanical form has to be a queue that carries commands, not a queue that carries
+  attestations. Anything that checks whether a session "verified the queue" is the banned shape
+  (**D-014**), and the ban's own test applies: does anything downstream consume it?
+  **(d) Generalises past the queue.** Any durable instruction addressed to a future session —
+  queue item, TODO, handoff paragraph — has this shape, and the same session that restated the
+  tag item also inherited a handoff saying "cut the next branch from `…-ol544l`, not from main"
+  after that branch had merged. **Written-once state read by a session that cannot see when it
+  was written must carry the means of testing itself, or it becomes confident misinformation
+  with age.**
+- DA-012: **A presence check answers the question it can reach, not the question it was asked —
+  and the gap between the two is invisible from its own output.** The fix for DA-011 added a
+  session-start line reporting whether the release tag named by the version file exists. It
+  asked `git rev-parse --verify refs/tags/<tag>`, which reads refs in the local clone, while
+  `AGENTS.md` and P9 said it reported whether the tag *existed*. Both statements look identical
+  in a repo where clones carry tags. This one does not: the default fetch refspec covers heads,
+  so `git tag` here is empty while `git ls-remote --tags origin` lists two — the very command
+  DA-011 records as the one that settles the question.
+  **(a) The wrong-layer check does not fail, it alarms — and an alarm that is always on is
+  worse than no alarm.** Every session in this repo would have read "NO tag amh-v2.0.0 in this
+  clone" from the moment it shipped, for a tag that had been cut before the line was written.
+  The load-bearing state (merged-but-untagged) would have been byte-identical to the steady
+  state, so the tripwire would have been decorative on its first day. `amh.conf` already names
+  this failure — warn fatigue kills tripwires — and the diff walked into it anyway.
+  **(b) The fixture pinned the defect as the specification.** `ss_release_untagged` asserted the
+  false-alarm text was correct behaviour, so the suite would have gone green forever on it, and
+  a later session reading the fixture would have concluded the alarm was intended. **A fixture
+  written from the implementation inherits its bugs as requirements**; the fixture that would
+  have caught this — tagged on origin, absent locally — was the one case nobody thought to
+  write, because the implementation had no branch for it. Write the fixture from the CLAIM.
+  **(c) "Cannot tell" is a third outcome and needs its own branch.** The first draft had two:
+  found, and not-found. No git, no repo, no remote, network down and a credential prompt all
+  fell into not-found, so the banner manufactured a fact whenever it was least able to check
+  one. The shipped form reports present / absent / unreachable, bounds the probe with `timeout`
+  and `GIT_TERMINAL_PROMPT=0`, and never lets an unanswerable question render as an answer.
+  **(d) The prose is where the over-claim lands, and rule files are the expensive place for it.**
+  The script's own comment was accurate ("this reads refs in THIS clone"); the constitution and
+  P9 dropped the bound, and P9 ships to every adopter. This is D-010's shape for the third time
+  (**DA-008**, **DA-010**), which is enough repetitions to state the rule flatly: **when a check
+  and a sentence about the check are written in the same change, the sentence is the part to
+  distrust** — the code was tested, the sentence was not, and only one of them is legislation.
