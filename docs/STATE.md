@@ -114,6 +114,9 @@ that only *seed prose* is profile-selected, and that nothing a script reads reco
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-27 — **README Quick Start is a paste-into-your-agent block** (owner request), by-hand
+  path kept under it. The pinned tag stays a SINGLE occurrence: `version-lockstep.sh` checks the
+  first match only, so the manual block reuses the clone rather than repeating the tag.
 - 2026-07-27 — **U4: AMH 2.0.0 written, and the instantiation plan closed.** The MAJOR bump
   across five lockstep copies, the changelog entry whose Upgrading section is the complete
   1.8.0 → 2.0.0 list (the archive-intake correction is the only breaking item, and it is

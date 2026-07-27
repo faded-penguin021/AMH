@@ -60,22 +60,41 @@ Two honest costs, before you adopt:
 - **The value is cumulative.** The ledger and the guards pay for themselves once two or more
   distinct sessions have touched the repo. On day one they are overhead.
 
-## Quickstart
+## Quick Start
 
-Instantiate into a repo you already have:
+Open your coding agent in the repository you want to adopt AMH in, and paste this:
 
-```sh
-git clone --depth 1 --branch amh-v2.0.0 https://github.com/faded-penguin021/AMH.git ~/amh
-~/amh/scripts/amh-init.sh --dry-run /path/to/your-repo   # see what it would write
-~/amh/scripts/amh-init.sh /path/to/your-repo
+```text
+Install the latest stable release of the Agentic Maintenance Harness (AMH) into this repository.
+
+Run:
+
+    git clone --depth 1 --branch amh-v2.0.0 https://github.com/faded-penguin021/AMH.git /tmp/amh
+    /tmp/amh/scripts/amh-init.sh .
+
+Once the harness has been instantiated, read `AMH-ADOPT.md` and follow it completely.
+
+Drive `scripts/ladder.sh` to green, explain any manual actions that require my attention, and
+delete `AMH-ADOPT.md` once adoption is complete.
+
+Do not invent repository information. Derive it from the repository wherever possible.
 ```
 
-Then one sentence to your coding agent, in the repo you just instantiated into:
+That is the whole adoption path. The agent's first instruction in `AMH-ADOPT.md` is to ask you
+how much of the harness you want, so nothing large lands without your say-so.
 
-> Read `AMH-ADOPT.md` and follow it.
+Prefer to drive it yourself? Run the same clone, then the installer against a path — it takes a
+`--dry-run` that writes nothing:
 
-That is the whole adoption path. The rest of this section is what those three lines do, and
-you can skip it until something surprises you.
+```sh
+/tmp/amh/scripts/amh-init.sh --dry-run /path/to/your-repo   # see what it would write
+/tmp/amh/scripts/amh-init.sh /path/to/your-repo
+```
+
+then point your agent at `AMH-ADOPT.md` in the repo you just instantiated into.
+
+The rest of this section is what those steps do, and you can skip it until something
+surprises you.
 
 The clone is pinned to a release tag on purpose: instantiating from a moving branch is how a
 fleet ends up on versions nobody chose. The target must be a git repository, and keep the
