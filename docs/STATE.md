@@ -24,10 +24,18 @@ Adopted harness version: **AMH 1.8.0** — see `harness/VERSION`, which is the c
 
 ## Current state
 
-> **Session handoff (2026-07-27).** Work is on `claude/owner-queue-git-author-guard-bzpdxd`, tip
-> of the branch train (main ← tb2myi ← der6bl ← guh973 ← guzkor ← 8yq4br ← b7fell ← 60rz4g ←
-> ddmycw ← here); `branch-train` by owner decision. **The train is ready for the squash merge**;
-> `.github/pull_request_template.md` now covers everything after it.
+> **Session handoff (2026-07-27).** **The founding train has MERGED** (PR #1, squashed to
+> `7d322d7`); every branch of it is superseded. Work is now on
+> `claude/harness-instantiation-materializer-7xhxbr`, cut fresh from `origin/main` — a new
+> train starts here. `branch-train` remains the mode by owner decision.
+
+**Active plan: `docs/plans/harness-instantiation.md`** (owner-approved 2026-07-27) — making
+the harness cheap to instantiate, plus the architectural verdicts on an external instantiation
+RFC (**DA-001**). Units, sequential, each shippable: **U0 plan + ledger rollover ✅** · U1 the
+adoption brief (AMH-ADOPT.md, not yet built) and the README quickstart · U2 `--profile light|standard|full`,
+defaulting to light · U3 the shipped-script integrity manifest and its rung · U4 prose, the
+1.9.0 bump, and deleting the plan. U1–U3 are legislation diffs: each takes ONE blocking
+fresh-context reviewer, strongest tier, no self-review fallback.
 
 **Every unit has had its blocker inside the FIX, not the original defect** — nineteen of twenty
 passes now. Budget for it. Each unit takes ONE fresh-context reviewer, blocking, ONE pass:
@@ -38,9 +46,10 @@ blind (**D-026**); `AMH_REMOTE=1` is now set, so `scripts/bootstrap.sh` installs
 session (**D-028**). Run the ladder DIRECTLY, never piped — a pipe reports the pipe's status,
 and a red tree has been pushed that way.
 
-**Open findings.** None. **The ledger is at 826 lines against an 800-line cap** — D-035 starts
-under it so the ladder only warns, but the next row must open the next volume as `DA-001`
-(`LEDGER_A`, per the rollover rule in `AGENTS.md`). That is the next session's first act.
+**Open findings.** None. **The ledger has rolled over**: `docs/LEDGER.md` is closed at 826
+lines (last row D-035) and `docs/LEDGER_A.md` is the live volume, numbering from `DA-001`.
+Append there; rows in the closed volume are never moved or renumbered, and a citation's prefix
+names its file.
 
 **Two lessons about verification itself, both paid for and both in the ledger.** A pass that
 dies and one that finds nothing both end as "no findings", and a completion sentinel cannot fix
@@ -57,11 +66,14 @@ because the structure guard asked whether sections EXIST rather than how many (*
 
 **Pending owner actions:**
 
-1. **Merge the train as ONE squash PR** whose body describes the net `origin/main..HEAD` diff,
-   not the last branch's. Body drafted in `docs/SQUASH_PR_BODY.md`: copy it into the PR
-   description and delete the file, since a merged PR is its own record.
-2. Then tag `amh-v1.8.0`. The release workflow verifies the tree, checks the tag against
-   `harness/VERSION`, and publishes the bundle.
+1. **Tag `amh-v1.8.0`** on the merged founding commit if that release is still wanted — the
+   release workflow verifies the tree, checks the tag against `harness/VERSION`, and publishes
+   the bundle. No tag exists yet. If you would rather let 1.8.0 pass and tag only **`amh-v1.9.0`**
+   at the end of the current plan, say so: the README's quickstart will name a pinned tag, and
+   it must be one that exists, so this is the decision that unblocks U1.
+2. **`docs/SQUASH_PR_BODY.md` is still in the tree.** PR #1 merged; `34de3bf` deleted the file
+   and `7d322d7` reverted that deletion, so it survived on purpose or by accident — only you
+   know which. A merged PR is its own record, so the file has no remaining job. Delete it?
 
 **Open questions:** none. D-005, D-014 and D-018 were closed 2026-07-27 on the owner's
 delegation — see the Changelog and **D-035**. D-014's outside look was commissioned as the
@@ -84,6 +96,16 @@ it?**, and it is the test rather than the artifact that decides.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-27 — **The founding train merged**, and the ledger rolled to `docs/LEDGER_A.md` at
+  `DA-001`. An external RFC proposing a sync-CLI "materializer" and configurable assurance
+  levels was evaluated as data (P18): the materializer is **already built and already one-way**
+  (`amh-init.sh`), a packaged CLI was refused as a dependency and an opacity, and assurance
+  levels were refused **as configuration** in both presented forms — including the independent
+  review's `amh.conf` feature flags, since a guard-gating key in the very file `RULE_FILES`
+  protects makes "turn the red rung off" a supported one-line move. The synthesis instead:
+  assurance is already **emergent from artifact presence** in the ladder, so a profile is an
+  init-time choice of what to install and nothing machine-readable records it (**DA-001**).
+  Plan: `docs/plans/harness-instantiation.md`.
 - 2026-07-27 — **Owner queue closed out.** Owner **confirmed `AUTHOR_EMAIL_ALLOW`** and asked it
   be explained to outside contributors: `CONTRIBUTING.md` now gives the three-step order the
   guard applies and what to do when it rejects a real address. **`AMH_REMOTE=1` is set** (owner;
