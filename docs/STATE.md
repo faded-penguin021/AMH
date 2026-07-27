@@ -83,7 +83,15 @@ status, and a red tree has been pushed that way.
    is drafted and waiting in `docs/SQUASH_PR_BODY.md`: copy it into the PR description and
    delete the file, since a merged PR is its own record.
 
-3. **Decide whether the identity guard above is worth its bar.** You asked for it and I built
+3. **Set `AMH_REMOTE=1` in the remote environment, or `scripts/bootstrap.sh` never runs.**
+   Verified 2026-07-27 by presence check: the flag is unset here, so `session-start.sh` skips the
+   bootstrap — correctly, since that gate is what stops it surprising someone on a laptop. The
+   consequence is that the script built this session to install `shellcheck` automatically
+   (**D-028**, closing **D-026**'s cost) fires for nobody, and every session still installs it by
+   hand. One environment variable in the Claude Code environment settings fixes it. Noted rather
+   than worked around: a bootstrap that silently never runs is the exact defect class this repo
+   keeps rediscovering, and it would have gone unnoticed for the same reason as all the others.
+4. **Decide whether the identity guard above is worth its bar.** You asked for it and I built
    nothing: the design is above, the work was reverted unbuilt rather than landed unreviewed,
    because `scripts/ladder.sh` is legislation and an unreviewed rung would have gone into your
    squash. If you would rather merge the train first and add it after, that costs nothing.
