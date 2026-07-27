@@ -64,14 +64,36 @@ the *why* of every tier's rule without re-derivation.
 | Constitution | ROM / firmware | the agent-instructions file | Boot-loaded, read-mostly; changed rarely and deliberately; small by construction |
 | Working memory | RAM | `docs/STATE.md` | Rewritten freely but **capacity-bounded** — a machine-enforced cap forces compaction (hysteresis, protected regions); volatile, so results must be *flushed* to durable tiers |
 | Permanent memory | Disk / append-only journal | the numbered ledger | Append-only, never rewritten; rolls to a new volume at a size cap; every durable fact lands here, citable forever |
-| Archive | Cold storage / backup tape | `docs/history/` | Frozen; consult, never extend; off the hot path, so unbounded is fine |
+| Archive | Cold storage / backup tape | `docs/history/` | Frozen: consult it, never edit it. Grows only when a document is retired into it WHOLE — never another tier's live file; off the hot path, so unbounded is fine |
 
 Two corollaries the analogy makes self-evident. **(a)** The checkpoint invariant (P5) is
 *write-back before power loss*: working memory is volatile, so a unit's result is flushed to
 disk (commit + ledger row) before the session can die. **(b)** Durable facts belong on disk
-(the citable ledger), spent narrative in cold storage (the archive), and only the small working
-set in the RAM every session reads first — the cardinal sin is letting RAM accrete what belongs
-on disk.
+(the citable ledger), and only the small working set stays in the RAM every session reads
+first — the cardinal sin is letting RAM accrete what belongs on disk.
+
+**Spent narrative is not moved anywhere, and this is the corollary that gets misread.** A
+compression pass *folds* it: the durable content leaves as a ledger row, and what remains
+becomes a changelog line pointing at that row. Narrative whose durable content has already
+been extracted is cache, not data, and cold storage is not where cache goes to be safe. The
+archive is for documents retired **whole** — a frozen prior-era design doc, a reference
+superseded outright — never the residue of a compression pass.
+
+**And never another tier's live file.** Retiring the working-memory file into the archive and
+starting a fresh one satisfies every word above while defeating the point: it is the same
+relocation at file granularity, it evades the cap that forces the fold, and it moves the
+Owner queue out of the one document the protocol guarantees gets read. Working memory is
+compressed in place; it is never rotated. Whether a document has genuinely stopped being live
+is a judgement an agent makes about its own work, so this rule is **prose-only** by
+construction — no guard reads the archive, and none is proposed, because the discriminator is
+exactly the kind of self-assessment P3 forbids building machinery on.
+
+Two honest notes. The archive is the tier a repo is likeliest not to have: nothing scaffolds it
+at instantiation, and a project with nothing yet retired simply has no such directory — these
+rules bind where it exists and are inert where it does not. And be deliberate rather than
+reassured about what folding costs: under a squash-merge topology the intermediate states are
+destroyed by design, so what the fold does not preserve is genuinely gone. That is the intended
+trade — but make the extraction to the ledger before you compress, not after.
 
 **P3. Machine-check everything checkable — but only over artifacts the work produces anyway.**
 Guards verify diffs, file sizes, commit messages, citation cross-references: things that exist

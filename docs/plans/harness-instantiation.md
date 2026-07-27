@@ -209,11 +209,11 @@ across both volumes (`live_ledger()` globs `LEDGER_*.md`).
   `harness/templates/*` because those paths are meant to resolve in the adopter's tree. Ship a
   seeded `docs/history/README.md` (`standard` and `full`; under `light` the brief tells the
   agent to drop the archive sentence from the runbook it folded in).
-- **And settle where compressed narrative actually goes**, because two shipped documents
-  disagree: the archive README says "spent narrative from compressed STATE passes lands here",
-  while the STATE preamble says to compress "by folding completed stages into Changelog lines
-  … **not by cutting text into a new file**". Both ship. This is normative, not descriptive —
-  the ground-truth rule cannot settle it — so it is an owner question, carried below.
+- **Settled 2026-07-27 (DA-004), so U2 inherits the answer rather than the question:** folding
+  is the compression method and the archive holds documents retired whole — never compressed
+  residue, and never another tier's live file. The seeded archive README must ship that wording,
+  and the seed runbook's "consult the ledger and the archive" line must not point an adopter's
+  agent at a directory their profile did not install.
 - `test-init-e2e.sh`: one case per profile — instantiate, run **that repo's** ladder, require
   green. `light` is the load-bearing one: it proves presence-derived degradation actually
   works end to end (ledger rung prints `skip`, ladder still green, planted-credential positive

@@ -138,7 +138,7 @@ docs/
   RUNBOOK.md         playbooks
   LEDGER.md          permanent memory: append-only D-NNN rows
   UPGRADING.md       for an adopting repo moving to a newer harness version
-  history/           retired state, kept out of the live file
+  history/           frozen archive: documents retired whole, never compressed residue
   plans/             multi-session build plans; disposable by design
 harness/             THE PRODUCT — what an adopter copies
   VERSION            the version this tree distributes

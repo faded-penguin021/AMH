@@ -144,3 +144,55 @@
   squashed and the ledger is the record. It fires once, before any belief is formed, in the
   script whose job is orienting a fresh session (P14), and has no false-positive population at
   all.
+- DA-004: **The archive's stated intake was wrong for the harness's whole life, and practice
+  had already decided it.** `docs/history/README.md` said spent narrative from compressed STATE
+  passes lands there, and P2's corollary said the same ("spent narrative in cold storage"),
+  while `docs/STATE.md`'s preamble said to compress by folding into Changelog lines and moving
+  durable gotchas to the ledger, *"not by cutting text into a new file"*. Both shipped. The file
+  has been over its cap repeatedly (D-011, D-027) and the archive holds nothing but its own
+  README, with no ledger row or changelog line recording anything ever retired into it.
+  **State that evidence precisely, because the review pass caught this row overclaiming it:**
+  the first draft said "many compression passes ran (D-011, D-027); every one folded", and
+  neither row supports the second clause — D-011 records grow-then-nibble, D-027 a 15-byte typo
+  deletion and a pass whose compliant move was padding the file back. Neither is a fold. What is
+  actually established is the *absence of a record* of archiving, and it cannot be strengthened
+  by walking history, because squash-merge destroyed it (DA-003). A row that cited two real
+  entries for a claim they do not make would have been the citation defect no guard can see —
+  the ID resolves, the support does not — caught here only because a fresh context was asked for
+  falsifiable claims and this one was replayed.
+  Owner decision 2026-07-27: **folding is the compression method, and the archive holds
+  documents retired WHOLE** — a superseded state file, a frozen prior-era doc — never the
+  residue of a pass. Corrected in the archive README, in P2's tier row ("consult, never extend"
+  was itself wrong: retiring a document into the archive IS extending it, so the row now says
+  it grows only by whole documents and is never edited in place) and in P2's corollary (b).
+  Two things worth carrying forward. **The conflict was normative, so the ground-truth rule
+  could not settle it** — "trust the code and correct the doc" answers *what does the system
+  do*, and no byte count can answer *where should narrative go*. What broke the tie was
+  evidence of a different kind: an instruction with many chances to be followed and no record
+  of ever being followed. That is **adjacent to D-010 and not the same class** — D-010 is about
+  prose claiming *enforcement* nothing performs, and its five instances are all enforcement
+  claims, whereas "spent narrative lands here" claimed a *practice*. The new class deserves its
+  own sentence and is worth hunting deliberately: **an instruction nobody has ever followed is a
+  finding, even when nothing contradicts it.** (The first draft filed it under D-010; the review
+  pass rejected the widening, correctly — a ledger class that quietly absorbs adjacent cases
+  stops discriminating, and this file is append-only, so the overreach would have been permanent.)
+  And the exposed consequence, now stated in the prose rather than left to be discovered: with
+  folding as the method and squash-merge destroying intermediate states (DA-003), narrative the
+  fold does not preserve is genuinely gone. Extract to the ledger BEFORE compressing.
+  **Gap noticed while making this change, not fixed here:** `harness/src/` is absent from
+  `RULE_FILES`, so editing the harness's own principles — the binding rules every adopter
+  inherits — trips no legislation advisory, while `harness/templates` does. The review pass was
+  run because P12 binds on the diff's nature rather than on the advisory firing, but that is
+  discipline standing in for a tripwire. Owner queue; changing `RULE_FILES` is itself a rule
+  change.
+  **Second owner question raised by the same pass, and the one that must not be guessed:** this
+  diff DELETES a clause adopters could have relied on ("consult, never extend"), and
+  `CONTRIBUTING.md` says in terms that deleting such a clause is a **MAJOR**, while the current
+  plan schedules a MINOR bump to 1.9.0 — and that an ambiguous major-vs-minor call is an
+  Owner-queue question rather than a judgement call, because the number's whole value is that an
+  adopter can trust it without reading the diff. Carried, unresolved, deliberately.
+  **What the pass demonstrates about the protocol itself** is worth as much as the fixes: eight
+  of its ten findings were about the tree AROUND the diff — a README line, a stale open question,
+  a plan file quoting text that no longer existed — none of which a reviewer reading only the
+  diff would have seen. The rule-review gate earns its cost on the second-order edits a change
+  obliges, not on the change itself.
