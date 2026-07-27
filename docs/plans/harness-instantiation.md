@@ -269,12 +269,18 @@ than the command, and the shape is not enumerable.
   confirms.
 - `docs/UPGRADING.md`: the upgradeable/yours table gains `AMH-ADOPT.md` (yours, delete when
   done) and states the ADR-1 invariant.
-- **MINOR bump → 1.9.0.** Additive by the letter of the semver policy — a new option, a new
-  template, a new rung that skips where its artifact is absent — and no binding rule changes
-  for an existing adopter, whose obligation is nothing. `harness/VERSION` is the single
-  source; `scripts/guards/version-lockstep.sh` checks four hand-written copies:
+- **MAJOR bump → 2.0.0** (owner decision 2026-07-27, **DA-005**). The additions are additive,
+  but the archive correction *deleted* a clause an adopter could have relied on ("consult,
+  never extend"), and `CONTRIBUTING.md` is explicit that this is judged by what breaks for
+  someone who has already adopted, never by diff size. `harness/VERSION` is the single source;
+  `scripts/guards/version-lockstep.sh` checks four hand-written copies:
   `harness/CHANGELOG.md`'s top entry, `AGENTS.md`'s recorded version, `docs/STATE.md`'s, and
-  `AMH_VERSION` in `amh.conf`. The changelog entry carries its Upgrading section.
+  `AMH_VERSION` in `amh.conf` — five once U1 adds the README's pinned tag.
+- **A MAJOR's Upgrading section is a promise**: it must be the COMPLETE list of what an
+  adopter has to do, which is why the bump lands in U4 and not earlier — the list cannot be
+  written until the units it describes exist. For the archive change the entry must say
+  plainly that an adopter who was relocating compressed narrative into `docs/history/` should
+  stop, and that nothing enforces it.
 - `docs/STATE.md`: correct the stale train handoff, add the changelog line, add the three
   rejected shapes to **Decided non-items** (packaged CLI, assurance feature flags, per-level
   rendered scripts) — each pointing at its `DA-NNN` row, not restating the argument.
@@ -285,9 +291,10 @@ than the command, and the shape is not enumerable.
 
 ### Owner queue (settled 2026-07-27)
 
-1. **AMH 1.8.0 is released** — `amh-v1.8.0` is tagged on the merged founding commit `7d322d7`.
-   The README quickstart therefore pins a tag that exists today. The remaining owner action is
-   to tag **amh-v1.9.0** after this plan's merge, in that order.
+1. **AMH 1.8.0 is released** — `amh-v1.8.0` is tagged on the merged founding commit `7d322d7`,
+   so U1's quickstart has a real tag to pin when it adds one (the README carries no `amh-v`
+   string today). The remaining owner action is to tag **amh-v2.0.0** after this plan's merge,
+   in that order.
 2. **The spent squash-PR body is deleted**, together with the `docs/STATE.md` citation that
    made the first attempt fail the ladder — the ordering rule is now **DA-002**.
 

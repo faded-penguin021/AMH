@@ -196,3 +196,44 @@
   a plan file quoting text that no longer existed — none of which a reviewer reading only the
   diff would have seen. The rule-review gate earns its cost on the second-order edits a change
   obliges, not on the change itself.
+- DA-005: **Both questions DA-004 raised, answered by the owner 2026-07-27 — and one of them
+  moves a version number for a reason no diff stat can see.**
+  **(a) This release is a MAJOR (2.0.0), not the planned MINOR.** Everything in the plan is
+  additive except one deletion: the archive correction removed "consult, never extend", a clause
+  an adopter could have been relying on. `CONTRIBUTING.md` states the test — *"Rewriting half the
+  prose without changing what any rule requires is a PATCH; deleting one clause that adopters
+  relied on is a MAJOR. Ask what breaks for someone who has already adopted, and nothing else."*
+  Worth recording because the intuition pulls the other way: the change makes the harness *more*
+  permissive (a directory that was frozen may now grow), and a permission is not obviously a
+  break. It is one, because an adopter's agent may have been enforcing the old clause, and
+  because the number's whole value is that it can be trusted without reading the diff. That is
+  also why the call was routed rather than made: the same file names an ambiguous major-vs-minor
+  as an Owner-queue question. **The obligation the bump creates:** a MAJOR's Upgrading section is
+  a promise to be COMPLETE, which is why the bump lands in the plan's last unit — the list cannot
+  be written before the units it describes exist — and it must say plainly that an adopter
+  relocating compressed narrative into their archive should stop, and that nothing enforces it.
+  **(b) `harness/src` joins `RULE_FILES`.** `harness/templates` was covered and the PRINCIPLES
+  were not, so editing P2 — the rules every adopter inherits, and the source the shipped bundle
+  is generated from — tripped no legislation advisory, while editing a seed file did. The
+  asymmetry was invisible until a session edited P2 and watched the advisory stay silent.
+  Three things this does NOT change, said out loud because a tripwire is easy to mistake for the
+  rule it reminds you of. P12 binds on what a diff IS, so the review was owed either way and the
+  pass ran without the warning. The advisory is a WARN, so nothing is blocked. And it fires only
+  when an agent runs the ladder while the change is still uncommitted — `advisories()` reads the
+  working tree and the index, it is skipped in CI, and no pre-commit hook exists — so this
+  **swaps one remembered act for another** rather than removing the remembering. It is a
+  courtesy, prose-only, and saying otherwise would be the D-010 claim this repo treats as worse
+  than no claim. The first draft of this row said the reminder "no longer depends on an agent
+  remembering"; the review pass killed it.
+  **Two claims in the first draft of this row were removed for lack of admissible evidence, and
+  the first is the more embarrassing.** It argued the warn-fatigue objection away with
+  "`harness/src` changes about as often as `harness/templates`" — a frequency claim resting on
+  `git log` in a squash-merged tree, which is the method **DA-003** exists to forbid, made a
+  third time, inside the row that records the tripwire for it. No admissible record of relative
+  edit frequency exists, so the objection is answered differently: the entry widens a WARN and
+  blocks nothing, so the cost of being wrong is one line of output, and if it does prove noisy
+  the remedy is deleting the entry rather than weakening a review obligation P12 imposes
+  independently. The second claim, "strictly more rule-bearing", was simply false —
+  `harness/templates` carries the rail scripts and the seed constitution. The real case for
+  `harness/src` is not that it outranks templates but that it was the last rule-bearing tree
+  omitted.

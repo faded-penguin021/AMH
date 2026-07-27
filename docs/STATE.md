@@ -34,7 +34,7 @@ the harness cheap to instantiate, plus the architectural verdicts on an external
 RFC (**DA-001**). Units, sequential, each shippable: **U0 plan + ledger rollover ✅** · U1 the
 adoption brief (AMH-ADOPT.md, not yet built) and the README quickstart · U2 `--profile light|standard|full`,
 defaulting to light · U3 the shipped-script integrity manifest and its rung · U4 prose, the
-1.9.0 bump, and deleting the plan. U1–U3 are legislation diffs: each takes ONE blocking
+2.0.0 bump, and deleting the plan. U1–U3 are legislation diffs: each takes ONE blocking
 fresh-context reviewer, strongest tier, no self-review fallback.
 
 **Every unit has had its blocker inside the FIX, not the original defect** — nineteen of twenty
@@ -53,6 +53,10 @@ the archive". `path-refs.sh` cannot see it: it skips `harness/templates/*` by de
 those paths are meant to resolve in the adopter's tree, not here. Fix belongs in U2, where the
 profile file-lists are decided — and the seed runbook's "consult the ledger and the archive"
 line has to move with it, or an adopter's agent is sent to a directory they were never given.
+**Second finding for U2, same file:** `harness/templates/amh.conf.example`'s `RULE_FILES` omits
+`amh.conf` itself, three lines under a comment stating that a scope list not covering the file
+defining the scope list is not a scope list. This repo's own copy has it; the one adopters
+receive does not.
 
 **The ledger has rolled over**: `docs/LEDGER.md` is closed at 826
 lines (last row D-035) and `docs/LEDGER_A.md` is the live volume, numbering from `DA-001`.
@@ -72,27 +76,17 @@ because the structure guard asked whether sections EXIST rather than how many (*
 > outcome as a Changelog line or a ledger row. Every session's final chat message restates
 > this queue.
 
-**Pending owner actions:**
+**Pending owner actions:** none right now. **AMH 1.8.0 is released** — `amh-v1.8.0` is tagged
+on the merged founding commit `7d322d7`, so the README's quickstart has a real tag to pin. The
+next owner action arrives at the end of this plan: tag **amh-v2.0.0** after the merge, in that
+order — the release workflow checks the tag against `harness/VERSION`, so the tag follows the
+merged bump rather than leading it.
 
-**Open questions.** Two, both raised by the archive change's review pass (**DA-004**), both
-genuinely the owner's:
-
-1. **Is the archive correction a MAJOR?** It deletes a clause an adopter could have relied on
-   ("consult, never extend"), and `CONTRIBUTING.md` says deleting such a clause is a MAJOR while
-   the plan schedules a MINOR bump to 1.9.0. That file also says an ambiguous major-vs-minor
-   call is an owner question, not a judgement call — so it is not being guessed. Needed before
-   U4 cuts the version.
-2. **Should `harness/src/` join `RULE_FILES`?** Editing the harness's own principles — the rules
-   every adopter inherits — trips no legislation advisory today, while `harness/templates` does.
-   The pass ran anyway because P12 binds on the diff's nature, but that is discipline standing in
-   for a tripwire. Changing `RULE_FILES` is itself a rule change.
-
-**Pending owner actions:** none right now. **AMH 1.8.0 is released** — `amh-v1.8.0` is tagged on the merged founding
-commit `7d322d7`, so the README's quickstart has a real tag to pin. The next owner action
-arrives at the end of the current plan: tag **amh-v1.9.0** after the merge, in that order
-(**DA-002**).
-
-**Open questions:** none. D-005, D-014 and D-018 were closed 2026-07-27 on the owner's
+**Open questions:** none. The two raised by the archive review were answered 2026-07-27
+(**DA-005**): this release is a **MAJOR — 2.0.0**, because the archive correction deleted a
+clause adopters could have relied on; and `harness/src` has joined `RULE_FILES`, closing the
+gap where editing the principles every adopter inherits tripped no advisory while editing a
+seed file did. Earlier, 2026-07-27: D-005, D-014 and D-018 were closed on the owner's
 delegation — see the Changelog and **D-035**. D-014's outside look was commissioned as the
 second target of that unit's review pass, and its verdict is recorded in D-035 after the fact.
 
@@ -117,6 +111,14 @@ is the accepted form, in U3b.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-27 — **The archive's stated intake was wrong and is corrected** (**DA-004**): folding
+  is the compression method, the archive takes documents retired whole, and never another tier's
+  live file — a Goodhart hole the review pass found in the first fix, where retiring `STATE.md`
+  wholesale would have satisfied every word. The pass's ten findings included this row's own
+  citations failing to support their claim. Consequences (**DA-005**): the release becomes a
+  **MAJOR, 2.0.0**, because a clause adopters could have relied on was deleted; and
+  `harness/src` joins `RULE_FILES`, so editing the principles every adopter inherits finally
+  trips the legislation advisory.
 - 2026-07-27 — **The founding train merged**, and the ledger rolled to `docs/LEDGER_A.md` at
   `DA-001`. An external RFC proposing a sync-CLI "materializer" and configurable assurance
   levels was evaluated as data (P18): the materializer is **already built and already one-way**

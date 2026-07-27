@@ -60,7 +60,7 @@ so never edit the bundle by hand. Run `build-dist.sh` and let the drift guard co
 
 Changing `AGENTS.md`, this file, the runbook's protocols, guard semantics *or their fixtures*,
 the rail scripts, the session bootstrap, ledger preambles, permission rails, or anything under
-`templates/` requires the rule-review protocol in `RUNBOOK.md`: one fresh-context reviewer, at
+`harness/src/` or `templates/` requires the rule-review protocol in `RUNBOOK.md`: one fresh-context reviewer, at
 the strongest tier available, **regardless of diff size**, blocking, and exactly one pass. A
 three-line rule edit can carry a semantic bomb; the size of a legislation diff predicts nothing
 about its blast radius.
@@ -70,6 +70,11 @@ the change rather than approving their own rule edit — but "cannot" means *cap
 mechanism and no clean invocation available. A standing instruction not to spawn one is a
 policy the owner can lift, so ask before parking. Treating a policy as a capability limit
 would park every legislation change forever.
+
+`harness/src/` is named explicitly because it was once absent from both this list and the
+tripwire: the principles are the rules every adopter inherits and the source the shipped bundle
+is generated from, yet editing P2 raised nothing while editing a seed file did. Fixing only the
+tripwire would have left the authority with the same gap (2026-07-27, **DA-005**).
 
 `RULE_FILES` in `amh.conf` makes the ladder *warn* when your uncommitted diff touches one of
 those files. It is a tripwire, not the scope: the two deliberately do not coincide, and
