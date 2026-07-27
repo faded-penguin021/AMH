@@ -137,7 +137,7 @@
   Fixtures for repo-local guards now live in `scripts/tests/local-guards.sh`, run from
   `verify.sh`. Watch for this shape: a rule whose only compliant action violates a different
   invariant is not strict, it is broken.
-- D-014: **The attestation ban is on machinery, not on prose — P3 said "never invent
+- D-014 [cited]: **The attestation ban is on machinery, not on prose — P3 said "never invent
   self-reported attestations" while P12 mandated writing "adversarial pass: clean" in the
   commit body.** Both inherited from the upstream harness, so the contradiction was a defect
   in the harness itself, not in this instantiation; an interim fix scoped the verdict as
@@ -758,3 +758,69 @@
   a `sed` whose indentation never matched, and a `replace(…, 1)` that hit the poison-token
   guard's identical first line instead of this one. **Generalisation: a mutation that does not
   change the file proves exactly as much as a fixture that cannot fail, and both report green.**
+- D-034: **The working-memory file was spliced into itself, and shipped green.** A scripted edit
+  rewrote `docs/STATE.md` by cutting between two anchors, and the closing anchor `## Owner queue`
+  matched its FIRST occurrence — a mention inside the length-guard preamble, eleven lines from
+  the top — rather than the section header ninety lines down. The result was the document
+  followed by a second copy of itself from the preamble on, the stale copy still saying "the
+  identity guard is NOT yet built" beside the new copy recording it as shipped. It passed the
+  ladder, CI and a push. Nothing could see it: `guard_state_structure` asked whether each section
+  EXISTS and whether the FIRST copy has a body, both satisfied twice over; the size band saw a
+  file that had grown, which is always allowed; the landing check only measures shrink.
+  **Generalisation, and it is not about anchors: a structural check that asks "is X present"
+  cannot see "X is present twice", and duplication is what a botched edit produces most often.
+  Presence and cardinality are different questions, and only one was being asked.**
+  **The review pass's finding was that the first fix closed the instance and left the class
+  open** — it counted only `STATE_REQUIRED_SECTIONS`, while the heading the splice actually keyed
+  on was `## Owner queue`, checked elsewhere for existence alone, and `## Decided non-items` was
+  in no list at all. Demonstrated, not argued: a duplicated owner queue passed that guard green.
+  The check now asks the question of the DOCUMENT — any repeated `## ` heading fails — because a
+  splice duplicates whatever it duplicates and a configured list cannot anticipate which.
+  The same pass corrected this row: it claimed "every required section twice", and the truth is
+  `## Project` and `## Current state` twice, the first copy truncated mid-preamble, `## Changelog`
+  and the owner queue once. **That overstatement is what made a guard over the required sections
+  look sufficient** — an inflated incident report sizes the fix to the wrong incident.
+  Two smaller lessons. The edit was scripted because the file was large, and `str.index` on prose
+  is a fragile anchor precisely in a document whose rule-bearing preamble QUOTES its own section
+  names. And the corruption was found by reading the file, not by any check: the compression pass
+  that would have surfaced it was owed and deferred, which is what deferring it cost.
+- D-035: **The one-pass rule, bounded — D-018 closed on the owner's delegation.** The rule said
+  "fixes too large to ship unreviewed mean the unit was too big: split it", which is an
+  instruction about next time that reads as permission this time: apply a pass's findings, call
+  the corrected diff a new unit, claim a fresh pass — the laundering the same paragraph forbids.
+  Three bounds now close it in `docs/RUNBOOK.md`. **(a) A unit is what one reviewer saw** — the
+  diff handed to the pass, not the intent behind it; everything descended from it stays the same
+  unit. **(b) Splitting is decided BEFORE the pass, never after seeing findings.** **(c) A pass
+  that did not report is not a pass**, so its replacement is that unit's first pass, judged from
+  the artifact and never from the reviewer's own completion claim.
+  **The pass found (b) was a trap as first written**: with (a) forbidding a second review and (b)
+  forbidding the ship, a session whose corrections ran large had no legal move — and the only
+  named exit, "park it", was unexecutable, because the protocol holds the diff UNCOMMITTED while
+  a pass runs, so there was nothing on a branch to park. Parking now overrides the hold: commit
+  and push, say in the body that the unit is unreviewed and why, queue it by branch name. **An
+  escape hatch that cannot be executed from the state that triggers it is not an escape hatch**,
+  and a rule with no legal move is obeyed by whoever ignores it.
+  Bound (c) is this session's and was paid for: a live reviewer mid-mutation was read as dead
+  from a stalled transcript, replaced, and the two ran concurrently — one mutating
+  `scripts/ladder.sh` while the other's fixtures copied it, manufacturing a flake that was only
+  the overlap. **From the outside a working pass and a dead one look identical, so "it has gone
+  quiet" is not a finding. Confirm it stopped before replacing it.** That incident also found a
+  gap in P3 itself, which the pass named: the ban enumerated "guard, gate, CI step or required
+  field", and the consumer that actually bit was a SESSION'S OWN CONTROL FLOW branching on a
+  subagent's completion marker — none of the four. P3 and `AGENTS.md` now name the decision
+  procedure as a consumer, so the incident that produced (c) is textually covered by the rule
+  it was cited under.
+  Also closed here on the owner's delegation: **D-005**, founding legislation installed with no
+  fresh-context reviewer — both authorised passes ran (prose applied, scripts and templates in
+  D-017) and every pass since has re-read what it touched; and **D-014**, the P3 reword that
+  landed self-reviewed, which was commissioned as an explicit second target of this unit's pass.
+  **Its verdict, recorded after it reported and not before: P3 says what D-014 decided it should
+  say** — the ban is scoped to machinery, honest disclosure is explicitly protected, and the
+  operative test is stated in the source of record — with two gaps, the enumeration above and
+  the test's absence from the two contributor-facing documents, both fixed here. Recording that
+  outcome BEFORE the pass ran was itself a finding against this row: an append-only file that
+  states a review's result in advance is the same defect the row above it describes.
+  Accepted and not fixed, so it is not lost: the shipped harness calls the review verdict
+  `glue-review pass: clean` while `docs/RUNBOOK.md` calls it `adversarial pass: clean`. Cosmetic,
+  pre-existing, outside this unit — renaming a verdict string across shipped prose is its own
+  change with its own pass.

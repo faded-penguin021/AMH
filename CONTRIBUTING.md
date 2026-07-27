@@ -24,6 +24,14 @@ not.
 **Check the ledger.** `LEDGER.md` is append-only and holds every deviation and discovery,
 including the ones that read as embarrassing. If your idea has a history, it is there.
 
+**Know the test the checklist ban actually applies.** "Self-reported checklists" does not mean
+"never write down what you did" — it means nothing downstream may CONSUME an agent's claim about
+its own process. The operative question is **does anything consume it?** A sentence a human
+reads and may disbelieve costs nothing, so the review disclosure in a commit body and the prose
+sections of the PR template are fine. The moment a script greps for that string, a required
+field demands it, or a session branches on a subagent's "done" marker, the claim has become a
+gate that is passed by typing, and the work it stood for is optional (P3, D-014).
+
 ## The bar a new principle must clear
 
 Every mechanism in this harness answers to P0 (`10-principles.md`):
@@ -102,6 +110,35 @@ number is that an adopter can trust it without reading the diff.
   merges, as ONE squash PR whose body describes the net diff against the default branch rather
   than the last branch's. Under `branch-per-change` each branch would merge on its own.
 - **Merging and tagging are owner steps.** Queue them; do not attempt them.
+
+### The identity your commits carry
+
+The ladder checks the author and committer address on the commits your branch adds — those in
+`origin/<default>..HEAD`, and only when it can resolve that reference, so a shallow clone or a
+fork without the upstream ref gets a warning saying it checked nothing rather than a pass. It
+can reject a first-time contributor's perfectly real address, which is worth knowing before it
+happens rather than after. Each address is judged in this order:
+
+1. **`AUTHOR_EMAIL_ALLOW` in `amh.conf` is consulted first**, an extended regex matched against
+   the whole address. Match it and you are accepted, whatever shape the address has. That
+   ordering is the escape hatch for a project whose real addresses look machine-generated
+   (`.local` is a genuine Active Directory suffix); its price is that a permissive pattern
+   switches off step 2 entirely, so the pattern is kept exact.
+2. **Otherwise it fails outright on the identities git invents when nothing is configured** —
+   `root@host`, `you@localhost`, `you@laptop.local`, `you@box.localdomain`, `(none)`, an empty
+   field, anything with no `@`. If you have never run `git config user.email` on this machine,
+   that is what you are about to commit. Check before the first commit: an unpushed commit is
+   amendable and a pushed one is not, because this repo forbids itself the rewrite that would
+   fix it.
+3. **Otherwise, if the key is set and your address did not match it, it fails there.** This
+   repository does set it, so a real address can fail with nothing wrong with it. **If that is
+   you, say so in your PR and the owner widens the line** — one line, a deliberate choice rather
+   than a judgement about your address. Do not work around it by changing the identity you
+   commit under.
+
+**What it cannot do:** tell a personal address from a work one, or a forge no-reply alias from
+the address behind it. Choosing the right identity is still yours — see the identifiers rule in
+`AGENTS.md`. The guard catches machine-generated addresses and the stated list, nothing more.
 
 ## Cutting a release
 

@@ -324,6 +324,35 @@ awk '/^## Current state/{print; skip=1; next} skip && /^## /{skip=0} !skip' \
 	"$d/docs/STATE.md" >"$d/t" && mv "$d/t" "$d/docs/STATE.md"
 expect_fail "a required section emptied of content fails" "$d" "is empty"
 
+# A section present TWICE. The file is a session's working memory, so two copies are two
+# answers to one question — and this is not hypothetical: a scripted edit anchored on a
+# string the preamble also contains spliced the whole document in after itself, shipped,
+# and went green. Existence was satisfied twice over, the body check read the first copy,
+# and every size check passed a file that had simply grown.
+d=$(mk state_duplicated_section)
+# Via a temp file, never `sed file >>file`: appending to the file being read moves EOF
+# ahead of the reader and the pipeline copies until the disk fills.
+sed -n '/^## Current state/,$p' "$d/docs/STATE.md" >"$d/dup.tmp"
+{
+	echo
+	cat "$d/dup.tmp"
+} >>"$d/docs/STATE.md"
+rm -f "$d/dup.tmp"
+expect_fail "a required section appearing twice fails" "$d" "'## Current state' appears more than once"
+
+# ...and the check must not be scoped to the CONFIGURED sections, which is where the first
+# draft left it. The heading the real incident keyed on was the owner queue — checked
+# separately, and only for existence — so a guard over the required list would have closed
+# the instance and left the class open. A splice duplicates whatever it duplicates.
+d=$(mk state_duplicated_ownerq)
+{
+	echo
+	echo '## Owner queue'
+	echo '**Pending owner actions:** (none)'
+} >>"$d/docs/STATE.md"
+expect_fail "a duplicated Owner queue fails even though it is not a required section" "$d" \
+	"'## Owner queue' appears more than once"
+
 d=$(mk state_ownerq)
 grep -v '^## Owner queue' "$d/docs/STATE.md" >"$d/t" && mv "$d/t" "$d/docs/STATE.md"
 expect_warn "a deleted Owner queue warns" "$d" "Owner queue"

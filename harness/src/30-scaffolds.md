@@ -65,12 +65,22 @@ The guards it ships with:
   the branch it took in every outcome — an unfinished pass and an ordinary edit above the cap
   look identical in the size alone, so saying which one it decided is half the guard.
 - **State structure** — fail if a required section header is missing (an over-compression
-  tripwire); warn if the Owner-queue header vanished (data loss for the human).
+  tripwire) or if it survives with no body under it; warn if the Owner-queue header vanished
+  (data loss for the human). And fail on ANY repeated `## ` heading, required or not: a botched
+  scripted edit duplicates the document rather than deleting from it, and every other check here
+  passes a duplicate — bytes grew, which is allowed, and existence was satisfied twice over.
+  Ask the question of the document, not of the configured list, or you close the one heading
+  that broke and leave the class open.
 - **Ledger rollover** — warn approaching the line cap; fail when the live file's LAST row
   *starts* past the cap. The final row may overflow; the next belongs in the next file.
-- **Citation integrity** — grep the source trees (code and workflows, NOT docs, not the
-  guard's own fixtures, and — by the shipped `amh.conf` default — not the shipped scripts,
-  whose `D-NNN` comments cite the harness's ledger rather than yours) for `D[A-Z]?-\d+`;
+- **Citation integrity** — grep the source trees (code and workflows, NOT docs, and not the
+  guard's own fixture suite, which carries synthetic and harness-internal IDs by design and is
+  what the shipped `amh.conf` excludes) for `D[A-Z]?-\d+`. The other shipped scripts stay in
+  scope and need no exemption: they name the harness's own rows as `AMH ledger row DNNN`,
+  deliberately not a citation, because those rows are ours and can never resolve in your ledger
+  — written as citations they failed an adopter's first ladder run. The rail scripts and the
+  ladder say so in their headers; do not "fix" them back, and do not narrow the fixture-suite
+  exclusion to match this paragraph, or you inherit its synthetic IDs. Then:
   every citation must resolve to a row in the file its prefix names; no duplicate row
   numbers; `[cited]` markers must match the citation set in both directions.
 - **Poison-token scan** — fixed strings that must never reach a commit message (CI-skip tokens

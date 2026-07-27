@@ -205,7 +205,28 @@ section_has_body() { # <file> <header>
 guard_state_structure() {
 	section "Working memory: required sections"
 	[ -f "$STATE_FILE" ] || return
-	local problems=0 sec
+	# EVERY level-2 heading, not just the required ones. A scripted edit to this file
+	# anchored on a string its own preamble also contains and spliced the whole document in
+	# after itself; sections appeared twice, one copy carrying state a later session had
+	# already superseded, and it passed the ladder, CI and a push. Nothing else here can see
+	# a duplicate: the caps measure bytes and the landing check measures shrink, both of
+	# which a duplicate satisfies, and existence was satisfied twice over.
+	#
+	# Scoped to the CONFIGURED sections it would have closed that incident and nothing
+	# around it — the heading the botched edit actually keyed on was the owner queue, which
+	# is checked separately below, and the non-items heading is in no list at all. A splice
+	# duplicates whatever it duplicates, so the question has to be asked of the document
+	# rather than of a list: any repeated `## ` heading is the signature.
+	local problems=0 dupes
+	dupes=$(grep '^##[[:space:]]' "$STATE_FILE" | sed 's/[[:space:]]*$//' | sort | uniq -d)
+	if [ -n "$dupes" ]; then
+		while IFS= read -r sec; do
+			[ -n "$sec" ] || continue
+			fail "heading '$sec' appears more than once — this file is the session's working memory, and two copies of a section are two answers to the same question. Usually a scripted edit that spliced the document into itself: delete the stale copy rather than merging them."
+			problems=$((problems + 1))
+		done <<<"$dupes"
+	fi
+	local sec
 	while IFS= read -r sec; do
 		[ -n "$sec" ] || continue
 		if ! grep -q "^${sec}[[:space:]]*$" "$STATE_FILE"; then

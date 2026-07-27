@@ -9,9 +9,9 @@
 > (`STATE_EDIT_DELTA_BYTES`), so fixing a typo up here is allowed and still owes the compression
 > (**D-027**). Compress by folding completed stages into Changelog lines and moving durable
 > gotchas to the ledger, not by cutting text into a new file. The ladder checks the caps, the
-> landing, and that `## Project` / `## Current state` /
-> `## Changelog` exist and are non-empty; it only *warns* if `## Owner queue` vanishes. Nothing
-> judges whether what survived is any good. Never drop an open owner-queue item.
+> landing, that the required sections exist and are non-empty, and that NO `## ` heading in this
+> file appears twice (**D-034**); it only *warns* if the owner-queue heading vanishes. Nothing judges whether what survived is any good. Never
+> drop an open owner-queue item.
 
 ## Project
 
@@ -26,84 +26,27 @@ Adopted harness version: **AMH 1.8.0** — see `harness/VERSION`, which is the c
 
 > **Session handoff (2026-07-27).** Work is on `claude/owner-queue-git-author-guard-bzpdxd`, tip
 > of the branch train (main ← tb2myi ← der6bl ← guh973 ← guzkor ← 8yq4br ← b7fell ← 60rz4g ←
-> ddmycw ← here); `branch-train` by owner decision. **Every carried finding is closed and the
-> train is ready for the owner's squash merge**, body drafted in `docs/SQUASH_PR_BODY.md`.
-> **This file is over the soft cap and owes ONE deep compression pass to ≤ 9 KB** — it went over
-> writing D-033 up, and stopping at 14335 to silence the warning is the move the band exists to
-> prevent. The warning is the debounce working; the pass is the next session's first act.
+> ddmycw ← here); `branch-train` by owner decision. **The train is ready for the squash merge**;
+> `.github/pull_request_template.md` now covers everything after it.
 
-**Every unit has had its blocker inside the FIX, not in the original defect** — eighteen of the
-last nineteen passes, this one included. Budget for it. Each unit takes ONE fresh-context
-reviewer, blocking, ONE pass (D-015): triage, apply, ship, no re-review. Spawning it is required,
-not a thing to ask about; do not relabel a corrected diff as a new unit for a fresh pass (D-018).
+**Every unit has had its blocker inside the FIX, not the original defect** — nineteen of twenty
+passes now. Budget for it. Each unit takes ONE fresh-context reviewer, blocking, ONE pass:
+triage, apply, ship, no re-review (D-015, bounded against relabelling by **D-035**).
 
-`shellcheck` is CI-only and its rung load-bearing, so editing a script without installing it
-first is editing blind (**D-026**); `scripts/bootstrap.sh` installs it on every remote session.
-Run the ladder DIRECTLY, never piped — a pipe reports the pipe's status, and a red tree has been
-pushed that way.
+`shellcheck` is CI-only and its rung load-bearing, so editing a script without it is editing
+blind (**D-026**); `AMH_REMOTE=1` is now set, so `scripts/bootstrap.sh` installs it every remote
+session (**D-028**). Run the ladder DIRECTLY, never piped — a pipe reports the pipe's status,
+and a red tree has been pushed that way.
 
-**Open findings.** None — the identity guard is built and shipped (**D-033**).
+**Open findings.** None. **The ledger is at 826 lines against an 800-line cap** — D-035 starts
+under it so the ladder only warns, but the next row must open the next volume as `DA-001`
+(`LEDGER_A`, per the rollover rule in `AGENTS.md`). That is the next session's first act.
 
-**The review protocol has D-019's own defect**: a pass that dies and one that finds nothing both
-end as "no findings". Do not answer it with a completion sentinel — that is a self-report and P3
-bans consuming those. **Ask a pass for falsifiable claims — "mutation M, suite stayed green" —
-and replay them before believing any.** Two were replayed here and proved nothing: see **D-033**.
-
-## Owner queue` vanishes. Nothing
-> judges whether what survived is any good. Never drop an open owner-queue item.
-
-## Project
-
-The AMH meta-repository: both the **source of truth** for the Agentic Maintenance Harness — a
-reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
-**reference instance**, maintained under the harness and running byte-identical copies of the
-scripts it ships. The distributed product lives in `harness/` (prose source, templates, generated
-bundle); this repo's own instance is `AGENTS.md` + `docs/` + `scripts/` + `amh.conf`.
-Adopted harness version: **AMH 1.8.0** — see `harness/VERSION`, which is the copy that counts.
-
-## Current state
-
-> **Session handoff (2026-07-27).** Work is on `claude/owner-queue-git-author-guard-bzpdxd`, tip
-> of the branch train (main ← tb2myi ← der6bl ← guh973 ← guzkor ← 8yq4br ← b7fell ← 60rz4g ←
-> ddmycw ← here); `branch-train` by owner decision. **Every carried finding is closed and the
-> train is ready for the owner's squash merge**, body drafted in `docs/SQUASH_PR_BODY.md`.
-> **This file is over the soft cap and owes ONE deep compression pass to ≤ 9 KB** — it went over
-> writing D-033 up, and stopping at 14335 to silence the warning is the move the band exists to
-> prevent. The warning is the debounce working; the pass is the next session's first act.
-
-**Every unit has had its blocker inside the FIX, not in the original defect** — eighteen of the
-last nineteen passes, this one included. Budget for it. Each unit takes ONE fresh-context
-reviewer, blocking, ONE pass (D-015): triage, apply, ship, no re-review. Spawning it is required,
-not a thing to ask about; do not relabel a corrected diff as a new unit for a fresh pass (D-018).
-
-`shellcheck` is CI-only and its rung load-bearing, so editing a script without installing it
-first is editing blind (**D-026**); `scripts/bootstrap.sh` installs it on every remote session.
-Run the ladder DIRECTLY, never piped — a pipe reports the pipe's status, and a red tree has been
-pushed that way.
-
-**Open findings.** One, owner-requested, with a settled direction. Build it; do not re-litigate.
-
-- **A machine check on git author identity (owner-requested 2026-07-27, NOT yet built).**
-  `AGENTS.md:153-159` makes the owner's personal identifiers a secret that leaks through git
-  author metadata, and calls itself "prose-only, deliberately: no guard can see an identity you
-  have not committed yet". That justifies no PRE-COMMIT guard and nothing more — the rule's own
-  next clause ("an unpushed commit is amendable, a pushed one is not") names the window the
-  ladder runs in, and this repo forbids the force-push that would fix a pushed one.
-  Direction: a new shipped rung `guard_author_identity` over `%ae` and `%ce` across
-  `origin/$DEFAULT_BRANCH..HEAD`. **Zero-config half** — FAIL on identities git invented for
-  itself (`root@*`, `*@localhost`, `*@*.local`, `*@*.localdomain`, `*(none)*`, empty, anything
-  with no `@`): never a real address, so no false-positive surface. **Opt-in half** —
-  `AUTHOR_EMAIL_ALLOW`, an extended regex, defaulted to empty IN THE SCRIPT so no adopter is
-  ever asked to add a key to make their ladder green (D-027's pattern, and D-030's whole
-  lesson). Do NOT use the repo's own history as an allowlist: a first-time contributor is
-  indistinguishable from a misconfigured one, and this branch would warn on all 30 of its own
-  commits. Say plainly in the guard's comment that it cannot tell a personal address from a work
-  one — implying more than it does is D-010's class. Fixtures: committer-field-only (a rebase
-  writes it while the author survives), not-an-address, allowlist match/miss, and the key ABSENT
-  with an address the allowlist would reject, or hardcoding a permissive default stays green.
-  Amend the `AGENTS.md` claim to say pre-commit rather than never. It trips D-010's incident bar
-  (nothing has rotted; all 33 commits carry the right alias) — overridden by the owner because
-  the harm is a permanent, unfixable-by-policy leak.
+**Two lessons about verification itself, both paid for and both in the ledger.** A pass that
+dies and one that finds nothing both end as "no findings", and a completion sentinel cannot fix
+that — it is a self-report. **Ask a pass for falsifiable claims and replay them before believing
+any** (**D-033**, **D-035**). And a scripted edit spliced this file in half and shipped green,
+because the structure guard asked whether sections EXIST rather than how many (**D-034**).
 
 ## Owner queue
 
@@ -114,41 +57,15 @@ pushed that way.
 
 **Pending owner actions:**
 
-1. Tag `amh-v1.8.0` once the founding branch is merged. The release workflow now exists, so the
-   tag verifies the tree, checks itself against `harness/VERSION`, and publishes the bundle.
-2. **Merge the train as ONE squash PR** whose body describes the net `origin/main..HEAD` diff,
-   not the last branch's. No PR template exists — `.github/` holds only `workflows/`. The body
-   is drafted and waiting in `docs/SQUASH_PR_BODY.md`: copy it into the PR description and
-   delete the file, since a merged PR is its own record.
+1. **Merge the train as ONE squash PR** whose body describes the net `origin/main..HEAD` diff,
+   not the last branch's. Body drafted in `docs/SQUASH_PR_BODY.md`: copy it into the PR
+   description and delete the file, since a merged PR is its own record.
+2. Then tag `amh-v1.8.0`. The release workflow verifies the tree, checks the tag against
+   `harness/VERSION`, and publishes the bundle.
 
-3. **Set `AMH_REMOTE=1` in the remote environment, or `scripts/bootstrap.sh` never runs.**
-   Verified by presence check: the flag is unset, so `session-start.sh` skips the bootstrap —
-   correctly, since that gate is what stops it surprising someone on a laptop. So the script
-   built to install `shellcheck` automatically (**D-028**, closing **D-026**'s cost) fires for
-   nobody and every session still installs it by hand. One environment variable fixes it. Noted
-   rather than worked around: a bootstrap that silently never runs is this repo's own recurring
-   defect class, and it would have gone unnoticed for the same reason as all the others.
-4. **The identity guard is built (D-033) — confirm `AUTHOR_EMAIL_ALLOW` in `amh.conf`.** It
-   admits `noreply@anthropic.com` and `*@users.noreply.github.com`: every commit on this train,
-   plus one made through the GitHub web UI. Commit from a differently configured machine and the
-   ladder reddens until that line is widened; deleting the key leaves the zero-config half
-   running. An address the key admits is accepted whatever shape it has, so a permissive pattern
-   switches that half off.
-5. **`harness/src/30-scaffolds.md`'s citation bullet is stale** — out of this unit's scope, so
-   left alone. It still says the shipped `amh.conf` excludes the shipped scripts "whose `D-NNN`
-   comments cite the harness's ledger"; D-030 retracted that, the tokens are gone, and the
-   exclusion now covers only the fixture suite.
-
-**Open questions:**
-
-1. [2026-07-25] **D-005** — founding legislation installed with no fresh-context reviewer. Both
-   authorised passes have now run: prose (applied) and scripts/templates (**D-017**). Close on
-   your read at merge.
-2. [2026-07-25] The P3 reword (**D-014**) landed **self-reviewed**, at your direction. Your read
-   at merge is its only outside look.
-3. [2026-07-25] **The one-pass rule is Goodhart-open** (D-018): "split the unit" lets a session
-   relabel a corrected diff as a new unit and claim a fresh pass, and no definition of a unit is
-   mechanical. Your call whether to bound it or accept it as prose-only.
+**Open questions:** none. D-005, D-014 and D-018 were closed 2026-07-27 on the owner's
+delegation — see the Changelog and **D-035**. D-014's outside look was commissioned as the
+second target of that unit's review pass, and its verdict is recorded in D-035 after the fact.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -159,47 +76,50 @@ the narrow forms admitted and the incident bar standing — no guard for a claim
 rotted (**D-010**, **D-023**); section-granular `RULE_FILES`, the tripwire being file-granular
 (`docs/RUNBOOK.md` carries this one — no ledger row does); self-reported checklists in commits or
 YAML, permanently, the ban being on machinery consuming a self-report rather than on a sentence a
-human may disbelieve (P3, **D-014**).
+human may disbelieve (P3, **D-014**) — the operative test is **does anything downstream consume
+it?**, and it is the test rather than the artifact that decides.
 
 ## Changelog
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-27 — **Owner queue closed out.** Owner **confirmed `AUTHOR_EMAIL_ALLOW`** and asked it
+  be explained to outside contributors: `CONTRIBUTING.md` now gives the three-step order the
+  guard applies and what to do when it rejects a real address. **`AMH_REMOTE=1` is set** (owner;
+  verified at this session's boot), closing D-028's last gap. `30-scaffolds.md`'s citation bullet
+  drops the mechanism D-030 retracted; `.github/pull_request_template.md` exists, prose prompts
+  not checkboxes. **D-005 closed** (both passes ran); **D-014 closed** — the P3 reword's outside
+  look also found P3's consumer list omitted a session's own control flow; **D-018 closed by
+  bounding the rule** (**D-035**), parking included, since the bound's only exit had no
+  executable form.
+  **D-005 closed** — both authorised passes ran and the founding legislation has since been
+  reviewed piecemeal by every pass that touched it. **D-014 closed** — the P3 reword got its
+  outside look at last. **D-018 closed by bounding the rule** (**D-035**): a unit is what one
+  reviewer saw, a corrected diff is never a new unit, and a pass that dies is not a pass.
+- 2026-07-27 — **This file was spliced in half and shipped green**: a scripted edit anchored on
+  a string the preamble also quotes. The structure guard checked existence, not cardinality, and
+  CI agreed; the first fix then covered only the configured sections, which the review pass
+  showed was the wrong scope. Any repeated `## ` heading now fails. **D-034**.
 - 2026-07-27 — **The git author identity guard** (D-032 built): a shipped rung over `%ae` and
   `%ce`; git's invented identities fail with no config; `AUTHOR_EMAIL_ALLOW` opt-in, defaulted
   empty in the script. Its passes found the allowlist ordering — a named address could not
   override an invented-shape rejection, leaving "edit a shipped script" as the only remedy —
   plus four globs and two arms asserted by nothing. **D-033**.
-- 2026-07-26 — **Colon-less URL userinfo is redacted** (D-022's first half; the second stays
-  ACCEPTED). Its pass found the false positive that mattered — an unpadded markdown table row —
-  and the userinfo class is now POSITIVE rather than negated, which ends that family. **D-031**.
-- 2026-07-26 — **The shipped scripts stopped citing a ledger they do not ship with** (D-023).
-  Closed by RETRACTING the previous fix: the `CITATION_EXCLUDE` route would have turned every
-  existing adopter's ladder red until they hand-edited a config they own forever. D-004 and
-  D-007 lose their `[cited]` markers as the accepted cost; D-019 keeps its. **D-030**.
-- 2026-07-26 — **B7 + B8, the loudness rule applied** (D-019): `session-start.sh` validates
-  `REMOTE_FLAG` and gates the bootstrap on presence rather than its exec bit; `guard_repo_local`
-  always prints its header and the count it ran. Its pass found **D-027(a) repeated verbatim** in
-  the new assertion helper. **D-029**.
-- 2026-07-26 — **`scripts/bootstrap.sh`**: the toolchain bootstrap `session-start.sh` had always
-  called and nothing provided. Installs shellcheck, persists PATH, warms the `origin/<default>`
-  fetch, loud and non-fatal throughout. Its review pass found the blocker in the FIXTURE again —
-  a shellcheck-free PATH built by subtraction deletes `/usr/bin` on CI. **D-028**.
-- 2026-07-26 — **The STATE landing check tells an edit from a compression pass** (D-016 item 11).
-  It read every byte lost above the soft cap as a pass in progress, so a 15-byte deletion had to
-  compress the whole file or be reverted; twice, the compliant move was to *pad the file back*.
-  Now branches on the shrink's size and whether it crosses the cap, and names the branch.
-  **D-027**, superseding D-011's closing sentence.
-- 2026-07-26 — **Founding build closed out** (U1–U6): release workflow, `README.md`, end-to-end
-  instantiation test, `INIT_PLACEHOLDERS` bound to its document, build plan deleted. **D-025**.
-- 2026-07-26 — **Five repair units**: the command guard's `<<<` regression that voided every rail
-  and five more mistake classes; the ladder's off switch closed and three zero-coverage guards
-  given fixtures; first-ever green CI at run 14; `redact.sh` widened to the shapes in circulation
-  with an exact-match self-test; the adopter path walked end-to-end, which is what found the
-  citation defect. **D-016**, **D-017**, **D-019**…**D-024**.
+- 2026-07-26 — **Colon-less URL userinfo is redacted** (D-022's first half), the class turned
+  POSITIVE rather than negated, which ends that family (**D-031**); and **the shipped scripts
+  stopped citing a ledger they do not ship with** (D-023) by RETRACTING the previous fix, which
+  would have reddened every adopter's ladder until they hand-edited a config they own forever
+  (**D-030**).
+- 2026-07-26 — **The loudness rule applied** (D-019) and **`scripts/bootstrap.sh`**, the
+  toolchain bootstrap nothing had provided; both passes found the blocker inside the fix.
+  **The STATE landing check** learned to tell an ordinary edit from a compression pass that
+  stopped short, after twice making *padding the file back* the compliant move (**D-027**,
+  superseding D-011's closing sentence). **Founding build closed out** (U1–U6) and **five repair
+  units**: the command guard's `<<<` regression that voided every rail, the ladder's off switch,
+  zero-coverage guards given fixtures, first green CI, the adopter path walked end to end.
+  **D-016**…**D-025**, **D-027**…**D-029**.
 - 2026-07-25/26 — **Founding day and the server-side rails.** U1–U4 (self-hosting core,
   legislation, adopter templates, harness prose + bundle); rule review applied (14 findings, 13
   fixed); env-dump rails closed in `command-guard.sh`, **which shipped with a regression**; then
-  branch protection on `main` plus secret-scanning push protection (owner), closing P13's
-  server-side half. **D-001**…**D-014**, **D-016**.
+  branch protection and secret-scanning push protection (owner). **D-001**…**D-014**, **D-016**.

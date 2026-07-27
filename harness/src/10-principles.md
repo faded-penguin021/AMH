@@ -42,8 +42,11 @@ on disk.
 **P3. Machine-check everything checkable — but only over artifacts the work produces anyway.**
 Guards verify diffs, file sizes, commit messages, citation cross-references: things that exist
 as a side effect of doing the work. **Never build machinery on a self-report.** No guard, gate,
-CI step or required field may accept an agent's claim about its own process as evidence —
-checkboxes, "I reviewed this" YAML, per-checklist-item line quotes. An agent can emit those
+CI step, required field **or agent's own decision procedure** may accept a claim about its own
+process as evidence — checkboxes, "I reviewed this" YAML, per-checklist-item line quotes, a
+subagent's "done" marker a caller branches on. The last one is easy to miss because no gate is
+involved and the consumer is the session itself: deciding whether a reviewer finished from the
+reviewer's word for it is the same defect wearing no uniform. An agent can emit those
 without doing the work (Goodhart), and external reviewers re-propose them regularly; keep
 declining. If a rule cannot be derived from a real artifact, it stays a prose rule plus
 reviewer attention. (Even a *prose* claim becomes checkable once it has drifted, if it is

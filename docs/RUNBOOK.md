@@ -223,8 +223,44 @@ unit (D-015):
 - **Iteration: ONE pass per unit.** Triage the findings, apply them, ship. Do NOT review the
   corrected diff again — re-running until a pass comes back clean turns the gate into a loop
   that launders a diff into looking approved, and each lap costs a whole context for shrinking
-  returns. Fixes too large to ship unreviewed mean the unit was too big: split it, or put the
-  residue in the Owner queue.
+  returns. Fixes too large to ship unreviewed mean the unit was too big.
+
+  **Three bounds on what "a unit" may mean, because the sentence above was Goodhart-open for as
+  long as it stood alone (D-018, closed by D-035).** "Split it" is an instruction about what to
+  do NEXT TIME, and read as permission it lets a session relabel a corrected diff as a fresh
+  unit and claim a second pass — the exact laundering the paragraph forbids.
+
+  - **A unit is what one reviewer saw.** Not what you meant to build, and not what the commit
+    message calls it: the unit is the diff you handed to the pass. Everything descended from
+    that diff — the fixes for its findings, the fixes for those fixes — belongs to the same
+    unit permanently, however large it grows or however different it ends up looking.
+  - **Splitting is a decision made BEFORE the pass, never after seeing its findings.** You may
+    divide work into two units and give each its own pass, decided while both are unreviewed.
+    Once findings exist, that route is closed: if the corrections are too big to ship
+    unreviewed, they are too big to ship. "The fixes turned out large" is evidence the unit
+    was misjudged, not a licence.
+
+    **Parking is the exit, and it has to be executable or this bound is a trap** — with (a)
+    forbidding a second pass and this clause forbidding the ship, a session that could not
+    park would have no legal move at all. So parking overrides the hold: **commit the work
+    and push it**, with the commit body saying plainly that the unit is unreviewed and why,
+    and put it in the Owner queue naming the branch. Uncommitted work cannot be parked, and
+    losing it is worse than a branch that says what it is. The owner may then authorise a
+    fresh pass on the parked unit — that is the ONE way a unit gets a second reviewer, it is
+    the owner's to grant and never the session's to assume, and the grant goes in the ledger.
+  - **A pass that did not report is not a pass.** If the reviewer died, was killed, or returned
+    nothing because it never ran, the unit is unreviewed and its replacement is that unit's
+    FIRST pass, not a second one. Judge this from the artifact and never from the reviewer's
+    own say-so: a completion marker is a self-report, and P3 bans machinery that consumes one.
+    Before treating a reviewer as dead, confirm it has actually stopped — a live pass mid-run
+    looks identical to a stalled one from the outside, and replacing it while it works gives
+    you two reviewers editing under each other, which the concurrency bound above forbids.
+
+  **Ask each pass for falsifiable claims, and replay them.** "I checked the coverage" is
+  unfalsifiable and worth nothing; "I deleted this branch and the suite stayed green" is a
+  claim you can re-run in the time it takes to read it. Ask for findings in that form, replay
+  the ones a decision rests on, and treat what survives replay as the finding — a mutation that
+  silently failed to change the file reports exactly as green as a fixture that cannot fail.
 - **Depth: one level of meta.** The reviewer reports, the session triages, the human
   arbitrates. Nobody reviews the reviewer.
 
