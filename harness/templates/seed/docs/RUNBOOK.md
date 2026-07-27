@@ -177,9 +177,10 @@ code. Triage: (1) read the failing log — a real failure (fix the code), a tool
 
 ## Self-adaptation — keep this runbook useful
 
-If this runbook lacks what you need: consult the ledger and the archive, record durable facts
-as ledger rows, and if a playbook is wrong, stale or missing the case you just handled, **fix
-this runbook in the same change.** Treat it as code.
+If this runbook lacks what you need: consult the ledger — and `docs/history/` if this repo has
+an archive; not every profile installs one — record durable facts as ledger rows, and if a
+playbook is wrong, stale or missing the case you just handled, **fix this runbook in the same
+change.** Treat it as code.
 
 Self-adaptation covers *operational* content — playbooks, the doc index, module maps,
 commands. *Binding* rules (session discipline, the review protocols, guard semantics, git and

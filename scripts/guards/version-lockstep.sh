@@ -2,7 +2,7 @@
 # Repo-local guard: harness/VERSION is the single source, and every hand-maintained
 # copy of the version agrees with it.
 #
-# Five places state this repo's harness version, and four of them are hand-written.
+# Six places state this repo's harness version, and five of them are hand-written.
 # Without this check, bumping VERSION and rebuilding leaves the constitution, the
 # state file and amh.conf quietly claiming the old number — while the constitution's
 # own text asserts they "are checked against it". Prose that claims enforcement is
@@ -55,6 +55,11 @@ check "changelog top entry" harness/CHANGELOG.md 's/^## \([0-9][0-9.]*\).*/\1/p'
 check "constitution" AGENTS.md 's/.*Adopted harness version: \*\*AMH \([0-9][0-9.]*\)\*\*.*/\1/p'
 check "state file" docs/STATE.md 's/.*Adopted harness version: \*\*AMH \([0-9][0-9.]*\)\*\*.*/\1/p'
 check "amh.conf" amh.conf 's/^AMH_VERSION=\([0-9][0-9.]*\).*/\1/p'
+# The README's quickstart pins a release tag, which makes it a FIFTH hand-written copy of the
+# version — and an unchecked one drifts the moment a release lands, handing every new adopter
+# the previous version while the repo claims the current one. Checked here rather than trusted
+# to the release checklist, because a checklist is a thing a human remembers.
+check "README quickstart tag" README.md 's/.*--branch amh-v\([0-9][0-9.]*\).*/\1/p'
 
 if [ "${1:-}" = "--tag" ]; then
 	tag=${2:-}
@@ -64,4 +69,4 @@ if [ "${1:-}" = "--tag" ]; then
 fi
 
 [ "$fails" -eq 0 ] || exit 1
-printf 'version %s consistent across 4 hand-maintained copies\n' "$VERSION"
+printf 'version %s consistent across 5 hand-maintained copies\n' "$VERSION"

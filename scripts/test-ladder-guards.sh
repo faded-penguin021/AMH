@@ -25,6 +25,44 @@ FAILED=0
 # --- fixture construction ---------------------------------------------------
 DEFAULT_BRANCH_FIXTURE=main # must match amh.conf's DEFAULT_BRANCH below
 
+# The integrity rung's manifest, built for whatever scripts a fixture actually has. Written
+# rather than copied from the harness checkout, because a fixture repo holds four of the
+# shipped scripts and the real manifest names five — and a manifest naming a file the tree
+# does not have is one of the cases under test, not the baseline.
+#
+# The hashing tool is resolved ONCE, at the top level. Resolved inside the function, `exit`
+# would only kill the command substitution it runs in: the diagnostic prints, the suite carries
+# on, and every fixture gets a manifest of empty hashes — which does not produce the silent
+# green anyone feared, it produces sixty unrelated red assertions blaming the wrong thing.
+HASHER=''
+if command -v sha256sum >/dev/null 2>&1; then
+	HASHER=sha256sum
+elif command -v shasum >/dev/null 2>&1; then
+	HASHER=shasum
+fi
+
+fixture_sha256() { # <file>
+	case $HASHER in
+	sha256sum) sha256sum <"$1" ;;
+	shasum) shasum -a 256 <"$1" ;;
+	esac | sed 's/[^0-9a-f].*//'
+}
+
+# With no hasher the fixture repos get NO manifest, which is a state the rung handles (it
+# warns), so the rest of the suite runs normally and the integrity cases below are skipped as
+# a named, counted block. Same treatment as any other case that needs a tool outside the
+# harness's stated baseline: gated loudly, never quietly dropped.
+write_manifest() { # <fixture-dir>
+	local d=$1 f
+	[ -n "$HASHER" ] || return 0
+	{
+		printf '# AMH fixture — shipped-script integrity manifest.\n'
+		for f in "$d"/scripts/*.sh; do
+			printf '%s  scripts/%s\n' "$(fixture_sha256 "$f")" "$(basename -- "$f")"
+		done
+	} >"$d/scripts/MANIFEST.sha256"
+}
+
 mk() { # mk <name> -> prints the fixture path
 	local d="$WORK/$1"
 	mkdir -p "$d/scripts/guards" "$d/docs"
@@ -34,9 +72,11 @@ mk() { # mk <name> -> prints the fixture path
 	cp "$ROOT/scripts/ladder.sh" "$ROOT/scripts/redact.sh" \
 		"$ROOT/scripts/command-guard.sh" "$ROOT/scripts/session-start.sh" "$d/scripts/"
 	chmod +x "$d/scripts"/*.sh
+	write_manifest "$d"
 	cat >"$d/amh.conf" <<-'CONF'
 		DEFAULT_BRANCH=main
 		BRANCH_PREFIX=session
+		MERGE_MODE=branch-per-change
 		REMOTE_FLAG=AMH_REMOTE
 		STATE_FILE=docs/STATE.md
 		STATE_COMPRESS_TO_KB=9
@@ -556,6 +596,31 @@ else
 	report ok
 fi
 
+# --- the protocol pointer names only documents that exist
+# Not every install profile ships a runbook — the smallest one, which is the default,
+# deliberately does not. The banner used to name docs/RUNBOOK.md unconditionally, so the
+# first thing a fresh session in such a repo read was a pointer to a file that is not
+# there. The adopter cannot fix it either: this script is overwritten on every upgrade.
+#
+# Both directions, because each is separately silent: a banner that never names the runbook
+# would satisfy the absent case while breaking every repo that has one.
+d=$(mk ss_no_runbook)
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qF "docs/RUNBOOK.md"; then
+	report no "the protocol pointer omits a runbook the repo does not have" "it named it anyway" "$out"
+else
+	report ok
+fi
+
+d=$(mk ss_with_runbook)
+printf '# RUNBOOK\n' >"$d/docs/RUNBOOK.md"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qF "playbook in docs/RUNBOOK.md"; then
+	report ok
+else
+	report no "the protocol pointer names the runbook when there is one" "it did not" "$out"
+fi
+
 # --- the secret scan cannot be switched off by a file mode
 # The scan IS the repo's entire secret defence (D-004), so the ways it can vanish are
 # worth more fixtures than the ways it can fire. Losing the exec bit — an archive
@@ -585,6 +650,157 @@ d=$(mk rail_noexec)
 sed -i 's/^\tst_allowed .cat README.md./\tst_allowed "cat .env"/' "$d/scripts/command-guard.sh"
 chmod -x "$d/scripts/command-guard.sh"
 expect_fail "a non-executable rail is still self-tested" "$d" "self-test failed"
+
+# --- shipped-script integrity
+# The manifest is the only thing in an adopter's tree that can tell an upgraded script from
+# an edited one. Every branch below is a different way for that answer to be wrong, and the
+# two that matter most are the ones that must NOT be failures: an adopter with no manifest,
+# and a machine with no hashing tool. Both stay green and both say so out loud.
+if [ -z "$HASHER" ]; then
+	printf '  SKIP 10 shipped-integrity case(s): no sha256sum or shasum on this machine, so no fixture manifest could be built\n' >&2
+else
+	d=$(mk integrity_ok)
+	expect_pass_saying "an untouched tree matches the manifest and says how many it checked" "$d" \
+		"   ok    4 shipped script(s) match the published hashes"
+
+	# The whole point of the rung: a local edit to a shipped script. session-start.sh is the
+	# subject because nothing else in this suite executes it during a `--guards-only` run, so
+	# the only rung that can react is the one under test.
+	d=$(mk integrity_edited)
+	printf '\n# a local edit to a shipped script\n' >>"$d/scripts/session-start.sh"
+	expect_fail "an edited shipped script fails against the published hash" "$d" \
+		"does not match the hash the harness published for it"
+
+	# Absence is not a failure — an adopter who upgraded by copying *.sh before the manifest
+	# existed has none, and failing them for following the documented path would be a fix
+	# billed to the person it broke. It is a WARN and not a `skip`, and `expect_warn` is what
+	# asserts that: deleting the manifest is also the documented way to live with a deliberate
+	# local patch, so it is the one off-switch an adopter reaches on purpose, and `skip` is
+	# counted by nothing and vanishes from the summary line.
+	d=$(mk integrity_absent)
+	rm -f "$d/scripts/MANIFEST.sha256"
+	expect_warn "an absent manifest warns that the rung checked nothing" "$d" \
+		"   WARN  scripts/MANIFEST.sha256 is absent"
+
+	# A manifest that outlived the script it names. Same signature as a deleted rung, which is
+	# why it is a failure and not a skip.
+	d=$(mk integrity_script_gone)
+	rm -f "$d/scripts/session-start.sh"
+	expect_fail "a manifest entry with no file behind it fails" "$d" \
+		"which is not in this tree"
+
+	# A manifest this cannot parse verifies nothing, so it must not be read past in silence.
+	d=$(mk integrity_malformed)
+	printf 'not-a-hash scripts/ladder.sh\n' >>"$d/scripts/MANIFEST.sha256"
+	expect_fail "a malformed manifest line fails rather than being skipped over" "$d" \
+		"is not a sha256 entry naming a shipped script"
+
+	# ...and the degenerate case the parser makes possible: a file whose every line is a
+	# comment parses cleanly, checks nothing, and would otherwise print `ok 0 shipped
+	# script(s)`. A green earned by an empty manifest is the one verdict this rung may never
+	# give.
+	d=$(mk integrity_empty)
+	printf '# nothing but a comment\n' >"$d/scripts/MANIFEST.sha256"
+	expect_fail "a manifest listing no scripts fails instead of passing vacuously" "$d" \
+		"lists no scripts"
+
+	# Deleting ONE line excuses ONE script, and the entry for the ladder is the one deletion
+	# that excuses the file deciding whether anything else is excused. Refused, or every other
+	# verdict this rung gives is worth nothing — and this fixture is what stops a later
+	# simplification from dropping the self-check as redundant.
+	d=$(mk integrity_self_excused)
+	grep -v ' scripts/ladder\.sh$' "$d/scripts/MANIFEST.sha256" >"$d/m" &&
+		mv "$d/m" "$d/scripts/MANIFEST.sha256"
+	printf '\n# a rung I quietly deleted\n' >>"$d/scripts/ladder.sh"
+	expect_fail "a manifest that does not cover the ladder itself fails" "$d" \
+		"does not cover scripts/ladder.sh"
+
+	# The residue that leaves, asserted rather than left to be discovered: any OTHER line can
+	# be removed, and the only signal is the count. The assertion is on the count, because a
+	# count nobody reads is not a signal — and if this rung ever grows a way to refuse this
+	# case, this fixture is what will notice.
+	d=$(mk integrity_one_excused)
+	grep -v ' scripts/session-start\.sh$' "$d/scripts/MANIFEST.sha256" >"$d/m" &&
+		mv "$d/m" "$d/scripts/MANIFEST.sha256"
+	printf '\n# a local edit nobody will hear about\n' >>"$d/scripts/session-start.sh"
+	expect_pass_saying "an excused script is unreported except in the count, which drops" "$d" \
+		"   ok    3 shipped script(s) match the published hashes"
+
+	# A manifest entry may name a shipped script and nothing else. Left unconstrained the rung
+	# will hash any path it is handed and then describe /etc/hostname as a shipped script the
+	# harness will restore — a true hash comparison wrapped in a false account of what was
+	# checked.
+	d=$(mk integrity_stray_path)
+	printf '%s  ../outside.sh\n' "$(fixture_sha256 "$d/scripts/ladder.sh")" \
+		>>"$d/scripts/MANIFEST.sha256"
+	expect_fail "a manifest entry pointing outside scripts/ is refused, not hashed" "$d" \
+		"is not a sha256 entry naming a shipped script"
+
+	# No hashing tool on PATH. This is AMH ledger row D019's shape again — the rung is switched
+	# off by a property of the MACHINE, which is not its subject — so it warns rather than
+	# skipping, and it must stay non-fatal. The PATH is CONSTRUCTED from the tools the ladder
+	# needs rather than filtered, because subtracting the directory holding sha256sum deletes
+	# /usr/bin on most machines and every rung then dies at exit 127.
+	d=$(mk integrity_no_hasher)
+	SHIM="$WORK/nohash_path"
+	mkdir -p "$SHIM"
+	for t in bash sh env git grep sed awk sort uniq comm xargs cmp diff mktemp wc tr head cut find basename dirname cat rm mv cp chmod ls; do
+		p=$(command -v "$t" 2>/dev/null) || continue
+		[ -n "$p" ] && ln -sf "$p" "$SHIM/$t"
+	done
+	if [ -e "$SHIM/sha256sum" ] || [ -e "$SHIM/shasum" ]; then
+		report no "the no-hasher fixture really has no hasher" "the shim PATH contains one"
+	else
+		out=$(cd "$d" && env -i PATH="$SHIM" CI=1 HOME="$WORK" bash scripts/ladder.sh --guards-only 2>&1)
+		rc=$?
+		if [ "$rc" -ne 0 ]; then
+			report no "no hashing tool is not fatal" "expected exit 0, got $rc" "$out"
+		elif printf '%s' "$out" | grep -qF "   WARN  neither sha256sum nor shasum is on PATH"; then
+			report ok
+		else
+			report no "no hashing tool warns that the rung checked nothing" "no such warning" "$out"
+		fi
+	fi
+fi
+
+# --- the branch-train history line
+# Under a squash-merge train the default branch's log is a list of merges rather than a record
+# of decisions, and a session that reads it gets a plausible wrong answer. Both directions,
+# because each is separately silent: printed unconditionally the line is FALSE for every
+# branch-per-change repo, and dropped entirely it is missing for every train.
+d=$(mk ss_merge_mode_train)
+sed -i 's/^MERGE_MODE=.*/MERGE_MODE=branch-train/' "$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qF "merge mode: branch-train — main's history is squashed"; then
+	report ok
+else
+	report no "a branch-train repo is told its default branch's log is not its past" "no line" "$out"
+fi
+
+# The negative control, and the reason the key is read at all: under branch-per-change the
+# default branch's history IS the record, so the line would be a lie.
+d=$(mk ss_merge_mode_per_change)
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qF "branch-train"; then
+	report no "a branch-per-change repo is not told its history is squashed" "it said so anyway" "$out"
+else
+	report ok
+fi
+
+# An amh.conf with no MERGE_MODE line at all. `amh.conf.example` ships the key, so this is not
+# the state a fresh instantiation is in — it is the state an adopter can put their own file in
+# at any time, because that file is theirs and the harness cannot upgrade it. Without the
+# default in the script the banner dies under `set -u`, entirely, at the top of the session.
+d=$(mk ss_merge_mode_unset)
+grep -v '^MERGE_MODE=' "$d/amh.conf" >"$d/t" && mv "$d/t" "$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF "AMH session start" &&
+	! printf '%s' "$out" | grep -qF "branch-train"; then
+	report ok
+else
+	report no "a conf with no MERGE_MODE key still boots" "rc=$rc" "$out"
+fi
 
 # --- poison tokens
 # This guard resolves origin/<default> and prints `skip` without one, which is how it

@@ -5,7 +5,7 @@ reusable operating prompt plus scaffolds for repositories maintained by agentic 
 with a human in the loop — and it is also the harness's **reference instance**: it is
 maintained under the AMH and runs byte-identical copies of the scripts it ships. Its product
 is shell and markdown; its lifecycle stage is active development of the harness itself.
-Adopted harness version: **AMH 1.8.0** (`harness/VERSION`).
+Adopted harness version: **AMH 2.0.0** (`harness/VERSION`).
 
 The two roles are deliberately distinct, and confusing them is the most likely mistake here:
 
@@ -72,14 +72,17 @@ could not be — disclosure of real actions, never implied coverage.
   source for everything in `harness/dist/`.
 - `harness/templates/scripts/` — the shipped, repo-agnostic scripts. Parameter-free: values
   come from `amh.conf`, extra guards from `scripts/guards/`, the verification set from
-  `scripts/verify.sh` (D-003). **Never** add a repo-specific branch to one of these.
+  `scripts/verify.sh` (D-003). **Never** add a repo-specific branch to one of these. The
+  `MANIFEST.sha256` beside them is **generated** (`scripts/build-manifest.sh`) and ships with
+  them: it is how an adopter's ladder tells an upgraded script from a locally edited one, so
+  changing a shipped script means regenerating it in the same change.
 - `harness/templates/seed/` — prose scaffolds copied ONCE into an adopting repo and owned by
   it thereafter. Never drift-checked; an adopter's constitution is theirs.
 - `harness/templates/configs/` — JSON/YAML that cannot read `amh.conf`, so these do carry
   `{{PLACEHOLDER}}`s, substituted once at init.
 - `harness/dist/AMH.md` — **generated**. Never hand-edited; a guard rebuilds and diffs it.
-- `scripts/` — this repo's instance: the five shipped copies, plus local-only `verify.sh`,
-  `guards/*`, `tests/*`, `build-dist.sh`.
+- `scripts/` — this repo's instance: the five shipped copies and their manifest, plus
+  local-only `verify.sh`, `guards/*`, `tests/*`, `build-dist.sh`, `build-manifest.sh`.
 - `docs/` — `STATE.md` (working memory, capped), `LEDGER.md` (permanent, append-only),
   `RUNBOOK.md` (playbooks), `UPGRADING.md` (for adopters), `history/` (frozen archive).
 
@@ -108,16 +111,21 @@ could not be — disclosure of real actions, never implied coverage.
 
 ## Invariants that still bind (full catalog: `docs/LEDGER.md`)
 
-- **This repo runs what it ships.** `scripts/*.sh` are byte-identical to
-  `harness/templates/scripts/*.sh`; `scripts/guards/copy-drift.sh` enforces it (D-001, D-002).
+- **This repo runs what it ships.** Every file in `scripts/` that also exists in
+  `harness/templates/scripts/` is byte-identical to it — the five scripts and the generated
+  `MANIFEST.sha256`; `scripts/guards/copy-drift.sh` enforces it over the whole directory, not
+  over an extension (D-001, D-002).
+- **`MANIFEST.sha256` is generated.** Change a shipped script, run
+  `scripts/build-manifest.sh`; `scripts/guards/manifest-drift.sh` enforces it.
 - **The redaction filter IS the secret scan.** Never write a second copy of the token
   patterns into the ladder — pipe files through `scripts/redact.sh` (D-004).
 - **The ladder has exactly two extension points**: `scripts/guards/*.sh` and
   `scripts/verify.sh` (D-003).
 - **`harness/dist/AMH.md` is generated.** Edit `harness/src/`; run `scripts/build-dist.sh`.
-- **`harness/VERSION` is the single source of the harness version.** Four hand-written
+- **`harness/VERSION` is the single source of the harness version.** Five hand-written
   copies are checked against it by `scripts/guards/version-lockstep.sh`: the changelog's top
-  entry, this file's recorded version, `docs/STATE.md`'s, and `AMH_VERSION` in `amh.conf`.
+  entry, this file's recorded version, `docs/STATE.md`'s, `AMH_VERSION` in `amh.conf`, and the
+  release tag the `README.md` quickstart tells adopters to clone.
   The bundle header is generated from `harness/VERSION`, so `dist-drift.sh` covers it and
   the lockstep guard deliberately does not — checking it there would manufacture the
   appearance of coverage.

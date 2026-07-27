@@ -74,5 +74,23 @@ POISON_TOKENS='[skip ci]|[ci skip]|***NO_CI***'
 PLAN_DIR=docs/plans
 
 # --- Legislation: files whose diffs require the rule-review protocol ---------
+#
+# THIS FILE is in the list, and that is not decoration: it defines the thresholds, the
+# poison tokens, the citation scope and this very list — so leaving it out lets an agent
+# raise STATE_HARD_KB, blank POISON_TOKENS, or empty RULE_FILES itself, dismantling the
+# tripwire with no warning. A scope list that does not cover the file defining the scope
+# list is not a scope list.
+#
+# Your state file and ledger are deliberately ABSENT even though their preambles are
+# legislation: they change in nearly every unit, the tripwire is file-granular and cannot
+# fire on a section, and warn fatigue kills tripwires. Those sections are prose-only.
+#
+# LEAVE the entries for files you do not have. An entry naming a file that does not exist
+# is inert — the tripwire matches paths in a diff, and a path that cannot appear never
+# matches — and it starts working by itself the day a larger install profile adds the file.
+# Pruning one buys nothing and silently narrows the scope: you would receive the runbook on
+# a later re-run with the tripwire no longer covering it, and nothing would say so. Narrowing
+# this list is a rule change either way, never housekeeping.
+#
 # Add each new agent adapter's config file here.
-RULE_FILES='AGENTS.md docs/RUNBOOK.md scripts/ladder.sh scripts/test-ladder-guards.sh scripts/command-guard.sh scripts/redact.sh scripts/session-start.sh .claude/settings.json'
+RULE_FILES='AGENTS.md docs/RUNBOOK.md amh.conf scripts/ladder.sh scripts/test-ladder-guards.sh scripts/command-guard.sh scripts/redact.sh scripts/session-start.sh .claude/settings.json'

@@ -2,7 +2,7 @@
 
 ## Part 3 — Scaffolds
 
-Six files and one config directory. The prose scaffolds are **seeds**: copied once, then owned
+Seven files and one config directory. The prose scaffolds are **seeds**: copied once, then owned
 by the adopting repo. The scripts are **artifacts**: copied verbatim, parameter-free, and
 upgradeable — they read `amh.conf` at runtime, take repo-specific guards from
 `scripts/guards/*.sh`, and take the verification set from `scripts/verify.sh`. That split is
@@ -124,6 +124,26 @@ The guards it ships with:
   The command guard's matrix asserts both directions: forbidden commands block, and the known
   false-positive classes (quoted text naming a forbidden command; prose naming a forbidden
   path) stay allowed.
+- **Shipped-script integrity** — hash every shipped script against `scripts/MANIFEST.sha256`,
+  the manifest generated at release and installed beside them. It answers a question no other
+  rung can: are these still the bytes the harness shipped? A local edit to a shipped script is
+  invisible while it works and turns the next upgrade from a copy into a merge, so the rung
+  names the file and the three places a local change actually belongs. Ship the manifest **in
+  the same directory as the scripts**, so copying the directory keeps them together — an
+  upgrade that took the scripts and left the manifest reports every new script as edited.
+  Absence is never a failure: an adopter upgrading by hand may have no manifest, and a rung
+  that failed on that would bill the person it broke (the fix-requires-the-victim shape). Make
+  it a **warn** rather than a skip, though — deleting the manifest is also the honest way to
+  live with a deliberate local patch, so it is the one off-switch someone reaches on purpose,
+  and the state a guard is switched off in must never be the quietest line the ladder prints.
+  A missing hashing tool warns for a different reason: that is the machine, not the subject.
+  An empty or unparseable manifest FAILS — a green earned by a file with nothing in it is the
+  one verdict this rung may never give — and so does a manifest that does not cover the ladder
+  itself, since that one entry's removal excuses the file that decides whether anything else is
+  excused. **State the residue instead of overclaiming:** removing any OTHER line excuses that
+  script, visible only as a lower count, and nothing inside a script can notice that the script
+  was deleted from the ladder. The manifest is `sha256sum -c`-compatible so that a reader who
+  wants none of this can check it by hand.
 - **Repo-local guards** — `scripts/guards/*.sh`, the extension point that keeps this script
   repo-agnostic. Domain rules live there: a store changelog length cap (mind the unit — a
   "500 character" limit is codepoints, and `wc -c` overcounts multibyte text), a
@@ -160,6 +180,15 @@ agents to run it manually), mirror the deny rails below if the agent supports pe
 honour the one-session-one-branch rule, and add its permission-config file to the rule-review
 tripwire list. Everything behavioural stays in the shared constitution and scripts, so
 switching agents rewrites nothing.
+
+It also states, once per session and only where it is true, what the default branch's history
+is NOT. Under a squash-merge train the default branch's log is a list of merges rather than a
+record of how anything was decided, so `git log` there answers "why is this like this?" with
+something plausible and wrong; the memory tiers are the history (P2). Say it in the banner,
+gated on the repo's merge mode — under branch-per-change the same sentence is false. A
+pre-execution warning on the command itself is the wrong layer: the rail is binary, the command
+is correct nearly every time (two ladder rungs run it), and the mistake is the generalisation
+rather than the command.
 
 ### 3.8 Permission rails — the adapter layer
 
@@ -202,3 +231,27 @@ A worked adapter, for Claude Code:
 ### 3.9 CI — invoking the same entrypoint
 
 <!-- amh:include harness/templates/configs/ci.yml -->
+
+### 3.10 The adoption brief — the instantiation work, addressed to the agent
+
+Instantiating is mostly work a tool cannot do: the seeds carry slots only this repository can
+fill, the verification set is a stub, and how much of the harness a repo should adopt is the
+owner's call. That work is nobody's idea of a good use of the owner's evening, and it is
+exactly what an agent sitting in the codebase is good at.
+
+So the installer writes one more file into the adopting tree — `AMH-ADOPT.md`, addressed to
+the agent rather than to the human. It asks the owner how much of the harness they want,
+fills the slots from the repository itself, writes the real build and test commands into
+`scripts/verify.sh`, drives the ladder green, and ends by telling the agent to delete it.
+Adoption then costs the owner two commands and one sentence: *read the brief and follow it*.
+
+Three properties keep it honest, and each is a rule the harness states elsewhere applied to
+its own front door. It is written **only on a fresh install**, because a document that tells
+you to adopt a harness you have run for a year is noise — an upgrade never re-issues it. It
+carries **no checklist**: the brief says outright that reporting a completed step is worth
+nothing, since no gate consumes such a claim (P3). And it is explicit about the limit of its
+own acceptance test — a fresh tree has no repo-local guards, so a green ladder does **not**
+prove the placeholders were filled, and the brief says to grep for them by hand rather than
+implying a check that does not exist.
+
+<!-- amh:include harness/templates/AMH-ADOPT.md -->

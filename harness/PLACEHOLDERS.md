@@ -16,6 +16,7 @@ Two kinds:
 |---|---|---|
 | `PLACEHOLDER` | meta | The generic word, used in prose when talking about placeholders in general. Never substituted. |
 | `AMH_VERSION` | init | The harness version being adopted, e.g. `1.8.0`. Record it: process drift is diagnosable only if the version that shaped the process is written down. |
+| `PROFILE` | init | Which seed prose the install included: `light`, `standard` or `full`. Substituted into the adoption brief so the adopting agent knows what it is looking at — and nowhere else, because the brief is deleted when adoption finishes and nothing in the tree may branch on a level. |
 | `DEFAULT_BRANCH` | init | The branch agents must never push to, e.g. `main`. |
 | `BRANCH_PREFIX` | init | Namespace for session branches, e.g. `claude` → `claude/<codename>`. |
 | `MERGE_MODE_KEY` | init | `branch-per-change` or `branch-train`. |

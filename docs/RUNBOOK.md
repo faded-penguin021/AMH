@@ -12,11 +12,12 @@ disagrees with the code, trust the code and fix the doc.
 | `harness/templates/scripts/*.sh` | the shipped scripts | repo-agnostic; parameter-free (D-002, D-003) |
 | `harness/templates/seed/**` | prose scaffolds for adopters | copied once, then owned by the adopter; never drift-checked |
 | `harness/templates/configs/**` | JSON/YAML for adopters | carries `{{PLACEHOLDER}}`s; substituted at init |
+| `harness/templates/scripts/MANIFEST.sha256` | hashes of the shipped scripts, installed beside them | **generated** — rebuilt and diffed by a guard |
 | `harness/dist/AMH.md` | the single-file bundle | **generated** — rebuilt and diffed by a guard |
 | `harness/VERSION` | the harness version | single source; lockstep-checked |
-| `scripts/*.sh` (five) | this repo's instance of the shipped scripts | byte-identical copies (D-002) |
+| `scripts/*.sh` (five) + `scripts/MANIFEST.sha256` | this repo's instance of the shipped files | byte-identical copies (D-002) |
 | `scripts/verify.sh`, `scripts/guards/*`, `scripts/tests/*` | this repo's local verification | the ladder's only two extension points; `tests/` hangs off `verify.sh` |
-| `scripts/amh-init.sh`, `scripts/build-dist.sh` | repo-local tooling: instantiate an adopter, generate the bundle | not shipped — they run FROM here, never inside an adopting repo |
+| `scripts/amh-init.sh`, `scripts/build-dist.sh`, `scripts/build-manifest.sh` | repo-local tooling: instantiate an adopter, generate the bundle, generate the integrity manifest | not shipped — they run FROM here, never inside an adopting repo |
 | `docs/STATE.md` | working memory | capped, compressible, Owner queue protected |
 | `docs/LEDGER.md` | permanent memory | append-only; never rewritten |
 
@@ -62,7 +63,9 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
   fail, and the fix is always in the same direction (D-002).
 - **Obligations:** the script must stay repo-agnostic. Needing a repo-specific branch means
   an extension point is missing — add the extension point instead (D-003). New behaviour
-  lands with its fixture in the same change. **Rule-review protocol applies** (guard
+  lands with its fixture in the same change. **Run `scripts/build-manifest.sh` in the same
+  change**: the shipped scripts' hashes ship with them, and `manifest-drift.sh` fails on a
+  manifest that describes bytes nobody has. **Rule-review protocol applies** (guard
   semantics are legislation).
 - **Acceptance:** `scripts/ladder.sh` green, including the fixture suite and both rail
   self-tests; the new fixture must FAIL against the old script — check by stashing the
@@ -106,10 +109,13 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
   major-vs-minor call is an Owner-queue question, not an agent's judgement call.
 - **Steps:** update `harness/VERSION` → add the `harness/CHANGELOG.md` entry, including its
   **Upgrading** subsection (what an adopter must actually do) → update the version recorded
-  in `AGENTS.md`, `docs/STATE.md` and `amh.conf` → `scripts/build-dist.sh` → ladder.
-- **Obligations:** `scripts/guards/version-lockstep.sh` binds `harness/VERSION` to four
-  hand-written copies — the changelog's top entry, `AGENTS.md`, `docs/STATE.md`, and
-  `AMH_VERSION` in `amh.conf`. Never edit one alone. The bundle header is generated from
+  in `AGENTS.md`, `docs/STATE.md` and `amh.conf` → **update the release tag in the `README.md`
+  quickstart's clone command** → `scripts/build-dist.sh` → ladder.
+- **Obligations:** `scripts/guards/version-lockstep.sh` binds `harness/VERSION` to five
+  hand-written copies — the changelog's top entry, `AGENTS.md`, `docs/STATE.md`,
+  `AMH_VERSION` in `amh.conf`, and the `README.md` quickstart's tag. Never edit one alone.
+  The README copy is the one this list forgot once: the guard went red at the end of a
+  release with nothing in these steps telling the releaser which file to touch. The bundle header is generated from
   `harness/VERSION`, so `dist-drift.sh` covers it and the lockstep guard deliberately does
   not. **Tagging and publishing are owner steps** — queue them, do not attempt them.
 - **Acceptance:** ladder green.

@@ -13,10 +13,20 @@ This split is the whole reason upgrades are cheap, so it is worth internalising:
 | | Upgradeable | Yours forever |
 |---|---|---|
 | `scripts/ladder.sh`, `session-start.sh`, `command-guard.sh`, `redact.sh`, `test-ladder-guards.sh` | **copy over** — they are parameter-free | — |
+| `scripts/MANIFEST.sha256` | **copy over** — generated at release, it holds the hashes of the five scripts above | — |
 | `amh.conf` | — | yours; new keys are additive, listed in the changelog |
 | `scripts/verify.sh`, `scripts/guards/*` | — | yours; the ladder's extension points |
 | `AGENTS.md`, `docs/RUNBOOK.md`, `docs/STATE.md`, `docs/LEDGER.md` | — | yours; seed changes arrive as hand-applied notes |
 | `.claude/settings.json`, `.github/workflows/*` | — | yours; diff against the template and take what applies |
+| `AMH-ADOPT.md` | — | yours, and one-time: written only on a FRESH instantiation, and yours to delete when you have finished it. An upgrade run never re-issues it |
+
+One invariant underwrites the whole table, and it is worth stating rather than inferring:
+**nothing `amh-init.sh` does may be needed again after it exits.** Your tree is self-describing
+and runs on `bash`, `git` and coreutils alone — the harness is never on your *runtime* path. It
+is a claim about running your repo, not about never running the installer again: re-running it
+is the supported way to upgrade the scripts and to escalate a profile, and both are you
+choosing to copy files in. If a future release ever needed the harness present for your ladder
+to work, that would be a defect in the release, not a new requirement on you.
 
 The shipped scripts are the only files you copy, and they are safe to copy *because* they
 contain nothing specific to your repo. If you have edited one, stop and undo that first: the
@@ -43,13 +53,27 @@ half-upgraded harness is a harness whose rules disagree with its guards.
 **4. Copy the shipped scripts.**
 
 ```bash
-cp /path/to/AMH/harness/templates/scripts/*.sh scripts/
+cp /path/to/AMH/harness/templates/scripts/* scripts/
 chmod +x scripts/*.sh
 ```
+
+**Copy the whole directory, not just `*.sh`.** `scripts/MANIFEST.sha256` sits beside the
+scripts because it holds their hashes, and your ladder's integrity rung compares the two. New
+scripts against last version's manifest reads exactly like five locally edited scripts — the
+rung will say so, and this is the fix. If you have no manifest at all (you upgraded before
+this file existed), the rung warns on every run that the shipped scripts went unchecked;
+copying it is what turns the rung on.
 
 If you have the harness repo checked out, `scripts/amh-init.sh /path/to/your-repo` does the
 same thing and is safe to re-run: it overwrites exactly the shipped scripts and leaves every
 file you own — `amh.conf`, the seed prose, your workflow and adapter config — untouched.
+
+The `--profile` flag it grew in 2.0.0 does not change that, and you do not need to pass it on
+an upgrade. It decides which seed prose a **fresh** install receives; a file you already have
+is kept whatever profile the run names, so a bare re-run never removes or declines a scaffold
+you are using. Pass a larger profile only when you actually want the extra scaffolds — e.g.
+`--profile full` to pick up `docs/history/`, the archive tier, which installs no longer ship by
+default.
 
 **5. Apply the changelog's Upgrading notes.** New `amh.conf` keys, seed-file changes you want,
 adapter or CI changes. Nothing here is automatic — that is the point.
@@ -66,6 +90,21 @@ string that was always there. These are findings, not upgrade damage. Fix them; 
 weaken the guard to get green. If a new guard is genuinely wrong for your repo, delete it
 from your copy of `ladder.sh` and record *why* in your ledger — but understand you have now
 taken a local patch, with the merge cost that implies.
+
+That patch is also exactly what the integrity rung reports, so it will not be quiet about it.
+The way to live with a deliberate local patch is to delete `scripts/MANIFEST.sha256`: the rung
+then warns, every run, that the shipped scripts went unchecked — a true description of your
+tree, and deliberately not a silent one. Restore the manifest by copying it again once the
+patch is gone.
+
+Deleting the file is the *supported* way, not the only mechanical one, and the difference is
+worth stating rather than implying: the manifest is an ordinary text file in your repo, so
+removing one line excuses one script. Two things bound that. The rung refuses a manifest which
+does not cover `scripts/ladder.sh` — the entry whose removal would excuse the file that decides
+whether anything else is excused — and it prints the number of scripts it checked on every run,
+so a count below what your version ships is the signal. Nothing else stops you. A guard cannot
+defend a file you own against you, and a harness that claimed otherwise would only be teaching
+you not to look.
 
 **7. Record it.** Set `AMH_VERSION` in `amh.conf`, update the version in your constitution,
 add a ledger row for anything the upgrade taught you, and add the changelog line.
