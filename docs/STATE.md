@@ -50,6 +50,12 @@ tag (**DA-011**). 2.1.0 is the fix: the rule is now in `AGENTS.md`, the runbook,
 seeds, and the session banner reports the release window it could not see. What a check can
 honestly claim, and where the first draft over-claimed, is **DA-012**.
 
+**The session-branch namespace is agent-neutral.** `BRANCH_PREFIX=session` is now the
+reference-instance value and the initializer default; an adopter may still choose any value
+with `--branch-prefix`. The identity allowlist was reviewed as a separate decision: all three
+existing no-reply address forms are used in repository history, so all remain; no
+Codex/OpenAI identity was added without owner approval (**DA-014**).
+
 Legislation (a diff touching `RULE_FILES`) means ONE blocking fresh-context reviewer, strongest
 tier, one pass, no self-review fallback (D-015, bounded by **D-035**); **twenty-six of
 twenty-seven passes found a real defect inside the FIX**. A session forbidden subagents ASKS
@@ -116,6 +122,16 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
+
+- 2026-07-28 — **PR creation now points explicitly at the repository template** (**DA-015**).
+  `CONTRIBUTING.md` puts the nudge at the action point while preserving the D-014 boundary:
+  use applicable prose headings, but never make their presence evidence for a gate.
+
+- 2026-07-28 — **Session branches gained an agent-neutral namespace** (**DA-014**).
+  `session` is consistent across the reference config, initializer default, help and examples;
+  fixtures pin that default while retaining an arbitrary-prefix case. A separate review kept
+  only the three owner-approved no-reply forms already required by repository history and did
+  not invent a Codex/OpenAI commit identity.
 
 - 2026-07-28 — **Codex adapter installation is complete and adopter-owned.** `amh-init.sh`
   installs both canonical Codex configuration files only when absent, the end-to-end fixture

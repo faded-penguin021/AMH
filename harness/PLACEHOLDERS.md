@@ -18,7 +18,7 @@ Two kinds:
 | `AMH_VERSION` | init | The harness version being adopted, e.g. `1.8.0`. Record it: process drift is diagnosable only if the version that shaped the process is written down. |
 | `PROFILE` | init | Which seed prose the install included: `light`, `standard` or `full`. Substituted into the adoption brief so the adopting agent knows what it is looking at — and nowhere else, because the brief is deleted when adoption finishes and nothing in the tree may branch on a level. |
 | `DEFAULT_BRANCH` | init | The branch agents must never push to, e.g. `main`. |
-| `BRANCH_PREFIX` | init | Namespace for session branches, e.g. `claude` → `claude/<codename>`. |
+| `BRANCH_PREFIX` | init | Namespace for session branches, default `session` → `session/<codename>`; `--branch-prefix` may select another value. |
 | `MERGE_MODE_KEY` | init | `branch-per-change` or `branch-train`. |
 | `MERGE_MODE` | you | The prose sentence in the constitution describing the chosen merge mode and what it obliges. |
 | `REMOTE_FLAG` | init | Environment variable that marks a remote container, e.g. `AMH_REMOTE`. The bootstrap runs toolchain setup only when it is `1`. |

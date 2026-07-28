@@ -202,7 +202,8 @@ could not be — disclosure of real actions, never implied coverage.
 ## Git rules
 
 - Develop and push **only** on your session's assigned `<BRANCH_PREFIX>/<codename>` branch,
-  where `BRANCH_PREFIX` comes from `amh.conf` (currently `claude`, so `claude/<codename>`).
+  where `BRANCH_PREFIX` comes from `amh.conf` (currently the agent-neutral `session`, so
+  `session/<codename>`).
   The prefix is configuration, not a vendor name — this file binds any agent. Push with
   `git push -u origin <branch>` (retry with backoff on network errors only). **Never
   force-push. Never push to the branch named by `DEFAULT_BRANCH` (currently `main`).**
