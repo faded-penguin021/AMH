@@ -18,7 +18,7 @@ The AMH meta-repository: both the **source of truth** for the Agentic Maintenanc
 reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
 **reference instance**, running byte-identical copies of the scripts it ships. The product is
 `harness/` (prose source, templates, generated bundle); this repo's instance is `AGENTS.md` +
-`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 2.1.0** — see `harness/VERSION`,
+`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 2.1.1** — see `harness/VERSION`,
 the copy that counts.
 
 ## Current state
@@ -72,9 +72,12 @@ about this repo's past**, the memory tiers ARE the history (**DA-003**); `path-r
 > as verified while asserting nothing (**D-014**). Its absence is information: it means no
 > command settles this, which is itself worth knowing before you repeat the item to a human.
 
-**Pending owner actions — none.** Three closed on 2026-07-27: the 2.0.0 release (merged and
-tagged, verified against `git ls-remote`), `main`'s branch protection repointed at `ladder`,
-and the 2.1.0 release (PR #4 merged, tag `amh-v2.1.0` verified via `git ls-remote`).
+1. **After merge: tag `amh-v2.1.1`** on the squash commit.
+   Check: `git ls-remote --tags origin amh-v2.1.1` — non-empty output means done.
+
+Three closed on 2026-07-27: the 2.0.0 release (merged and tagged, verified against
+`git ls-remote`), `main`'s branch protection repointed at `ladder`, and the 2.1.0 release
+(PR #4 merged, tag `amh-v2.1.0` verified via `git ls-remote`).
 
 **Open questions:** none. Everything asked before it has been answered and recorded —
 the 2.0.0 severity call and the rule-scope additions in **DA-005**, the delegated closures of

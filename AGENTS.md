@@ -5,7 +5,7 @@ reusable operating prompt plus scaffolds for repositories maintained by agentic 
 with a human in the loop — and it is also the harness's **reference instance**: it is
 maintained under the AMH and runs byte-identical copies of the scripts it ships. Its product
 is shell and markdown; its lifecycle stage is active development of the harness itself.
-Adopted harness version: **AMH 2.1.0** (`harness/VERSION`).
+Adopted harness version: **AMH 2.1.1** (`harness/VERSION`).
 
 The two roles are deliberately distinct, and confusing them is the most likely mistake here:
 
