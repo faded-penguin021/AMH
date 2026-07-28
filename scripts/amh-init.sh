@@ -13,7 +13,7 @@
 #   SHIPPED   scripts/*.sh from harness/templates/scripts/ — parameter-free, they read
 #             amh.conf at runtime. Overwritten on every run, because that is what makes
 #             an upgrade a copy. Never edit them in an adopting repo.
-#   YOURS     the seed prose, amh.conf, the CI workflow, the agent adapter config.
+#   YOURS     the seed prose, amh.conf, the CI workflow, and agent adapter configs.
 #             Written only when absent. Re-running never clobbers a word an adopter wrote.
 #
 # That split is also what makes this script idempotent in the way that matters: running it
@@ -435,6 +435,10 @@ done < <(find "$TPL/seed" -type f | sort)
 
 install_file "$TPL/amh.conf.example" amh.conf keep 644
 install_file "$TPL/configs/ci.yml" .github/workflows/ci.yml keep 644
+# Agent adapters are adopter-owned configuration, just like the CI workflow: install the
+# complete adapter only where each canonical path is absent. Codex reads the canonical
+# AGENTS.md seed directly, so it needs configuration and command policy here, not another
+# constitution pointer beside them.
 install_file "$TPL/configs/claude-settings.json" .claude/settings.json keep 644
 install_file "$TPL/configs/codex-config.toml" .codex/config.toml keep 644
 install_file "$TPL/configs/codex-amh.rules" .codex/rules/amh.rules keep 644

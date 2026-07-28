@@ -110,7 +110,10 @@ cheap:
   merge. Never edit them in your repo; the change you want belongs in `amh.conf`, in a
   `scripts/guards` script, or in `scripts/verify.sh`.
 - **Everything else is yours**, written only when absent: the seed prose, `amh.conf`, the CI
-  workflow, the agent adapter config. Re-running never clobbers a word you wrote.
+  workflow, and both agent adapters (`.claude/settings.json` for Claude Code;
+  `.codex/config.toml` plus `.codex/rules/amh.rules` for Codex). Codex consumes the canonical
+  `AGENTS.md` directly, so it does not need a second constitution pointer. Re-running never
+  clobbers a word you wrote.
 
 **What is left over is agent work, which is why the second step is a sentence rather than an
 afternoon.** The seeds arrive with `{{PLACEHOLDER}}` slots for your repo's invariants, test
@@ -181,7 +184,9 @@ CONTRIBUTING.md      how to change the harness: release flow, semver policy, rev
 LICENSE              MIT
 amh.conf             this repo's harness settings; the shipped scripts read it at runtime
 .gitignore
-.claude/settings.json   the agent adapter: permission rails, and the two hooks
+.claude/settings.json   Claude Code adapter: permission rails and lifecycle hooks
+.codex/config.toml      Codex adapter: honest repository-local capability declaration
+.codex/rules/amh.rules  Codex adapter: static command-policy rails
 docs/
   STATE.md           working memory: current state, Owner queue, changelog
   RUNBOOK.md         playbooks
@@ -198,7 +203,7 @@ harness/             THE PRODUCT — what an adopter copies
   templates/
     AMH-ADOPT.md     the adoption brief, written into an adopter's tree for their agent
     scripts/         the five shipped scripts, plus their generated integrity manifest
-    configs/         CI workflow and agent settings; substituted at init
+    configs/         CI workflow plus Claude Code and Codex adapters; substituted at init
     seed/            prose scaffolds: copied once, then yours forever
     amh.conf.example
 scripts/             THE INSTANCE — this repo living under what it ships
