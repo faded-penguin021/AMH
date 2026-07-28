@@ -117,6 +117,12 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-28 — **Codex adapter installation is complete and adopter-owned.** `amh-init.sh`
+  installs both canonical Codex configuration files only when absent, the end-to-end fixture
+  compares the fresh rendered adapter to its templates, rejects unresolved adapter
+  placeholders, and proves a re-run preserves adopter edits. The installed-file inventories
+  now name both Claude Code and Codex and state that Codex reads `AGENTS.md` directly rather
+  than requiring a duplicate pointer.
 - 2026-07-28 — **Codex gained a thin, honest repository adapter.** Repository-local Codex
   config and prefix-policy files now ship from `harness/templates/configs/`, install through
   `amh-init.sh`, and cover the static command denials that Codex policy can express. The
