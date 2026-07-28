@@ -11,6 +11,29 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 2.1.1 — 2026-07-27
+
+Guard fail messages now coach toward deep-folding instead of just naming the floor, and the
+seed template preamble explicitly addresses the short-first-pass pattern. The README Quick
+Start prompt primes the agent for the profile question before it reaches AMH-ADOPT.md.
+
+- **Guard fail messages name compression techniques.** Branch 1 and Branch 3 in
+  `guard_state_size()` now say "Fold more completed stages into single Changelog lines or move
+  content to the ledger — do not micro-trim" instead of "Go to the floor or leave the file
+  alone." Guard logic is unchanged.
+
+- **Seed template preamble addresses the short-first-pass pattern.** "If the pass lands short,
+  fold MORE completed stages — do not micro-trim toward the floor."
+
+- **Quick Start prompt primes the profile question.** The paste-into-your-agent block now
+  includes "It will ask you which installation profile to use — present the options and wait
+  for my answer before proceeding."
+
+### Upgrading
+
+**No action required.** Copy the shipped scripts as usual. The guard message and seed template
+changes reach new instantiations only; existing adopters' STATE.md preambles are their own.
+
 ## 2.1.0 — 2026-07-27
 
 The session banner learns to say whether the release your version file names has actually been

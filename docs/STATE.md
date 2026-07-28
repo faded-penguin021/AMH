@@ -4,8 +4,10 @@
 > **≤ 9 KB** — a ceiling, not a target; anywhere below it is fine and 7–8 KB is comfortable, but
 > do not keep shaving once you are under (owner, 2026-07-27). Fail above **16 KB**.
 > **Compress by folding whole completed stages into Changelog pointer lines and moving durable
-> lessons to the ledger** — never by shaving clauses until the guard goes quiet, which is the
-> micro-trim reflex the band exists to break, and never by cutting text into a new file.
+> lessons to the ledger** — never by shaving clauses until the guard goes quiet. If the first
+> pass lands short, fold MORE stages; do not micro-trim toward the floor — that is the same
+> reflex the band exists to break, reappearing one threshold lower. Never cut text into a new
+> file.
 > A typo fix above the cap is allowed and still owes the pass (**D-027**). The ladder checks
 > sizes, structure and repeated headings (**D-034**); nothing judges whether what survived is any
 > good, and it will not stop you dropping an open owner-queue item. Never drop one.
@@ -16,7 +18,7 @@ The AMH meta-repository: both the **source of truth** for the Agentic Maintenanc
 reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
 **reference instance**, running byte-identical copies of the scripts it ships. The product is
 `harness/` (prose source, templates, generated bundle); this repo's instance is `AGENTS.md` +
-`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 2.1.0** — see `harness/VERSION`,
+`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 2.1.1** — see `harness/VERSION`,
 the copy that counts.
 
 ## Current state
@@ -70,17 +72,12 @@ about this repo's past**, the memory tiers ARE the history (**DA-003**); `path-r
 > as verified while asserting nothing (**D-014**). Its absence is information: it means no
 > command settles this, which is itself worth knowing before you repeat the item to a human.
 
-**Pending owner actions — one.** Two closed on 2026-07-27: the 2.0.0 release (merged and tagged,
-verified against `git ls-remote`), and `main`'s branch protection, which the owner repointed from
-the phantom `build` context at `ladder`.
+1. **After merge: tag `amh-v2.1.1`** on the squash commit.
+   Check: `git ls-remote --tags origin amh-v2.1.1` — non-empty output means done.
 
-1. **Merge PR #4, then tag `amh-v2.1.0`** — in that order, because the release workflow
-   checks the tag against `harness/VERSION`, so the tag follows the merged bump. The owner called
-   the MINOR on 2026-07-27. Until the tag exists the README's Quick Start names a clone target
-   that 404s; unlike every release before it, **the session banner now says so on every run**
-   instead of leaving the window silent, which is what this release is largely about.
-   Check: `git ls-remote --tags origin 'refs/tags/amh-v2.1.0'` — a line back means it is cut and
-   this item is done; empty output means it is not, and is not evidence about anything else.
+Three closed on 2026-07-27: the 2.0.0 release (merged and tagged, verified against
+`git ls-remote`), `main`'s branch protection repointed at `ladder`, and the 2.1.0 release
+(PR #4 merged, tag `amh-v2.1.0` verified via `git ls-remote`).
 
 **Open questions:** none. Everything asked before it has been answered and recorded —
 the 2.0.0 severity call and the rule-scope additions in **DA-005**, the delegated closures of
@@ -108,6 +105,13 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-27 — **Guard fail messages now coach toward deep-folding, and the Quick Start prompt
+  primes the agent for the profile question** (**DA-013**). Two failures observed in a real
+  deployment: (1) a compression pass that landed short triggered micro-trim iterations because
+  the guard said "go to the floor" without saying how; (2) the agent skipped the profile
+  question because the owner's prompt didn't mention it, so nothing primed the expectation
+  before AMH-ADOPT.md. The seed template preamble now addresses the short-first-pass pattern
+  explicitly.
 - 2026-07-27 — **AMH 2.1.0: the release window became visible, and the queue learned to test itself.**
   `session-start.sh` now looks for the tag the version file implies — clone first, then `origin`
   — and reports present / absent / could-not-ask as three outcomes; `VERSION_FILE` and

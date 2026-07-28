@@ -69,10 +69,12 @@ Install the latest stable release of the Agentic Maintenance Harness (AMH) into 
 
 Run:
 
-    git clone --depth 1 --branch amh-v2.1.0 https://github.com/faded-penguin021/AMH.git /tmp/amh
+    git clone --depth 1 --branch amh-v2.1.1 https://github.com/faded-penguin021/AMH.git /tmp/amh
     /tmp/amh/scripts/amh-init.sh .
 
 Once the harness has been instantiated, read `AMH-ADOPT.md` and follow it completely.
+It will ask you which installation profile to use — present the options and wait for my
+answer before proceeding.
 
 Drive `scripts/ladder.sh` to green, explain any manual actions that require my attention, and
 delete `AMH-ADOPT.md` once adoption is complete.
