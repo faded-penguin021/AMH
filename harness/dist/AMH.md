@@ -731,7 +731,7 @@ PLAN_DIR=docs/plans
 # this list is a rule change either way, never housekeeping.
 #
 # Add each new agent adapter's config file here.
-RULE_FILES='AGENTS.md docs/RUNBOOK.md amh.conf scripts/ladder.sh scripts/test-ladder-guards.sh scripts/command-guard.sh scripts/redact.sh scripts/session-start.sh .claude/settings.json'
+RULE_FILES='AGENTS.md docs/RUNBOOK.md amh.conf scripts/ladder.sh scripts/test-ladder-guards.sh scripts/command-guard.sh scripts/redact.sh scripts/session-start.sh .claude/settings.json .codex/config.toml .codex/rules/amh.rules'
 ``````
 
 ### 3.2 `docs/STATE.md` — working memory (bounded, compressible)
@@ -1379,6 +1379,44 @@ A worked adapter, for Claude Code:
     ]
   }
 }
+``````
+
+A worked adapter, for Codex (repository config plus static command policy):
+
+``````
+# Codex adapter for the AMH. Wiring only: all behavioral policy lives in
+# AGENTS.md and scripts/. Codex currently has no repository-local session-start,
+# pre-shell, or output-filter lifecycle hook, so this file does not pretend to
+# run scripts/session-start.sh, scripts/command-guard.sh, or scripts/redact.sh.
+# The supported repository-local command-policy layer is wired separately in
+# .codex/rules/amh.rules. The command guard remains available for direct use.
+``````
+
+``````
+# AMH static deny rails for Codex. Wiring only; AGENTS.md and scripts/ own the
+# behavior and explanations. Prefix rules cannot provide output filtering or
+# invoke scripts/command-guard.sh as a pre-execution hook.
+
+# Environment dumps and direct secret-file reads.
+prefix_rule(pattern = ["env"], decision = "forbidden", justification = "AMH forbids environment dumps; check only whether a named key is set.")
+prefix_rule(pattern = ["printenv"], decision = "forbidden", justification = "AMH forbids environment dumps; check only whether a named key is set.")
+prefix_rule(pattern = ["set"], decision = "forbidden", justification = "AMH forbids shell state dumps.")
+prefix_rule(pattern = ["export", "-p"], decision = "forbidden", justification = "AMH forbids exported-environment dumps.")
+prefix_rule(pattern = ["declare", ["-p", "-x"]], decision = "forbidden", justification = "AMH forbids shell variable dumps.")
+prefix_rule(pattern = ["typeset", ["-p", "-x"]], decision = "forbidden", justification = "AMH forbids shell variable dumps.")
+prefix_rule(pattern = ["source", [".env", "./.env"]], decision = "forbidden", justification = "AMH forbids loading secret-bearing .env files.")
+prefix_rule(pattern = [".", [".env", "./.env"]], decision = "forbidden", justification = "AMH forbids loading secret-bearing .env files.")
+prefix_rule(pattern = [["cat", "head", "tail", "less", "more", "strings", "grep", "wc", "sha256sum", "md5sum"], [".env", "./.env", "/proc/self/environ"]], decision = "forbidden", justification = "AMH forbids reading secret-bearing .env files and process environments.")
+
+# Codex prefix policy has no path-glob operand, so nested .env paths and arbitrary
+# /proc/<pid>/environ paths cannot be expressed here. scripts/command-guard.sh covers
+# its enumerated reader forms; AGENTS.md remains binding beyond both mechanical rails.
+
+# Git publication rails. The instructive command guard covers more spellings
+# when run directly; these rules express the forms Codex's prefix policy can.
+prefix_rule(pattern = ["git", "push", ["--force", "-f", "--force-with-lease", "--mirror", "--all"]], decision = "forbidden", justification = "AMH forbids force-pushes and broad pushes.")
+prefix_rule(pattern = ["git", "push", "origin", ["--force", "-f", "--force-with-lease", "--mirror", "--all"]], decision = "forbidden", justification = "AMH forbids force-pushes and broad pushes.")
+prefix_rule(pattern = ["git", "push", "origin", ["{{DEFAULT_BRANCH}}", "HEAD:{{DEFAULT_BRANCH}}", "+{{DEFAULT_BRANCH}}", "+HEAD:{{DEFAULT_BRANCH}}"]], decision = "forbidden", justification = "AMH forbids pushes to DEFAULT_BRANCH; push the assigned session branch.")
 ``````
 
 ### 3.9 CI — invoking the same entrypoint
