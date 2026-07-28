@@ -78,6 +78,27 @@ else
 	fail "amh-init.sh instantiates into an empty git repo" "$out"
 fi
 
+if grep -qxF 'BRANCH_PREFIX=session' "$d/amh.conf"; then
+	pass
+else
+	fail "a fresh instantiation uses the agent-neutral session branch prefix"
+fi
+
+# The default is policy, not a hard-coded parser assumption: adopters can still choose any
+# namespace through the documented option, and configuration-driven scripts read that value.
+d_custom=$(target custom_branch_prefix)
+"$ROOT/scripts/amh-init.sh" --branch-prefix maintainer "$d_custom" >/dev/null 2>&1
+custom_guard_out=$("$d_custom/scripts/command-guard.sh" --command 'git push origin main' 2>&1)
+custom_guard_rc=$?
+if grep -qxF 'BRANCH_PREFIX=maintainer' "$d_custom/amh.conf" &&
+	[ "$custom_guard_rc" -eq 2 ] &&
+	printf '%s' "$custom_guard_out" | grep -qF 'maintainer/<codename>'; then
+	pass
+else
+	fail "--branch-prefix drives installed scripts with an arbitrary prefix" \
+		"exit $custom_guard_rc" "$custom_guard_out"
+fi
+
 expected_codex_rules="$WORK/expected-codex-amh.rules"
 default_branch_slot=$(printf '{%sDEFAULT_BRANCH}%s' '{' '}')
 sed "s/$default_branch_slot/main/g" \

@@ -63,7 +63,7 @@ usage: scripts/amh-init.sh [options] <target-repo>
 
   --profile NAME            light | standard | full               (default: light)
   --default-branch NAME     branch agents must never push to      (default: main)
-  --branch-prefix NAME      session-branch namespace              (default: claude)
+  --branch-prefix NAME      session-branch namespace              (default: session)
   --merge-mode MODE         branch-per-change | branch-train      (default: branch-per-change)
   --remote-flag NAME        env var marking a remote container    (default: AMH_REMOTE)
   --compress-to-kb N        state-file compression floor          (default: 9)
@@ -92,7 +92,7 @@ USAGE
 
 PROFILE=light
 DEFAULT_BRANCH=main
-BRANCH_PREFIX=claude
+BRANCH_PREFIX=session
 MERGE_MODE_KEY=branch-per-change
 REMOTE_FLAG=AMH_REMOTE
 COMPRESS_TO_KB=9

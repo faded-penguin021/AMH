@@ -38,8 +38,9 @@ ledger either way.
    fallback. The runbook required *asking* rather than parking, because a standing
    no-subagents instruction is a policy the owner can lift, not a capability limit.
 2. **Hookless posture: prose only.** No banner line, no new `amh.conf` key.
-3. **`BRANCH_PREFIX` default: flip to `session`** in `scripts/amh-init.sh`. This repo's own
-   `amh.conf` keeps `claude`.
+3. **`BRANCH_PREFIX` default: flip to `session`** in `scripts/amh-init.sh`. A later direct
+   owner instruction expanded that decision to this reference instance's `amh.conf` and
+   agent-facing examples; that newer instruction supersedes the original exception.
 4. **Version: MINOR — 2.2.0.**
 
 ## Segments

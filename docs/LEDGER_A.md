@@ -528,3 +528,18 @@
   distrust** — the code was tested, the sentence was not, and only one of them is legislation.
 
 - DA-013: **Prompt-level priming matters more than document-level instructions for agent behavior.** Two failures in a real AMH deployment: (a) a compression pass that landed at 10.2 KB (above the 9 KB floor) triggered a micro-trim cascade — the guard's fail message said "go to the floor or leave the file alone" without saying HOW (fold stages, move content to ledger), so the agent shaved clauses iteratively. Fixed: the guard's Branch 1 and Branch 3 fail messages now name the compression techniques and explicitly say "do not micro-trim"; the seed template preamble addresses the short-first-pass pattern. (b) The agent instantiated AMH on the `light` profile without asking the owner which profile they wanted. AMH-ADOPT.md step 1 says "ask the owner before you fill anything in" — but the Quick Start prompt block (what the owner pastes, and what the agent reads first) said nothing about the profile question. The agent had no primed expectation of needing to ask. Fixed: the Quick Start prompt now includes "It will ask you which installation profile to use — present the options and wait for my answer before proceeding." **The generalisation:** when an instruction matters, it must appear in the agent's first-read context (the owner's prompt), not only in a document the agent reads later. A document the agent "should" read is not the same as one it will act on — the prompt is the one context an agent cannot skip.
+- DA-014: **A shared harness's default namespace must describe the work, not the agent that
+  happens to perform it.** The reference instance and initializer used `claude`, even though
+  the shipped scripts' safe fallback was already `session` and the repository now supports
+  multiple agent adapters. The owner selected `session` through the binding-rule review path:
+  `amh.conf`, initializer help/defaults, adopter-facing examples and this repository's
+  constitution now agree, while `--branch-prefix` remains the configuration path for an
+  adopter that wants any other namespace. The fixture therefore pins both halves: a default
+  initialization yields `session`, and an explicit arbitrary value survives.
+  **Commit identity is a separate decision, not a reason to brand branches.** A reachability
+  audit found every address form already admitted by `AUTHOR_EMAIL_ALLOW` in repository
+  history, so removing any would reject commits this branch train legitimately contains.
+  They remain as the owner-approved no-reply set. No Codex/OpenAI address was added: agent
+  name does not establish approval, and inventing a plausible no-reply address would turn an
+  identity-protection rule into an inference. A new agent identity requires the owner's
+  approved non-personal commit address first.
