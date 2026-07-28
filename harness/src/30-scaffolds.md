@@ -228,6 +228,12 @@ A worked adapter, for Claude Code:
 
 <!-- amh:include harness/templates/configs/claude-settings.json -->
 
+A worked adapter, for Codex (repository config plus static command policy):
+
+<!-- amh:include harness/templates/configs/codex-config.toml -->
+
+<!-- amh:include harness/templates/configs/codex-amh.rules -->
+
 ### 3.9 CI — invoking the same entrypoint
 
 <!-- amh:include harness/templates/configs/ci.yml -->

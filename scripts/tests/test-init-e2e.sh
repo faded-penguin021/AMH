@@ -77,6 +77,12 @@ else
 	fail "amh-init.sh instantiates into an empty git repo" "$out"
 fi
 
+if [ -f "$d/.codex/config.toml" ] && [ -f "$d/.codex/rules/amh.rules" ]; then
+	pass
+else
+	fail "a fresh instantiation writes the Codex config and policy adapter"
+fi
+
 out=$(target_ladder "$d")
 rc=$?
 if [ "$rc" -eq 0 ]; then

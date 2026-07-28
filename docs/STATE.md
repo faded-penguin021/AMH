@@ -117,6 +117,12 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-28 — **Codex gained a thin, honest repository adapter.** Repository-local Codex
+  config and prefix-policy files now ship from `harness/templates/configs/`, install through
+  `amh-init.sh`, and cover the static command denials that Codex policy can express. The
+  adapter explicitly says that repository-local session-start, pre-shell and output-filter
+  hooks are unavailable rather than claiming `session-start.sh`, `command-guard.sh` or
+  `redact.sh` ran. Both Codex paths are legislation in both `RULE_FILES` declarations.
 - 2026-07-28 — **An external review (Qwen) entered as data, and its plan landed** —
   `docs/plans/2026-07-28-external-review-validation.md`, approved with four owner decisions
   recorded in it. Nothing of the review is implemented yet by design: the plan's binding

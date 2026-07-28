@@ -436,6 +436,8 @@ done < <(find "$TPL/seed" -type f | sort)
 install_file "$TPL/amh.conf.example" amh.conf keep 644
 install_file "$TPL/configs/ci.yml" .github/workflows/ci.yml keep 644
 install_file "$TPL/configs/claude-settings.json" .claude/settings.json keep 644
+install_file "$TPL/configs/codex-config.toml" .codex/config.toml keep 644
+install_file "$TPL/configs/codex-amh.rules" .codex/rules/amh.rules keep 644
 
 # The adoption brief: the work this tool cannot do, addressed to the agent that can.
 #
