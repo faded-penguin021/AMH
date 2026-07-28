@@ -114,6 +114,10 @@ number is that an adopter can trust it without reading the diff.
   branch is cut from the previous one and contains it whole, so only the final superset branch
   merges, as ONE squash PR whose body describes the net diff against the default branch rather
   than the last branch's. Under `branch-per-change` each branch would merge on its own.
+- Before creating or updating a pull request, read `.github/pull_request_template.md`, use
+  every applicable heading, and delete the headings that do not apply. This is a prose nudge
+  at the action point, not a gate: no script, required field or merge rule may consume the
+  headings as evidence that the work happened (P3, D-014).
 - **Merging and tagging are owner steps.** Queue them; do not attempt them.
 
 ### The identity your commits carry

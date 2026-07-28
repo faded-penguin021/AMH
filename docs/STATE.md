@@ -123,6 +123,10 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-28 — **PR creation now points explicitly at the repository template** (**DA-015**).
+  `CONTRIBUTING.md` puts the nudge at the action point while preserving the D-014 boundary:
+  use applicable prose headings, but never make their presence evidence for a gate.
+
 - 2026-07-28 — **Session branches gained an agent-neutral namespace** (**DA-014**).
   `session` is consistent across the reference config, initializer default, help and examples;
   fixtures pin that default while retaining an arbitrary-prefix case. A separate review kept

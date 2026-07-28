@@ -543,3 +543,16 @@
   name does not establish approval, and inventing a plausible no-reply address would turn an
   identity-protection rule into an inference. A new agent identity requires the owner's
   approved non-personal commit address first.
+- DA-015: **A template that exists only at the interface one tool bypasses is not an
+  action-point instruction.** The agent-neutral branch-prefix PR was created through a metadata
+  tool that accepted a free-form title and body without surfacing GitHub's repository template.
+  The template already had the exact section the resulting body needed — “What the review pass
+  found” — but the contributor workflow mentioned the template only while defending prose from
+  the self-attestation ban. The review did happen and found a defect, yet the PR body omitted
+  it, so the owner had to ask whether the mandatory pass had run. The fix is deliberately
+  prose-only: immediately before the merge rules' owner-actions line, contributors are told to
+  open `.github/pull_request_template.md`, use every applicable heading and delete the rest.
+  **It must not become a presence check.** Requiring or grepping for those headings would prove
+  only that an agent can reproduce headings and would violate D-014; the nudge earns its place
+  by making useful disclosure easier at the moment the body is written, not by treating that
+  disclosure as evidence.
