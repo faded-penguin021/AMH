@@ -32,6 +32,18 @@ the copy that counts.
 > still points at `7d322d7`. **No plan is active** (P16). Next work comes from the Owner queue,
 > or from the owner.
 
+**An external review by a peer LLM (Qwen, relayed by the owner) is being worked as DATA** (P18,
+the DA-001 precedent). Plan: `docs/plans/2026-07-28-external-review-validation.md`, owner-approved
+2026-07-28, with the standing constraint that **each finding is verified during its own segment,
+never at drafting time** — a claim that fails re-verification is recorded as refused, not built.
+Segments: **S0 land the plan ✓** · S1 verdicts to the ledger + non-items · S2 the ledger is
+retrieval storage (prose + a byte figure in the rollover rung) · S3 what the rails do NOT catch,
+plus the hookless posture · S4 repo-local config-schema guard · S5 low findings + release 2.2.0
+and plan deletion. Owner decisions on the record: the rule-review reviewer is **authorized** (a
+no-subagents instruction is policy, not capability — the runbook says ask), the hookless gap is
+**prose only**, `amh-init.sh`'s `BRANCH_PREFIX` default flips to `session`, and the release is a
+**MINOR, 2.2.0**.
+
 **A queue item outlives its own truth, and a session that restates it ships nonsense** — the
 2.0.0 release item was restated as pending in a session that began after both the merge and the
 tag (**DA-011**). 2.1.0 is the fix: the rule is now in `AGENTS.md`, the runbook, P9 and the
@@ -105,6 +117,11 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-28 — **An external review (Qwen) entered as data, and its plan landed** —
+  `docs/plans/2026-07-28-external-review-validation.md`, approved with four owner decisions
+  recorded in it. Nothing of the review is implemented yet by design: the plan's binding
+  constraint is that each finding is checked against the tree inside the segment that acts on
+  it. S0 is this line.
 - 2026-07-27 — **Guard fail messages now coach toward deep-folding, and the Quick Start prompt
   primes the agent for the profile question** (**DA-013**). Two failures observed in a real
   deployment: (1) a compression pass that landed short triggered micro-trim iterations because
