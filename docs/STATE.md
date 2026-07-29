@@ -90,12 +90,10 @@ about this repo's past**, the memory tiers ARE the history (**DA-003**); `path-r
 > as verified while asserting nothing (**D-014**). Its absence is information: it means no
 > command settles this, which is itself worth knowing before you repeat the item to a human.
 
-1. **After merge: tag `amh-v2.1.1`** on the squash commit.
-   Check: `git ls-remote --tags origin amh-v2.1.1` — non-empty output means done.
-
-Three closed on 2026-07-27: the 2.0.0 release (merged and tagged, verified against
+Four closed: the 2.0.0 release (merged and tagged, verified against
 `git ls-remote`), `main`'s branch protection repointed at `ladder`, and the 2.1.0 release
-(PR #4 merged, tag `amh-v2.1.0` verified via `git ls-remote`).
+(PR #4 merged, tag `amh-v2.1.0` verified via `git ls-remote`) on 2026-07-27; and the
+`amh-v2.1.1` tag, confirmed by the owner on 2026-07-29.
 
 **Open questions:** none. Everything asked before it has been answered and recorded —
 the 2.0.0 severity call and the rule-scope additions in **DA-005**, the delegated closures of
@@ -122,6 +120,15 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
+
+- 2026-07-29 — **The owner confirmed `amh-v2.1.1` is tagged.** The completed release action
+  has been removed from the Owner queue; this clone has no `origin`, so the record attributes
+  the confirmation rather than claiming a local remote check.
+
+- 2026-07-29 — **The first-class adapter set is now statically guarded** (**DA-016**).
+  A repo-local guard declares the Claude Code and Codex source/reference pairs and checks each
+  installer action plus both reference and adopter `RULE_FILES` declarations. Mutations remove
+  a Codex path, install action and both legislation entries independently, proving all layers.
 
 - 2026-07-28 — **PR creation now points explicitly at the repository template** (**DA-015**).
   `CONTRIBUTING.md` puts the nudge at the action point while preserving the D-014 boundary:
