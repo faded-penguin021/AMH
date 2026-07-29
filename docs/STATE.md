@@ -121,6 +121,9 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-29 — **A docs-only handoff checkpoint makes the completed adapter-guard work
+  available as a pull-request diff in environments that require a new branch commit.**
+
 - 2026-07-29 — **The owner confirmed `amh-v2.1.1` is tagged.** The completed release action
   has been removed from the Owner queue; this clone has no `origin`, so the record attributes
   the confirmation rather than claiming a local remote check.
