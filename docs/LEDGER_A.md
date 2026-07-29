@@ -556,3 +556,12 @@
   only that an agent can reproduce headings and would violate D-014; the nudge earns its place
   by making useful disclosure easier at the moment the body is written, not by treating that
   disclosure as evidence.
+- DA-016: **A first-class adapter is a cross-layer contract, not merely a file that exists.**
+  Claude Code and Codex adapter files had source templates, reference-instance counterparts,
+  initializer actions and permission-scope entries, but no single check declared that set. A
+  partial removal could therefore leave the remaining layers internally green. The repo-local
+  adapter-set guard now names the expected source/destination pairs and checks delivery plus
+  both the reference and adopter `RULE_FILES` values. Its fixtures independently remove a
+  Codex reference path, installer action, reference legislation entry and adopter legislation
+  entry; inference from surviving files is deliberately avoided because it would let the
+  expected set shrink with the defect.

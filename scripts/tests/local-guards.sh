@@ -69,6 +69,7 @@ expect pass "placeholder-integrity: clean tree" "$base" placeholder-integrity.sh
 expect pass "version-lockstep: clean tree" "$base" version-lockstep.sh
 expect pass "path-refs: clean tree" "$base" path-refs.sh
 expect pass "manifest-drift: clean tree" "$base" manifest-drift.sh
+expect pass "adapter-set: clean tree" "$base" adapter-set.sh
 
 d=$(snapshot drift_script)
 printf '# local edit\n' >>"$d/scripts/redact.sh"
@@ -101,6 +102,26 @@ expect fail "manifest-drift: a hand-edited manifest" "$d" manifest-drift.sh "sta
 d=$(snapshot drift_manifest_gone)
 rm "$d/harness/templates/scripts/MANIFEST.sha256"
 expect fail "manifest-drift: no manifest at all" "$d" manifest-drift.sh "has not been built"
+
+# The adapter set is declared in the guard rather than inferred from whichever files happen
+# to remain. These Codex mutations prove that each independent delivery layer is live:
+# reference path, installer action, and both legislation values. Removing a whole adapter
+# cannot make the expected set shrink along with it.
+d=$(snapshot adapter_codex_path_gone)
+rm "$d/.codex/config.toml"
+expect fail "adapter-set: a Codex reference path was removed" "$d" adapter-set.sh ".codex/config.toml"
+
+d=$(snapshot adapter_codex_install_gone)
+sed -i '\|codex-config.toml.*\.codex/config.toml|d' "$d/scripts/amh-init.sh"
+expect fail "adapter-set: a Codex install action was removed" "$d" adapter-set.sh "install action missing"
+
+d=$(snapshot adapter_codex_legislation_gone)
+sed -i 's/ \.codex\/config\.toml//' "$d/harness/templates/amh.conf.example"
+expect fail "adapter-set: a Codex legislation entry was removed" "$d" adapter-set.sh "adopter RULE_FILES"
+
+d=$(snapshot adapter_codex_reference_legislation_gone)
+sed -i 's/ \.codex\/config\.toml//' "$d/amh.conf"
+expect fail "adapter-set: a Codex reference legislation entry was removed" "$d" adapter-set.sh "reference RULE_FILES"
 
 d=$(snapshot drift_dist)
 printf 'hand edit\n' >>"$d/harness/dist/AMH.md"
