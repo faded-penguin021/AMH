@@ -23,14 +23,9 @@ the copy that counts.
 
 ## Current state
 
-> **Session handoff (2026-07-27).** **2.0.0 is released and tagged** (`afd990e`, verified with
-> `git ls-remote --tags` rather than inherited from the previous handoff, which had it pending).
-> **2.1.0 is written and pushed** on `claude/readme-quick-start-4g4ala`, cut from `main`
-> (`git merge-base origin/main HEAD` = `afd990e`), and awaiting merge and tag. **PR #4 is open**
-> on head `19ba842` — verified with `list_pull_requests`, after the first draft of this handoff
-> asserted a PR that did not exist (**DA-011**, inside the release that fixes it). `amh-v1.8.0`
-> still points at `7d322d7`. **No plan is active** (P16). Next work comes from the Owner queue,
-> or from the owner.
+> **Session handoff (2026-07-30).** Adopted version is **AMH 2.1.1**. The owner confirmed its
+> tag on 2026-07-29; this clone has no `origin`, so the confirmation is attributed rather than
+> re-verified locally. The external-review validation plan below is active with S0 complete.
 
 **An external review by a peer LLM (Qwen, relayed by the owner) is being worked as DATA** (P18,
 the DA-001 precedent). Plan: `docs/plans/2026-07-28-external-review-validation.md`, owner-approved
@@ -56,8 +51,9 @@ with `--branch-prefix`. The identity allowlist was reviewed as a separate decisi
 existing no-reply address forms are used in repository history, so all remain; no
 Codex/OpenAI identity was added without owner approval (**DA-014**).
 
-Legislation (a diff touching `RULE_FILES`) means ONE blocking fresh-context reviewer, strongest
-tier, one pass, no self-review fallback (D-015, bounded by **D-035**); **twenty-six of
+Legislation (a binding-rule or guard-semantics diff) means ONE blocking fresh-context reviewer,
+strongest tier, one pass, no self-review fallback (D-015, bounded by **D-035**); `RULE_FILES`
+is its file-granular tripwire, not its complete scope. **Twenty-six of
 twenty-seven passes found a real defect inside the FIX**. A session forbidden subagents ASKS
 rather than parking the work (runbook).
 
@@ -121,12 +117,17 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-30 — **The compact constitution's review contradictions are corrected** (**DA-018**).
+  Rule-review scope again differs from its `RULE_FILES` tripwire, Session discipline is back
+  on the universal route and navigation contract, secret wording permits non-rendering commit
+  metadata checks, and Current state now agrees with the active plan and closed release queue.
+
 - 2026-07-30 — **Large-document reading is now query-first and section-bounded** (**DA-017**).
   The constitution states the widening conditions; the runbook gives portable retrieval
-  examples; a repo-local guard and mutations keep its five binding section pointers unique and
+  examples; a repo-local guard and mutations keep its binding section pointers unique and
   resolvable without pretending to prove what an agent read.
 
-- 2026-07-30 — **The reference-instance constitution now provides a compact 90-line entry
+- 2026-07-30 — **The reference-instance constitution now provides an approximately 90-line entry
   context.** `AGENTS.md` retains irreversible safety boundaries, source/generated ownership,
   universal session entry, and binding pointers while moving operational detail behind the
   existing RUNBOOK, configuration, scripts, STATE, and ledger layers; this reorganizes existing

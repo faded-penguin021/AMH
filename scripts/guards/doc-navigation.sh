@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Repo-local guard: binding runbook section pointers from AGENTS.md remain navigable.
+# Repo-local guard: binding runbook section pointers keep bounded retrieval navigable (DA-017).
 # The expected set is declared here rather than inferred from surviving prose, so a section
-# and its pointer cannot disappear together while the check shrinks with the defect (DA-017).
+# and its pointer cannot disappear together while the check shrinks with the real omission
+# that earned this guard (DA-018).
 
 set -uo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." || exit 1
@@ -41,6 +42,7 @@ done <<'NAVIGATION'
 `docs/RUNBOOK.md` → **Efficient document retrieval**.|## Efficient document retrieval
 - Binding-rule changes: `docs/RUNBOOK.md` → **Rule-review protocol**.|## Rule-review protocol (MANDATORY for binding-rule and guard diffs)
 - Secret handling and incidents: `docs/RUNBOOK.md` → **Incident: leaked credential**.|## Incident: leaked credential
+- Session execution, checkpoints, recovery, and owner forks: `docs/RUNBOOK.md` → **Session discipline**.|## Session discipline (BINDING for every session)
 - Verification and locally unverifiable coverage: `docs/RUNBOOK.md` → **Acceptance ladder**.|## Acceptance ladder
 NAVIGATION
 

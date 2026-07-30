@@ -34,16 +34,18 @@ the rule-review protocol.
 7. Commit with an honest verification disclosure, then push the permitted
    `BRANCH_PREFIX/<codename>` session branch.
 
-The procedures named in `docs/RUNBOOK.md` are binding. In particular, use **Change-type
-playbooks** for changes, **Rule-review protocol** for every `RULE_FILES` change, **Acceptance
-ladder** for verification, and **Incident: leaked credential** for a credential incident.
+The procedures named in `docs/RUNBOOK.md` are binding. Follow **Session discipline** every
+session; use **Change-type playbooks** for the task; apply **Rule-review protocol** when the
+diff changes binding rules or guard semantics. `RULE_FILES` is a tripwire, not a complete
+definition of that scope.
 
 ## Hard boundaries
 
-- Never disclose or inspect raw credentials or personal identifiers, including values,
-  fragments, lengths, hashes, environment dumps, credential files, container/service inspect
-  output, or personal commit addresses. Check presence only. See `scripts/command-guard.sh`;
-  if exposure occurs, follow `docs/RUNBOOK.md` → **Incident: leaked credential**.
+- Never inspect or disclose credential values or private personal identifiers, including
+  fragments, lengths, hashes, environment dumps, credential files, or container/service
+  inspect output. Automated identity checks may inspect commit metadata but must not render
+  unapproved addresses. See `scripts/command-guard.sh`; if exposure occurs, follow
+  `docs/RUNBOOK.md` → **Incident: leaked credential**.
 - Never force-push or push to the branch named by `DEFAULT_BRANCH`. Push only the configured
   session branch; the owner merges.
 - Never rewrite pushed history. The only exception is the owner-directed, owner-executed
@@ -62,6 +64,7 @@ ladder** for verification, and **Incident: leaked credential** for a credential 
 ## Progressive disclosure
 
 - Secret handling and incidents: `docs/RUNBOOK.md` → **Incident: leaked credential**.
+- Session execution, checkpoints, recovery, and owner forks: `docs/RUNBOOK.md` → **Session discipline**.
 - Change procedures: `docs/RUNBOOK.md` → **Change-type playbooks**.
 - Binding-rule changes: `docs/RUNBOOK.md` → **Rule-review protocol**.
 - Verification and locally unverifiable coverage: `docs/RUNBOOK.md` → **Acceptance ladder**.

@@ -84,6 +84,11 @@ d=$(snapshot doc_navigation_pointer_missing)
 sed -i 's/^- Verification and locally unverifiable coverage:/- Local verification:/' "$d/AGENTS.md"
 expect fail "doc-navigation: a binding constitution pointer was renamed" "$d" doc-navigation.sh "missing navigation pointer"
 
+d=$(snapshot doc_navigation_session_pointer_missing)
+sed -i '/^- Session execution, checkpoints, recovery, and owner forks:/d' "$d/AGENTS.md"
+sed -i 's/Follow \*\*Session discipline\*\* every/Follow the runbook every/' "$d/AGENTS.md"
+expect fail "doc-navigation: Session discipline routing was removed" "$d" doc-navigation.sh "missing navigation pointer"
+
 d=$(snapshot drift_script)
 printf '# local edit\n' >>"$d/scripts/redact.sh"
 expect fail "copy-drift: an edited shipped script" "$d" copy-drift.sh "drift:"

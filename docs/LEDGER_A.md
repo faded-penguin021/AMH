@@ -575,3 +575,13 @@
   navigation guard declares the binding runbook headings independently and rejects missing or
   duplicate headings; it deliberately cannot check which commands ran or what an agent read,
   because consuming such an attestation would recreate D-014.
+- DA-018 [cited]: **The constitution compaction itself caused the pointer-loss incident that
+  earns the navigation guard.** Review found that the shortened entry route omitted the binding
+  Session discipline section and incorrectly equated `RULE_FILES` with rule-review scope,
+  despite the runbook explicitly defining that list as an incomplete, file-granular tripwire.
+  This was a real rule-discoverability regression in the proposed repository state, not a
+  mutation invented to justify machinery. The correction restores an explicit Session
+  discipline pointer, adds that pointer/heading pair to the independently declared navigation
+  contract, and adds a fixture that deletes it. The same pass reconciled stale Current state
+  claims and narrowed secret wording so automated identity checks may inspect commit metadata
+  without rendering an unapproved address.
