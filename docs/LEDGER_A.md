@@ -565,3 +565,13 @@
   Codex reference path, installer action, reference legislation entry and adopter legislation
   entry; inference from surviving files is deliberately avoided because it would let the
   expected set shrink with the defect.
+- DA-017 [cited]: **Context-efficient reading is a bounded-retrieval rule, not a command-use
+  attestation.** Large runbooks and ledger volumes can be loaded whole even
+  when one named section or identifier answered the question, spending the agent's context on
+  irrelevant history. The entry constitution now requires query-first, section-bounded reads
+  with an explicit widening rule for prerequisites, interacting rules and ambiguity; the
+  runbook gives portable `grep`/`awk` examples but admits equivalent native range tools. Stored
+  line-number indexes were rejected because ordinary edits make them drift. The repo-local
+  navigation guard declares the binding runbook headings independently and rejects missing or
+  duplicate headings; it deliberately cannot check which commands ran or what an agent read,
+  because consuming such an attestation would recreate D-014.

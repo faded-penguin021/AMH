@@ -61,8 +61,7 @@ ladder** for verification, and **Incident: leaked credential** for a credential 
 
 ## Progressive disclosure
 
-- Secret handling, command rails, and incidents: `scripts/command-guard.sh` and
-  `docs/RUNBOOK.md` → **Incident: leaked credential**.
+- Secret handling and incidents: `docs/RUNBOOK.md` → **Incident: leaked credential**.
 - Change procedures: `docs/RUNBOOK.md` → **Change-type playbooks**.
 - Binding-rule changes: `docs/RUNBOOK.md` → **Rule-review protocol**.
 - Verification and locally unverifiable coverage: `docs/RUNBOOK.md` → **Acceptance ladder**.
@@ -77,6 +76,10 @@ ladder** for verification, and **Incident: leaked credential** for a credential 
 
 - Match existing shell style and file layout. Preserve functional invariants visible in the
   relevant playbook, nearby code, fixtures, and ledger citations.
+- Keep document reads query-first and bounded: inspect headings or search for the relevant
+  identifier, then read the matching section. Widen to adjacent or full content whenever the
+  excerpt names prerequisites, rules may interact, or meaning remains ambiguous; follow
+  `docs/RUNBOOK.md` → **Efficient document retrieval**.
 - Keep shipped scripts repository-agnostic. A repository-specific need belongs in an existing
   extension point or requires a reviewed extension-point change.
 - New guard behavior ships with a fixture that demonstrably fails without the behavior. Keep

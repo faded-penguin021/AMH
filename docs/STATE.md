@@ -121,81 +121,19 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-30 — **Large-document reading is now query-first and section-bounded** (**DA-017**).
+  The constitution states the widening conditions; the runbook gives portable retrieval
+  examples; a repo-local guard and mutations keep its five binding section pointers unique and
+  resolvable without pretending to prove what an agent read.
+
 - 2026-07-30 — **The reference-instance constitution now provides a compact 90-line entry
   context.** `AGENTS.md` retains irreversible safety boundaries, source/generated ownership,
   universal session entry, and binding pointers while moving operational detail behind the
   existing RUNBOOK, configuration, scripts, STATE, and ledger layers; this reorganizes existing
   governance rather than establishing a new rule.
 
-- 2026-07-29 — **A docs-only handoff checkpoint makes the completed adapter-guard work
-  available as a pull-request diff in environments that require a new branch commit.**
-
-- 2026-07-29 — **The owner confirmed `amh-v2.1.1` is tagged.** The completed release action
-  has been removed from the Owner queue; this clone has no `origin`, so the record attributes
-  the confirmation rather than claiming a local remote check.
-
-- 2026-07-29 — **The first-class adapter set is now statically guarded** (**DA-016**).
-  A repo-local guard declares the Claude Code and Codex source/reference pairs and checks each
-  installer action plus both reference and adopter `RULE_FILES` declarations. Mutations remove
-  a Codex path, install action and both legislation entries independently, proving all layers.
-
-- 2026-07-28 — **PR creation now points explicitly at the repository template** (**DA-015**).
-  `CONTRIBUTING.md` puts the nudge at the action point while preserving the D-014 boundary:
-  use applicable prose headings, but never make their presence evidence for a gate.
-
-- 2026-07-28 — **Session branches gained an agent-neutral namespace** (**DA-014**).
-  `session` is consistent across the reference config, initializer default, help and examples;
-  fixtures pin that default while retaining an arbitrary-prefix case. A separate review kept
-  only the three owner-approved no-reply forms already required by repository history and did
-  not invent a Codex/OpenAI commit identity.
-
-- 2026-07-28 — **Codex adapter installation is complete and adopter-owned.** `amh-init.sh`
-  installs both canonical Codex configuration files only when absent, the end-to-end fixture
-  compares the fresh rendered adapter to its templates, rejects unresolved adapter
-  placeholders, and proves a re-run preserves adopter edits. The installed-file inventories
-  now name both Claude Code and Codex and state that Codex reads `AGENTS.md` directly rather
-  than requiring a duplicate pointer.
-- 2026-07-28 — **Codex gained a thin, honest repository adapter.** Repository-local Codex
-  config and prefix-policy files now ship from `harness/templates/configs/`, install through
-  `amh-init.sh`, and cover the static command denials that Codex policy can express. The
-  adapter explicitly says that repository-local session-start, pre-shell and output-filter
-  hooks are unavailable rather than claiming `session-start.sh`, `command-guard.sh` or
-  `redact.sh` ran. Both Codex paths are legislation in both `RULE_FILES` declarations.
-- 2026-07-28 — **An external review (Qwen) entered as data, and its plan landed** —
-  `docs/plans/2026-07-28-external-review-validation.md`, approved with four owner decisions
-  recorded in it. Nothing of the review is implemented yet by design: the plan's binding
-  constraint is that each finding is checked against the tree inside the segment that acts on
-  it. S0 is this line.
-- 2026-07-27 — **Guard fail messages now coach toward deep-folding, and the Quick Start prompt
-  primes the agent for the profile question** (**DA-013**). Two failures observed in a real
-  deployment: (1) a compression pass that landed short triggered micro-trim iterations because
-  the guard said "go to the floor" without saying how; (2) the agent skipped the profile
-  question because the owner's prompt didn't mention it, so nothing primed the expectation
-  before AMH-ADOPT.md. The seed template preamble now addresses the short-first-pass pattern
-  explicitly.
-- 2026-07-27 — **AMH 2.1.0: the release window became visible, and the queue learned to test itself.**
-  `session-start.sh` now looks for the tag the version file implies — clone first, then `origin`
-  — and reports present / absent / could-not-ask as three outcomes; `VERSION_FILE` and
-  `RELEASE_TAG_PREFIX` are new `amh.conf` keys, empty by default so no existing adopter changes.
-  Queue items carry a **Check:** command where one exists, optional by design. Its pass found the
-  fix's own defects: the first draft read local refs while the constitution claimed it answered
-  whether the tag *exists*, which in this clone (tags never fetched) would have cried wolf every
-  session forever — with a fixture pinning the false alarm as correct (**DA-012**).
-  Owner, same day: branch protection repointed at `ladder`, closing the phantom `build` context.
-- 2026-07-27 — **`docs/UPGRADING.md` gained the upgrade counterpart to the Quick Start block**
-  (owner: the instantiation path had one, the upgrade path did not). It resolves the newest tag
-  with `ls-remote | sort -V | tail -1` instead of naming a version, so it is not a sixth
-  hand-written copy for `version-lockstep.sh` to miss — verified against the real remote, which
-  returns `amh-v2.0.0` until 2.1.0 is tagged.
-- 2026-07-27 — **README Quick Start is a paste-into-your-agent block** (owner request), by-hand
-  path under it. The pinned tag stays a SINGLE occurrence: `version-lockstep.sh` checks the first
-  match only, so the manual block reuses the clone rather than repeating the tag.
-- 2026-07-27 — **The instantiation plan, U1–U4, shipped as AMH 2.0.0**, plan file deleted (P16):
-  the adoption brief, install profiles, the shipped-script integrity manifest and its rung, and
-  the quickstart rewritten against the tag it pins — **DA-002**, **DA-006**…**DA-010**.
-- 2026-07-25/27 — **Everything before the release, folded**: founding day, the self-hosting core
-  and its legislation, the adopter templates and harness bundle, the server-side rails, first
-  green CI, the founding train's merge and the ledger's rollover to volume A, the external RFC
-  evaluated as data, and the archive-intake correction that made this release a MAJOR. The detail
-  is permanent in **D-001**…**D-035** and **DA-001**…**DA-005**; those rows, not this line, are
-  the record.
+- 2026-07-25/29 — **Everything before the compact constitution, folded**: founding and
+  self-hosting, AMH 2.0.0 and 2.1.x, installation profiles and integrity manifests, release and
+  queue visibility, agent-neutral branches, Claude/Codex adapter delivery and its cross-layer
+  guard, PR-template guidance, and context-compression coaching. Durable detail is in
+  **D-001**…**D-035** and **DA-001**…**DA-016**; those rows, not this line, are the record.
