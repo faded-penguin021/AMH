@@ -70,6 +70,24 @@ expect pass "version-lockstep: clean tree" "$base" version-lockstep.sh
 expect pass "path-refs: clean tree" "$base" path-refs.sh
 expect pass "manifest-drift: clean tree" "$base" manifest-drift.sh
 expect pass "adapter-set: clean tree" "$base" adapter-set.sh
+expect pass "doc-navigation: clean tree" "$base" doc-navigation.sh
+
+d=$(snapshot doc_navigation_missing)
+sed -i 's/^## Acceptance ladder$/## Verification ladder/' "$d/docs/RUNBOOK.md"
+expect fail "doc-navigation: a binding heading was renamed" "$d" doc-navigation.sh "missing navigation heading"
+
+d=$(snapshot doc_navigation_duplicate)
+printf '\n## Acceptance ladder\n' >>"$d/docs/RUNBOOK.md"
+expect fail "doc-navigation: a binding heading was duplicated" "$d" doc-navigation.sh "duplicate navigation heading"
+
+d=$(snapshot doc_navigation_pointer_missing)
+sed -i 's/^- Verification and locally unverifiable coverage:/- Local verification:/' "$d/AGENTS.md"
+expect fail "doc-navigation: a binding constitution pointer was renamed" "$d" doc-navigation.sh "missing navigation pointer"
+
+d=$(snapshot doc_navigation_session_pointer_missing)
+sed -i '/^- Session execution, checkpoints, recovery, and owner forks:/d' "$d/AGENTS.md"
+sed -i 's/Follow \*\*Session discipline\*\* every/Follow the runbook every/' "$d/AGENTS.md"
+expect fail "doc-navigation: Session discipline routing was removed" "$d" doc-navigation.sh "missing navigation pointer"
 
 d=$(snapshot drift_script)
 printf '# local edit\n' >>"$d/scripts/redact.sh"

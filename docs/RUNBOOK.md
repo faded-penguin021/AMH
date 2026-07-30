@@ -33,6 +33,28 @@ disagrees with the code, trust the code and fix the doc.
 | What changed between versions? | `harness/CHANGELOG.md` |
 | How do I contribute a harness change? | `CONTRIBUTING.md` |
 
+## Efficient document retrieval
+
+Keep context relevant by locating before loading. For a large structured document, list its
+headings or search for the exact identifier, then print only the matching section; widen the
+read when that section names prerequisites, rules may interact across sections, or the excerpt
+is ambiguous. This is an outcome rule, not a command ritual: native range-reading tools are
+equally valid. The entry constitution and `docs/STATE.md` are read in full at session start,
+and any playbook instruction to read a file in full overrides this optimization.
+
+Portable examples (headings and ledger identifiers are stable navigation keys; stored line
+numbers are not):
+
+```bash
+grep -nE '^#{1,3} ' docs/RUNBOOK.md
+awk '/^## Rule-review protocol/{p=1} p && /^## / && !/^## Rule-review protocol/{exit} p' docs/RUNBOOK.md
+grep -nF 'DA-016:' docs/LEDGER_A.md
+```
+
+The documentation-navigation guard checks that every runbook section named by the entry
+constitution exists exactly once. It cannot prove what an agent read, and no attestation or
+shell history may be used as evidence that this procedure was followed (DA-017).
+
 ## Change-type playbooks
 
 Each: *when · read first · what to touch · obligations · acceptance · record it.*
