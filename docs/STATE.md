@@ -121,6 +121,12 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-30 — **The reference-instance constitution now provides a compact 90-line entry
+  context.** `AGENTS.md` retains irreversible safety boundaries, source/generated ownership,
+  universal session entry, and binding pointers while moving operational detail behind the
+  existing RUNBOOK, configuration, scripts, STATE, and ledger layers; this reorganizes existing
+  governance rather than establishing a new rule.
+
 - 2026-07-29 — **A docs-only handoff checkpoint makes the completed adapter-guard work
   available as a pull-request diff in environments that require a new branch commit.**
 
