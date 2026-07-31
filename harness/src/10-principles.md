@@ -167,14 +167,16 @@ rejected, with dates and reasons ("don't re-litigate without new evidence"). Age
 external AI reviewers — endlessly re-propose plausible-sounding ideas the owner already
 declined. This section is the vaccine, and it is cheaper than re-arguing each time.
 
-**P11. Citations bind code to permanent memory — and a machine enforces both directions.** Code
-comments cite ledger entries by bare ID (`D-042`); a guard verifies that every ID cited from
-source resolves to a ledger row, that row numbers are unique, and that rows cited from code
+**P11. Citations bind implementation artifacts to permanent memory — and a machine enforces
+both directions.** Code and workflow comments cite ledger entries by bare ID (`D-042`); a guard
+verifies that every ID cited from its configured implementation paths resolves to a ledger row,
+that row numbers are unique, and that rows cited from those paths
 carry a `[cited]` marker — one you write and the guard verifies in both directions, not one
 anything syncs for you — so anyone reading the ledger knows which rows are load-bearing
 before rewording them. Where code ports behaviour from a reference system, add
 **provenance comments** naming the exact source artifact and location. Never cite ephemeral
-artifacts (plan files, chat) from code: cite only artifacts guaranteed to outlive the change.
+artifacts (plan files, chat) from implementation files: cite only artifacts guaranteed to
+outlive the change.
 
 **P12. Adversarial review, seeded by your own bug history — in a fresh context.** Test suites
 cannot see all code; platform and runtime "glue" is typically invisible to golden vectors. For

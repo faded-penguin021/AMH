@@ -328,7 +328,7 @@ The reviewer hunts these rule bug classes:
 - **enforcement asymmetry** — prose implies a check no guard performs. Say "prose-only", or
   add the check;
 - **citation validity** — cited ledger rows exist AND actually support the claim. The
-  citation guard scans code, not doc prose, so the "actually supports" half is checked only
+  citation guard scans configured implementation paths, not doc prose, so the "actually supports" half is checked only
   here;
 - **agent-agnosticism regression** — the rule silently assumes one agent's machinery,
   filenames or environment variables.
