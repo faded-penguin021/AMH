@@ -11,6 +11,13 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+### Pending next release
+
+- **P11 now names its full citation scope.** The principle says code and workflow comments,
+  and describes the configured implementation paths the citation guard actually scans, rather
+  than narrowing the machine-checked half to code alone. The guard diagnostics and rule-review
+  checklist use the same scope. No enforcement behavior or adopter action changes.
+
 ## 2.1.1 — 2026-07-27
 
 Guard fail messages now coach toward deep-folding instead of just naming the floor, and the

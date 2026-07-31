@@ -337,15 +337,15 @@ guard_citations() {
 	local unresolved missing_marker stale_marker
 	unresolved=$(comm -23 "$cited" <(sort -u "$rows"))
 	if [ -n "$unresolved" ]; then
-		fail "cited from code but no such ledger row: $(printf '%s' "$unresolved" | tr '\n' ' ')"
+		fail "cited from configured implementation paths but no such ledger row: $(printf '%s' "$unresolved" | tr '\n' ' ')"
 	fi
 	missing_marker=$(comm -23 "$cited" <(sort -u "$marked"))
 	if [ -n "$missing_marker" ]; then
-		fail "cited from code but not marked [cited] in the ledger: $(printf '%s' "$missing_marker" | tr '\n' ' ') — the marker warns the next reader that code depends on the row"
+		fail "cited from configured implementation paths but not marked [cited] in the ledger: $(printf '%s' "$missing_marker" | tr '\n' ' ') — the marker warns the next reader that an implementation artifact depends on the row"
 	fi
 	stale_marker=$(comm -13 "$cited" <(sort -u "$marked"))
 	if [ -n "$stale_marker" ]; then
-		fail "marked [cited] but no longer cited from code: $(printf '%s' "$stale_marker" | tr '\n' ' ') — drop the marker (never the row)"
+		fail "marked [cited] but no longer cited from configured implementation paths: $(printf '%s' "$stale_marker" | tr '\n' ' ') — drop the marker (never the row)"
 	fi
 	[ -z "$unresolved$missing_marker$stale_marker$dupes" ] && ok "$(wc -l <"$cited" | tr -d ' ') citation(s) resolve; markers in sync"
 }

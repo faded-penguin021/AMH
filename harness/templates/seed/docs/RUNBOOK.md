@@ -127,7 +127,7 @@ occur):
 - **enforcement asymmetry** — prose implies a check no guard performs (say "prose-only", or
   add the check);
 - **citation validity** — cited ledger entries exist AND actually support the claim (the
-  citation guard scans code, not doc prose — this half is checked only here);
+  citation guard scans configured implementation paths, not doc prose — this half is checked only here);
 - **agent-agnosticism regression** — the rule silently assumes one agent's machinery,
   filenames or environment variables.
 

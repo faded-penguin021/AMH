@@ -585,3 +585,18 @@
   contract, and adds a fixture that deletes it. The same pass reconciled stale Current state
   claims and narrowed secret wording so automated identity checks may inspect commit metadata
   without rendering an unapproved address.
+- DA-019: **A recurring design motif is not automatically a missing principle, but prose must
+  still name the scope its mechanism enforces.** A structural review of AMH 2.1.1 found no live
+  contradiction among P0–P20. Its proposed new principles — enforcement-limit honesty,
+  incident-earned machinery, presence-derived activation and warning-signal preservation — are
+  already explicit companion rules, scoped architectural invariants or local heuristics;
+  numbering them would duplicate obligations without forbidding a new bad decision. The same
+  review correctly found one narrower description: P11 spoke only of code while
+  `CITATION_SCAN_PATHS` includes workflows. P11 now names code and workflow comments and the
+  configured implementation paths. The mandatory review found that the guard diagnostics and
+  both runbook review checklists still said “code”; those were aligned in the same reviewed unit.
+  Enforcement semantics are unchanged.
+  Duplicating P14's lock-versus-sentinel detail into the session-start scaffold was refused
+  because that section already delegates behavior to P14; an adoption-authority mechanism was
+  also refused absent an actual failure, since the owner instruction to follow the brief is
+  already the authority and the brief states that boundary explicitly.

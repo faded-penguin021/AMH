@@ -117,6 +117,11 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-07-31 — **The structural review found one prose/guard scope mismatch, not missing
+  principles** (**DA-019**). P11, the citation diagnostics and the review checklist now name workflows and configured
+  implementation paths; enforcement behavior is unchanged. The proposed principle promotions, duplicated P14 detail and an
+  adoption-authority mechanism were refused as repetition or speculation.
+
 - 2026-07-30 — **The compact constitution's review contradictions are corrected** (**DA-018**).
   Rule-review scope again differs from its `RULE_FILES` tripwire, Session discipline is back
   on the universal route and navigation contract, secret wording permits non-rendering commit
