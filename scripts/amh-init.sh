@@ -222,8 +222,8 @@ esac
 # REMOTE_FLAG becomes the NAME of a shell variable the bootstrap reads indirectly. A value
 # like AMH-REMOTE is not a shell identifier, so the read fails at runtime and the toolchain
 # bootstrap is skipped — quietly, which is the worst way for it to fail. Reject it here.
-# (This narrows the blast radius; it does not fix the bootstrap's silent skip, which is a
-# separate open finding against session-start.sh.)
+# An existing adopter can still carry a malformed value in amh.conf; session-start.sh validates
+# that downstream input and reports the skipped bootstrap explicitly.
 case $REMOTE_FLAG in
 [A-Za-z_]*) [[ $REMOTE_FLAG =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || die "--remote-flag must be a valid shell variable name (letters, digits, underscore; not starting with a digit): '$REMOTE_FLAG'" ;;
 *) die "--remote-flag must be a valid shell variable name: '$REMOTE_FLAG'" ;;
