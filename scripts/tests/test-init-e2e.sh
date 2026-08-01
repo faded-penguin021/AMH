@@ -8,12 +8,12 @@
 # artifact nobody can execute accumulates defects at full speed and reports none (D-023).
 #
 # What this asserts, in order:
-#   1. a fresh instantiation produces a repo whose own ladder is GREEN,
+#   1. a fresh instantiation produces a repo whose own guards-only ladder is GREEN,
 #   2. ...and that green is not vacuous — a planted credential still turns it red,
 #   3. re-running init upgrades the machinery and leaves the adopter's judgement and both
 #      agent adapters alone,
 #   4. the init placeholder list and harness/PLACEHOLDERS.md cannot diverge in silence,
-#   5. every --profile installs its own seed set and produces a GREEN ladder in that repo.
+#   5. every --profile installs its own seed set and produces a GREEN guards-only ladder there.
 #
 # Repo-local: this script runs from the harness's source of truth. It is not shipped, and
 # an adopter never runs it.

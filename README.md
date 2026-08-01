@@ -126,7 +126,9 @@ So the init run installs `AMH-ADOPT.md`, a brief addressed to that agent rather 
 tells the agent to ask you how much of the harness you want, fill the slots from your
 repository, put your real commands in `scripts/verify.sh`, drive the ladder green, and then
 delete the brief. It carries no checkboxes and nothing downstream reads a word of it:
-**acceptance is the ladder**, run in your repo, green.
+the ladder is the **mechanical acceptance gate**, run in your repo, green. That green result is
+necessary, not sufficient: you must still inspect whether the agent reconciled every placeholder
+with the repository and removed `AMH-ADOPT.md` when adoption was complete.
 
 ```sh
 cd /path/to/your-repo
