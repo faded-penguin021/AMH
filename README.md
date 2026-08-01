@@ -194,8 +194,8 @@ docs/
   RUNBOOK.md         playbooks
   LEDGER.md          permanent memory: append-only D-NNN rows
   UPGRADING.md       for an adopting repo moving to a newer harness version
-  history/           frozen archive: documents retired whole, never compressed residue
-  plans/             multi-session build plans; disposable by design
+  history/           frozen archive: completed plans and other documents retired whole
+  plans/             active multi-session build plans
 harness/             THE PRODUCT — what an adopter copies
   VERSION            the version this tree distributes
   CHANGELOG.md       per-release notes, each with an Upgrading section

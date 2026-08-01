@@ -76,8 +76,12 @@ first — the cardinal sin is letting RAM accrete what belongs on disk.
 compression pass *folds* it: the durable content leaves as a ledger row, and what remains
 becomes a changelog line pointing at that row. Narrative whose durable content has already
 been extracted is cache, not data, and cold storage is not where cache goes to be safe. The
-archive is for documents retired **whole** — a frozen prior-era design doc, a reference
-superseded outright — never the residue of a compression pass.
+archive is for documents retired **whole** — a completed plan, a frozen prior-era design doc,
+a reference superseded outright — never the residue of a compression pass. A plan stops being
+live when all of its work is complete; if it remains useful as a record, move the whole file
+from `docs/plans/` to `docs/history/` rather than deleting it. Its durable outcomes still
+belong in ledger rows and changelog lines: archiving preserves the plan, but does not promote
+it to permanent memory or make it a valid implementation citation.
 
 **And never another tier's live file.** Retiring the working-memory file into the archive and
 starting a fresh one satisfies every word above while defeating the point: it is the same
@@ -350,9 +354,11 @@ runbook must always describe how changes are *actually* made now.
 **P16. Multi-session features use provisional persisted plans.** An owner-approved plan file
 plus a checklist mirrored in the state file; segments run sequentially, each ending shippable
 (P5). Treat the plan as provisional — the owner may pivot mid-feature, and per-segment
-checkpoints are what make removal of an entire segment cheap. At the final segment **delete the
-plan file**: by then its durable content must live in changelog lines and ledger rows (P11 —
-code never cites the plan, because the plan dies and the ledger does not).
+checkpoints are what make removal of an entire segment cheap. At the final segment, move a
+completed plan worth retaining whole into the archive if that tier exists; otherwise delete
+it. Either way its durable outcomes must live in changelog lines and ledger rows (P11 — code
+never cites a plan, because even an archived plan is historical context while the ledger is
+permanent memory).
 
 **P17. Secrets are write-only to the agent.** Session environments carry credentials — VCS
 tokens, proxy auth, deploy keys — even when the codebase ships none. Never dump environments
@@ -896,9 +902,10 @@ cut (version invariants; the owner does the tagging), etc.}}
 4. **You are the last reviewer.** The review protocols below are mandatory. There is no
    stronger pass behind you.
 5. **Multi-unit work** persists an owner-approved plan file plus a STATE checklist; segments
-   run sequentially and each ends shippable; delete the plan file at the end — by then its
-   durable content lives in changelog lines and ledger rows. Code cites ledger rows, never
-   plans: plans die, the ledger does not.
+   run sequentially and each ends shippable. At the end, move a completed plan worth retaining
+   whole to `docs/history/` if this repository has the archive tier; otherwise delete it. Its
+   durable outcomes live in changelog lines and ledger rows either way. Code cites ledger rows,
+   never plans: an archived plan is a historical record, not permanent memory.
 6. **Recovery (bounded).** If the unit in flight has gone wrong: reset to the last green
    checkpoint, re-run the ladder to confirm green, re-attempt smaller — recording any durable
    lesson first. Recovery is not infinite: if the SAME blocker survives a second
@@ -1185,7 +1192,7 @@ The guards it ships with:
   the default branch but the state file is not in the diff, so the changelog line is probably
   missing); a stale-branch tripwire classified mechanically with the P13 test-merge; a
   plan-orphan tripwire (a file under `docs/plans/` not referenced from the state file's active
-  work, meaning a finished or pivoted plan missed its deletion step); and a rule-review
+  work, meaning a finished or pivoted plan missed its archive-or-delete step); and a rule-review
   tripwire on the uncommitted diff. The state file and the ledgers are deliberately excluded
   from that last one: they change in nearly every unit, and warn fatigue kills tripwires.
 

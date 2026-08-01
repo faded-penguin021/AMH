@@ -9,10 +9,12 @@ then and copy this README's rules in with it.
 
 Consult what is in here; never edit it.
 
-**What lands here: documents retired WHOLE.** A frozen prior-era design doc, a specification
-superseded outright, a reference for a subsystem that no longer exists — something that stopped
-being live all at once and is worth keeping readable. Adding such a file is the only way this
-directory grows.
+**What lands here: documents retired WHOLE.** A completed plan worth retaining, a frozen
+prior-era design doc, a specification superseded outright, a reference for a subsystem that no
+longer exists — something that stopped being live all at once and is worth keeping readable.
+Adding such a file is the only way this directory grows. A completed plan's durable outcomes
+still belong in ledger rows and changelog lines; its archived copy is context, not permanent
+memory and not a valid implementation citation.
 
 **What does not land here: the output of a compression pass.** When the working-memory file is
 compressed, its durable facts leave as ledger rows and the rest is folded into a changelog line

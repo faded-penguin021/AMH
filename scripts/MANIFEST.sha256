@@ -7,7 +7,7 @@
 # in a guard under scripts/guards/, or in scripts/verify.sh. Check by hand with:
 #   sha256sum -c scripts/MANIFEST.sha256
 a10f0dadfeeeec930a3e48e8eb13f9decc5286eb0e4ecb04aa6a845c9beb645e  scripts/command-guard.sh
-ddef8ad714fd43a42d5e94fd09f8f151c60aef164df438fdc6258ee67b66c2d5  scripts/ladder.sh
+0015019d93027db4035f7c4f6779d40040e2a061c3100830058b92c3f18333e9  scripts/ladder.sh
 6ceb5c037791fe51c71f1e520ada271b4f2734e9d5164de73b245341db1acd7a  scripts/redact.sh
 d928a7945ac916e86915f401dd3910dd3d3b6a11b97c38c7101251e72f725f00  scripts/session-start.sh
-de59f3a7e4e51562d95d7060700f0d60324d37ce3ece708dd5b03dbe01dbed45  scripts/test-ladder-guards.sh
+74d72e313cd071b391c0f115beef156b1027afcae27b143f1d60221d11a35806  scripts/test-ladder-guards.sh

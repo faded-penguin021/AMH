@@ -1,8 +1,9 @@
 # PLAN — validate and act on the external (Qwen) review
 
 Owner-approved 2026-07-28. Provisional (P16): the owner may pivot; each segment ends shippable,
-and the final segment **deletes this file** — by then its durable content lives in the STATE
-changelog lines and the ledger row S1 writes. Code never cites a plan.
+and the final segment **moves this completed plan whole to `docs/history/`** — by then its
+durable outcomes live in the STATE changelog lines and the ledger row S1 writes. The archived
+plan remains historical context; code never cites it.
 
 ## Context
 
@@ -76,7 +77,8 @@ the diff green, uncommitted and unpushed, while the review pass is in flight.
 - **S5 — low findings, then close out.** L1 acknowledgement in the runbook's *Add a guard*;
   L2 default flip; release 2.2.0 (VERSION, CHANGELOG with its Upgrading subsection, the five
   hand-written copies `version-lockstep.sh` binds, `build-dist.sh` AND `build-manifest.sh`);
-  delete this file; Owner-queue item for the tag with its `Check:` command.
+  move this file whole to `docs/history/`; Owner-queue item for the tag with its `Check:`
+  command.
 
 ## Verification
 

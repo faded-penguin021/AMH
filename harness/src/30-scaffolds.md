@@ -152,7 +152,7 @@ The guards it ships with:
   the default branch but the state file is not in the diff, so the changelog line is probably
   missing); a stale-branch tripwire classified mechanically with the P13 test-merge; a
   plan-orphan tripwire (a file under `docs/plans/` not referenced from the state file's active
-  work, meaning a finished or pivoted plan missed its deletion step); and a rule-review
+  work, meaning a finished or pivoted plan missed its archive-or-delete step); and a rule-review
   tripwire on the uncommitted diff. The state file and the ledgers are deliberately excluded
   from that last one: they change in nearly every unit, and warn fatigue kills tripwires.
 

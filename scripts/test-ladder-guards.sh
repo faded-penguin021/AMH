@@ -1147,6 +1147,18 @@ else
 	report no "an uncommitted legislation edit warns" "no rule-review warning" "$out"
 fi
 
+# A completed plan may now retire whole into the optional archive. The advisory is coaching,
+# not enforcement, but deletion-only coaching directly contradicts P2/P16 at the action point.
+d=$(mk advisory_plan_lifecycle)
+mkdir -p "$d/docs/plans"
+printf '# completed plan\n' >"$d/docs/plans/completed.md"
+out=$(run_local "$d")
+if printf '%s' "$out" | grep -qF "Move a completed plan worth retaining whole to docs/history/ when that archive tier exists; otherwise delete it"; then
+	report ok
+else
+	report no "an orphaned plan is coached toward archive-or-delete" "no archive-or-delete warning" "$out"
+fi
+
 d=$(mk advisory_ci)
 sed -i "s|^RULE_FILES=''|RULE_FILES='amh.conf'|" "$d/amh.conf"
 printf '\n# an uncommitted legislation edit\n' >>"$d/amh.conf"

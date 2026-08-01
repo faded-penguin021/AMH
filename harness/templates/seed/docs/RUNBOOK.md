@@ -50,9 +50,10 @@ cut (version invariants; the owner does the tagging), etc.}}
 4. **You are the last reviewer.** The review protocols below are mandatory. There is no
    stronger pass behind you.
 5. **Multi-unit work** persists an owner-approved plan file plus a STATE checklist; segments
-   run sequentially and each ends shippable; delete the plan file at the end — by then its
-   durable content lives in changelog lines and ledger rows. Code cites ledger rows, never
-   plans: plans die, the ledger does not.
+   run sequentially and each ends shippable. At the end, move a completed plan worth retaining
+   whole to `docs/history/` if this repository has the archive tier; otherwise delete it. Its
+   durable outcomes live in changelog lines and ledger rows either way. Code cites ledger rows,
+   never plans: an archived plan is a historical record, not permanent memory.
 6. **Recovery (bounded).** If the unit in flight has gone wrong: reset to the last green
    checkpoint, re-run the ladder to confirm green, re-attempt smaller — recording any durable
    lesson first. Recovery is not infinite: if the SAME blocker survives a second
