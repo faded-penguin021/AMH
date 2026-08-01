@@ -600,3 +600,25 @@
   because that section already delegates behavior to P14; an adoption-authority mechanism was
   also refused absent an actual failure, since the owner instruction to follow the brief is
   already the authority and the brief states that boundary explicitly.
+- DA-020: **A completed plan is a document retired whole, not disposable residue.** Requiring
+  deletion after every multi-unit effort left the optional archive with no ordinary intake even
+  though a completed plan naturally stops being live all at once. P2 and Session discipline now
+  permit a plan worth retaining to move whole from `docs/plans/` to `docs/history/`; repositories
+  without the archive tier still delete it. Durable outcomes continue to land in ledger rows and
+  changelog lines, and implementation citations continue to resolve only to the ledger, so the
+  archive remains cold context rather than a second permanent-memory authority. This changes a
+  binding lifecycle rule and is therefore queued as a breaking change for the next release.
+- DA-021: **The post-change consistency audit found three stale lifecycle instructions, not a
+  missing principle or component.** P2 and P16 agreed that a completed plan may retire whole,
+  but the shipped plan-orphan advisory and its scaffold still described an orphan as having
+  missed deletion, while the active external-review plan still promised to delete itself. All
+  three now use the archive-or-delete lifecycle, and a shipped fixture fixes the advisory text
+  at its action point.
+  Reviewing P0–P20 against the shipped scaffolds, adapters, rails, ladder, fixtures, initializer
+  and reference instance found no second principle authority, unresolved contradiction or
+  undocumented core component. The recurring candidates for promotion — enforcement-limit
+  honesty, incident-earned machinery and presence-derived activation — remain explicit
+  companion rules or adaptation invariants rather than new top-level principles (DA-019).
+  AMH 2.1.1 has every component its documented scope promises, but is not feature-finished: the separately approved
+  external-review plan still owns its S1–S5 hardening work, whose claims must be re-verified in
+  their own segments rather than adopted speculatively here.

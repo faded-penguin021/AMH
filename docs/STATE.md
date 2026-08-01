@@ -34,7 +34,7 @@ never at drafting time** — a claim that fails re-verification is recorded as r
 Segments: **S0 land the plan ✓** · S1 verdicts to the ledger + non-items · S2 the ledger is
 retrieval storage (prose + a byte figure in the rollover rung) · S3 what the rails do NOT catch,
 plus the hookless posture · S4 repo-local config-schema guard · S5 low findings + release 2.2.0
-and plan deletion. Owner decisions on the record: the rule-review reviewer is **authorized** (a
+and plan archival. Owner decisions on the record: the rule-review reviewer is **authorized** (a
 no-subagents instruction is policy, not capability — the runbook says ask), the hookless gap is
 **prose only**, `amh-init.sh`'s `BRANCH_PREFIX` default flips to `session`, and the release is a
 **MINOR, 2.2.0**.
@@ -116,6 +116,15 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
+
+- 2026-08-01 — **The harness-wide consistency audit closed three stale plan-lifecycle phrases**
+  (**DA-021**). The shipped advisory, scaffold description and active plan now agree with
+  P2/P16; no new principle, consolidation or unplanned component earned its cost, while the
+  approved S1–S5 roadmap remains the bounded source of prospective hardening work.
+
+- 2026-08-01 — **Completed plans may now retire whole into `docs/history/`** (**DA-020**).
+  Plans worth retaining become frozen archive context while durable outcomes and implementation
+  citations remain in the ledger; repositories without the archive tier still delete them.
 
 - 2026-08-01 — **Adoption and initializer prose now describe only what the executable checks.**
   The README calls the ladder the mechanical gate without treating it as proof that manual

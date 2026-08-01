@@ -867,7 +867,7 @@ advisories() {
 		for p in "$PLAN_DIR"/*; do
 			[ -f "$p" ] || continue
 			if ! grep -qF "$(basename "$p")" "$STATE_FILE" 2>/dev/null; then
-				warn "$p is not referenced from $STATE_FILE — a finished or pivoted plan missed its deletion step. Plans die; code cites ledger rows, never plans."
+				warn "$p is not referenced from $STATE_FILE — a finished or pivoted plan missed its completion step. Move a completed plan worth retaining whole to docs/history/ when that archive tier exists; otherwise delete it. Code cites ledger rows, never plans."
 			fi
 		done
 	fi

@@ -42,8 +42,12 @@ first — the cardinal sin is letting RAM accrete what belongs on disk.
 compression pass *folds* it: the durable content leaves as a ledger row, and what remains
 becomes a changelog line pointing at that row. Narrative whose durable content has already
 been extracted is cache, not data, and cold storage is not where cache goes to be safe. The
-archive is for documents retired **whole** — a frozen prior-era design doc, a reference
-superseded outright — never the residue of a compression pass.
+archive is for documents retired **whole** — a completed plan, a frozen prior-era design doc,
+a reference superseded outright — never the residue of a compression pass. A plan stops being
+live when all of its work is complete; if it remains useful as a record, move the whole file
+from `docs/plans/` to `docs/history/` rather than deleting it. Its durable outcomes still
+belong in ledger rows and changelog lines: archiving preserves the plan, but does not promote
+it to permanent memory or make it a valid implementation citation.
 
 **And never another tier's live file.** Retiring the working-memory file into the archive and
 starting a fresh one satisfies every word above while defeating the point: it is the same
@@ -316,9 +320,11 @@ runbook must always describe how changes are *actually* made now.
 **P16. Multi-session features use provisional persisted plans.** An owner-approved plan file
 plus a checklist mirrored in the state file; segments run sequentially, each ending shippable
 (P5). Treat the plan as provisional — the owner may pivot mid-feature, and per-segment
-checkpoints are what make removal of an entire segment cheap. At the final segment **delete the
-plan file**: by then its durable content must live in changelog lines and ledger rows (P11 —
-code never cites the plan, because the plan dies and the ledger does not).
+checkpoints are what make removal of an entire segment cheap. At the final segment, move a
+completed plan worth retaining whole into the archive if that tier exists; otherwise delete
+it. Either way its durable outcomes must live in changelog lines and ledger rows (P11 — code
+never cites a plan, because even an archived plan is historical context while the ledger is
+permanent memory).
 
 **P17. Secrets are write-only to the agent.** Session environments carry credentials — VCS
 tokens, proxy auth, deploy keys — even when the codebase ships none. Never dump environments

@@ -13,6 +13,17 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
 
 ### Pending next release
 
+- **BREAKING — completed plans may be retained in the archive.** P2 now names a completed plan
+  as a document that can be retired whole. Session discipline moves a completed plan worth
+  retaining from `docs/plans/` to `docs/history/` when that optional tier exists, rather than
+  requiring every plan to be deleted. Durable outcomes still go to the ledger and changelog,
+  and implementation artifacts still cite ledger rows rather than archived plans.
+
+- **The plan lifecycle is internally consistent across live operational prose.** The shipped
+  plan-orphan advisory now coaches the archive-or-delete completion step, its scaffold describes
+  that behavior, and this repository's active plan will retire whole into the archive instead of
+  following its stale deletion-only instruction. Advisory verdict behavior is unchanged.
+
 - **P11 now names its full citation scope.** The principle says code and workflow comments,
   and describes the configured implementation paths the citation guard actually scans, rather
   than narrowing the machine-checked half to code alone. The guard diagnostics and rule-review
