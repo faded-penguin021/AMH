@@ -214,7 +214,14 @@ rather than the command.
   reason shown to the model). This is the layer that makes rails *self-correcting*; the static
   deny list stays beneath it as the second net. Follow the P13 pattern rules: leading-command
   matching, mistake-not-evasion threat model, fail open on malformed input, self-test run by
-  the ladder.
+  the ladder. Two honesty obligations come with it. The guard's header carries a consolidated
+  **what this guard does NOT catch** block — interpreters outside its enumerated reader list,
+  wrappers, constructed commands, heredocs, window limits — because a rail whose limits are
+  only discoverable by reading its scanners will be mistaken for a vault. And an agent with no
+  pre-execution hook has **no command rail at all**: the script is then one nobody calls, and
+  the prose is the only layer. Nothing can detect that state for the agent — distinguishing a
+  hook invocation from a manual one requires vendor-specific environment variables the harness
+  will not assume — so it is stated in the constitution rather than warned about at boot.
 - **Output redaction** (where supported): if the agent exposes an output-filter hook, pipe tool
   and terminal output through `scripts/redact.sh` so known token shapes are scrubbed before
   they reach the context window. State explicitly in the adapter which layers it actually

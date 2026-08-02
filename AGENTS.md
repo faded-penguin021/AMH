@@ -44,8 +44,13 @@ definition of that scope.
 - Never inspect or disclose credential values or private personal identifiers, including
   fragments, lengths, hashes, environment dumps, credential files, or container/service
   inspect output. Automated identity checks may inspect commit metadata but must not render
-  unapproved addresses. See `scripts/command-guard.sh`; if exposure occurs, follow
-  `docs/RUNBOOK.md` → **Incident: leaked credential**.
+  unapproved addresses. See `scripts/command-guard.sh` — and read the **what this guard does
+  NOT catch** block in its header before treating a green check as safety: interpreters outside
+  its enumerated reader list (`python3 -c "open('.env')"` above all), wrappers it does not strip,
+  constructed commands and heredocs reach past it. That block is the authority on which is
+  which; do not infer coverage in either direction from this line. This rule binds you whether
+  or not a script can see the shape you chose. If exposure occurs, follow `docs/RUNBOOK.md` →
+  **Incident: leaked credential**.
 - Never force-push or push to the branch named by `DEFAULT_BRANCH`. Push only the configured
   session branch; the owner merges.
 - Never rewrite pushed history. The only exception is the owner-directed, owner-executed
@@ -71,7 +76,9 @@ definition of that scope.
 - Current values, branch policy, rule-file scope, thresholds, and extension configuration:
   `amh.conf`.
 - Durable rationale, deviations, and discoveries: `docs/LEDGER.md` and the live ledger volume
-  named in `docs/STATE.md`.
+  named in `docs/STATE.md`. These are **retrieval storage**: grep for the identifier or topic
+  and read the row it resolves to. Never read a volume whole — at its cap it is tens of
+  kilobytes, and the ladder's cap rung prints its size for that reason (**DA-022**).
 - Current work, owner decisions, historical pointers, and operational gotchas:
   `docs/STATE.md`.
 
@@ -85,6 +92,11 @@ definition of that scope.
   `docs/RUNBOOK.md` → **Efficient document retrieval**.
 - Keep shipped scripts repository-agnostic. A repository-specific need belongs in an existing
   extension point or requires a reviewed extension-point change.
+- Know which rails your own session actually has. An agent whose harness provides no
+  pre-execution hook runs with **no command rail at all** — `scripts/command-guard.sh` is then
+  a script nobody calls, and these rules are the only layer. No script can detect this for you:
+  telling a hook invocation from a manual one requires one vendor's environment variables, which
+  the harness may not assume, so this stays prose on purpose (**DA-022**).
 - New guard behavior ships with a fixture that demonstrably fails without the behavior. Keep
   repo-local fixtures separate from the shipped fixture suite.
 - Add no dependency without owner approval; the distributed harness targets `bash`, `git`,

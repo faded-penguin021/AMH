@@ -63,14 +63,20 @@ the *why* of every tier's rule without re-derivation.
 |---|---|---|---|
 | Constitution | ROM / firmware | the agent-instructions file | Boot-loaded, read-mostly; changed rarely and deliberately; small by construction |
 | Working memory | RAM | `docs/STATE.md` | Rewritten freely but **capacity-bounded** — a machine-enforced cap forces compaction (hysteresis, protected regions); volatile, so results must be *flushed* to durable tiers |
-| Permanent memory | Disk / append-only journal | the numbered ledger | Append-only, never rewritten; rolls to a new volume at a size cap; every durable fact lands here, citable forever |
+| Permanent memory | Disk / append-only journal | the numbered ledger | Append-only, never rewritten; rolls to a new volume at a size cap; every durable fact lands here, citable forever; **addressed by citation — grep a row, never read the volume** |
 | Archive | Cold storage / backup tape | `docs/history/` | Frozen: consult it, never edit it. Grows only when a document is retired into it WHOLE — never another tier's live file; off the hot path, so unbounded is fine |
 
-Two corollaries the analogy makes self-evident. **(a)** The checkpoint invariant (P5) is
+Three corollaries the analogy makes self-evident. **(a)** The checkpoint invariant (P5) is
 *write-back before power loss*: working memory is volatile, so a unit's result is flushed to
 disk (commit + ledger row) before the session can die. **(b)** Durable facts belong on disk
 (the citable ledger), and only the small working set stays in the RAM every session reads
-first — the cardinal sin is letting RAM accrete what belongs on disk.
+first — the cardinal sin is letting RAM accrete what belongs on disk. **(c)** Disk is
+**addressed, not scanned**: a citation is a seek to one row, and a session that reads a whole
+ledger volume has loaded the disk into the context window — the very move the tiering exists to
+prevent. Working memory is capped so it can be read whole every session; permanent memory is
+capped so no single volume grows past what a *search* over it stays cheap on. That is why the
+ledger's cap counts lines while the rung beside it reports the live volume's size: the cap is a
+proxy, and a proxy that drifts from the cost it stands for should at least show you the drift.
 
 **Spent narrative is not moved anywhere, and this is the corollary that gets misread.** A
 compression pass *folds* it: the durable content leaves as a ledger row, and what remains
@@ -535,6 +541,10 @@ could NOT be verified locally — disclosure of real actions, never implied cove
 
 ## Invariants that still bind (full catalog: `docs/LEDGER.md`)
 
+The catalog is **retrieval storage**: grep it for the identifier or topic and read the row that
+resolves. Never read a ledger volume whole — at its cap it is tens of kilobytes, and the
+shortlist below is what a session is expected to carry without looking.
+
 {{INVARIANT_SHORTLIST}}
 
 ## Secret hygiene
@@ -551,7 +561,9 @@ could NOT be verified locally — disclosure of real actions, never implied cove
   enumerates** or a `<` redirection, and an `echo`/`printf` that expands a credential-shaped
   variable. That enumeration is a **list, not a category**: it names `cat`, `grep`, `wc`,
   `md5sum` and about thirty others, and anything outside it — `python3 -c "open('.env')"`
-  above all — reaches the file unjudged. The bullet above binds you whether or not a script
+  above all — reaches the file unjudged. Its header carries the consolidated **what this guard
+  does NOT catch** block; read that before treating a green check as safety. The bullet above
+  binds you whether or not a script
   can see the shape you chose. The deny rails add the spellings a prefix matcher can express. Anything
   else in this section — inspect output, screenshots, pasted logs — is **prose-only** and binds
   you, not a script. Say which layer holds a rule whenever you add one here; a false
@@ -605,6 +617,11 @@ could NOT be verified locally — disclosure of real actions, never implied cove
   pipe tool output through `scripts/redact.sh` if the agent has an output-filter hook; honour
   the one-session-one-branch rule; and add its config file to `RULE_FILES` in `amh.conf`.
   State explicitly which of those layers the adapter actually provides.
+- **An agent with no pre-execution hook has no command rail at all.** `scripts/command-guard.sh`
+  is then a script nobody calls, and the rules in this file are the only layer standing. No
+  check can tell you this: distinguishing a hook invocation from a manual one needs
+  vendor-specific environment variables the harness will not assume, which is why this is
+  written here rather than warned about at boot.
 ``````
 
 ### `CLAUDE.md` — the pointer stub
@@ -1066,6 +1083,14 @@ shipped bug teaches session N+9's review pass.
 > fixtures are ground truth: if an entry conflicts with the current code, trust the code and
 > **correct** the entry — never delete it.
 >
+> **This file is RETRIEVAL storage: grep it and cite it, never read it whole.** A `D-NNN`
+> citation resolves to one row, and one row is what you read. A volume at its cap is tens of
+> kilobytes of prose whose overwhelming majority is irrelevant to any given session, so
+> reading it end to end spends a context budget better spent on the code you came to change.
+> The ladder's cap rung prints a size in KB beside the line count so the read cost the cap
+> stands in for stays visible. It measures the **live** volume only: once this file rolls over,
+> its own size stops being reported, which is one more reason to grep it rather than open it.
+>
 > **Search before appending.** Grep the ledger for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes D-NNN") and the old row gets a correction pointer, never deletion.
@@ -1078,11 +1103,11 @@ shipped bug teaches session N+9's review pass.
 > `_B.md`/`DB-001`, …). Existing rows are never moved or renumbered — the cap bounds file
 > size, not history. A citation's prefix names its file.
 >
-> **`[cited]` marker (machine-managed).** A row cited from the ladder's scan scope carries
-> ` [cited]` after its number. The ladder checks it BOTH directions — cited-but-unmarked and
-> marked-but-uncited each fail the build — so it is verified derived state, never
-> hand-tracked. The marker warns you that code resolves here before you lean on or reword
-> a row.
+> **`[cited]` marker (machine-CHECKED — you write it, the ladder verifies it).** A row cited
+> from the ladder's scan scope carries ` [cited]` after its number. The ladder checks it BOTH
+> directions — cited-but-unmarked and marked-but-uncited each fail the build — but it never
+> edits this file: nothing syncs the marker for you. The marker warns you that code resolves
+> here before you lean on or reword a row.
 
 - D-001: {{terse entry: what was discovered, decided or broken; what to do about it; what it
   affects. One entry per durable fact. Solved mistakes AND standing invariants both live
@@ -1299,7 +1324,14 @@ rather than the command.
   reason shown to the model). This is the layer that makes rails *self-correcting*; the static
   deny list stays beneath it as the second net. Follow the P13 pattern rules: leading-command
   matching, mistake-not-evasion threat model, fail open on malformed input, self-test run by
-  the ladder.
+  the ladder. Two honesty obligations come with it. The guard's header carries a consolidated
+  **what this guard does NOT catch** block — interpreters outside its enumerated reader list,
+  wrappers, constructed commands, heredocs, window limits — because a rail whose limits are
+  only discoverable by reading its scanners will be mistaken for a vault. And an agent with no
+  pre-execution hook has **no command rail at all**: the script is then one nobody calls, and
+  the prose is the only layer. Nothing can detect that state for the agent — distinguishing a
+  hook invocation from a manual one requires vendor-specific environment variables the harness
+  will not assume — so it is stated in the constitution rather than warned about at boot.
 - **Output redaction** (where supported): if the agent exposes an output-filter hook, pipe tool
   and terminal output through `scripts/redact.sh` so known token shapes are scrubbed before
   they reach the context window. State explicitly in the adapter which layers it actually

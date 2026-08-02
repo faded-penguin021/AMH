@@ -12,6 +12,15 @@
 > bottom, one continuous sequence. Code and fixtures are ground truth: if an entry conflicts
 > with the current code, trust the code and **correct** the entry — never delete it.
 >
+> **This file is RETRIEVAL storage: grep it and cite it, never read it whole.** A `DA-NNN`
+> citation resolves to one row, and one row is what you read. A volume at its cap is tens of
+> kilobytes of prose whose overwhelming majority is irrelevant to any given session, so
+> reading it end to end spends a context budget better spent on the code you came to change —
+> and the ladder's cap rung prints this volume's size in KB beside its line count for exactly
+> that reason (**DA-022**), because it is the live one. Closed volumes are never measured.
+> Nothing in the harness has ever asked for a whole-volume read; this sentence exists because
+> nothing forbade one either.
+>
 > **Search before appending.** Grep BOTH volumes for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes D-NNN") and the old row gets a correction pointer, never deletion.

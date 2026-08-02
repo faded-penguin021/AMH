@@ -65,6 +65,10 @@ could NOT be verified locally — disclosure of real actions, never implied cove
 
 ## Invariants that still bind (full catalog: `docs/LEDGER.md`)
 
+The catalog is **retrieval storage**: grep it for the identifier or topic and read the row that
+resolves. Never read a ledger volume whole — at its cap it is tens of kilobytes, and the
+shortlist below is what a session is expected to carry without looking.
+
 {{INVARIANT_SHORTLIST}}
 
 ## Secret hygiene
@@ -81,7 +85,9 @@ could NOT be verified locally — disclosure of real actions, never implied cove
   enumerates** or a `<` redirection, and an `echo`/`printf` that expands a credential-shaped
   variable. That enumeration is a **list, not a category**: it names `cat`, `grep`, `wc`,
   `md5sum` and about thirty others, and anything outside it — `python3 -c "open('.env')"`
-  above all — reaches the file unjudged. The bullet above binds you whether or not a script
+  above all — reaches the file unjudged. Its header carries the consolidated **what this guard
+  does NOT catch** block; read that before treating a green check as safety. The bullet above
+  binds you whether or not a script
   can see the shape you chose. The deny rails add the spellings a prefix matcher can express. Anything
   else in this section — inspect output, screenshots, pasted logs — is **prose-only** and binds
   you, not a script. Say which layer holds a rule whenever you add one here; a false
@@ -135,3 +141,8 @@ could NOT be verified locally — disclosure of real actions, never implied cove
   pipe tool output through `scripts/redact.sh` if the agent has an output-filter hook; honour
   the one-session-one-branch rule; and add its config file to `RULE_FILES` in `amh.conf`.
   State explicitly which of those layers the adapter actually provides.
+- **An agent with no pre-execution hook has no command rail at all.** `scripts/command-guard.sh`
+  is then a script nobody calls, and the rules in this file are the only layer standing. No
+  check can tell you this: distinguishing a hook invocation from a manual one needs
+  vendor-specific environment variables the harness will not assume, which is why this is
+  written here rather than warned about at boot.

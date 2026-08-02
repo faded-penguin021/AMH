@@ -403,6 +403,45 @@ sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
 printf -- '- D-003: past the cap.\n' >>"$d/docs/LEDGER.md"
 expect_fail "a row starting past the line cap fails" "$d" "past the"
 
+# The cap gates LINES; the rung also REPORTS size, because read cost is what the cap
+# stands in for and prose rows make the two drift. ALL THREE branches must carry the
+# figure — one that appears only on the quiet path is missing exactly when the volume is
+# growing, and the fail branch is the volume at its largest.
+d=$(mk ledger_bytes)
+expect_pass_saying "the passing rung reports the live volume's size, not just its lines" "$d" \
+	"KB (grep it; a volume is retrieval storage, not a read)"
+
+# A REAL size, not just the literal around it. The fixture ledger is a few hundred bytes,
+# so every assertion above is equally satisfied by a script that hardcodes zero or measures
+# the wrong file. Pad well past a kilobyte and demand the figure this volume's own byte
+# count implies. The expectation is DERIVED, not hardcoded: the fixture ledger's length
+# depends on how many rows the shipped scripts cite, so a literal here would rot silently.
+# What this pins is that the number tracks the real file and is nonzero; the unit and the
+# wording are pinned by the assertions above and below it.
+d=$(mk ledger_bytes_nonzero)
+i=0
+while [ "$i" -lt 40 ]; do
+	printf -- '  padding line long enough to push this volume past one kilobyte of prose.\n' >>"$d/docs/LEDGER.md"
+	i=$((i + 1))
+done
+ledger_tenths=$(($(wc -c <"$d/docs/LEDGER.md") * 10 / 1024))
+expect_pass_saying "the reported size is measured, not a hardcoded zero" "$d" \
+	"lines, $((ledger_tenths / 10)).$((ledger_tenths % 10)) KB"
+
+d=$(mk ledger_bytes_warn)
+# Cap set to the volume's own length: inside the 90% warning band by construction, and
+# with no row able to start past it — derived, because a hardcoded number silently moves
+# into the FAIL branch the moment a shipped script cites one more row.
+ledger_lines=$(wc -l <"$d/docs/LEDGER.md")
+sed -i "s/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=$ledger_lines/" "$d/amh.conf"
+expect_warn "the approaching-cap warning reports the size too" "$d" "KB, approaching the ${ledger_lines}-line cap"
+
+d=$(mk ledger_bytes_fail)
+sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+printf -- '- D-003: a row past the cap.\n' >>"$d/docs/LEDGER.md"
+expect_fail "the rollover FAILURE reports the size too — that is the branch that needs it" "$d" \
+	"KB), past the 4-line cap"
+
 # --- citations
 d=$(mk cite_missing)
 printf '# see D-099\n' >"$d/scripts/thing.sh"

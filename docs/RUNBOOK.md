@@ -356,6 +356,13 @@ arbitrates. Nobody reviews the reviewer.
 
 ## Incident: leaked credential
 
+Before an incident, know the rail's shape: `scripts/command-guard.sh` carries a consolidated
+**what this guard does NOT catch** block in its header — interpreters outside its enumerated
+reader list, wrappers it does not strip, `eval`-constructed and encoded commands, heredocs and
+window limits. Read it there rather than reconstructing it from the scanners, and treat a green
+check as "no mistake this scanner recognises", never as proof a command was safe. An agent whose
+harness provides no pre-execution hook has no command rail at all.
+
 Containment outranks the checkpoint invariant.
 
 1. **Stop.** Never repeat the value again — not in STATE, the ledger, chat or a diff. Refer

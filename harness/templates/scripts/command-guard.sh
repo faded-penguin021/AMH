@@ -18,6 +18,47 @@
 #   * Fail OPEN on malformed input. A guard that bricks every command gets disabled,
 #     not fixed.
 #
+# WHAT THIS GUARD DOES NOT CATCH — the consolidated list, so no one has to reconstruct
+# it from the per-scanner notes below and no one mistakes this script for a vault. Each
+# scanner still carries its own `Accepted miss:` note at the point it applies; this block
+# is the index, and it is deliberately exhaustive about the categories rather than about
+# every spelling inside them:
+#
+#   * INTERPRETERS. The secret-file scanners recognise a file read through an enumerated
+#     list of reader commands (`cat`, `grep`, `awk`, `wc`, `md5sum` and about thirty more)
+#     or a `<` redirection. That list is a list, not a category: `python3 -c
+#     "open('.env')"`, `perl -e`, `node -e`, `ruby -e` and every other interpreter NOT on
+#     it reach the file unjudged. This is the widest hole and it is structural —
+#     enumerating interpreters would not close it, since each has unbounded ways to spell
+#     a read. Note the shape of the miss for a listed one: `awk '{print}' .env` is blocked
+#     because `awk` leads the segment, while `awk 'BEGIN{while((getline<".env")>0)print}'`
+#     hides the read inside the program text and is not.
+#   * WRAPPERS — but read which ones. `check_segment` STRIPS a set of transparent prefixes
+#     and judges what follows, so `sudo cat .env`, `nohup cat .env`, `nice`, `time`,
+#     `command`, `builtin`, `exec` and `env FOO=1 cat .env` ARE blocked (and a bare `env`
+#     or `env -i` is itself a dump, blocked on its own account). What gets past is every
+#     wrapper outside that set: `xargs cat .env`, `timeout 5 cat .env`, `ssh host cat
+#     .env`, `bash -c 'cat .env'`, and any shell function or alias standing in for the
+#     command. Do not read this bullet as "wrappers defeat the guard" — several do not,
+#     and deleting the strip loop because a comment said it was useless would remove real
+#     coverage the self-test asserts.
+#   * CONSTRUCTED AND ENCODED COMMANDS. `eval`, base64/hex payloads decoded at runtime,
+#     and any command assembled from variables are text at scan time, not commands.
+#   * HEREDOCS AND LONG LINES. `cmd <<EOF` hides its body until the delimiter, and the
+#     window-based scanners give up past `CHAR_LOOKAHEAD` characters — a variable name or
+#     redirection target longer than the window is not classified.
+#   * WHAT NO SCANNER LOOKS AT AT ALL. Container and service inspect output
+#     (`docker inspect` and friends) is prose-only policy: no guard sees it, and none is
+#     proposed, because it would block ordinary use to catch a shape the harness does not
+#     run. The identity rules are likewise prose here — an identity not yet committed is
+#     not on disk to check.
+#
+# None of this is a defect list. This guard exists to make the honest mistake expensive
+# and instructive; the deny rails beneath it add the spellings a prefix matcher can
+# express, and the rules in the constitution bind the agent whether or not any script can
+# see the shape it chose. Treat a green run as "no mistake this scanner recognises", never
+# as "this command is safe".
+#
 # Usage:
 #   command-guard.sh                  read a hook payload (JSON) on stdin
 #   command-guard.sh --command 'CMD'  check one command directly
