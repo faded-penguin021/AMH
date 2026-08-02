@@ -18,27 +18,22 @@ The AMH meta-repository: both the **source of truth** for the Agentic Maintenanc
 reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
 **reference instance**, running byte-identical copies of the scripts it ships. The product is
 `harness/` (prose source, templates, generated bundle); this repo's instance is `AGENTS.md` +
-`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 2.1.1** — see `harness/VERSION`,
+`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 3.0.0** — see `harness/VERSION`,
 the copy that counts.
 
 ## Current state
 
-> **Session handoff (2026-07-30).** Adopted version is **AMH 2.1.1**. The owner confirmed its
-> tag on 2026-07-29; this clone has no `origin`, so the confirmation is attributed rather than
-> re-verified locally. The external-review validation plan below is active with S0 complete.
+> **Session handoff (2026-08-02).** Adopted version is **AMH 3.0.0**, cut this session; the tag
+> is the one open queue item below. The external-review plan is COMPLETE and archived at
+> `docs/history/2026-07-28-external-review-validation.md`.
 
-**An external review by a peer LLM (Qwen, relayed by the owner) is being worked as DATA** (P18,
-the DA-001 precedent). Plan: `docs/plans/2026-07-28-external-review-validation.md`, owner-approved
-2026-07-28, with the standing constraint that **each finding is verified during its own segment,
-never at drafting time** — a claim that fails re-verification is recorded as refused, not built.
-Segments: **S0 land the plan ✓** · **S1 verdicts to the ledger + non-items ✓** (**DA-022**) ·
-S2 the ledger is retrieval storage (prose + a byte figure in the rollover rung) · S3 what the
-rails do NOT catch, plus the hookless posture · S4 repo-local config-schema guard · S5 the
-acknowledged fixture limit and the release. Owner decisions, all in **DA-022**: the rule-review
-reviewer is **authorized**; the hookless gap is **prose only**; the compact constitution is
-accepted **as-is**; the agent-neutral prefix flip stands as an owner decision, not on the
-unverifiable instruction-citation that had been written into the plan; and the release is a
-**MAJOR, 3.0.0** — DA-020 already queued the plan-lifecycle change as breaking.
+**The external review (Qwen, relayed by the owner) is closed, worked as DATA throughout** (P18,
+the DA-001 precedent). All verdicts and the owner decisions are **DA-022**; three of its seven
+claims were false as written and two were right about the problem but wrong about the mechanism.
+The standing constraint held: every finding was re-verified inside the segment that acted on it.
+**Both blocking review passes found real defects INSIDE the fixes** — a wrapper claim that was
+false, an `awk` claim contradicting the reader list two lines above it, and a guard that
+reported green with `comm` absent. That is the protocol earning its cost twice in one session.
 
 **A queue item outlives its own truth, and a session that restates it ships nonsense** — the
 2.0.0 release item was restated as pending in a session that began after both the merge and the
@@ -87,10 +82,17 @@ about this repo's past**, the memory tiers ARE the history (**DA-003**); `path-r
 > as verified while asserting nothing (**D-014**). Its absence is information: it means no
 > command settles this, which is itself worth knowing before you repeat the item to a human.
 
+**OPEN — cut the 3.0.0 release.** `harness/VERSION` says 3.0.0 and the changelog entry is
+written, but the merge and the tag are owner steps. A MAJOR: the plan-lifecycle rule changed,
+so the entry's Upgrading section is the complete list of what an adopter must do.
+**Check:** `git ls-remote --tags origin amh-v3.0.0` — output naming `refs/tags/amh-v3.0.0`
+means done; empty output means still open.
+
 Four closed: the 2.0.0 release (merged and tagged, verified against
 `git ls-remote`), `main`'s branch protection repointed at `ladder`, and the 2.1.0 release
-(PR #4 merged, tag `amh-v2.1.0` verified via `git ls-remote`) on 2026-07-27; and the
-`amh-v2.1.1` tag, confirmed by the owner on 2026-07-29.
+(PR #4 merged, tag `amh-v2.1.0` verified via `git ls-remote`) on 2026-07-27; the
+`amh-v2.1.1` tag, confirmed by the owner on 2026-07-29 and re-verified via
+`git ls-remote --tags origin amh-v2.1.1` on 2026-08-02.
 
 **Open questions:** none. Everything asked before it has been answered and recorded —
 the 2.0.0 severity call and the rule-scope additions in **DA-005**, the delegated closures of
@@ -122,6 +124,15 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
+
+- 2026-08-02 — **AMH 3.0.0.** A MAJOR because one binding rule changed: a completed plan may
+  retire into the archive instead of being deleted (**DA-020**). The release also carries the
+  work that had accumulated unreleased — the Codex adapter and its cross-layer guard, the
+  agent-neutral branch namespace (**DA-014**), the compact constitution and its navigation
+  guard (**DA-017**, **DA-018**), the P11 citation scope (**DA-019**), the PR handoff
+  checkpoint and the adoption-acceptance corrections — plus this plan's four hardening
+  segments, S1–S4. The completed plan is archived at
+  `docs/history/2026-07-28-external-review-validation.md`.
 
 - 2026-08-02 — **The external review's four hardening segments landed** (**DA-022**). The ledger
   is stated to be retrieval storage and its cap rung now reports size beside lines; the command

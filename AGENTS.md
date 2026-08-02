@@ -1,7 +1,7 @@
 # AMH meta-repository — maintenance guide
 
 This repository is the source of truth for the **Agentic Maintenance Harness** (AMH) and its
-reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 2.1.1**
+reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 3.0.0**
 (`harness/VERSION`).
 
 ## Sources and generated artifacts
