@@ -39,10 +39,13 @@ ledger either way.
    fallback. The runbook required *asking* rather than parking, because a standing
    no-subagents instruction is a policy the owner can lift, not a capability limit.
 2. **Hookless posture: prose only.** No banner line, no new `amh.conf` key.
-3. **`BRANCH_PREFIX` default: flip to `session`** in `scripts/amh-init.sh`. A later direct
-   owner instruction expanded that decision to this reference instance's `amh.conf` and
-   agent-facing examples; that newer instruction supersedes the original exception.
-4. **Version: MINOR — 2.2.0.**
+3. **`BRANCH_PREFIX` default: flip to `session`** in `scripts/amh-init.sh`, and — by a later
+   owner decision recorded in **DA-022** — in this reference instance's `amh.conf` and its
+   agent-facing examples too, superseding the original exception. The earlier wording here cited
+   "a later direct owner instruction" as its authority; that was an unverifiable attestation of
+   the kind P3/D-014 forbid relying on, so the decision now rests on the ledger row instead.
+4. **Version: MAJOR — 3.0.0** (revised from 2.2.0 by owner decision; DA-020 had already queued
+   the plan-lifecycle change as breaking).
 
 ## Segments
 
@@ -75,7 +78,7 @@ the diff green, uncommitted and unpushed, while the review pass is in flight.
   the example). Fixture in `scripts/tests/local-guards.sh`, demonstrated to fail without the
   guard. Adopter half is prose: `docs/UPGRADING.md` step 5 gains the key-set diff one-liner.
 - **S5 — low findings, then close out.** L1 acknowledgement in the runbook's *Add a guard*;
-  L2 default flip; release 2.2.0 (VERSION, CHANGELOG with its Upgrading subsection, the five
+  L2 default flip (landed early, DA-014); release 3.0.0 (VERSION, CHANGELOG with its Upgrading subsection, the five
   hand-written copies `version-lockstep.sh` binds, `build-dist.sh` AND `build-manifest.sh`);
   move this file whole to `docs/history/`; Owner-queue item for the tag with its `Check:`
   command.

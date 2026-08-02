@@ -31,13 +31,14 @@ the copy that counts.
 the DA-001 precedent). Plan: `docs/plans/2026-07-28-external-review-validation.md`, owner-approved
 2026-07-28, with the standing constraint that **each finding is verified during its own segment,
 never at drafting time** — a claim that fails re-verification is recorded as refused, not built.
-Segments: **S0 land the plan ✓** · S1 verdicts to the ledger + non-items · S2 the ledger is
-retrieval storage (prose + a byte figure in the rollover rung) · S3 what the rails do NOT catch,
-plus the hookless posture · S4 repo-local config-schema guard · S5 low findings + release 2.2.0
-and plan archival. Owner decisions on the record: the rule-review reviewer is **authorized** (a
-no-subagents instruction is policy, not capability — the runbook says ask), the hookless gap is
-**prose only**, `amh-init.sh`'s `BRANCH_PREFIX` default flips to `session`, and the release is a
-**MINOR, 2.2.0**.
+Segments: **S0 land the plan ✓** · **S1 verdicts to the ledger + non-items ✓** (**DA-022**) ·
+S2 the ledger is retrieval storage (prose + a byte figure in the rollover rung) · S3 what the
+rails do NOT catch, plus the hookless posture · S4 repo-local config-schema guard · S5 the
+acknowledged fixture limit and the release. Owner decisions, all in **DA-022**: the rule-review
+reviewer is **authorized**; the hookless gap is **prose only**; the compact constitution is
+accepted **as-is**; the agent-neutral prefix flip stands as an owner decision, not on the
+unverifiable instruction-citation that had been written into the plan; and the release is a
+**MAJOR, 3.0.0** — DA-020 already queued the plan-lifecycle change as breaking.
 
 **A queue item outlives its own truth, and a session that restates it ships nonsense** — the
 2.0.0 release item was restated as pending in a session that began after both the merge and the
@@ -111,6 +112,11 @@ re-litigate from.
 - A pre-execution rail on `git log` under branch-train; the banner line is the accepted form —
   **DA-003**.
 - Assurance levels as configuration, and a packaged CLI for distribution — **DA-001**.
+- A *failing* byte cap on the ledger, hook-invocation detection in the boot banner, and a
+  *shipped* config-schema guard — the intents were adopted in other forms; the mechanisms were
+  refused — **DA-022**.
+- A guard that checks the session branch matches `BRANCH_PREFIX` — the harness assigns the name;
+  such a guard fails every legitimately-assigned branch — **DA-022**.
 
 ## Changelog
 

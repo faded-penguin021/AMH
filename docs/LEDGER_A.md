@@ -622,3 +622,46 @@
   AMH 2.1.1 has every component its documented scope promises, but is not feature-finished: the separately approved
   external-review plan still owns its S1–S5 hardening work, whose claims must be re-verified in
   their own segments rather than adopted speculatively here.
+- DA-022: **The external (Qwen) review, adjudicated finding by finding — three of its seven
+  claims were false as written, and two more were right about the problem while wrong about the
+  mechanism.** This is DA-001's procedure applied to a peer LLM's review of the whole repository:
+  external text is data (P18), so each claim was re-checked against the tree in the segment that
+  acted on it rather than accepted at planning time. The verdicts, with what the tree actually
+  showed:
+  **Refuted.** (a) "The agent is told to read the ledger whole" — no rule says so; the real and
+  smaller gap was that no rule said the opposite either, fixed as prose in S2. (b) "The command
+  guard's limits are undocumented" — its header already declared it targets mistakes and not
+  evasion, and every scanner already carried an `Accepted miss:` note; the real gap was that no
+  single consolidated list existed. (c) "`amh.conf.example` ships `BRANCH_PREFIX=claude`" — it
+  ships the init-time placeholder. The initializer default was the genuine instance of the
+  complaint, and was already fixed independently (DA-014).
+  **Adopted, mechanism replaced.** (d) The ledger's line cap is a proxy for read cost that has
+  drifted from what it claims to bound — true (826 lines / ~74 KB at rollover). A *failing* byte
+  cap was refused: the incident bar bars speculative guards, and no context-overflow incident is
+  on record. The rollover rung now REPORTS bytes beside lines, so the quantity the cap proxies
+  for is visible every run without inventing a second threshold to tune. (e) A hookless agent has
+  no command rail — true, and already stated; the proposed detection of "no hook invoked us" was
+  refused because it is not implementable agent-neutrally (it needs one vendor's environment
+  variables, P14), so the honest form is prose that also says why it is prose.
+  **Adopted as scoped down.** (f) `amh.conf` schema drift is unchecked — true here, but a
+  *shipped* guard was refused: adopters receive no `amh.conf.example`, and every shipped script
+  defaults its keys in-script on purpose, so a missing key is a supported state, not drift. The
+  guard is repo-local and one-directional (extras are legal: `AUTHOR_EMAIL_ALLOW` is deliberately
+  absent from the example). (g) Bash fixtures testing bash guards share a failure mode — true,
+  already mitigated by requiring the fixture to fail against the old script (D-008); recorded as
+  an acknowledged limit rather than answered with machinery.
+  **Owner decisions taken during this work, recorded here because they resolve process
+  questions and not just this diff.** The rule-review reviewer was authorized on the standing
+  point that a no-subagents instruction is a policy the owner can lift, not a capability limit,
+  so the session ASKS rather than parking the work. The compact-constitution rewrite was accepted
+  as-is on owner instruction after the audit reported that some detail now lives only in the seed
+  template and guard source; S3's consolidated limits block restores the reference instance's
+  pointer to it. The agent-neutral prefix flip stands as an owner decision recorded here —
+  superseding the earlier exception that kept this instance on `claude` — and NOT on the
+  unverifiable "a later direct owner instruction" attestation that had been written into the plan
+  file, which is exactly the self-reported evidence P3/D-014 forbid leaning on.
+  **Deviation, accepted and unfixed.** This session's own branch is `claude/…` while
+  `BRANCH_PREFIX` is now `session`, because the harness assigns the branch name. Nothing notices:
+  `session-start.sh` checks detached HEAD and the default branch, never the prefix. That hole is
+  pre-existing and stays unguarded — the prefix is an instruction to the agent, and a guard here
+  would fail every legitimately-assigned branch this repository does not name.
