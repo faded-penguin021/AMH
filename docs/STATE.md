@@ -123,6 +123,14 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
+- 2026-08-02 — **The external review's four hardening segments landed** (**DA-022**). The ledger
+  is stated to be retrieval storage and its cap rung now reports size beside lines; the command
+  guard's header carries a consolidated list of what it does NOT catch, and the hookless
+  posture is prose; `config-schema.sh` keeps this instance's `amh.conf` complete against the
+  shipped example, one-directionally and repo-locally. Both blocking review passes found real
+  defects INSIDE the fixes — a wrapper claim that was false, an `awk` claim that contradicted
+  the reader list two lines above it, and a guard that reported green with `comm` absent.
+
 - 2026-08-01 — **The harness-wide consistency audit closed three stale plan-lifecycle phrases**
   (**DA-021**). The shipped advisory, scaffold description and active plan now agree with
   P2/P16; no new principle, consolidation or unplanned component earned its cost, while the

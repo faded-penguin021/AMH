@@ -36,6 +36,13 @@ hand, adapter or CI changes. Files I own are never overwritten — amh.conf, the
 scripts/verify.sh, scripts/guards, my workflow and adapter configs — and AMH-ADOPT.md is never
 re-issued on an upgrade.
 
+While /tmp/amh is still there, list any key the release declares that our amh.conf does not
+set, and tell me which ones we are leaving to a script default:
+
+    comm -23 \
+      <(sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' /tmp/amh/harness/templates/amh.conf.example | sort -u) \
+      <(sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' amh.conf | sort -u)
+
 Run scripts/ladder.sh directly, never through a pipe, and drive it to green. A new guard
 failing on something that was always there is a finding, not upgrade damage: fix the finding,
 never weaken the guard to get green.
@@ -123,6 +130,23 @@ default.
 
 **5. Apply the changelog's Upgrading notes.** New `amh.conf` keys, seed-file changes you want,
 adapter or CI changes. Nothing here is automatic — that is the point.
+
+To catch a key the notes mention and you skipped, diff your key set against the release you
+just cloned:
+
+```bash
+comm -23 \
+  <(sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' /path/to/AMH/harness/templates/amh.conf.example | sort -u) \
+  <(sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' amh.conf | sort -u)
+```
+
+Anything printed is a key the release declares and your `amh.conf` does not set. Read it as a
+prompt, not a failure: every shipped script defaults its own keys, so a missing one is a
+supported state — the value is knowing you are relying on a default rather than a choice. Keys
+you have and the example does not are yours and are meant to stay (`AUTHOR_EMAIL_ALLOW` is
+opt-in and deliberately absent from the example), which is why the comparison runs one way
+only. No guard ships for this: your tree has no `amh.conf.example` to compare against unless
+you keep a checkout beside it, so the check lives here, in the procedure that already has one.
 
 **6. Run the ladder before anything else.**
 

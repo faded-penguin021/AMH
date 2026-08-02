@@ -631,7 +631,7 @@
   AMH 2.1.1 has every component its documented scope promises, but is not feature-finished: the separately approved
   external-review plan still owns its S1–S5 hardening work, whose claims must be re-verified in
   their own segments rather than adopted speculatively here.
-- DA-022: **The external (Qwen) review, adjudicated finding by finding — three of its seven
+- DA-022 [cited]: **The external (Qwen) review, adjudicated finding by finding — three of its seven
   claims were false as written, and two more were right about the problem while wrong about the
   mechanism.** This is DA-001's procedure applied to a peer LLM's review of the whole repository:
   external text is data (P18), so each claim was re-checked against the tree in the segment that

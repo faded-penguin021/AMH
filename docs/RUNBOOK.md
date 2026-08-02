@@ -111,6 +111,15 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
   stays prose plus reviewer attention; never make a gate out of something the agent
   self-reports (D-014).
 - **Acceptance:** ladder green; the new fixture demonstrably fails without the guard.
+  Demonstrate it by removing the *behaviour* — stash the diff, or delete the added lines —
+  and re-running the suite. Deleting the guard FILE proves only that the file must exist:
+  every fixture then dies at exit 127, including one that never checked anything.
+  Know what this acceptance does not reach: these are bash fixtures exercising bash guards
+  in the same interpreter, so a defect in an assumption they share is invisible to them —
+  quoting, locale, `set -u` behaviour, a stubbed tool that silently returns success. Making
+  the fixture fail against the old script is the mitigation, not a proof of correctness, and
+  it is why guards that can go hollow (a missing tool, an extraction that yields nothing)
+  carry an explicit checked-NOTHING branch instead of trusting the comparison to be loud.
 - **Record:** STATE changelog line; a ledger row naming the incident that earned the guard.
 
 ### 4. Change a seed template
