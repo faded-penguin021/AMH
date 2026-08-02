@@ -11,6 +11,123 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 3.0.0 — 2026-08-02
+
+One binding rule changed — a completed plan may now be retired into the archive instead of
+deleted — which is what makes this a MAJOR. Around it: a second first-class agent adapter, an
+agent-neutral branch namespace, and the hardening the external-review plan owed. Two rails now
+state what they do **not** cover, which is the part of this release most worth reading. (The
+reference instance's own constitution was also compacted to a ~110-line entry context, but that
+is a change to this repository, not to anything you receive: the shipped seed constitution
+gained the hookless-rail rule and the guard-limits pointer, so it grew.)
+
+- **BREAKING — completed plans may be retained in the archive.** P2 now names a completed plan
+  as a document that can be retired whole. Session discipline moves a completed plan worth
+  retaining from `docs/plans/` to `docs/history/` when that optional tier exists, rather than
+  requiring every plan to be deleted. Durable outcomes still go to the ledger and changelog,
+  and implementation artifacts still cite ledger rows rather than archived plans.
+
+- **The plan lifecycle is internally consistent across live operational prose.** The shipped
+  plan-orphan advisory now coaches the archive-or-delete completion step, its scaffold describes
+  that behavior, and this repository's active plan retires whole into the archive instead of
+  following its stale deletion-only instruction. Advisory verdict behavior is unchanged.
+
+- **P11 now names its full citation scope.** The principle says code and workflow comments,
+  and describes the configured implementation paths the citation guard actually scans, rather
+  than narrowing the machine-checked half to code alone. The guard diagnostics and rule-review
+  checklist use the same scope. No enforcement behavior or adopter action changes.
+
+- **Codex is a first-class adapter.** `harness/templates/configs/codex-config.toml` and
+  `codex-amh.rules` ship, and the initializer installs them. The adapter is honest about its
+  own layers: Codex exposes no repository-local session-start, pre-shell or output-filter hook,
+  so the config says plainly that it does not run `session-start.sh`, `command-guard.sh` or
+  `redact.sh`, and points at `.codex/rules/amh.rules`, where the command-policy layer it does
+  support is wired. The config file itself carries no settings — it exists to state which
+  layers are absent. An adapter that claimed otherwise would be worse than none.
+
+- **The adoption brief's placeholder sweep covers the adapter directories.** `AMH-ADOPT.md` now
+  greps `.claude/` and `.codex/` alongside the docs, which is load-bearing for this release:
+  `codex-amh.rules` carries `{{DEFAULT_BRANCH}}` slots in a deny rail, and an unfilled slot
+  there would previously have passed the sweep unnoticed. The README also states that a green
+  ladder is necessary but not sufficient for adoption — it is a mechanical gate, not proof the
+  hand-done obligations were met. Fresh installs only; the brief is never re-issued.
+
+- **The session-branch namespace is agent-neutral.** `amh-init.sh` now defaults
+  `BRANCH_PREFIX` to `session` rather than a vendor name; `--branch-prefix` still takes any
+  value. Existing repositories are unaffected — the value lives in your `amh.conf`.
+
+- **The ledger is stated to be retrieval storage.** Nothing had ever said a session may read a
+  whole ledger volume, and nothing had said it may not. P2 gains the corollary: disk is
+  addressed, not scanned — a citation is a seek to one row, and reading a volume whole loads
+  the disk into the context window. The cap rung now prints the live volume's size in KB
+  beside its line count, because the cap counts lines while the cost it stands for is bytes,
+  and a proxy that drifts should show you the drift. Reporting only: no new threshold, no new
+  key, nothing new that can fail.
+
+- **`command-guard.sh` states what it does NOT catch.** A consolidated block in its header:
+  interpreters outside its enumerated reader list (`python3 -c "open('.env')"` above all),
+  the wrappers it does *not* strip — `xargs`, `timeout`, `ssh`, `bash -c` — as distinct from
+  the ones it does (`sudo`, `nohup`, `nice`, `time`, `env FOO=1`, all of which ARE judged),
+  `eval`-constructed and encoded commands, heredocs, and window truncation. Comment-only: no
+  scanner changed. Read a green check as "no mistake this scanner recognises", never as proof
+  a command was safe.
+
+- **An agent with no pre-execution hook has no command rail at all.** Now stated in the
+  constitution and the seed rather than left to be inferred. No check enforces it, and the
+  prose says why: telling a hook invocation from a manual one requires vendor-specific
+  environment variables the harness will not assume.
+
+- **The seed ledger's `[cited]` marker description was wrong and is corrected.** It called the
+  marker "machine-managed … verified derived state, never hand-tracked". Nothing syncs it: you
+  write it, the ladder verifies it in both directions. The live volumes had already been
+  corrected; the seed was still shipping the superseded claim.
+
+### Upgrading
+
+1. **Copy the shipped scripts** — the whole directory, manifest included.
+
+2. **Decide about the archive tier, because the plan rule changed.** If you keep
+   `docs/history/`, a completed plan worth retaining now moves there whole instead of being
+   deleted; update whatever your constitution or runbook says about finishing a plan. If you
+   have no archive tier, nothing changes: you still delete completed plans. This is the one
+   item that can make something you are doing today wrong.
+
+   **Your `docs/history/README.md` needs editing too, and it is a seed file, so nothing will
+   do it for you.** Its intake list — "a frozen prior-era design doc, a specification
+   superseded outright, a reference for a subsystem that no longer exists" — does not admit a
+   completed plan, so following this item without editing it leaves your archive rules
+   forbidding exactly what the new rule directs. Add the completed plan to the list, and add
+   the caveat that goes with it: an archived plan is cold context, **not** permanent memory and
+   **not** a valid implementation citation — durable outcomes still belong in ledger rows and
+   changelog lines. Copy the wording from `harness/templates/seed/docs/history/README.md`.
+
+3. **If your agent is Codex**, copy `harness/templates/configs/codex-config.toml` to
+   `.codex/config.toml` and `codex-amh.rules` to `.codex/rules/amh.rules`, and add both paths
+   to `RULE_FILES` in `amh.conf`. Substitute the placeholders as `harness/PLACEHOLDERS.md`
+   describes.
+
+4. **Hand-apply the seed changes you want** (seeds are yours and never re-synced). Four seed
+   files changed in this release; the archive README is item 2 above, and the other three are:
+
+   - **`AGENTS.md` — take this one.** Two additions, and they are the release's substance
+     rather than polish: the rule that **an agent with no pre-execution hook has no command
+     rail at all** (`scripts/command-guard.sh` is then a script nobody calls, and your
+     constitution is the only layer), and the pointer from Secret hygiene to the guard's
+     *what this guard does NOT catch* block. Skipping this leaves your constitution implying
+     a rail that a hookless harness does not have.
+   - **`docs/LEDGER.md` header** — the `[cited]` marker is machine-CHECKED, not
+     machine-managed: you write it, the ladder verifies it, nothing syncs it. Plus the
+     retrieval-storage paragraph: the ledger is grepped and cited, never read whole.
+   - **`docs/RUNBOOK.md`** — the rule-review checklist's citation-scope wording, to match P11.
+
+5. **Expect the ledger cap rung to say more**, not a new failure and not a new line: its
+   existing line now carries a size in KB beside the line count. If your live volume's size
+   surprises you, that is the point of it.
+
+6. **No new `amh.conf` keys in this release.** The key-set diff in `docs/UPGRADING.md` step 5
+   will print nothing; run it anyway, since it also catches keys you skipped in earlier
+   upgrades.
+
 ## 2.1.1 — 2026-07-27
 
 Guard fail messages now coach toward deep-folding instead of just naming the floor, and the

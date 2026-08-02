@@ -33,6 +33,28 @@ disagrees with the code, trust the code and fix the doc.
 | What changed between versions? | `harness/CHANGELOG.md` |
 | How do I contribute a harness change? | `CONTRIBUTING.md` |
 
+## Efficient document retrieval
+
+Keep context relevant by locating before loading. For a large structured document, list its
+headings or search for the exact identifier, then print only the matching section; widen the
+read when that section names prerequisites, rules may interact across sections, or the excerpt
+is ambiguous. This is an outcome rule, not a command ritual: native range-reading tools are
+equally valid. The entry constitution and `docs/STATE.md` are read in full at session start,
+and any playbook instruction to read a file in full overrides this optimization.
+
+Portable examples (headings and ledger identifiers are stable navigation keys; stored line
+numbers are not):
+
+```bash
+grep -nE '^#{1,3} ' docs/RUNBOOK.md
+awk '/^## Rule-review protocol/{p=1} p && /^## / && !/^## Rule-review protocol/{exit} p' docs/RUNBOOK.md
+grep -nF 'DA-016:' docs/LEDGER_A.md
+```
+
+The documentation-navigation guard checks that every runbook section named by the entry
+constitution exists exactly once. It cannot prove what an agent read, and no attestation or
+shell history may be used as evidence that this procedure was followed (DA-017).
+
 ## Change-type playbooks
 
 Each: *when · read first · what to touch · obligations · acceptance · record it.*
@@ -89,6 +111,15 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
   stays prose plus reviewer attention; never make a gate out of something the agent
   self-reports (D-014).
 - **Acceptance:** ladder green; the new fixture demonstrably fails without the guard.
+  Demonstrate it by removing the *behaviour* — stash the diff, or delete the added lines —
+  and re-running the suite. Deleting the guard FILE proves only that the file must exist:
+  every fixture then dies at exit 127, including one that never checked anything.
+  Know what this acceptance does not reach: these are bash fixtures exercising bash guards
+  in the same interpreter, so a defect in an assumption they share is invisible to them —
+  quoting, locale, `set -u` behaviour, a stubbed tool that silently returns success. Making
+  the fixture fail against the old script is the mitigation, not a proof of correctness, and
+  it is why guards that can go hollow (a missing tool, an extraction that yields nothing)
+  carry an explicit checked-NOTHING branch instead of trusting the comparison to be loud.
 - **Record:** STATE changelog line; a ledger row naming the incident that earned the guard.
 
 ### 4. Change a seed template
@@ -145,8 +176,10 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
 4. **You are the last reviewer.** The review protocols below are mandatory. There is no
    stronger pass behind you.
 5. **Multi-unit work** persists an owner-approved plan file plus a STATE checklist; segments
-   run sequentially and each ends shippable; delete the plan at the end — by then its durable
-   content lives in changelog lines and ledger rows. Code cites ledger rows, never plans.
+   run sequentially and each ends shippable. At the end, move a completed plan worth retaining
+   whole to `docs/history/`; otherwise delete it. Its durable outcomes live in changelog lines
+   and ledger rows either way. Code cites ledger rows, never plans: an archived plan is a
+   historical record, not permanent memory.
 6. **Recovery (bounded).** If the unit in flight has gone wrong: reset to the last green
    checkpoint, re-run the ladder to confirm green, re-attempt smaller — recording any durable
    lesson first. Recovery is not infinite: if the SAME blocker survives a second
@@ -306,7 +339,7 @@ The reviewer hunts these rule bug classes:
 - **enforcement asymmetry** — prose implies a check no guard performs. Say "prose-only", or
   add the check;
 - **citation validity** — cited ledger rows exist AND actually support the claim. The
-  citation guard scans code, not doc prose, so the "actually supports" half is checked only
+  citation guard scans configured implementation paths, not doc prose, so the "actually supports" half is checked only
   here;
 - **agent-agnosticism regression** — the rule silently assumes one agent's machinery,
   filenames or environment variables.
@@ -331,6 +364,13 @@ enforcement. One level of meta only: the reviewer reports, the session triages, 
 arbitrates. Nobody reviews the reviewer.
 
 ## Incident: leaked credential
+
+Before an incident, know the rail's shape: `scripts/command-guard.sh` carries a consolidated
+**what this guard does NOT catch** block in its header — interpreters outside its enumerated
+reader list, wrappers it does not strip, `eval`-constructed and encoded commands, heredocs and
+window limits. Read it there rather than reconstructing it from the scanners, and treat a green
+check as "no mistake this scanner recognises", never as proof a command was safe. An agent whose
+harness provides no pre-execution hook has no command rail at all.
 
 Containment outranks the checkpoint invariant.
 

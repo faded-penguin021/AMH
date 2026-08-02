@@ -8,11 +8,12 @@
 # artifact nobody can execute accumulates defects at full speed and reports none (D-023).
 #
 # What this asserts, in order:
-#   1. a fresh instantiation produces a repo whose own ladder is GREEN,
+#   1. a fresh instantiation produces a repo whose own guards-only ladder is GREEN,
 #   2. ...and that green is not vacuous — a planted credential still turns it red,
-#   3. re-running init upgrades the machinery and leaves the adopter's judgement alone,
+#   3. re-running init upgrades the machinery and leaves the adopter's judgement and both
+#      agent adapters alone,
 #   4. the init placeholder list and harness/PLACEHOLDERS.md cannot diverge in silence,
-#   5. every --profile installs its own seed set and produces a GREEN ladder in that repo.
+#   5. every --profile installs its own seed set and produces a GREEN guards-only ladder there.
 #
 # Repo-local: this script runs from the harness's source of truth. It is not shipped, and
 # an adopter never runs it.
@@ -77,6 +78,45 @@ else
 	fail "amh-init.sh instantiates into an empty git repo" "$out"
 fi
 
+if grep -qxF 'BRANCH_PREFIX=session' "$d/amh.conf"; then
+	pass
+else
+	fail "a fresh instantiation uses the agent-neutral session branch prefix"
+fi
+
+# The default is policy, not a hard-coded parser assumption: adopters can still choose any
+# namespace through the documented option, and configuration-driven scripts read that value.
+d_custom=$(target custom_branch_prefix)
+"$ROOT/scripts/amh-init.sh" --branch-prefix maintainer "$d_custom" >/dev/null 2>&1
+custom_guard_out=$("$d_custom/scripts/command-guard.sh" --command 'git push origin main' 2>&1)
+custom_guard_rc=$?
+if grep -qxF 'BRANCH_PREFIX=maintainer' "$d_custom/amh.conf" &&
+	[ "$custom_guard_rc" -eq 2 ] &&
+	printf '%s' "$custom_guard_out" | grep -qF 'maintainer/<codename>'; then
+	pass
+else
+	fail "--branch-prefix drives installed scripts with an arbitrary prefix" \
+		"exit $custom_guard_rc" "$custom_guard_out"
+fi
+
+expected_codex_rules="$WORK/expected-codex-amh.rules"
+default_branch_slot=$(printf '{%sDEFAULT_BRANCH}%s' '{' '}')
+sed "s/$default_branch_slot/main/g" \
+	"$ROOT/harness/templates/configs/codex-amh.rules" >"$expected_codex_rules"
+if cmp -s "$ROOT/harness/templates/configs/codex-config.toml" "$d/.codex/config.toml" &&
+	cmp -s "$expected_codex_rules" "$d/.codex/rules/amh.rules"; then
+	pass
+else
+	fail "a fresh instantiation writes the complete rendered Codex adapter"
+fi
+
+placeholder_open=$(printf '{%s' '{')
+if ! grep -R -qF "$placeholder_open" "$d/.claude" "$d/.codex"; then
+	pass
+else
+	fail "generated agent-adapter installations contain no unresolved placeholders"
+fi
+
 out=$(target_ladder "$d")
 rc=$?
 if [ "$rc" -eq 0 ]; then
@@ -127,6 +167,10 @@ d=$(target rerun)
 printf '\n# a local edit that must not survive\n' >>"$d/scripts/ladder.sh"
 printf '\n# AN ADOPTER DECISION THAT MUST SURVIVE\n' >>"$d/amh.conf"
 adopter_conf=$(cat "$d/amh.conf")
+printf '\n# adopter Codex configuration\n' >>"$d/.codex/config.toml"
+printf '\n# adopter Codex policy\n' >>"$d/.codex/rules/amh.rules"
+adopter_codex_config=$(cat "$d/.codex/config.toml")
+adopter_codex_rules=$(cat "$d/.codex/rules/amh.rules")
 # B13's shape, and the recovery for it: a seed script that has lost its execute bit makes
 # the ladder refuse to run its verification rung, and "re-run init" is what the docs tell
 # an adopter to do about it.
@@ -148,6 +192,13 @@ if [ "$(cat "$d/amh.conf")" = "$adopter_conf" ]; then
 	pass
 else
 	fail "a re-run does not clobber a word the adopter wrote"
+fi
+
+if [ "$(cat "$d/.codex/config.toml")" = "$adopter_codex_config" ] &&
+	[ "$(cat "$d/.codex/rules/amh.rules")" = "$adopter_codex_rules" ]; then
+	pass
+else
+	fail "a re-run does not clobber adopter changes to either Codex adapter file"
 fi
 
 if [ -x "$d/scripts/verify.sh" ]; then

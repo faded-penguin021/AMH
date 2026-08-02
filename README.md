@@ -69,7 +69,7 @@ Install the latest stable release of the Agentic Maintenance Harness (AMH) into 
 
 Run:
 
-    git clone --depth 1 --branch amh-v2.1.1 https://github.com/faded-penguin021/AMH.git /tmp/amh
+    git clone --depth 1 --branch amh-v3.0.0 https://github.com/faded-penguin021/AMH.git /tmp/amh
     /tmp/amh/scripts/amh-init.sh .
 
 Once the harness has been instantiated, read `AMH-ADOPT.md` and follow it completely.
@@ -110,7 +110,10 @@ cheap:
   merge. Never edit them in your repo; the change you want belongs in `amh.conf`, in a
   `scripts/guards` script, or in `scripts/verify.sh`.
 - **Everything else is yours**, written only when absent: the seed prose, `amh.conf`, the CI
-  workflow, the agent adapter config. Re-running never clobbers a word you wrote.
+  workflow, and both agent adapters (`.claude/settings.json` for Claude Code;
+  `.codex/config.toml` plus `.codex/rules/amh.rules` for Codex). Codex consumes the canonical
+  `AGENTS.md` directly, so it does not need a second constitution pointer. Re-running never
+  clobbers a word you wrote.
 
 **What is left over is agent work, which is why the second step is a sentence rather than an
 afternoon.** The seeds arrive with `{{PLACEHOLDER}}` slots for your repo's invariants, test
@@ -123,7 +126,9 @@ So the init run installs `AMH-ADOPT.md`, a brief addressed to that agent rather 
 tells the agent to ask you how much of the harness you want, fill the slots from your
 repository, put your real commands in `scripts/verify.sh`, drive the ladder green, and then
 delete the brief. It carries no checkboxes and nothing downstream reads a word of it:
-**acceptance is the ladder**, run in your repo, green.
+the ladder is the **mechanical acceptance gate**, run in your repo, green. That green result is
+necessary, not sufficient: you must still inspect whether the agent reconciled every placeholder
+with the repository and removed `AMH-ADOPT.md` when adoption was complete.
 
 ```sh
 cd /path/to/your-repo
@@ -181,14 +186,16 @@ CONTRIBUTING.md      how to change the harness: release flow, semver policy, rev
 LICENSE              MIT
 amh.conf             this repo's harness settings; the shipped scripts read it at runtime
 .gitignore
-.claude/settings.json   the agent adapter: permission rails, and the two hooks
+.claude/settings.json   Claude Code adapter: permission rails and lifecycle hooks
+.codex/config.toml      Codex adapter: honest repository-local capability declaration
+.codex/rules/amh.rules  Codex adapter: static command-policy rails
 docs/
   STATE.md           working memory: current state, Owner queue, changelog
   RUNBOOK.md         playbooks
   LEDGER.md          permanent memory: append-only D-NNN rows
   UPGRADING.md       for an adopting repo moving to a newer harness version
-  history/           frozen archive: documents retired whole, never compressed residue
-  plans/             multi-session build plans; disposable by design
+  history/           frozen archive: completed plans and other documents retired whole
+  plans/             active multi-session build plans (absent when none is active)
 harness/             THE PRODUCT — what an adopter copies
   VERSION            the version this tree distributes
   CHANGELOG.md       per-release notes, each with an Upgrading section
@@ -198,7 +205,7 @@ harness/             THE PRODUCT — what an adopter copies
   templates/
     AMH-ADOPT.md     the adoption brief, written into an adopter's tree for their agent
     scripts/         the five shipped scripts, plus their generated integrity manifest
-    configs/         CI workflow and agent settings; substituted at init
+    configs/         CI workflow plus Claude Code and Codex adapters; substituted at init
     seed/            prose scaffolds: copied once, then yours forever
     amh.conf.example
 scripts/             THE INSTANCE — this repo living under what it ships

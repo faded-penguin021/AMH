@@ -18,19 +18,22 @@ The AMH meta-repository: both the **source of truth** for the Agentic Maintenanc
 reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
 **reference instance**, running byte-identical copies of the scripts it ships. The product is
 `harness/` (prose source, templates, generated bundle); this repo's instance is `AGENTS.md` +
-`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 2.1.1** — see `harness/VERSION`,
+`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 3.0.0** — see `harness/VERSION`,
 the copy that counts.
 
 ## Current state
 
-> **Session handoff (2026-07-27).** **2.0.0 is released and tagged** (`afd990e`, verified with
-> `git ls-remote --tags` rather than inherited from the previous handoff, which had it pending).
-> **2.1.0 is written and pushed** on `claude/readme-quick-start-4g4ala`, cut from `main`
-> (`git merge-base origin/main HEAD` = `afd990e`), and awaiting merge and tag. **PR #4 is open**
-> on head `19ba842` — verified with `list_pull_requests`, after the first draft of this handoff
-> asserted a PR that did not exist (**DA-011**, inside the release that fixes it). `amh-v1.8.0`
-> still points at `7d322d7`. **No plan is active** (P16). Next work comes from the Owner queue,
-> or from the owner.
+> **Session handoff (2026-08-02).** Adopted version is **AMH 3.0.0**, cut this session; the tag
+> is the one open queue item below. The external-review plan is COMPLETE and archived at
+> `docs/history/2026-07-28-external-review-validation.md`.
+
+**The external review (Qwen, relayed by the owner) is closed, worked as DATA throughout** (P18,
+the DA-001 precedent). All verdicts and the owner decisions are **DA-022**; three of its seven
+claims were false as written and two were right about the problem but wrong about the mechanism.
+The standing constraint held: every finding was re-verified inside the segment that acted on it.
+**Both blocking review passes found real defects INSIDE the fixes** — a wrapper claim that was
+false, an `awk` claim contradicting the reader list two lines above it, and a guard that
+reported green with `comm` absent. That is the protocol earning its cost twice in one session.
 
 **A queue item outlives its own truth, and a session that restates it ships nonsense** — the
 2.0.0 release item was restated as pending in a session that began after both the merge and the
@@ -38,8 +41,15 @@ tag (**DA-011**). 2.1.0 is the fix: the rule is now in `AGENTS.md`, the runbook,
 seeds, and the session banner reports the release window it could not see. What a check can
 honestly claim, and where the first draft over-claimed, is **DA-012**.
 
-Legislation (a diff touching `RULE_FILES`) means ONE blocking fresh-context reviewer, strongest
-tier, one pass, no self-review fallback (D-015, bounded by **D-035**); **twenty-six of
+**The session-branch namespace is agent-neutral.** `BRANCH_PREFIX=session` is now the
+reference-instance value and the initializer default; an adopter may still choose any value
+with `--branch-prefix`. The identity allowlist was reviewed as a separate decision: all three
+existing no-reply address forms are used in repository history, so all remain; no
+Codex/OpenAI identity was added without owner approval (**DA-014**).
+
+Legislation (a binding-rule or guard-semantics diff) means ONE blocking fresh-context reviewer,
+strongest tier, one pass, no self-review fallback (D-015, bounded by **D-035**); `RULE_FILES`
+is its file-granular tripwire, not its complete scope. **Twenty-six of
 twenty-seven passes found a real defect inside the FIX**. A session forbidden subagents ASKS
 rather than parking the work (runbook).
 
@@ -72,12 +82,17 @@ about this repo's past**, the memory tiers ARE the history (**DA-003**); `path-r
 > as verified while asserting nothing (**D-014**). Its absence is information: it means no
 > command settles this, which is itself worth knowing before you repeat the item to a human.
 
-1. **After merge: tag `amh-v2.1.1`** on the squash commit.
-   Check: `git ls-remote --tags origin amh-v2.1.1` — non-empty output means done.
+**OPEN — cut the 3.0.0 release.** `harness/VERSION` says 3.0.0 and the changelog entry is
+written, but the merge and the tag are owner steps. A MAJOR: the plan-lifecycle rule changed,
+so the entry's Upgrading section is the complete list of what an adopter must do.
+**Check:** `git ls-remote --tags origin amh-v3.0.0` — output naming `refs/tags/amh-v3.0.0`
+means done; empty output means still open.
 
-Three closed on 2026-07-27: the 2.0.0 release (merged and tagged, verified against
+Four closed: the 2.0.0 release (merged and tagged, verified against
 `git ls-remote`), `main`'s branch protection repointed at `ladder`, and the 2.1.0 release
-(PR #4 merged, tag `amh-v2.1.0` verified via `git ls-remote`).
+(PR #4 merged, tag `amh-v2.1.0` verified via `git ls-remote`) on 2026-07-27; the
+`amh-v2.1.1` tag, confirmed by the owner on 2026-07-29 and re-verified via
+`git ls-remote --tags origin amh-v2.1.1` on 2026-08-02.
 
 **Open questions:** none. Everything asked before it has been answered and recorded —
 the 2.0.0 severity call and the rule-scope additions in **DA-005**, the delegated closures of
@@ -99,42 +114,72 @@ re-litigate from.
 - A pre-execution rail on `git log` under branch-train; the banner line is the accepted form —
   **DA-003**.
 - Assurance levels as configuration, and a packaged CLI for distribution — **DA-001**.
+- A *failing* byte cap on the ledger, hook-invocation detection in the boot banner, and a
+  *shipped* config-schema guard — the intents were adopted in other forms; the mechanisms were
+  refused — **DA-022**.
+- A guard that checks the session branch matches `BRANCH_PREFIX` — the harness assigns the name;
+  such a guard fails every legitimately-assigned branch — **DA-022**.
 
 ## Changelog
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
-- 2026-07-27 — **Guard fail messages now coach toward deep-folding, and the Quick Start prompt
-  primes the agent for the profile question** (**DA-013**). Two failures observed in a real
-  deployment: (1) a compression pass that landed short triggered micro-trim iterations because
-  the guard said "go to the floor" without saying how; (2) the agent skipped the profile
-  question because the owner's prompt didn't mention it, so nothing primed the expectation
-  before AMH-ADOPT.md. The seed template preamble now addresses the short-first-pass pattern
-  explicitly.
-- 2026-07-27 — **AMH 2.1.0: the release window became visible, and the queue learned to test itself.**
-  `session-start.sh` now looks for the tag the version file implies — clone first, then `origin`
-  — and reports present / absent / could-not-ask as three outcomes; `VERSION_FILE` and
-  `RELEASE_TAG_PREFIX` are new `amh.conf` keys, empty by default so no existing adopter changes.
-  Queue items carry a **Check:** command where one exists, optional by design. Its pass found the
-  fix's own defects: the first draft read local refs while the constitution claimed it answered
-  whether the tag *exists*, which in this clone (tags never fetched) would have cried wolf every
-  session forever — with a fixture pinning the false alarm as correct (**DA-012**).
-  Owner, same day: branch protection repointed at `ladder`, closing the phantom `build` context.
-- 2026-07-27 — **`docs/UPGRADING.md` gained the upgrade counterpart to the Quick Start block**
-  (owner: the instantiation path had one, the upgrade path did not). It resolves the newest tag
-  with `ls-remote | sort -V | tail -1` instead of naming a version, so it is not a sixth
-  hand-written copy for `version-lockstep.sh` to miss — verified against the real remote, which
-  returns `amh-v2.0.0` until 2.1.0 is tagged.
-- 2026-07-27 — **README Quick Start is a paste-into-your-agent block** (owner request), by-hand
-  path under it. The pinned tag stays a SINGLE occurrence: `version-lockstep.sh` checks the first
-  match only, so the manual block reuses the clone rather than repeating the tag.
-- 2026-07-27 — **The instantiation plan, U1–U4, shipped as AMH 2.0.0**, plan file deleted (P16):
-  the adoption brief, install profiles, the shipped-script integrity manifest and its rung, and
-  the quickstart rewritten against the tag it pins — **DA-002**, **DA-006**…**DA-010**.
-- 2026-07-25/27 — **Everything before the release, folded**: founding day, the self-hosting core
-  and its legislation, the adopter templates and harness bundle, the server-side rails, first
-  green CI, the founding train's merge and the ledger's rollover to volume A, the external RFC
-  evaluated as data, and the archive-intake correction that made this release a MAJOR. The detail
-  is permanent in **D-001**…**D-035** and **DA-001**…**DA-005**; those rows, not this line, are
-  the record.
+- 2026-08-02 — **AMH 3.0.0.** A MAJOR because one binding rule changed: a completed plan may
+  retire into the archive instead of being deleted (**DA-020**). The release also carries the
+  work that had accumulated unreleased — the Codex adapter and its cross-layer guard, the
+  agent-neutral branch namespace (**DA-014**), the compact constitution and its navigation
+  guard (**DA-017**, **DA-018**), the P11 citation scope (**DA-019**), the PR handoff
+  checkpoint and the adoption-acceptance corrections — plus this plan's four hardening
+  segments, S1–S4. The completed plan is archived at
+  `docs/history/2026-07-28-external-review-validation.md`.
+
+- 2026-08-02 — **The external review's four hardening segments landed** (**DA-022**). The ledger
+  is stated to be retrieval storage and its cap rung now reports size beside lines; the command
+  guard's header carries a consolidated list of what it does NOT catch, and the hookless
+  posture is prose; `config-schema.sh` keeps this instance's `amh.conf` complete against the
+  shipped example, one-directionally and repo-locally. Both blocking review passes found real
+  defects INSIDE the fixes — a wrapper claim that was false, an `awk` claim that contradicted
+  the reader list two lines above it, and a guard that reported green with `comm` absent.
+
+- 2026-08-01 — **The harness-wide consistency audit closed three stale plan-lifecycle phrases**
+  (**DA-021**). The shipped advisory, scaffold description and active plan now agree with
+  P2/P16; no new principle, consolidation or unplanned component earned its cost, while the
+  approved S1–S5 roadmap remains the bounded source of prospective hardening work.
+
+- 2026-08-01 — **Completed plans may now retire whole into `docs/history/`** (**DA-020**).
+  Plans worth retaining become frozen archive context while durable outcomes and implementation
+  citations remain in the ledger; repositories without the archive tier still delete them.
+
+- 2026-08-01 — **Adoption and initializer prose now describe only what the executable checks.**
+  The README calls the ladder the mechanical gate without treating it as proof that manual
+  adoption obligations were completed; installer E2E comments name their guards-only scope;
+  the initializer points at the existing downstream malformed-flag defence rather than an open
+  finding.
+
+- 2026-07-31 — **The structural review found one prose/guard scope mismatch, not missing
+  principles** (**DA-019**). P11, the citation diagnostics and the review checklist now name workflows and configured
+  implementation paths; enforcement behavior is unchanged. The proposed principle promotions, duplicated P14 detail and an
+  adoption-authority mechanism were refused as repetition or speculation.
+
+- 2026-07-30 — **The compact constitution's review contradictions are corrected** (**DA-018**).
+  Rule-review scope again differs from its `RULE_FILES` tripwire, Session discipline is back
+  on the universal route and navigation contract, secret wording permits non-rendering commit
+  metadata checks, and Current state now agrees with the active plan and closed release queue.
+
+- 2026-07-30 — **Large-document reading is now query-first and section-bounded** (**DA-017**).
+  The constitution states the widening conditions; the runbook gives portable retrieval
+  examples; a repo-local guard and mutations keep its binding section pointers unique and
+  resolvable without pretending to prove what an agent read.
+
+- 2026-07-30 — **The reference-instance constitution now provides an approximately 90-line entry
+  context.** `AGENTS.md` retains irreversible safety boundaries, source/generated ownership,
+  universal session entry, and binding pointers while moving operational detail behind the
+  existing RUNBOOK, configuration, scripts, STATE, and ledger layers; this reorganizes existing
+  governance rather than establishing a new rule.
+
+- 2026-07-25/29 — **Everything before the compact constitution, folded**: founding and
+  self-hosting, AMH 2.0.0 and 2.1.x, installation profiles and integrity manifests, release and
+  queue visibility, agent-neutral branches, Claude/Codex adapter delivery and its cross-layer
+  guard, PR-template guidance, and context-compression coaching. Durable detail is in
+  **D-001**…**D-035** and **DA-001**…**DA-016**; those rows, not this line, are the record.

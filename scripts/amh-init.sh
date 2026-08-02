@@ -13,7 +13,7 @@
 #   SHIPPED   scripts/*.sh from harness/templates/scripts/ — parameter-free, they read
 #             amh.conf at runtime. Overwritten on every run, because that is what makes
 #             an upgrade a copy. Never edit them in an adopting repo.
-#   YOURS     the seed prose, amh.conf, the CI workflow, the agent adapter config.
+#   YOURS     the seed prose, amh.conf, the CI workflow, and agent adapter configs.
 #             Written only when absent. Re-running never clobbers a word an adopter wrote.
 #
 # That split is also what makes this script idempotent in the way that matters: running it
@@ -63,7 +63,7 @@ usage: scripts/amh-init.sh [options] <target-repo>
 
   --profile NAME            light | standard | full               (default: light)
   --default-branch NAME     branch agents must never push to      (default: main)
-  --branch-prefix NAME      session-branch namespace              (default: claude)
+  --branch-prefix NAME      session-branch namespace              (default: session)
   --merge-mode MODE         branch-per-change | branch-train      (default: branch-per-change)
   --remote-flag NAME        env var marking a remote container    (default: AMH_REMOTE)
   --compress-to-kb N        state-file compression floor          (default: 9)
@@ -92,7 +92,7 @@ USAGE
 
 PROFILE=light
 DEFAULT_BRANCH=main
-BRANCH_PREFIX=claude
+BRANCH_PREFIX=session
 MERGE_MODE_KEY=branch-per-change
 REMOTE_FLAG=AMH_REMOTE
 COMPRESS_TO_KB=9
@@ -222,8 +222,8 @@ esac
 # REMOTE_FLAG becomes the NAME of a shell variable the bootstrap reads indirectly. A value
 # like AMH-REMOTE is not a shell identifier, so the read fails at runtime and the toolchain
 # bootstrap is skipped — quietly, which is the worst way for it to fail. Reject it here.
-# (This narrows the blast radius; it does not fix the bootstrap's silent skip, which is a
-# separate open finding against session-start.sh.)
+# An existing adopter can still carry a malformed value in amh.conf; session-start.sh validates
+# that downstream input and reports the skipped bootstrap explicitly.
 case $REMOTE_FLAG in
 [A-Za-z_]*) [[ $REMOTE_FLAG =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || die "--remote-flag must be a valid shell variable name (letters, digits, underscore; not starting with a digit): '$REMOTE_FLAG'" ;;
 *) die "--remote-flag must be a valid shell variable name: '$REMOTE_FLAG'" ;;
@@ -435,7 +435,13 @@ done < <(find "$TPL/seed" -type f | sort)
 
 install_file "$TPL/amh.conf.example" amh.conf keep 644
 install_file "$TPL/configs/ci.yml" .github/workflows/ci.yml keep 644
+# Agent adapters are adopter-owned configuration, just like the CI workflow: install the
+# complete adapter only where each canonical path is absent. Codex reads the canonical
+# AGENTS.md seed directly, so it needs configuration and command policy here, not another
+# constitution pointer beside them.
 install_file "$TPL/configs/claude-settings.json" .claude/settings.json keep 644
+install_file "$TPL/configs/codex-config.toml" .codex/config.toml keep 644
+install_file "$TPL/configs/codex-amh.rules" .codex/rules/amh.rules keep 644
 
 # The adoption brief: the work this tool cannot do, addressed to the agent that can.
 #

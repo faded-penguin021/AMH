@@ -14,6 +14,14 @@ shipped bug teaches session N+9's review pass.
 > fixtures are ground truth: if an entry conflicts with the current code, trust the code and
 > **correct** the entry — never delete it.
 >
+> **This file is RETRIEVAL storage: grep it and cite it, never read it whole.** A `D-NNN`
+> citation resolves to one row, and one row is what you read. A volume at its cap is tens of
+> kilobytes of prose whose overwhelming majority is irrelevant to any given session, so
+> reading it end to end spends a context budget better spent on the code you came to change.
+> The ladder's cap rung prints a size in KB beside the line count so the read cost the cap
+> stands in for stays visible. It measures the **live** volume only: once this file rolls over,
+> its own size stops being reported, which is one more reason to grep it rather than open it.
+>
 > **Search before appending.** Grep the ledger for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes D-NNN") and the old row gets a correction pointer, never deletion.
@@ -26,11 +34,11 @@ shipped bug teaches session N+9's review pass.
 > `_B.md`/`DB-001`, …). Existing rows are never moved or renumbered — the cap bounds file
 > size, not history. A citation's prefix names its file.
 >
-> **`[cited]` marker (machine-managed).** A row cited from the ladder's scan scope carries
-> ` [cited]` after its number. The ladder checks it BOTH directions — cited-but-unmarked and
-> marked-but-uncited each fail the build — so it is verified derived state, never
-> hand-tracked. The marker warns you that code resolves here before you lean on or reword
-> a row.
+> **`[cited]` marker (machine-CHECKED — you write it, the ladder verifies it).** A row cited
+> from the ladder's scan scope carries ` [cited]` after its number. The ladder checks it BOTH
+> directions — cited-but-unmarked and marked-but-uncited each fail the build — but it never
+> edits this file: nothing syncs the marker for you. The marker warns you that code resolves
+> here before you lean on or reword a row.
 
 - D-001: {{terse entry: what was discovered, decided or broken; what to do about it; what it
   affects. One entry per durable fact. Solved mistakes AND standing invariants both live

@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 2.1.1.** Repos that adopt it record the version they took
+**Harness version 3.0.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -63,21 +63,31 @@ the *why* of every tier's rule without re-derivation.
 |---|---|---|---|
 | Constitution | ROM / firmware | the agent-instructions file | Boot-loaded, read-mostly; changed rarely and deliberately; small by construction |
 | Working memory | RAM | `docs/STATE.md` | Rewritten freely but **capacity-bounded** — a machine-enforced cap forces compaction (hysteresis, protected regions); volatile, so results must be *flushed* to durable tiers |
-| Permanent memory | Disk / append-only journal | the numbered ledger | Append-only, never rewritten; rolls to a new volume at a size cap; every durable fact lands here, citable forever |
+| Permanent memory | Disk / append-only journal | the numbered ledger | Append-only, never rewritten; rolls to a new volume at a size cap; every durable fact lands here, citable forever; **addressed by citation — grep a row, never read the volume** |
 | Archive | Cold storage / backup tape | `docs/history/` | Frozen: consult it, never edit it. Grows only when a document is retired into it WHOLE — never another tier's live file; off the hot path, so unbounded is fine |
 
-Two corollaries the analogy makes self-evident. **(a)** The checkpoint invariant (P5) is
+Three corollaries the analogy makes self-evident. **(a)** The checkpoint invariant (P5) is
 *write-back before power loss*: working memory is volatile, so a unit's result is flushed to
 disk (commit + ledger row) before the session can die. **(b)** Durable facts belong on disk
 (the citable ledger), and only the small working set stays in the RAM every session reads
-first — the cardinal sin is letting RAM accrete what belongs on disk.
+first — the cardinal sin is letting RAM accrete what belongs on disk. **(c)** Disk is
+**addressed, not scanned**: a citation is a seek to one row, and a session that reads a whole
+ledger volume has loaded the disk into the context window — the very move the tiering exists to
+prevent. Working memory is capped so it can be read whole every session; permanent memory is
+capped so no single volume grows past what a *search* over it stays cheap on. That is why the
+ledger's cap counts lines while the rung beside it reports the live volume's size: the cap is a
+proxy, and a proxy that drifts from the cost it stands for should at least show you the drift.
 
 **Spent narrative is not moved anywhere, and this is the corollary that gets misread.** A
 compression pass *folds* it: the durable content leaves as a ledger row, and what remains
 becomes a changelog line pointing at that row. Narrative whose durable content has already
 been extracted is cache, not data, and cold storage is not where cache goes to be safe. The
-archive is for documents retired **whole** — a frozen prior-era design doc, a reference
-superseded outright — never the residue of a compression pass.
+archive is for documents retired **whole** — a completed plan, a frozen prior-era design doc,
+a reference superseded outright — never the residue of a compression pass. A plan stops being
+live when all of its work is complete; if it remains useful as a record, move the whole file
+from `docs/plans/` to `docs/history/` rather than deleting it. Its durable outcomes still
+belong in ledger rows and changelog lines: archiving preserves the plan, but does not promote
+it to permanent memory or make it a valid implementation citation.
 
 **And never another tier's live file.** Retiring the working-memory file into the archive and
 starting a fresh one satisfies every word above while defeating the point: it is the same
@@ -201,14 +211,16 @@ rejected, with dates and reasons ("don't re-litigate without new evidence"). Age
 external AI reviewers — endlessly re-propose plausible-sounding ideas the owner already
 declined. This section is the vaccine, and it is cheaper than re-arguing each time.
 
-**P11. Citations bind code to permanent memory — and a machine enforces both directions.** Code
-comments cite ledger entries by bare ID (`D-042`); a guard verifies that every ID cited from
-source resolves to a ledger row, that row numbers are unique, and that rows cited from code
+**P11. Citations bind implementation artifacts to permanent memory — and a machine enforces
+both directions.** Code and workflow comments cite ledger entries by bare ID (`D-042`); a guard
+verifies that every ID cited from its configured implementation paths resolves to a ledger row,
+that row numbers are unique, and that rows cited from those paths
 carry a `[cited]` marker — one you write and the guard verifies in both directions, not one
 anything syncs for you — so anyone reading the ledger knows which rows are load-bearing
 before rewording them. Where code ports behaviour from a reference system, add
 **provenance comments** naming the exact source artifact and location. Never cite ephemeral
-artifacts (plan files, chat) from code: cite only artifacts guaranteed to outlive the change.
+artifacts (plan files, chat) from implementation files: cite only artifacts guaranteed to
+outlive the change.
 
 **P12. Adversarial review, seeded by your own bug history — in a fresh context.** Test suites
 cannot see all code; platform and runtime "glue" is typically invisible to golden vectors. For
@@ -348,9 +360,11 @@ runbook must always describe how changes are *actually* made now.
 **P16. Multi-session features use provisional persisted plans.** An owner-approved plan file
 plus a checklist mirrored in the state file; segments run sequentially, each ending shippable
 (P5). Treat the plan as provisional — the owner may pivot mid-feature, and per-segment
-checkpoints are what make removal of an entire segment cheap. At the final segment **delete the
-plan file**: by then its durable content must live in changelog lines and ledger rows (P11 —
-code never cites the plan, because the plan dies and the ledger does not).
+checkpoints are what make removal of an entire segment cheap. At the final segment, move a
+completed plan worth retaining whole into the archive if that tier exists; otherwise delete
+it. Either way its durable outcomes must live in changelog lines and ledger rows (P11 — code
+never cites a plan, because even an archived plan is historical context while the ledger is
+permanent memory).
 
 **P17. Secrets are write-only to the agent.** Session environments carry credentials — VCS
 tokens, proxy auth, deploy keys — even when the codebase ships none. Never dump environments
@@ -527,6 +541,10 @@ could NOT be verified locally — disclosure of real actions, never implied cove
 
 ## Invariants that still bind (full catalog: `docs/LEDGER.md`)
 
+The catalog is **retrieval storage**: grep it for the identifier or topic and read the row that
+resolves. Never read a ledger volume whole — at its cap it is tens of kilobytes, and the
+shortlist below is what a session is expected to carry without looking.
+
 {{INVARIANT_SHORTLIST}}
 
 ## Secret hygiene
@@ -543,7 +561,9 @@ could NOT be verified locally — disclosure of real actions, never implied cove
   enumerates** or a `<` redirection, and an `echo`/`printf` that expands a credential-shaped
   variable. That enumeration is a **list, not a category**: it names `cat`, `grep`, `wc`,
   `md5sum` and about thirty others, and anything outside it — `python3 -c "open('.env')"`
-  above all — reaches the file unjudged. The bullet above binds you whether or not a script
+  above all — reaches the file unjudged. Its header carries the consolidated **what this guard
+  does NOT catch** block; read that before treating a green check as safety. The bullet above
+  binds you whether or not a script
   can see the shape you chose. The deny rails add the spellings a prefix matcher can express. Anything
   else in this section — inspect output, screenshots, pasted logs — is **prose-only** and binds
   you, not a script. Say which layer holds a rule whenever you add one here; a false
@@ -597,6 +617,11 @@ could NOT be verified locally — disclosure of real actions, never implied cove
   pipe tool output through `scripts/redact.sh` if the agent has an output-filter hook; honour
   the one-session-one-branch rule; and add its config file to `RULE_FILES` in `amh.conf`.
   State explicitly which of those layers the adapter actually provides.
+- **An agent with no pre-execution hook has no command rail at all.** `scripts/command-guard.sh`
+  is then a script nobody calls, and the rules in this file are the only layer standing. No
+  check can tell you this: distinguishing a hook invocation from a manual one needs
+  vendor-specific environment variables the harness will not assume, which is why this is
+  written here rather than warned about at boot.
 ``````
 
 ### `CLAUDE.md` — the pointer stub
@@ -731,7 +756,7 @@ PLAN_DIR=docs/plans
 # this list is a rule change either way, never housekeeping.
 #
 # Add each new agent adapter's config file here.
-RULE_FILES='AGENTS.md docs/RUNBOOK.md amh.conf scripts/ladder.sh scripts/test-ladder-guards.sh scripts/command-guard.sh scripts/redact.sh scripts/session-start.sh .claude/settings.json'
+RULE_FILES='AGENTS.md docs/RUNBOOK.md amh.conf scripts/ladder.sh scripts/test-ladder-guards.sh scripts/command-guard.sh scripts/redact.sh scripts/session-start.sh .claude/settings.json .codex/config.toml .codex/rules/amh.rules'
 ``````
 
 ### 3.2 `docs/STATE.md` — working memory (bounded, compressible)
@@ -894,9 +919,10 @@ cut (version invariants; the owner does the tagging), etc.}}
 4. **You are the last reviewer.** The review protocols below are mandatory. There is no
    stronger pass behind you.
 5. **Multi-unit work** persists an owner-approved plan file plus a STATE checklist; segments
-   run sequentially and each ends shippable; delete the plan file at the end — by then its
-   durable content lives in changelog lines and ledger rows. Code cites ledger rows, never
-   plans: plans die, the ledger does not.
+   run sequentially and each ends shippable. At the end, move a completed plan worth retaining
+   whole to `docs/history/` if this repository has the archive tier; otherwise delete it. Its
+   durable outcomes live in changelog lines and ledger rows either way. Code cites ledger rows,
+   never plans: an archived plan is a historical record, not permanent memory.
 6. **Recovery (bounded).** If the unit in flight has gone wrong: reset to the last green
    checkpoint, re-run the ladder to confirm green, re-attempt smaller — recording any durable
    lesson first. Recovery is not infinite: if the SAME blocker survives a second
@@ -971,7 +997,7 @@ occur):
 - **enforcement asymmetry** — prose implies a check no guard performs (say "prose-only", or
   add the check);
 - **citation validity** — cited ledger entries exist AND actually support the claim (the
-  citation guard scans code, not doc prose — this half is checked only here);
+  citation guard scans configured implementation paths, not doc prose — this half is checked only here);
 - **agent-agnosticism regression** — the rule silently assumes one agent's machinery,
   filenames or environment variables.
 
@@ -1057,6 +1083,14 @@ shipped bug teaches session N+9's review pass.
 > fixtures are ground truth: if an entry conflicts with the current code, trust the code and
 > **correct** the entry — never delete it.
 >
+> **This file is RETRIEVAL storage: grep it and cite it, never read it whole.** A `D-NNN`
+> citation resolves to one row, and one row is what you read. A volume at its cap is tens of
+> kilobytes of prose whose overwhelming majority is irrelevant to any given session, so
+> reading it end to end spends a context budget better spent on the code you came to change.
+> The ladder's cap rung prints a size in KB beside the line count so the read cost the cap
+> stands in for stays visible. It measures the **live** volume only: once this file rolls over,
+> its own size stops being reported, which is one more reason to grep it rather than open it.
+>
 > **Search before appending.** Grep the ledger for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes D-NNN") and the old row gets a correction pointer, never deletion.
@@ -1069,11 +1103,11 @@ shipped bug teaches session N+9's review pass.
 > `_B.md`/`DB-001`, …). Existing rows are never moved or renumbered — the cap bounds file
 > size, not history. A citation's prefix names its file.
 >
-> **`[cited]` marker (machine-managed).** A row cited from the ladder's scan scope carries
-> ` [cited]` after its number. The ladder checks it BOTH directions — cited-but-unmarked and
-> marked-but-uncited each fail the build — so it is verified derived state, never
-> hand-tracked. The marker warns you that code resolves here before you lean on or reword
-> a row.
+> **`[cited]` marker (machine-CHECKED — you write it, the ladder verifies it).** A row cited
+> from the ladder's scan scope carries ` [cited]` after its number. The ladder checks it BOTH
+> directions — cited-but-unmarked and marked-but-uncited each fail the build — but it never
+> edits this file: nothing syncs the marker for you. The marker warns you that code resolves
+> here before you lean on or reword a row.
 
 - D-001: {{terse entry: what was discovered, decided or broken; what to do about it; what it
   affects. One entry per durable fact. Solved mistakes AND standing invariants both live
@@ -1183,7 +1217,7 @@ The guards it ships with:
   the default branch but the state file is not in the diff, so the changelog line is probably
   missing); a stale-branch tripwire classified mechanically with the P13 test-merge; a
   plan-orphan tripwire (a file under `docs/plans/` not referenced from the state file's active
-  work, meaning a finished or pivoted plan missed its deletion step); and a rule-review
+  work, meaning a finished or pivoted plan missed its archive-or-delete step); and a rule-review
   tripwire on the uncommitted diff. The state file and the ledgers are deliberately excluded
   from that last one: they change in nearly every unit, and warn fatigue kills tripwires.
 
@@ -1290,7 +1324,14 @@ rather than the command.
   reason shown to the model). This is the layer that makes rails *self-correcting*; the static
   deny list stays beneath it as the second net. Follow the P13 pattern rules: leading-command
   matching, mistake-not-evasion threat model, fail open on malformed input, self-test run by
-  the ladder.
+  the ladder. Two honesty obligations come with it. The guard's header carries a consolidated
+  **what this guard does NOT catch** block — interpreters outside its enumerated reader list,
+  wrappers, constructed commands, heredocs, window limits — because a rail whose limits are
+  only discoverable by reading its scanners will be mistaken for a vault. And an agent with no
+  pre-execution hook has **no command rail at all**: the script is then one nobody calls, and
+  the prose is the only layer. Nothing can detect that state for the agent — distinguishing a
+  hook invocation from a manual one requires vendor-specific environment variables the harness
+  will not assume — so it is stated in the constitution rather than warned about at boot.
 - **Output redaction** (where supported): if the agent exposes an output-filter hook, pipe tool
   and terminal output through `scripts/redact.sh` so known token shapes are scrubbed before
   they reach the context window. State explicitly in the adapter which layers it actually
@@ -1379,6 +1420,44 @@ A worked adapter, for Claude Code:
     ]
   }
 }
+``````
+
+A worked adapter, for Codex (repository config plus static command policy):
+
+``````
+# Codex adapter for the AMH. Wiring only: all behavioral policy lives in
+# AGENTS.md and scripts/. Codex currently has no repository-local session-start,
+# pre-shell, or output-filter lifecycle hook, so this file does not pretend to
+# run scripts/session-start.sh, scripts/command-guard.sh, or scripts/redact.sh.
+# The supported repository-local command-policy layer is wired separately in
+# .codex/rules/amh.rules. The command guard remains available for direct use.
+``````
+
+``````
+# AMH static deny rails for Codex. Wiring only; AGENTS.md and scripts/ own the
+# behavior and explanations. Prefix rules cannot provide output filtering or
+# invoke scripts/command-guard.sh as a pre-execution hook.
+
+# Environment dumps and direct secret-file reads.
+prefix_rule(pattern = ["env"], decision = "forbidden", justification = "AMH forbids environment dumps; check only whether a named key is set.")
+prefix_rule(pattern = ["printenv"], decision = "forbidden", justification = "AMH forbids environment dumps; check only whether a named key is set.")
+prefix_rule(pattern = ["set"], decision = "forbidden", justification = "AMH forbids shell state dumps.")
+prefix_rule(pattern = ["export", "-p"], decision = "forbidden", justification = "AMH forbids exported-environment dumps.")
+prefix_rule(pattern = ["declare", ["-p", "-x"]], decision = "forbidden", justification = "AMH forbids shell variable dumps.")
+prefix_rule(pattern = ["typeset", ["-p", "-x"]], decision = "forbidden", justification = "AMH forbids shell variable dumps.")
+prefix_rule(pattern = ["source", [".env", "./.env"]], decision = "forbidden", justification = "AMH forbids loading secret-bearing .env files.")
+prefix_rule(pattern = [".", [".env", "./.env"]], decision = "forbidden", justification = "AMH forbids loading secret-bearing .env files.")
+prefix_rule(pattern = [["cat", "head", "tail", "less", "more", "strings", "grep", "wc", "sha256sum", "md5sum"], [".env", "./.env", "/proc/self/environ"]], decision = "forbidden", justification = "AMH forbids reading secret-bearing .env files and process environments.")
+
+# Codex prefix policy has no path-glob operand, so nested .env paths and arbitrary
+# /proc/<pid>/environ paths cannot be expressed here. scripts/command-guard.sh covers
+# its enumerated reader forms; AGENTS.md remains binding beyond both mechanical rails.
+
+# Git publication rails. The instructive command guard covers more spellings
+# when run directly; these rules express the forms Codex's prefix policy can.
+prefix_rule(pattern = ["git", "push", ["--force", "-f", "--force-with-lease", "--mirror", "--all"]], decision = "forbidden", justification = "AMH forbids force-pushes and broad pushes.")
+prefix_rule(pattern = ["git", "push", "origin", ["--force", "-f", "--force-with-lease", "--mirror", "--all"]], decision = "forbidden", justification = "AMH forbids force-pushes and broad pushes.")
+prefix_rule(pattern = ["git", "push", "origin", ["{{DEFAULT_BRANCH}}", "HEAD:{{DEFAULT_BRANCH}}", "+{{DEFAULT_BRANCH}}", "+HEAD:{{DEFAULT_BRANCH}}"]], decision = "forbidden", justification = "AMH forbids pushes to DEFAULT_BRANCH; push the assigned session branch.")
 ``````
 
 ### 3.9 CI — invoking the same entrypoint
@@ -1533,7 +1612,9 @@ places.
 | `amh.conf` | your settings | Yours forever. The harness cannot upgrade it, so new keys arrive with defaults in the scripts. |
 | `scripts/verify.sh`, `scripts/guards/*.sh` | the ladder's two extension points | Yours entirely — you write them, you edit them, you delete them. The installer ships a stub `verify.sh` and no guards at all. |
 | `AGENTS.md`, `CLAUDE.md`, `docs/**` | seed prose | Copied once, yours thereafter. Re-running init never touches them. |
-| `.github/workflows/ci.yml`, agent adapter config | yours | Written only if absent. |
+| `.github/workflows/ci.yml` | yours | Written only if absent. |
+| `.claude/settings.json` | Claude Code adapter | Written only if absent. |
+| `.codex/config.toml`, `.codex/rules/amh.rules` | Codex adapter | Written only if absent. Codex consumes the canonical `AGENTS.md` directly, so there is no Codex-specific constitution pointer to maintain. |
 
 If you find yourself wanting to edit a shipped script, stop: you have found a missing extension
 point. The change belongs in `amh.conf`, in a guard under `scripts/guards/`, or in
@@ -1549,7 +1630,7 @@ The init run printed every file that still contains one. **Nothing in your tree 
 skip this**, so check it yourself before you finish:
 
 ```sh
-grep -rn '{{' AGENTS.md CLAUDE.md docs/ .github/ 2>/dev/null
+grep -rn '{{' AGENTS.md CLAUDE.md docs/ .github/ .claude/ .codex/ 2>/dev/null
 ```
 
 Each slot is documented in `harness/PLACEHOLDERS.md` **in the harness checkout you ran the

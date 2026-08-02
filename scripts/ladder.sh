@@ -256,20 +256,36 @@ live_ledger() {
 
 guard_ledger_rollover() {
 	section "Permanent memory: ledger file cap"
-	local live lines last_row
+	local live lines last_row size
 	live=$(live_ledger)
 	if [ -z "$live" ]; then
 		skip "no ledger yet"
 		return
 	fi
 	lines=$(wc -l <"$live")
+	# Bytes are REPORTED, never gated. The cap counts lines because a line is what a
+	# row is appended in, but the quantity it stands in for is read cost — and the two
+	# drift, because rows are prose and prose wraps at whatever width its author used.
+	# A second failing threshold on bytes was refused (AMH ledger row DA022): no
+	# context-overflow incident is on record, and this harness does not ship guards for
+	# harms it has not seen. Printing the number costs nothing and lets the owner see
+	# the proxy diverging before deciding whether it needs a gate at all.
+	# One decimal, not integer KB: a volume under 1024 bytes would otherwise report
+	# `0 KB`, which is both false and exactly the kind of quiet rounding this figure
+	# exists to expose. Tenths in integer arithmetic — no bc, no float.
+	size=$(wc -c <"$live")
+	size=$((size * 10 / 1024))
+	size="$((size / 10)).$((size % 10))"
 	last_row=$(grep -n '^- D[A-Z]\?-[0-9]\+' "$live" | tail -1 | cut -d: -f1)
+	# Every branch carries the size, the FAIL branch above all: that is the volume at
+	# its largest, and rollover is the one moment the owner is deciding whether a line
+	# cap still stands in for read cost at all.
 	if [ -n "$last_row" ] && [ "$last_row" -gt "$LEDGER_LINE_CAP" ]; then
-		fail "$live: a row STARTS at line $last_row, past the ${LEDGER_LINE_CAP}-line cap — open the next volume (rows are never moved or renumbered)"
+		fail "$live: a row STARTS at line $last_row (${size} KB), past the ${LEDGER_LINE_CAP}-line cap — open the next volume (rows are never moved or renumbered)"
 	elif [ "$lines" -ge $((LEDGER_LINE_CAP * 9 / 10)) ]; then
-		warn "$live: $lines lines, approaching the ${LEDGER_LINE_CAP}-line cap — the next rollover is near"
+		warn "$live: $lines lines / ${size} KB, approaching the ${LEDGER_LINE_CAP}-line cap — the next rollover is near"
 	else
-		ok "$live: $lines/$LEDGER_LINE_CAP lines"
+		ok "$live: $lines/$LEDGER_LINE_CAP lines, ${size} KB (grep it; a volume is retrieval storage, not a read)"
 	fi
 }
 
@@ -337,15 +353,15 @@ guard_citations() {
 	local unresolved missing_marker stale_marker
 	unresolved=$(comm -23 "$cited" <(sort -u "$rows"))
 	if [ -n "$unresolved" ]; then
-		fail "cited from code but no such ledger row: $(printf '%s' "$unresolved" | tr '\n' ' ')"
+		fail "cited from configured implementation paths but no such ledger row: $(printf '%s' "$unresolved" | tr '\n' ' ')"
 	fi
 	missing_marker=$(comm -23 "$cited" <(sort -u "$marked"))
 	if [ -n "$missing_marker" ]; then
-		fail "cited from code but not marked [cited] in the ledger: $(printf '%s' "$missing_marker" | tr '\n' ' ') — the marker warns the next reader that code depends on the row"
+		fail "cited from configured implementation paths but not marked [cited] in the ledger: $(printf '%s' "$missing_marker" | tr '\n' ' ') — the marker warns the next reader that an implementation artifact depends on the row"
 	fi
 	stale_marker=$(comm -13 "$cited" <(sort -u "$marked"))
 	if [ -n "$stale_marker" ]; then
-		fail "marked [cited] but no longer cited from code: $(printf '%s' "$stale_marker" | tr '\n' ' ') — drop the marker (never the row)"
+		fail "marked [cited] but no longer cited from configured implementation paths: $(printf '%s' "$stale_marker" | tr '\n' ' ') — drop the marker (never the row)"
 	fi
 	[ -z "$unresolved$missing_marker$stale_marker$dupes" ] && ok "$(wc -l <"$cited" | tr -d ' ') citation(s) resolve; markers in sync"
 }
@@ -867,7 +883,7 @@ advisories() {
 		for p in "$PLAN_DIR"/*; do
 			[ -f "$p" ] || continue
 			if ! grep -qF "$(basename "$p")" "$STATE_FILE" 2>/dev/null; then
-				warn "$p is not referenced from $STATE_FILE — a finished or pivoted plan missed its deletion step. Plans die; code cites ledger rows, never plans."
+				warn "$p is not referenced from $STATE_FILE — a finished or pivoted plan missed its completion step. Move a completed plan worth retaining whole to docs/history/ when that archive tier exists; otherwise delete it. Code cites ledger rows, never plans."
 			fi
 		done
 	fi

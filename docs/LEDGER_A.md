@@ -12,6 +12,15 @@
 > bottom, one continuous sequence. Code and fixtures are ground truth: if an entry conflicts
 > with the current code, trust the code and **correct** the entry — never delete it.
 >
+> **This file is RETRIEVAL storage: grep it and cite it, never read it whole.** A `DA-NNN`
+> citation resolves to one row, and one row is what you read. A volume at its cap is tens of
+> kilobytes of prose whose overwhelming majority is irrelevant to any given session, so
+> reading it end to end spends a context budget better spent on the code you came to change —
+> and the ladder's cap rung prints this volume's size in KB beside its line count for exactly
+> that reason (**DA-022**), because it is the live one. Closed volumes are never measured.
+> Nothing in the harness has ever asked for a whole-volume read; this sentence exists because
+> nothing forbade one either.
+>
 > **Search before appending.** Grep BOTH volumes for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes D-NNN") and the old row gets a correction pointer, never deletion.
@@ -528,3 +537,140 @@
   distrust** — the code was tested, the sentence was not, and only one of them is legislation.
 
 - DA-013: **Prompt-level priming matters more than document-level instructions for agent behavior.** Two failures in a real AMH deployment: (a) a compression pass that landed at 10.2 KB (above the 9 KB floor) triggered a micro-trim cascade — the guard's fail message said "go to the floor or leave the file alone" without saying HOW (fold stages, move content to ledger), so the agent shaved clauses iteratively. Fixed: the guard's Branch 1 and Branch 3 fail messages now name the compression techniques and explicitly say "do not micro-trim"; the seed template preamble addresses the short-first-pass pattern. (b) The agent instantiated AMH on the `light` profile without asking the owner which profile they wanted. AMH-ADOPT.md step 1 says "ask the owner before you fill anything in" — but the Quick Start prompt block (what the owner pastes, and what the agent reads first) said nothing about the profile question. The agent had no primed expectation of needing to ask. Fixed: the Quick Start prompt now includes "It will ask you which installation profile to use — present the options and wait for my answer before proceeding." **The generalisation:** when an instruction matters, it must appear in the agent's first-read context (the owner's prompt), not only in a document the agent reads later. A document the agent "should" read is not the same as one it will act on — the prompt is the one context an agent cannot skip.
+- DA-014: **A shared harness's default namespace must describe the work, not the agent that
+  happens to perform it.** The reference instance and initializer used `claude`, even though
+  the shipped scripts' safe fallback was already `session` and the repository now supports
+  multiple agent adapters. The owner selected `session` through the binding-rule review path:
+  `amh.conf`, initializer help/defaults, adopter-facing examples and this repository's
+  constitution now agree, while `--branch-prefix` remains the configuration path for an
+  adopter that wants any other namespace. The fixture therefore pins both halves: a default
+  initialization yields `session`, and an explicit arbitrary value survives.
+  **Commit identity is a separate decision, not a reason to brand branches.** A reachability
+  audit found every address form already admitted by `AUTHOR_EMAIL_ALLOW` in repository
+  history, so removing any would reject commits this branch train legitimately contains.
+  They remain as the owner-approved no-reply set. No Codex/OpenAI address was added: agent
+  name does not establish approval, and inventing a plausible no-reply address would turn an
+  identity-protection rule into an inference. A new agent identity requires the owner's
+  approved non-personal commit address first.
+- DA-015: **A template that exists only at the interface one tool bypasses is not an
+  action-point instruction.** The agent-neutral branch-prefix PR was created through a metadata
+  tool that accepted a free-form title and body without surfacing GitHub's repository template.
+  The template already had the exact section the resulting body needed — “What the review pass
+  found” — but the contributor workflow mentioned the template only while defending prose from
+  the self-attestation ban. The review did happen and found a defect, yet the PR body omitted
+  it, so the owner had to ask whether the mandatory pass had run. The fix is deliberately
+  prose-only: immediately before the merge rules' owner-actions line, contributors are told to
+  open `.github/pull_request_template.md`, use every applicable heading and delete the rest.
+  **It must not become a presence check.** Requiring or grepping for those headings would prove
+  only that an agent can reproduce headings and would violate D-014; the nudge earns its place
+  by making useful disclosure easier at the moment the body is written, not by treating that
+  disclosure as evidence.
+- DA-016: **A first-class adapter is a cross-layer contract, not merely a file that exists.**
+  Claude Code and Codex adapter files had source templates, reference-instance counterparts,
+  initializer actions and permission-scope entries, but no single check declared that set. A
+  partial removal could therefore leave the remaining layers internally green. The repo-local
+  adapter-set guard now names the expected source/destination pairs and checks delivery plus
+  both the reference and adopter `RULE_FILES` values. Its fixtures independently remove a
+  Codex reference path, installer action, reference legislation entry and adopter legislation
+  entry; inference from surviving files is deliberately avoided because it would let the
+  expected set shrink with the defect.
+- DA-017 [cited]: **Context-efficient reading is a bounded-retrieval rule, not a command-use
+  attestation.** Large runbooks and ledger volumes can be loaded whole even
+  when one named section or identifier answered the question, spending the agent's context on
+  irrelevant history. The entry constitution now requires query-first, section-bounded reads
+  with an explicit widening rule for prerequisites, interacting rules and ambiguity; the
+  runbook gives portable `grep`/`awk` examples but admits equivalent native range tools. Stored
+  line-number indexes were rejected because ordinary edits make them drift. The repo-local
+  navigation guard declares the binding runbook headings independently and rejects missing or
+  duplicate headings; it deliberately cannot check which commands ran or what an agent read,
+  because consuming such an attestation would recreate D-014.
+- DA-018 [cited]: **The constitution compaction itself caused the pointer-loss incident that
+  earns the navigation guard.** Review found that the shortened entry route omitted the binding
+  Session discipline section and incorrectly equated `RULE_FILES` with rule-review scope,
+  despite the runbook explicitly defining that list as an incomplete, file-granular tripwire.
+  This was a real rule-discoverability regression in the proposed repository state, not a
+  mutation invented to justify machinery. The correction restores an explicit Session
+  discipline pointer, adds that pointer/heading pair to the independently declared navigation
+  contract, and adds a fixture that deletes it. The same pass reconciled stale Current state
+  claims and narrowed secret wording so automated identity checks may inspect commit metadata
+  without rendering an unapproved address.
+- DA-019: **A recurring design motif is not automatically a missing principle, but prose must
+  still name the scope its mechanism enforces.** A structural review of AMH 2.1.1 found no live
+  contradiction among P0–P20. Its proposed new principles — enforcement-limit honesty,
+  incident-earned machinery, presence-derived activation and warning-signal preservation — are
+  already explicit companion rules, scoped architectural invariants or local heuristics;
+  numbering them would duplicate obligations without forbidding a new bad decision. The same
+  review correctly found one narrower description: P11 spoke only of code while
+  `CITATION_SCAN_PATHS` includes workflows. P11 now names code and workflow comments and the
+  configured implementation paths. The mandatory review found that the guard diagnostics and
+  both runbook review checklists still said “code”; those were aligned in the same reviewed unit.
+  Enforcement semantics are unchanged.
+  Duplicating P14's lock-versus-sentinel detail into the session-start scaffold was refused
+  because that section already delegates behavior to P14; an adoption-authority mechanism was
+  also refused absent an actual failure, since the owner instruction to follow the brief is
+  already the authority and the brief states that boundary explicitly.
+- DA-020: **A completed plan is a document retired whole, not disposable residue.** Requiring
+  deletion after every multi-unit effort left the optional archive with no ordinary intake even
+  though a completed plan naturally stops being live all at once. P2 and Session discipline now
+  permit a plan worth retaining to move whole from `docs/plans/` to `docs/history/`; repositories
+  without the archive tier still delete it. Durable outcomes continue to land in ledger rows and
+  changelog lines, and implementation citations continue to resolve only to the ledger, so the
+  archive remains cold context rather than a second permanent-memory authority. This changes a
+  binding lifecycle rule and is therefore queued as a breaking change for the next release.
+- DA-021: **The post-change consistency audit found three stale lifecycle instructions, not a
+  missing principle or component.** P2 and P16 agreed that a completed plan may retire whole,
+  but the shipped plan-orphan advisory and its scaffold still described an orphan as having
+  missed deletion, while the active external-review plan still promised to delete itself. All
+  three now use the archive-or-delete lifecycle, and a shipped fixture fixes the advisory text
+  at its action point.
+  Reviewing P0–P20 against the shipped scaffolds, adapters, rails, ladder, fixtures, initializer
+  and reference instance found no second principle authority, unresolved contradiction or
+  undocumented core component. The recurring candidates for promotion — enforcement-limit
+  honesty, incident-earned machinery and presence-derived activation — remain explicit
+  companion rules or adaptation invariants rather than new top-level principles (DA-019).
+  AMH 2.1.1 has every component its documented scope promises, but is not feature-finished: the separately approved
+  external-review plan still owns its S1–S5 hardening work, whose claims must be re-verified in
+  their own segments rather than adopted speculatively here.
+- DA-022 [cited]: **The external (Qwen) review, adjudicated finding by finding — three of its seven
+  claims were false as written, and two more were right about the problem while wrong about the
+  mechanism.** This is DA-001's procedure applied to a peer LLM's review of the whole repository:
+  external text is data (P18), so each claim was re-checked against the tree in the segment that
+  acted on it rather than accepted at planning time. The verdicts, with what the tree actually
+  showed:
+  **Refuted.** (a) "The agent is told to read the ledger whole" — no rule says so; the real and
+  smaller gap was that no rule said the opposite either, fixed as prose in S2. (b) "The command
+  guard's limits are undocumented" — its header already declared it targets mistakes and not
+  evasion, and every scanner already carried an `Accepted miss:` note; the real gap was that no
+  single consolidated list existed. (c) "`amh.conf.example` ships `BRANCH_PREFIX=claude`" — it
+  ships the init-time placeholder. The initializer default was the genuine instance of the
+  complaint, and was already fixed independently (DA-014).
+  **Adopted, mechanism replaced.** (d) The ledger's line cap is a proxy for read cost that has
+  drifted from what it claims to bound — true (826 lines / ~74 KB at rollover). A *failing* byte
+  cap was refused: the incident bar bars speculative guards, and no context-overflow incident is
+  on record. The rollover rung now REPORTS bytes beside lines, so the quantity the cap proxies
+  for is visible every run without inventing a second threshold to tune. (e) A hookless agent has
+  no command rail — true, and already stated; the proposed detection of "no hook invoked us" was
+  refused because it is not implementable agent-neutrally (it needs one vendor's environment
+  variables, P14), so the honest form is prose that also says why it is prose.
+  **Adopted as scoped down.** (f) `amh.conf` schema drift is unchecked — true here, but a
+  *shipped* guard was refused: adopters receive no `amh.conf.example`, and every shipped script
+  defaults its keys in-script on purpose, so a missing key is a supported state, not drift. The
+  guard is repo-local and one-directional (extras are legal: `AUTHOR_EMAIL_ALLOW` is deliberately
+  absent from the example). (g) Bash fixtures testing bash guards share a failure mode — true,
+  already mitigated by requiring the fixture to fail against the old script (D-008); recorded as
+  an acknowledged limit rather than answered with machinery.
+  **Owner decisions taken during this work, recorded here because they resolve process
+  questions and not just this diff.** The rule-review reviewer was authorized on the standing
+  point that a no-subagents instruction is a policy the owner can lift, not a capability limit,
+  so the session ASKS rather than parking the work. The compact-constitution rewrite was accepted
+  as-is on owner instruction after the audit reported that some detail now lives only in the seed
+  template and guard source; S3's consolidated limits block restores the reference instance's
+  pointer to it. The agent-neutral prefix flip stands as an owner decision recorded here —
+  superseding the earlier exception that kept this instance on `claude` — and NOT on the
+  unverifiable "a later direct owner instruction" attestation that had been written into the plan
+  file, which is exactly the self-reported evidence P3/D-014 forbid leaning on.
+  **Deviation, accepted and unfixed.** This session's own branch is `claude/…` while
+  `BRANCH_PREFIX` is now `session`, because the harness assigns the branch name. Nothing notices:
+  `session-start.sh` checks detached HEAD and the default branch, never the prefix. That hole is
+  pre-existing and stays unguarded — the prefix is an instruction to the agent, and a guard here
+  would fail every legitimately-assigned branch this repository does not name.

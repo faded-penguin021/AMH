@@ -33,8 +33,15 @@ beside them holds their hashes:
 
 Then apply the changelog's Upgrading notes: new amh.conf keys, seed-prose changes I want by
 hand, adapter or CI changes. Files I own are never overwritten — amh.conf, the seed documents,
-scripts/verify.sh, scripts/guards, my workflow and adapter config — and AMH-ADOPT.md is never
+scripts/verify.sh, scripts/guards, my workflow and adapter configs — and AMH-ADOPT.md is never
 re-issued on an upgrade.
+
+While /tmp/amh is still there, list any key the release declares that our amh.conf does not
+set, and tell me which ones we are leaving to a script default:
+
+    comm -23 \
+      <(sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' /tmp/amh/harness/templates/amh.conf.example | sort -u) \
+      <(sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' amh.conf | sort -u)
 
 Run scripts/ladder.sh directly, never through a pipe, and drive it to green. A new guard
 failing on something that was always there is a finding, not upgrade damage: fix the finding,
@@ -63,7 +70,7 @@ This split is the whole reason upgrades are cheap, so it is worth internalising:
 | `amh.conf` | — | yours; new keys are additive, listed in the changelog |
 | `scripts/verify.sh`, `scripts/guards/*` | — | yours; the ladder's extension points |
 | `AGENTS.md`, `docs/RUNBOOK.md`, `docs/STATE.md`, `docs/LEDGER.md` | — | yours; seed changes arrive as hand-applied notes |
-| `.claude/settings.json`, `.github/workflows/*` | — | yours; diff against the template and take what applies |
+| `.claude/settings.json`, `.codex/config.toml`, `.codex/rules/amh.rules`, `.github/workflows/*` | — | yours; diff each adapter or workflow against its template and take what applies |
 | `AMH-ADOPT.md` | — | yours, and one-time: written only on a FRESH instantiation, and yours to delete when you have finished it. An upgrade run never re-issues it |
 
 One invariant underwrites the whole table, and it is worth stating rather than inferring:
@@ -112,7 +119,7 @@ copying it is what turns the rung on.
 
 If you have the harness repo checked out, `scripts/amh-init.sh /path/to/your-repo` does the
 same thing and is safe to re-run: it overwrites exactly the shipped scripts and leaves every
-file you own — `amh.conf`, the seed prose, your workflow and adapter config — untouched.
+file you own — `amh.conf`, the seed prose, your workflow and adapter configs — untouched.
 
 The `--profile` flag it grew in 2.0.0 does not change that, and you do not need to pass it on
 an upgrade. It decides which seed prose a **fresh** install receives; a file you already have
@@ -123,6 +130,23 @@ default.
 
 **5. Apply the changelog's Upgrading notes.** New `amh.conf` keys, seed-file changes you want,
 adapter or CI changes. Nothing here is automatic — that is the point.
+
+To catch a key the notes mention and you skipped, diff your key set against the release you
+just cloned:
+
+```bash
+comm -23 \
+  <(sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' /path/to/AMH/harness/templates/amh.conf.example | sort -u) \
+  <(sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' amh.conf | sort -u)
+```
+
+Anything printed is a key the release declares and your `amh.conf` does not set. Read it as a
+prompt, not a failure: every shipped script defaults its own keys, so a missing one is a
+supported state — the value is knowing you are relying on a default rather than a choice. Keys
+you have and the example does not are yours and are meant to stay (`AUTHOR_EMAIL_ALLOW` is
+opt-in and deliberately absent from the example), which is why the comparison runs one way
+only. No guard ships for this: your tree has no `amh.conf.example` to compare against unless
+you keep a checkout beside it, so the check lives here, in the procedure that already has one.
 
 **6. Run the ladder before anything else.**
 

@@ -69,6 +69,48 @@ expect pass "placeholder-integrity: clean tree" "$base" placeholder-integrity.sh
 expect pass "version-lockstep: clean tree" "$base" version-lockstep.sh
 expect pass "path-refs: clean tree" "$base" path-refs.sh
 expect pass "manifest-drift: clean tree" "$base" manifest-drift.sh
+expect pass "adapter-set: clean tree" "$base" adapter-set.sh
+expect pass "doc-navigation: clean tree" "$base" doc-navigation.sh
+expect pass "config-schema: clean tree" "$base" config-schema.sh
+
+# --- config-schema ------------------------------------------------------------
+d=$(snapshot config_schema_missing)
+grep -v '^PLAN_DIR=' "$d/amh.conf" >"$d/t" && mv "$d/t" "$d/amh.conf"
+expect fail "config-schema: a template key absent from amh.conf" "$d" config-schema.sh "PLAN_DIR"
+
+d=$(snapshot config_schema_new_template_key)
+printf 'BRAND_NEW_KEY=x\n' >>"$d/harness/templates/amh.conf.example"
+expect fail "config-schema: a key added to the template but not the instance" "$d" \
+	config-schema.sh "BRAND_NEW_KEY"
+
+# Extras are legal BY DESIGN: AUTHOR_EMAIL_ALLOW is opt-in and deliberately absent from
+# the example. A guard that failed on extras would fail this repo for using a feature
+# correctly, so the one-directional shape is pinned here rather than left to the header.
+d=$(snapshot config_schema_extra_key)
+printf 'AN_EXTRA_LOCAL_KEY=1\n' >>"$d/amh.conf"
+expect pass "config-schema: extra instance keys are legal" "$d" config-schema.sh
+
+# A key named only in the example's prose or comments is documentation, not contract.
+d=$(snapshot config_schema_comment_key)
+printf '# COMMENTED_OUT_KEY=x\n' >>"$d/harness/templates/amh.conf.example"
+expect pass "config-schema: a commented key in the example is not a requirement" "$d" config-schema.sh
+
+d=$(snapshot doc_navigation_missing)
+sed -i 's/^## Acceptance ladder$/## Verification ladder/' "$d/docs/RUNBOOK.md"
+expect fail "doc-navigation: a binding heading was renamed" "$d" doc-navigation.sh "missing navigation heading"
+
+d=$(snapshot doc_navigation_duplicate)
+printf '\n## Acceptance ladder\n' >>"$d/docs/RUNBOOK.md"
+expect fail "doc-navigation: a binding heading was duplicated" "$d" doc-navigation.sh "duplicate navigation heading"
+
+d=$(snapshot doc_navigation_pointer_missing)
+sed -i 's/^- Verification and locally unverifiable coverage:/- Local verification:/' "$d/AGENTS.md"
+expect fail "doc-navigation: a binding constitution pointer was renamed" "$d" doc-navigation.sh "missing navigation pointer"
+
+d=$(snapshot doc_navigation_session_pointer_missing)
+sed -i '/^- Session execution, checkpoints, recovery, and owner forks:/d' "$d/AGENTS.md"
+sed -i 's/Follow \*\*Session discipline\*\* every/Follow the runbook every/' "$d/AGENTS.md"
+expect fail "doc-navigation: Session discipline routing was removed" "$d" doc-navigation.sh "missing navigation pointer"
 
 d=$(snapshot drift_script)
 printf '# local edit\n' >>"$d/scripts/redact.sh"
@@ -101,6 +143,26 @@ expect fail "manifest-drift: a hand-edited manifest" "$d" manifest-drift.sh "sta
 d=$(snapshot drift_manifest_gone)
 rm "$d/harness/templates/scripts/MANIFEST.sha256"
 expect fail "manifest-drift: no manifest at all" "$d" manifest-drift.sh "has not been built"
+
+# The adapter set is declared in the guard rather than inferred from whichever files happen
+# to remain. These Codex mutations prove that each independent delivery layer is live:
+# reference path, installer action, and both legislation values. Removing a whole adapter
+# cannot make the expected set shrink along with it.
+d=$(snapshot adapter_codex_path_gone)
+rm "$d/.codex/config.toml"
+expect fail "adapter-set: a Codex reference path was removed" "$d" adapter-set.sh ".codex/config.toml"
+
+d=$(snapshot adapter_codex_install_gone)
+sed -i '\|codex-config.toml.*\.codex/config.toml|d' "$d/scripts/amh-init.sh"
+expect fail "adapter-set: a Codex install action was removed" "$d" adapter-set.sh "install action missing"
+
+d=$(snapshot adapter_codex_legislation_gone)
+sed -i 's/ \.codex\/config\.toml//' "$d/harness/templates/amh.conf.example"
+expect fail "adapter-set: a Codex legislation entry was removed" "$d" adapter-set.sh "adopter RULE_FILES"
+
+d=$(snapshot adapter_codex_reference_legislation_gone)
+sed -i 's/ \.codex\/config\.toml//' "$d/amh.conf"
+expect fail "adapter-set: a Codex reference legislation entry was removed" "$d" adapter-set.sh "reference RULE_FILES"
 
 d=$(snapshot drift_dist)
 printf 'hand edit\n' >>"$d/harness/dist/AMH.md"
@@ -361,6 +423,27 @@ else
 	FAILED=$((FAILED + 1))
 	printf '  FAIL manifest-drift: a missing hasher is named, not reported as drift — rc=%s\n%s\n' "$rc" "$out" >&2
 fi
+
+# config-schema with no `comm` on PATH — the same hollow-green shape, and the one its own
+# review found: with the comparison unable to run, the difference is empty and the guard
+# would otherwise print an affirmative line claiming 22 keys were checked. The shim's fixed
+# tool list has no `comm`, so this is the condition, not a simulation of it.
+out=$(cd "$base" && env PATH="$BS_PATH" bash scripts/guards/config-schema.sh 2>&1)
+rc=$?
+if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'checked NOTHING'; then
+	PASSED=$((PASSED + 1))
+else
+	FAILED=$((FAILED + 1))
+	printf '  FAIL config-schema: a missing comm is named, not reported as agreement — rc=%s\n%s\n' "$rc" "$out" >&2
+fi
+
+# An example file that yields no keys at all. Emptied, renamed, or restyled so the pattern
+# stops matching, it compares nothing against nothing and calls it agreement — the exact
+# zero-extraction case version-lockstep.sh already refuses.
+d=$(snapshot config_schema_empty_example)
+: >"$d/harness/templates/amh.conf.example"
+expect fail "config-schema: an example with no keys is a broken guard, not a pass" "$d" \
+	config-schema.sh "the guard pattern and the file have diverged"
 
 h="$WORK/bs_home_nocurl"
 mkdir -p "$h"

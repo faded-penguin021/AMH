@@ -10,6 +10,16 @@
 > fixtures are ground truth: if an entry conflicts with the current code, trust the code and
 > **correct** the entry — never delete it.
 >
+> **This file is RETRIEVAL storage: grep it and cite it, never read it whole.** A `D-NNN`
+> citation resolves to one row, and one row is what you read. A volume at its cap is tens of
+> kilobytes of prose whose overwhelming majority is irrelevant to any given session, so
+> reading it end to end spends a context budget better spent on the code you came to change.
+> The ladder's cap rung prints a size in KB beside the line count for exactly that reason
+> (**DA-022**) — but it measures only the **live** volume, and this one is closed, so no
+> check will ever tell you how expensive reading it would have been. Nothing in the harness
+> has ever asked for a whole-volume read; this sentence exists because nothing forbade one
+> either.
+>
 > **Search before appending.** Grep the ledger for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes D-NNN") and the old row gets a correction pointer, never deletion.

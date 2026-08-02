@@ -96,7 +96,9 @@ places.
 | `amh.conf` | your settings | Yours forever. The harness cannot upgrade it, so new keys arrive with defaults in the scripts. |
 | `scripts/verify.sh`, `scripts/guards/*.sh` | the ladder's two extension points | Yours entirely — you write them, you edit them, you delete them. The installer ships a stub `verify.sh` and no guards at all. |
 | `AGENTS.md`, `CLAUDE.md`, `docs/**` | seed prose | Copied once, yours thereafter. Re-running init never touches them. |
-| `.github/workflows/ci.yml`, agent adapter config | yours | Written only if absent. |
+| `.github/workflows/ci.yml` | yours | Written only if absent. |
+| `.claude/settings.json` | Claude Code adapter | Written only if absent. |
+| `.codex/config.toml`, `.codex/rules/amh.rules` | Codex adapter | Written only if absent. Codex consumes the canonical `AGENTS.md` directly, so there is no Codex-specific constitution pointer to maintain. |
 
 If you find yourself wanting to edit a shipped script, stop: you have found a missing extension
 point. The change belongs in `amh.conf`, in a guard under `scripts/guards/`, or in
@@ -112,7 +114,7 @@ The init run printed every file that still contains one. **Nothing in your tree 
 skip this**, so check it yourself before you finish:
 
 ```sh
-grep -rn '{{' AGENTS.md CLAUDE.md docs/ .github/ 2>/dev/null
+grep -rn '{{' AGENTS.md CLAUDE.md docs/ .github/ .claude/ .codex/ 2>/dev/null
 ```
 
 Each slot is documented in `harness/PLACEHOLDERS.md` **in the harness checkout you ran the
