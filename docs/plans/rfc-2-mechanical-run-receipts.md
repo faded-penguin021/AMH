@@ -1,343 +1,175 @@
 RFC: Mechanical Run Receipts
 
-Status: Proposed
+Status: ADJUDICATED 2026-08-03 — the format is refused; the problem it identified is real and is
+closed by two more facts in the ladder's own output.
 Audience: AMH architecture and implementation review
 Scope: Local sessions, hosted agents, containers and CI
 
-Summary
+Adjudication note
+
+Received as an externally-authored proposal, revised in place by review outcome. Under P18 it
+entered as DATA, never authority. A blocking fresh-context pass adjudicated it claim by claim;
+the verdicts are permanent in ledger row DA-025, which is the record, not this file.
+
+The proposed JSON receipt format, the local ignored transport, the CI artifact upload, the
+"amh-status.sh" script and the runtime and host evidence layers are all REFUSED. One thing
+survives, and it is the thing the document was right about.
+
+The problem statement is correct and measurable
+
+The ladder prints "ladder green (N warning(s))" and never says green *of what*. No commit, no
+worktree state — not in the ladder, not in the session banner, not anywhere in a session's
+output. So "was this green produced against the current commit?" genuinely cannot be answered
+after the fact, and it is exactly the kind of fact a machine should emit rather than an agent
+claim.
+
+That is the gap. It does not need a new artifact to close it.
+
+What is ACCEPTED — the whole surviving deliverable
+
+The ladder states its subject in its own verdict lines:
 
-Introduce a standard format for recording mechanically observed execution facts about an AMH work unit.
-
-AMH currently preserves repository state and durable lessons. It does not produce a concise, portable record of which verification steps executed against a particular commit, which steps were unavailable, or which runtime integrations were active.
-
-A run receipt fills that gap without storing prompts, conversations or full command histories.
-
-Problem
-
-After an agent hands work back, the owner can inspect:
-
-- the diff;
-- commits;
-- state and ledger changes;
-- the ladder or CI result.
-
-What remains difficult to answer is:
-
-- Which ladder rungs actually executed?
-- Which rungs were skipped because a tool was absent?
-- Was the reported green result produced against the current commit?
-- Did runtime setup match the repository version?
-- Did a command rail mechanically block anything?
-- Was the run local, hosted or in CI?
-- Which facts are known, and which were unobservable?
-
-Chat summaries cannot answer these questions reliably because they are agent-authored disclosures. Full transcripts are noisy, vendor-specific and may contain sensitive material.
-
-Design principle
-
-«Store bounded facts emitted by mechanisms, not narratives emitted by the agent.»
-
-A receipt records observations made by scripts, hooks, Git and CI.
-
-It never records private reasoning or claims that a review was intellectually adequate.
-
-Receipt layers
-
-The format supports three independent evidence layers.
-
-Layer 1: Repository evidence
-
-Portable everywhere.
-
-Examples:
-
-- commit SHA;
-- branch;
-- dirty or clean worktree;
-- ladder mode;
-- rung names and outcomes;
-- test-tool versions;
-- state-file size;
-- AMH version.
-
-Layer 2: Runtime evidence
-
-Available only where lifecycle integration exists.
-
-Examples:
-
-- session-start observed;
-- command denied by the AMH guard;
-- ladder invocation observed;
-- session-stop observed;
-- elapsed duration.
-
-Layer 3: Host evidence
-
-Produced by an external platform or CI, not inferred by AMH.
-
-Examples:
-
-- CI run identifier;
-- hosted-task identifier;
-- container image digest;
-- provider-reported environment class.
-
-The receipt must identify the source of every field so that external declarations are not confused with repository observations.
-
-Canonical format
-
-Use versioned JSON:
-
-{
-  "schema": 1,
-  "subject": {
-    "commit": "abc1234",
-    "branch": "session/example",
-    "amh_version": "3.0.0"
-  },
-  "producer": {
-    "type": "github-actions",
-    "id": "run-123456"
-  },
-  "verification": {
-    "mode": "full",
-    "result": "pass",
-    "started_at": "2026-08-03T18:20:00Z",
-    "finished_at": "2026-08-03T18:20:18Z",
-    "rungs": [
-      {
-        "name": "guards",
-        "state": "pass"
-      },
-      {
-        "name": "shellcheck",
-        "state": "unavailable"
-      },
-      {
-        "name": "project-tests",
-        "state": "pass"
-      }
-    ]
-  },
-  "runtime": {
-    "session_start": "observed",
-    "pre_command_guard": "observed",
-    "post_command_observation": "unknown"
-  }
-}
-
-State vocabulary
-
-Verification rungs use:
-
-- "pass"
-- "fail"
-- "skip"
-- "unavailable"
-- "not-run"
-- "interrupted"
-
-Runtime facts use the capability states defined by the Runtime Capability Contract:
-
-- "observed"
-- "configured"
-- "unavailable"
-- "failed"
-- "unknown"
-
-These values must remain distinct.
-
-A skipped optional check is not the same as an unavailable required tool.
-
-An interrupted ladder is never a passing ladder.
-
-Ladder integration
-
-Extend the existing interface:
-
-scripts/ladder.sh --report path/to/receipt.json
-scripts/ladder.sh --guards-only --report path/to/receipt.json
-
-Requirements:
-
-1. Human-readable output remains unchanged.
-2. The ladder’s exit code remains authoritative.
-3. A report is written for passing and failing runs.
-4. A successful report is finalized only after every selected rung completes.
-5. An interrupted run produces either no final receipt or an explicitly interrupted receipt.
-6. The receipt’s commit must match the tree that was verified.
-7. A dirty worktree is recorded rather than silently associated with "HEAD".
-
-Runtime integration
-
-Where post-command or stop hooks are observed, they may contribute runtime events.
-
-Where those hooks are absent, the receipt still contains repository and verification evidence.
-
-This makes the mechanism useful in:
-
-- hosted environments with limited hooks;
-- local CLIs with full lifecycle integration;
-- CI;
-- containers;
-- plain shells.
-
-The richest environment produces more evidence, but no environment changes the receipt’s authority model.
-
-Storage and transport
-
-Receipts are ephemeral diagnostic artifacts.
-
-Supported transports:
-
-- GitHub Actions artifact;
-- CI job artifact;
-- local ignored ".amh/receipts/" directory;
-- hosted-agent task artifact where supported.
-
-Receipts must not be committed to the product repository by default.
-
-They are not permanent memory. Durable lessons discovered through them still belong in the ledger.
-
-Status command
-
-Add:
-
-scripts/amh-status.sh
-scripts/amh-status.sh --json
-
-It combines current repository state with the newest matching receipt.
-
-Example:
-
-AMH status
-
-Current commit: abc1234
-Worktree: clean
-
-Latest matching receipt:
-  producer: GitHub Actions
-  ladder: pass
-  completed: 18 seconds
-  guards: pass
-  shellcheck: unavailable
-  project tests: pass
-
-Runtime integration:
-  session start: observed
-  pre-command guard: observed
-  post-command observation: unknown
-
-A receipt for another commit is reported as stale and never displayed as the status of the current tree.
-
-Data minimization
-
-Receipts must not contain:
-
-- prompts;
-- assistant responses;
-- chain of thought;
-- raw stdout or stderr;
-- environment-variable values;
-- source-file contents;
-- issue or review bodies;
-- arbitrary shell commands;
-- credentials or credential fingerprints;
-- personal identifiers not already present in repository metadata;
-- agent-authored review attestations.
-
-Exact command text is unnecessary for normal receipts. Store the canonical rung or operation name.
-
-Authority model
-
-The receipt is evidence that a named producer observed particular events.
-
-It is not proof that:
-
-- the agent followed every prose rule;
-- a fresh-context review was intellectually independent;
-- the provider’s sandbox was secure;
-- no unrecorded command ran;
-- absence of a denial means no dangerous command was attempted;
-- the underlying tests are sufficient.
-
-The Git tree, fixtures, ladder exit and CI status remain authoritative for their respective facts.
-
-P3 compatibility
-
-The receipt must not become a checklist the agent fills.
-
-Acceptable producers:
-
-- the ladder;
-- deterministic hooks;
-- Git;
-- CI;
-- the runtime doctor.
-
-Unacceptable producers:
-
-- an agent-authored JSON file claiming checks were performed;
-- a commit message parsed as execution evidence;
-- a review summary consumed by a merge gate.
-
-Consumers must validate the receipt producer and subject commit before relying on it.
-
-Positive controls
-
-Every producer requires a control demonstrating that it can emit failure honestly.
-
-Examples:
-
-- plant a failing guard and require a "fail" rung;
-- terminate the ladder and require "interrupted" or no finalized result;
-- remove a required tool and require "unavailable";
-- reuse a receipt after another commit and require a stale warning;
-- alter the receipt and require schema or producer validation failure.
-
-A format that can only emit green is not evidence.
-
-Acceptance criteria
-
-1. The ladder produces valid receipts for green and red runs.
-2. A receipt is bound to the exact verified commit and worktree state.
-3. Interrupted execution cannot yield "pass".
-4. "skip", "unavailable", "not-run" and "interrupted" remain distinguishable.
-5. CI uploads receipts for both successful and failed verification.
-6. Local use works without CI or lifecycle hooks.
-7. Hosted-agent branches can be evaluated through CI-generated receipts.
-8. Runtime fields are absent or unknown where integration is unavailable.
-9. No raw output, prompts or secrets enter the format.
-10. Agent-authored receipts are not accepted as mechanical evidence.
-11. "amh-status.sh" rejects or labels stale receipts.
-12. Fixture tests cover malformed, forged, stale, failed and interrupted receipts.
-13. The required fresh-context review is completed.
-14. The ladder is green.
-
-Non-goals
-
-- Full command tracing.
-- Session replay.
-- Transcript storage.
-- Productivity measurement.
-- Token or cost accounting.
+  ladder green (0 warning(s)) — HEAD abc1234, worktree clean
+  ladder red — verification set failed — HEAD abc1234, worktree dirty (3 files)
+
+This is the DA-022(d) precedent exactly: adopt the intent, report the number in the output that
+already exists, invent no second artifact to hold it. It costs no transport, no schema, no
+vocabulary, no forgery surface, and no new shipped script.
+
+Also accepted:
+
+- The authority-model section — what a record is NOT evidence of — as a coverage disclaimer in
+  the house style of the command guard's "what this does NOT catch" block.
+- The positive-controls discipline: "a format that can only emit green is not evidence." This is
+  already this repository's rule for every guard fixture.
+- The non-goals list, which correctly excludes token, cost and productivity accounting — P0 names
+  that as the metric which corrupts what it measures.
+
+What is REFUSED, and why
+
+1. The six-state rung vocabulary (pass/fail/skip/unavailable/not-run/interrupted) — REFUSED.
+
+   It has no "warn". The ladder's verdict space is five-valued and deliberately UNEQUAL: "ok",
+   "WARN" (counted), "FAIL" (counted), "skip" (counted by nothing), and never-reached. D-019's
+   entire holding is that a guard switched off by something that is not its subject — a missing
+   origin ref, an absent manifest, no sha256 tool — must emit WARN and the words "checked
+   NOTHING", deliberately louder than skip. A flat enum puts "unavailable" at skip's volume,
+   quieter than WARN, inverting the rule it claims to preserve.
+
+   The ladder's WARNs are also not all unavailability: a state file over the soft cap, a vanished
+   Owner queue, a malformed threshold and every local advisory are guards that ran and FOUND
+   something. Mapping those to "pass" is a lie; mapping them to "unavailable" is a different lie.
+
+   And RFC1's five-state vocabulary — accepted in DA-024 as a naming convention — uses
+   "unavailable" with a third meaning. Three vocabularies, one word. No second vocabulary: the
+   ladder's own words remain the single source (P4).
+
+2. The canonical JSON receipt format — REFUSED as a format.
+
+   Nothing may consume it (DA-023's closing rule), and an unconsumed format is a second copy of
+   the ladder's stdout that will drift from it. The distinction that would have saved it, stated
+   precisely so a future session cannot blur it: a receipt is a record of work already done,
+   whereas DA-024's refused manifest was a cache of facts consulted to decide whether to do work.
+   A manifest can make a probe unnecessary; a receipt can make nothing unnecessary.
+
+   That distinction survives only while three conditions hold together: no exit code anywhere
+   varies with a record's contents; no agent decision procedure takes one as input, including
+   "the ladder passed, so I need not re-run it"; and no reading of one can make a red thing look
+   green. The proposed status tool breaks the third the moment it implements "reported as stale
+   and never displayed as the status of the current tree" — that is a display branch on record
+   content. Defensible in itself, and the first inch.
+
+   Underneath all of it: the receipt is FORGEABLE. The agent runs the ladder, so it can write the
+   JSON by hand, and there is no signing key it cannot reach. The "acceptable producers" list is
+   a field, not a mechanism. Every consumer must be assumed to be consuming an agent-authored
+   file, which is why acceptance criterion 10 cannot be met in this tree.
+
+3. The local ignored receipts directory — REFUSED, on DA-024(c), which was carried in from the
+   RFC1 adjudication and is binding here by its own terms.
+
+   Verified in a scratch repository rather than taken on trust: with the directory gitignored, a
+   file containing a live-shaped credential does not appear in "git ls-files -co
+   --exclude-standard" at all; with the ignore rule removed, the same file does appear. That
+   command is the sole input to the ladder's secret-shape guard. So gitignoring the transport
+   removes it from the only mechanical credential check in the tree, while the RFC's own
+   data-minimization list is a promise, not a mechanism.
+
+   If a local path is ever wanted, the honest form is untracked but NOT ignored — so the secret
+   scan covers it and git status makes it visible. That converts the ladder's own scan into a
+   standing positive control on the minimization promise. Tidiness is not worth a blind spot in
+   the only credential check that exists.
+
+4. CI artifact upload — REFUSED as ceremony. GitHub Actions already publishes the commit, the run
+   identifier, per-step outcomes, timing and the full log. The receipt answers nothing the run
+   page does not.
+
+5. "amh-status.sh" — REFUSED on DA-024's ground. It would be the SIXTH shipped script, not the
+   seventh: five ship today. Strip out the record-reading and what remains is a rev-parse plus a
+   porcelain status wrapped in a script that drags a template original, a byte-identical copy, a
+   manifest regeneration, two literal assertions in the installer E2E suite, three prose counts,
+   a regenerated bundle, two adapter allow-list entries and a rule-review pass. Its --json mode
+   is worse: a machine-readable status surface is precisely what DA-001(d) left absent so that no
+   future code could branch on it.
+
+6. Layer 2, runtime evidence — REFUSED, not deferred. Its stated precondition was the Runtime
+   Capability Contract, which DA-024 refused at its core. Hook-invocation detection remains a
+   Decided non-item.
+
+7. Layer 3, host evidence — REFUSED as redundant external declarations that CI already publishes.
+
+8. Test-tool versions as a receipt field — REFUSED. It requires new probes inside
+   "scripts/verify.sh", the adopter-owned extension point the harness must stay agnostic to.
+
+9. Acceptance criteria 10, 12 and 13 — REFUSED as unmeetable or malformed. 10 cannot be
+   implemented without an anti-forgery mechanism this dependency floor forbids. 12's "forged"
+   fixture could only ever assert schema validation, pinning the defect as the specification
+   (DA-012(b)). 13 makes "the required fresh-context review is completed" an item on a criteria
+   list, which is the permanently-decided checklist non-item (P3, D-014).
+
+Feasibility findings, kept because they bind any future attempt
+
+- The ladder has no per-rung state. Eleven guard functions return nothing; the two counters are
+  global and one guard can emit many lines. A counter-delta wrapper would be small, but it cannot
+  see "skip", which increments nothing — and the advisories function returns early under CI,
+  which a delta method would score as a pass, reintroducing D-019's exact defect inside the
+  record.
+- Rung 3 is opaque. "scripts/verify.sh" is a separate process and the ladder sees only its exit
+  code. The received example receipt lists shellcheck and project-tests as rungs; they are not
+  ladder rungs and are not observable from the ladder.
+- Argument parsing inspects only the first argument, so "--guards-only --report X" today matches
+  --guards-only and silently discards the rest.
+- "--help" prints a fixed line range of the script itself, so help text is POSITIONAL: adding a
+  flag to the usage block shifts every later line down and silently truncates the last one. The
+  range constant has no guard and no fixture.
+- Both adapter allow-lists pin the ladder's two invocations as exact matches, not prefixes, so
+  any new flag prompts the owner on every run until two legislation files change. A flag costing
+  owner attention per run, to record facts meant to save owner attention, is a net loss.
+- Interruption is best-effort at most: the EXIT trap runs on TERM and INT, never on KILL. And
+  absence of a record is ambiguous three ways — killed before finalization, never run, directory
+  wiped — so absence is evidence of nothing, which drains most of the value from the artifact.
+
+Correction to the adjudication's own evidence
+
+One supporting claim in the pass was false as written: it asserted the ladder contains no
+rev-parse call. It contains three. All three are internal plumbing — a git-directory existence
+test, an upstream-ref verification, and a tree comparison in the behind-upstream advisory — and
+none of them prints a commit or reaches a verdict line. The finding survives; the evidence
+offered for it did not, and it was replaced by reading the three verdict printf calls directly.
+
+Adjudicated acceptance criteria
+
+The received document's fourteen are replaced by three:
+
+1. The ladder names its subject commit and worktree state in its own verdict lines, on green and
+   on red alike.
+2. No new artifact, transport, vocabulary or shipped script is introduced.
+3. A fixture demonstrates the dirty-worktree and clean-worktree renderings, and fails against the
+   pre-change ladder.
+
+Non-goals (unchanged from the received text, all still correct)
+
+- Full command tracing. Session replay. Transcript storage.
+- Productivity measurement. Token or cost accounting.
 - Proving compliance with prose-only rules.
 - Replacing CI status.
 - Creating a new permanent memory tier.
-
-Implementation directive
-
-Start with ladder-generated receipts only.
-
-Implement and test:
-
-1. schema;
-2. green receipt;
-3. red receipt;
-4. interrupted behavior;
-5. exact commit binding;
-6. CI artifact upload;
-7. status display.
-
-Add runtime hook evidence only after the Runtime Capability Contract can establish that the relevant hook actually operates.

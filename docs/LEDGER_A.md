@@ -740,3 +740,39 @@
   a rule-bearing section and would pull that diff into rule-review scope. Deferred to a unit that
   carries its own pass; until then this row is the only record of them, which is sufficient —
   the ledger is permanent memory and Decided non-items is a pointer index into it.
+
+- DA-025: **RFC2's receipt format is refused; the gap it correctly identified is closed by two
+  more facts in the ladder's own output.** The blocking pass refused the JSON format, the ignored
+  local transport, the CI artifact upload, amh-status.sh, the runtime and host evidence layers,
+  and criteria 10/12/13. Accepted: the ladder names its subject commit and worktree state in its
+  own verdict lines, on green and red alike. That is DA-022(d)'s precedent — adopt the intent,
+  report the number in output that already exists, invent no artifact to hold it.
+  **(a) The problem statement was right, and nobody had noticed.** The ladder prints "ladder
+  green (N warning(s))" and never says green OF WHAT: no commit, no worktree state, not in the
+  ladder, the banner or anywhere else in a session's output. An external reader found in one pass
+  a gap this repository had run past for three releases. That is what P18 evaluation is FOR — the
+  document is data, and data can still be right.
+  **(b) A flat enum cannot express a deliberately unequal verdict space.** RFC2's six states have
+  no `warn`. D-019's holding is that a guard switched off by something that is not its subject
+  emits WARN plus "checked NOTHING", louder than `skip` on purpose; a flat enum puts
+  `unavailable` at `skip`'s volume, inverting the rule inside a document claiming to preserve it.
+  The ladder's WARNs are not all unavailability either — a state file over cap, a vanished Owner
+  queue and every advisory are guards that RAN and FOUND something. And DA-024 accepted a
+  five-state runtime vocabulary using `unavailable` with a third meaning: three vocabularies, one
+  word. No second vocabulary (P4).
+  **(c) The line between a refused manifest and a permitted record, stated so it cannot be
+  blurred.** A receipt records work already done; DA-024's manifest cached facts consulted to
+  decide whether to do work. A manifest can make a probe unnecessary; a receipt can make nothing
+  unnecessary. That holds only while three conditions hold together: no exit code varies with a
+  record's contents, no agent decision procedure takes one as input (including "it passed, so I
+  need not re-run it"), and no rendering of one can make a red thing look green. The proposed
+  status tool broke the third with its stale-receipt display branch.
+  **(d) Everything here is forgeable, which is why criterion 10 is unmeetable.** The agent runs
+  the ladder and can write the JSON by hand; there is no key it cannot reach. "Acceptable
+  producers" is a field, not a mechanism.
+  **(e) A defect inside the review, found by replay.** The pass claimed the ladder contains no
+  rev-parse call. It contains three — a git-dir test, an upstream-ref verify, and a tree
+  comparison in the behind-upstream advisory. None prints a commit or reaches a verdict line, so
+  the finding survived and its evidence did not. Replaying a pass's falsifiable claims is the
+  bound that caught it; the twenty-eighth pass, and the count of passes finding a real defect
+  inside the FIX now applies in both directions.

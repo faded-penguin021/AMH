@@ -125,11 +125,20 @@ Each ends shippable. `[ ]` → `[x]` here and in the `docs/STATE.md` checklist a
       docs-only diff into rule-review scope. Owed by a unit that carries its own pass.
 - [x] Owner-queue fork raised: S4–S6 no longer have a subject.
 
-### S2 — Adjudicate RFC2 *(docs-only)*
+### S2 — Adjudicate RFC2 *(docs-only)* — **DONE**
 
-- [ ] Same shape. Adjudicate C5 (vocabulary vs `D-019`'s WARN-not-skip rule) and C2 (what may
-      ever consume a receipt) explicitly.
-- [ ] Revise `docs/plans/rfc-2-mechanical-run-receipts.md` in place; ledger the verdicts.
+- [x] Blocking fresh-context pass. C5 answered: the six-state enum has no `warn`, so it cannot
+      express a verdict space where WARN deliberately outranks `skip` — REFUSED. C2 answered
+      with a three-condition test that keeps a record from becoming a consumed artifact.
+- [x] RFC2 revised in place. Format, transport, CI upload, `amh-status.sh` and layers 2–3 all
+      refused; fourteen criteria replaced by three.
+- [x] **The surviving deliverable, and it is a good one:** the ladder prints `HEAD <sha>` and
+      worktree clean/dirty in its verdict lines. It currently says "green" without ever saying
+      green *of what* — a real gap an external reader found in one pass.
+- [x] **DA-025** records the verdicts, including (e): replay found the review's rev-parse claim
+      was false as written. The finding survived; its evidence did not.
+- [x] S7–S10 collapse to roughly one unit. Folded into the existing Owner-queue fork rather
+      than raising a second.
 
 ### S3 — Adjudicate RFC3 *(docs-only)*
 

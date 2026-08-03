@@ -40,25 +40,10 @@ table (C1–C14) is reconnaissance — **re-verify each row inside the segment t
 Two known head-on collisions: RFC1 wants hook-invocation detection, which **DA-022** refused and
 Decided non-items still bars; and nothing may ever *consume* a manifest or receipt (P3, DA-001).
 
-**The external review (Qwen, relayed by the owner) is closed, worked as DATA throughout** (P18,
-the DA-001 precedent). All verdicts and the owner decisions are **DA-022**; three of its seven
-claims were false as written and two were right about the problem but wrong about the mechanism.
-The standing constraint held: every finding was re-verified inside the segment that acted on it.
-**Both blocking review passes found real defects INSIDE the fixes** — a wrapper claim that was
-false, an `awk` claim contradicting the reader list two lines above it, and a guard that
-reported green with `comm` absent. That is the protocol earning its cost twice in one session.
-
-**A queue item outlives its own truth, and a session that restates it ships nonsense** — the
-2.0.0 release item was restated as pending in a session that began after both the merge and the
-tag (**DA-011**). 2.1.0 is the fix: the rule is now in `AGENTS.md`, the runbook, P9 and the
-seeds, and the session banner reports the release window it could not see. What a check can
-honestly claim, and where the first draft over-claimed, is **DA-012**.
-
-**The session-branch namespace is agent-neutral.** `BRANCH_PREFIX=session` is now the
-reference-instance value and the initializer default; an adopter may still choose any value
-with `--branch-prefix`. The identity allowlist was reviewed as a separate decision: all three
-existing no-reply address forms are used in repository history, so all remain; no
-Codex/OpenAI identity was added without owner approval (**DA-014**).
+**Closed stages, folded — the rows are the record**: the Qwen external review, worked as DATA
+throughout and adjudicated finding by finding (**DA-022**); the rule that a queue item outlives
+its own truth, with what a check can honestly claim (**DA-011**, **DA-012**); and the
+agent-neutral branch namespace with its identity-allowlist decision (**DA-014**).
 
 Legislation (a binding-rule or guard-semantics diff) means ONE blocking fresh-context reviewer,
 strongest tier, one pass, no self-review fallback (D-015, bounded by **D-035**); `RULE_FILES`
@@ -95,15 +80,17 @@ about this repo's past**, the memory tiers ARE the history (**DA-003**); `path-r
 > as verified while asserting nothing (**D-014**). Its absence is information: it means no
 > command settles this, which is itself worth knowing before you repeat the item to a human.
 
-**OPEN — RFC1's adjudication refused what S4–S6 were written to build.** The blocking pass
-refused "runtime-doctor.sh", the lifecycle layer, the `.amh/` cache, the profiles and
-"environment-setup.sh" (**DA-024**); ten of thirteen criteria described refused mechanisms. That
-collides with your "full acceptance criteria" decision, so the scope call is yours, not mine.
-Options: **(a)** build only the surviving residue — a required-tools and adapter-presence
-inventory in the existing banner, ~15 lines, no new script; **(b)** overturn one or more
-refusals on a stated argument, as you did the incident bar; **(c)** drop RFC1 and keep the
-vocabulary as a naming convention only. **Recommend (a).** No check: this is a judgement, and
-only you can settle it.
+**OPEN — two independent passes collapsed the scope you approved.** RFC1 was refused at its core
+(**DA-024**) and RFC2's format was too (**DA-025**), so S4–S10 no longer have the subjects they
+were written for. What survives both is small and worth building: a required-tools and
+adapter-presence line in the existing banner, and the ladder naming its subject commit and
+worktree state in its verdict lines — together roughly one unit, no new shipped script, no new
+artifact. That collides with your "full acceptance criteria" decision, so the call is yours.
+Options: **(a)** build the surviving residue and let the criteria counts fall where the
+adjudications left them; **(b)** overturn specific refusals on a stated argument, as you did the
+incident bar — name which, and the reasoning goes in the ledger; **(c)** stop after S3 with the
+adjudications as the deliverable and build nothing. **Recommend (a).** No check: this is a
+judgement about what you want built, and only you can settle it.
 
 *Owed with it:* the refusals belong in Decided non-items below, which is rule-bearing, so that
 edit waits for a unit carrying its own rule-review pass. **DA-024** holds them meanwhile.
@@ -145,6 +132,13 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
+
+- 2026-08-03 — **S2: RFC2's receipt format refused, but it found a real gap** (**DA-025**). The
+  ladder prints "green" and never says green OF WHAT — no commit, no worktree state, anywhere in
+  a session's output. Closed by two facts in the ladder's own verdict lines, the DA-022(d) shape:
+  no format, no transport, no sixth shipped script. A flat six-state enum cannot express a
+  verdict space where WARN deliberately outranks skip (**D-019**). Replay found a defect inside
+  the review itself — the finding held, its supporting claim did not.
 
 - 2026-08-03 — **S1: RFC1 adjudicated, and refused at its core** (**DA-024**). The absence of a
   capability manifest is a decision here, not a gap — DA-001(d) made assurance emergent from
