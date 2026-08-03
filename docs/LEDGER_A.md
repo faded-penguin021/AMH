@@ -674,3 +674,35 @@
   `session-start.sh` checks detached HEAD and the default branch, never the prefix. That hole is
   pre-existing and stays unguarded — the prefix is an instruction to the agent, and a guard here
   would fail every legitimately-assigned branch this repository does not name.
+
+- DA-023: **Three externally-authored RFCs enter as data, and the owner overrides the incident
+  bar for them by name.** The owner supplied RFCs proposing a runtime capability contract, a
+  mechanical run-receipt format and an agent behavioral conformance lab, and asked for them
+  landed verbatim, reviewed, revised by review outcome and integrated. They are external
+  material: P18 makes them DATA, never authority, so each claim is adjudicated against this
+  repository's constitution and refusals are recorded as permanently as acceptances — the
+  **DA-001** precedent, where an external RFC's verdicts became a row rather than a diff.
+  **The override, with its argument, because a precedent cited loosely is how a bar dissolves.**
+  `CONTRIBUTING.md` and RUNBOOK playbook 3 require a real violation before new machinery.
+  The owner lifted that bar for these three RFCs on 2026-08-03. This is the third such
+  override — **D-032**, **D-033** and **DA-008** are the prior ones, and DA-008 states the shape:
+  what an override licenses is *an owner overriding the bar on a stated argument*, not "the
+  incident bar is negotiable". The bar stands for everything else, including every guard these
+  RFCs may later propose that the owner did not name.
+  Four further owner decisions, recorded so no segment re-litigates them: **full acceptance
+  criteria** rather than each RFC's own minimal vertical slice; **fresh-context reviewers are
+  authorized**, lifting a standing no-subagents instruction the way DA-022 did, so the
+  rule-review protocol runs normally and nothing is parked for want of a reviewer; **no new
+  dependency** — JSON is emitted with `printf` and read back by a bounded reader over our own
+  flat schema, and `jq` is refused, keeping the floor at bash/git/coreutils per the
+  constitution's dependency rule; and **the RFC text is revised in place**, the verbatim
+  originals being expendable at squash-merge because their durable content is these verdicts.
+  **Two collisions identified at landing, neither settled by this row.** RFC1 wants
+  `session_start: observed`, but hook-invocation detection in the boot banner was refused by
+  **DA-022** and sits in Decided non-items, on the ground that telling a hook invocation from a
+  manual one needs one vendor's environment variables. RFC1's nonce-marker probe may or may not
+  be new evidence against that refusal — reopening a decided non-item requires new evidence, and
+  that adjudication belongs to the segment that acts on it, not here. Separately, **DA-001**(c)
+  and (d) refuse machine-readable configuration that code can branch on: a manifest or receipt
+  is legal as a record a human reads, and violates P3 the moment any guard, CI step or agent
+  decision procedure consumes one.

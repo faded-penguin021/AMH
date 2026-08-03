@@ -23,9 +23,22 @@ the copy that counts.
 
 ## Current state
 
-> **Session handoff (2026-08-02).** Adopted version is **AMH 3.0.0**, cut this session; the tag
-> is the one open queue item below. The external-review plan is COMPLETE and archived at
+> **Session handoff (2026-08-03).** Adopted version is **AMH 3.0.0** and the tag is confirmed on
+> origin, so that queue item is closed. A new multi-session plan is ACTIVE:
+> `2026-08-03-rfc-integration.md`. The external-review plan is COMPLETE and archived at
 > `docs/history/2026-07-28-external-review-validation.md`.
+
+**ACTIVE PLAN — integrate three owner-supplied RFCs** (`docs/plans/2026-08-03-rfc-integration.md`;
+the RFCs themselves are `rfc-1-runtime-capability-contract.md`, `rfc-2-mechanical-run-receipts.md`
+and `rfc-3-conformance-lab.md`, landed verbatim and revised in place by review outcome). They are
+external material worked as DATA under P18, the DA-001 precedent. **The owner overrode the
+incident bar for this work only** (**DA-023**, the DA-008 shape) and authorised fresh-context
+reviewers, full acceptance criteria, and no new dependency — JSON is hand-rolled, `jq` is not
+adopted. Segments: S0 land ✅ · S1–S3 adjudicate each RFC · S4–S6 runtime capability contract ·
+S7–S10 mechanical run receipts · S11–S14 conformance lab · S15 close out. The plan's collision
+table (C1–C14) is reconnaissance — **re-verify each row inside the segment that acts on it**.
+Two known head-on collisions: RFC1 wants hook-invocation detection, which **DA-022** refused and
+Decided non-items still bars; and nothing may ever *consume* a manifest or receipt (P3, DA-001).
 
 **The external review (Qwen, relayed by the owner) is closed, worked as DATA throughout** (P18,
 the DA-001 precedent). All verdicts and the owner decisions are **DA-022**; three of its seven
@@ -82,17 +95,14 @@ about this repo's past**, the memory tiers ARE the history (**DA-003**); `path-r
 > as verified while asserting nothing (**D-014**). Its absence is information: it means no
 > command settles this, which is itself worth knowing before you repeat the item to a human.
 
-**OPEN — cut the 3.0.0 release.** `harness/VERSION` says 3.0.0 and the changelog entry is
-written, but the merge and the tag are owner steps. A MAJOR: the plan-lifecycle rule changed,
-so the entry's Upgrading section is the complete list of what an adopter must do.
-**Check:** `git ls-remote --tags origin amh-v3.0.0` — output naming `refs/tags/amh-v3.0.0`
-means done; empty output means still open.
+**Nothing open.**
 
-Four closed: the 2.0.0 release (merged and tagged, verified against
+Five closed: the 2.0.0 release (merged and tagged, verified against
 `git ls-remote`), `main`'s branch protection repointed at `ladder`, and the 2.1.0 release
 (PR #4 merged, tag `amh-v2.1.0` verified via `git ls-remote`) on 2026-07-27; the
 `amh-v2.1.1` tag, confirmed by the owner on 2026-07-29 and re-verified via
-`git ls-remote --tags origin amh-v2.1.1` on 2026-08-02.
+`git ls-remote --tags origin amh-v2.1.1` on 2026-08-02; the 3.0.0 release, whose check
+output named `refs/tags/amh-v3.0.0` on 2026-08-03.
 
 **Open questions:** none. Everything asked before it has been answered and recorded —
 the 2.0.0 severity call and the rule-scope additions in **DA-005**, the delegated closures of
@@ -124,6 +134,13 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
+
+- 2026-08-03 — **Three owner-supplied RFCs landed verbatim and a multi-session plan opened**
+  (**DA-023**). The runtime capability contract, mechanical run receipts and the agent
+  conformance lab enter as data under P18, to be adjudicated claim by claim before any of them
+  is built. The row records the owner's override of the incident bar, with the argument, so no
+  future session cites this as precedent for skipping the bar. The 3.0.0 release queue item
+  closed the same session: its check output named `refs/tags/amh-v3.0.0`.
 
 - 2026-08-02 — **AMH 3.0.0.** A MAJOR because one binding rule changed: a completed plan may
   retire into the archive instead of being deleted (**DA-020**). The release also carries the
@@ -157,29 +174,10 @@ rows and in git history — this section is a pointer index, not a narrative.
   the initializer points at the existing downstream malformed-flag defence rather than an open
   finding.
 
-- 2026-07-31 — **The structural review found one prose/guard scope mismatch, not missing
-  principles** (**DA-019**). P11, the citation diagnostics and the review checklist now name workflows and configured
-  implementation paths; enforcement behavior is unchanged. The proposed principle promotions, duplicated P14 detail and an
-  adoption-authority mechanism were refused as repetition or speculation.
-
-- 2026-07-30 — **The compact constitution's review contradictions are corrected** (**DA-018**).
-  Rule-review scope again differs from its `RULE_FILES` tripwire, Session discipline is back
-  on the universal route and navigation contract, secret wording permits non-rendering commit
-  metadata checks, and Current state now agrees with the active plan and closed release queue.
-
-- 2026-07-30 — **Large-document reading is now query-first and section-bounded** (**DA-017**).
-  The constitution states the widening conditions; the runbook gives portable retrieval
-  examples; a repo-local guard and mutations keep its binding section pointers unique and
-  resolvable without pretending to prove what an agent read.
-
-- 2026-07-30 — **The reference-instance constitution now provides an approximately 90-line entry
-  context.** `AGENTS.md` retains irreversible safety boundaries, source/generated ownership,
-  universal session entry, and binding pointers while moving operational detail behind the
-  existing RUNBOOK, configuration, scripts, STATE, and ledger layers; this reorganizes existing
-  governance rather than establishing a new rule.
-
-- 2026-07-25/29 — **Everything before the compact constitution, folded**: founding and
+- 2026-07-25/31 — **Everything through the compact constitution, folded**: founding and
   self-hosting, AMH 2.0.0 and 2.1.x, installation profiles and integrity manifests, release and
   queue visibility, agent-neutral branches, Claude/Codex adapter delivery and its cross-layer
-  guard, PR-template guidance, and context-compression coaching. Durable detail is in
-  **D-001**…**D-035** and **DA-001**…**DA-016**; those rows, not this line, are the record.
+  guard, PR-template guidance, context-compression coaching; then the ~90-line entry constitution
+  itself, query-first bounded document reading with its navigation guard, and the structural
+  review that found one prose/guard scope mismatch rather than missing principles. Durable detail
+  is in **D-001**…**D-035** and **DA-001**…**DA-019**; those rows, not this line, are the record.
