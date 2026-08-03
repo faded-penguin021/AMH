@@ -95,7 +95,18 @@ about this repo's past**, the memory tiers ARE the history (**DA-003**); `path-r
 > as verified while asserting nothing (**D-014**). Its absence is information: it means no
 > command settles this, which is itself worth knowing before you repeat the item to a human.
 
-**Nothing open.**
+**OPEN — RFC1's adjudication refused what S4–S6 were written to build.** The blocking pass
+refused "runtime-doctor.sh", the lifecycle layer, the `.amh/` cache, the profiles and
+"environment-setup.sh" (**DA-024**); ten of thirteen criteria described refused mechanisms. That
+collides with your "full acceptance criteria" decision, so the scope call is yours, not mine.
+Options: **(a)** build only the surviving residue — a required-tools and adapter-presence
+inventory in the existing banner, ~15 lines, no new script; **(b)** overturn one or more
+refusals on a stated argument, as you did the incident bar; **(c)** drop RFC1 and keep the
+vocabulary as a naming convention only. **Recommend (a).** No check: this is a judgement, and
+only you can settle it.
+
+*Owed with it:* the refusals belong in Decided non-items below, which is rule-bearing, so that
+edit waits for a unit carrying its own rule-review pass. **DA-024** holds them meanwhile.
 
 Five closed: the 2.0.0 release (merged and tagged, verified against
 `git ls-remote`), `main`'s branch protection repointed at `ladder`, and the 2.1.0 release
@@ -134,6 +145,12 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
+
+- 2026-08-03 — **S1: RFC1 adjudicated, and refused at its core** (**DA-024**). The absence of a
+  capability manifest is a decision here, not a gap — DA-001(d) made assurance emergent from
+  repository topology precisely so no code could branch on a machine-readable record. The nonce
+  marker is not new evidence against **DA-022**: the probe is circular and the mandated manual
+  fallback writes a byte-identical marker. The vocabulary survives as a naming convention.
 
 - 2026-08-03 — **Three owner-supplied RFCs landed verbatim and a multi-session plan opened**
   (**DA-023**). The runtime capability contract, mechanical run receipts and the agent

@@ -706,3 +706,37 @@
   and (d) refuse machine-readable configuration that code can branch on: a manifest or receipt
   is legal as a record a human reads, and violates P3 the moment any guard, CI step or agent
   decision procedure consumes one.
+
+- DA-024: **RFC1's capability contract is refused at its core: the absence of a capability
+  manifest is a decision here, not a gap.** The blocking fresh-context pass adjudicated the
+  runtime-capability RFC claim by claim. Refused: "runtime-doctor.sh" as a sixth shipped script,
+  the whole lifecycle layer, the persisted runtime.json cache under an ignored directory, the
+  four runtime profiles,
+  "environment-setup.sh", and the network, persistent-home, output-filter and host-isolation
+  fields. Accepted: the five-state vocabulary as a naming convention, the rule that `unknown`
+  never becomes `unavailable`/`disabled`/`safe`, the do-not-infer list, and the failed-probe/no-
+  successful-marker mechanism. Ten of thirteen acceptance criteria described refused mechanisms
+  and were replaced by four. The revised document is the plan-folder copy; this row is the record.
+  **(a) The lifecycle probe is circular, which is why the nonce marker is not new evidence
+  against DA-022.** A marker proves one thing: this script executed and wrote a file. It cannot
+  name its caller. Upgrading that to "a hook invoked it" needs an ordering claim — the marker
+  predates the agent's first command — and there is no agent-neutral notion of the agent's first
+  command; establishing that timestamp needs a pre-command hook, which is one of the capabilities
+  being probed. It closes only on a vendor that already has both hooks, which is the machinery
+  DA-022 refused. And the manual path the constitution MANDATES for hookless agents writes a
+  byte-identical marker, so telling hook from manual collapses to asking the agent (P3). The
+  nonce adds freshness, never provenance. Decided non-items stands; it was not reopened.
+  **(b) "Gates consume specific observed facts where justified" is a worse hole than the one
+  DA-001(c) closed.** A carve-out gated on a self-judged predicate is an invitation, taken by the
+  first session that finds a rung red on a machine it believes is special. `amh.conf` is in
+  `RULE_FILES`, so disabling something there shows in a diff; a gitignored cache shows in nothing
+  — inverting D-019's rule that a disabled state must be louder than a passing one. Nothing
+  consumes a capability report; a gate needing a capability fact probes at the point of use, as
+  `amh_sha256_tool` already does.
+  **(c) A finding wider than RFC1, and it binds RFC2's receipts too:** `guard_secret_shapes`
+  scans via `git ls-files -co --exclude-standard`, so gitignoring a directory removes it from the
+  only mechanical credential check in the tree. Any proposal for an ignored `.amh/` inherits this.
+  **(d) Owed, not done.** These refusals belong in `docs/STATE.md` → Decided non-items, which is
+  a rule-bearing section and would pull that diff into rule-review scope. Deferred to a unit that
+  carries its own pass; until then this row is the only record of them, which is sufficient —
+  the ledger is permanent memory and Decided non-items is a pointer index into it.

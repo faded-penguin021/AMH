@@ -58,7 +58,7 @@ runtime layer reuses, and RFC2's receipts are one of the evidence sources RFC3 c
 | C4 | The ladder parses **only `$1`**, via a single `case`, and `--help` prints `sed -n '2,16p' "$0"` — the header comment block *is* the help text. `--report PATH` needs a `while` loop and header lines that stay inside 2–16. | S7 |
 | C5 | The ladder's verdict vocabulary is four words (`ok`/`WARN`/`FAIL`/`skip`), and **"unavailable" is deliberately spelled `WARN`, not `skip`** (`AMH ledger row D019`) — a guard that could not run must be louder than one that passed. RFC2's six-word vocabulary must map onto that, not replace it. | S2, S7 |
 | C6 | Shipped scripts are **template-first**: edit `harness/templates/scripts/<name>.sh`, copy down byte-for-byte, run `scripts/build-manifest.sh` in the same change. `copy-drift.sh` and `manifest-drift.sh` enforce it. | S4–S10 |
-| C7 | Adding a shipped script breaks a literal assertion in `scripts/tests/test-init-e2e.sh` (`'ok    5 shipped script(s) match the published hashes'`), the script table in `docs/UPGRADING.md`, and both adapter allow-lists (`.claude/settings.json` and `harness/templates/configs/claude-settings.json`). | S4, S9 |
+| C7 | **Corrected in S1 — the count is hardcoded in more places than first listed.** Adding a shipped script breaks two literal assertions in `scripts/tests/test-init-e2e.sh` (lines 282 and 285) and the prose count in `amh.conf:3`, `README.md:207`, `docs/UPGRADING.md:69`, `harness/templates/AMH-ADOPT.md:95` and the generated `harness/dist/AMH.md:1611` — plus both adapter allow-lists. Two of those are in `RULE_FILES` and one is generated, so it must be rebuilt, never hand-edited. | S9 |
 | C8 | `scripts/guards/path-refs.sh` fails on any backticked repo path in prose that does not exist. `docs/plans/*`, `harness/templates/*`, `harness/src/*`, `harness/dist/*` are the only exclusions — so an RFC may name `scripts/runtime-doctor.sh` while it lives here, and the moment that name moves into `AGENTS.md`, the runbook or the README the file must exist. | S4–S15 |
 | C9 | `guard_citations` checks `[cited]` markers in **both** directions over `CITATION_SCAN_PATHS='scripts .github'`. A ledger row cited from a new script must gain the marker; a marked row that loses its last citation fails too. Inside a *shipped* script the form is `AMH ledger row DNNN` (no hyphen) so the guard does not read it. | S4–S13 |
 | C10 | `docs/LEDGER_A.md` is at **676 of its 800-line cap**. This plan will append well over a hundred lines of rows, so the rollover to `LEDGER_B.md` (numbering from `DB-001`) lands mid-plan. The ladder globs for that exact spelling. | any segment |
@@ -109,18 +109,21 @@ Each ends shippable. `[ ]` → `[x]` here and in the `docs/STATE.md` checklist a
 - **No reviewer:** nothing in this diff is in rule-review scope — `docs/plans/` is not, and the
   `docs/STATE.md` sections touched are not its rule-bearing ones. Say so in the commit body.
 
-### S1 — Adjudicate RFC1 *(docs-only)*
+### S1 — Adjudicate RFC1 *(docs-only)* — **DONE**
 
-- [ ] Fresh-context reviewer, given RFC1, `AGENTS.md`, `harness/src/10-principles.md`, and the
-      **DA-022**, **DA-001** and `D-019` rows — but not my reasoning. Ask for falsifiable
-      claims and replay the ones a decision rests on.
-- [ ] Adjudicate C1 explicitly: does a nonce-bearing marker written by the session-start path
-      constitute new evidence against the refused hook-invocation detector, or does it prove
-      only that the *script* ran? Record the verdict either way.
-- [ ] Revise `docs/plans/rfc-1-runtime-capability-contract.md` in place to the accepted design.
-- [ ] Ledger row per verdict class: accepted, accepted-with-modification, refused-with-reason.
-      Refusals also land in `docs/STATE.md` → Decided non-items with their citation.
-- **Acceptance:** `--guards-only` green; every refusal carries a reason and a citation.
+- [x] Blocking fresh-context pass. Seven falsifiable claims returned; all six decision-bearing
+      ones replayed and held.
+- [x] C1 answered: the nonce marker is **not** new evidence. The probe is circular — proving a
+      hook invoked the script needs a pre-command hook to stamp the ordering, which is one of
+      the capabilities being probed — and the constitution's mandated manual fallback writes a
+      byte-identical marker. **DA-022** stands; Decided non-items was not reopened.
+- [x] RFC1 revised in place: refused at its core, four adjudicated criteria replacing thirteen.
+- [x] **DA-024** records the verdicts, including (c) — a finding wider than RFC1: gitignoring a
+      directory removes it from `guard_secret_shapes`, the only mechanical credential check in
+      the tree. **This binds S8's `.amh/receipts/` proposal.**
+- [x] Decided non-items **deferred** — it is rule-bearing, and editing it would pull this
+      docs-only diff into rule-review scope. Owed by a unit that carries its own pass.
+- [x] Owner-queue fork raised: S4–S6 no longer have a subject.
 
 ### S2 — Adjudicate RFC2 *(docs-only)*
 
