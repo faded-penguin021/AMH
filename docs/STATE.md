@@ -22,15 +22,12 @@ the copy that counts.
 
 ## Current state
 
-**U5 has landed: the volume scheme no longer ends at Z, and the volumes are a chain.** The row
-pattern is unbounded (`D[A-Z]*-[0-9]+`) and matched as a whole word; the live volume is found by
-walking the carry rule from `docs/LEDGER.md` and stopping at the first missing link, so
-membership is reachability rather than spelling; and the rollover failure names the next volume,
-file and row prefix both. The blocking pass found two real defects inside the fix — a shortlex
-ordering any long all-caps file could win, and an unanchored `-o` match reporting ids that exist
-nowhere — and **DB-007** records them. What is open is the version number for the whole five,
-which is the owner's, and U6 below. `docs/LEDGER_B.md`'s preamble states the scheme as the code
-now implements it.
+**U6 has landed: committed ledger rows are protected by a repo-local append-only guard.** The
+guard compares the working tree to `HEAD`, so rows that predate the active unit must remain
+present and byte-identical; the sole allowed edit is appending one strict standalone
+`Superseded by D[A-Z]*-NNN.` sentence. Rows first created in the uncommitted unit remain draft
+material until commit. **DB-008** records the rule and its tradeoff. What is open is the version
+number for U1–U6, which is the owner's.
 
 ## Owner queue
 
@@ -43,18 +40,6 @@ now implements it.
 > thing that lives here: **`Check:` is deliberately NOT a required field**, so its absence is
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
-
-**OPEN — U6, a machine check that no ledger row is ever deleted** (owner, 2026-08-04, reacting
-to U5's preamble rewrite). The append-only rule is prose and nothing enforces it; an outdated
-row is to carry a short *superseded* note pointing at the corrected row, never be edited away.
-It is a new guard AND guard semantics, so it is legislation and owes its own blocking pass, and
-it is the next unit — not part of U5. Two design questions it must answer honestly and neither
-is settled here: what baseline a working tree is compared against (the default branch, which a
-session may not have fetched, versus HEAD, which a squash merge rewrites), and whether the check
-is id-level (a row id that existed must still exist) or byte-level (a row's text must not change
-either), given that the ledger's own preamble instructs a session to CORRECT a row that
-conflicts with the code. *Check:* `ls scripts/guards/` — the item is closed when the guard is
-there with its fixture.
 
 **OPEN — the version bump for this work, and U5's evidence flips the recommendation to MAJOR.**
 `harness/CHANGELOG.md` carries an **Unreleased** section with its Upgrading notes and
@@ -111,6 +96,13 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-04 — **U6: committed ledger rows are append-only under a local guard.** Added
+  `scripts/guards/ledger-append-only.sh` plus fixtures covering deletion, arbitrary rewrite,
+  strict supersession and new-row draft freedom. The guard compares against `HEAD`, fails if a
+  pre-existing row id disappears or changes, and permits only a standalone final `Superseded by
+  D[A-Z]*-NNN.` sentence on an existing row; rows absent from `HEAD` stay editable until commit.
+  **DB-008** is the record.
 
 - 2026-08-04 — **U5: the ledger volume scheme no longer ends at Z, and volumes became a
   chain.** Unbounded whole-word row pattern; the live volume walked from the base file by the

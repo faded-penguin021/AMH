@@ -72,6 +72,39 @@ expect pass "manifest-drift: clean tree" "$base" manifest-drift.sh
 expect pass "adapter-set: clean tree" "$base" adapter-set.sh
 expect pass "doc-navigation: clean tree" "$base" doc-navigation.sh
 expect pass "config-schema: clean tree" "$base" config-schema.sh
+expect pass "ledger-append-only: clean tree" "$base" ledger-append-only.sh
+
+
+# --- ledger-append-only -------------------------------------------------------
+d=$(snapshot ledger_append_only_delete)
+awk 'BEGIN { drop = 0 } /^- D-001 / { drop = 1 } /^- D-002 / { drop = 0 } !drop { print }' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect fail "ledger-append-only: a committed row cannot be deleted" "$d" \
+	ledger-append-only.sh "D-001 existed at HEAD but is missing"
+
+d=$(snapshot ledger_append_only_staged_delete)
+awk 'BEGIN { drop = 0 } /^- D-001 / { drop = 1 } /^- D-002 / { drop = 0 } !drop { print }' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+(cd "$d" && git add docs/LEDGER.md)
+expect fail "ledger-append-only: a staged committed-row deletion cannot bypass the guard" "$d" \
+	ledger-append-only.sh "D-001 existed at HEAD but is missing"
+
+d=$(snapshot ledger_append_only_rewrite)
+sed '0,/This repository is both the harness/s//This repository WAS both the harness/' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect fail "ledger-append-only: a committed row cannot be rewritten" "$d" \
+	ledger-append-only.sh "D-001 existed at HEAD and was edited"
+
+d=$(snapshot ledger_append_only_superseded)
+awk '/^- D-002 / && !done { print "  Superseded by DB-999."; done = 1 } { print }' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect pass "ledger-append-only: strict superseded pointer is allowed" "$d" ledger-append-only.sh
+
+d=$(snapshot ledger_append_only_new_row_draft)
+cat >>"$d/docs/LEDGER_B.md" <<'ROW'
+- DB-999: **Draft row can be rewritten before commit.** First draft.
+ROW
+expect pass "ledger-append-only: new uncommitted rows are draft-editable" "$d" ledger-append-only.sh
 
 # --- config-schema ------------------------------------------------------------
 d=$(snapshot config_schema_missing)
