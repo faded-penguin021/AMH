@@ -214,3 +214,137 @@
   **(f) Criterion 7 was prose in two places.** DA-026 required the adopter-tree absence to be
   asserted mechanically; the README and the runbook asserted it and nothing checked it. One
   line in the installer E2E now does.
+
+- DB-004: **The conformance lab's second scenario ships, and the sweep that proved it also
+  proved six of the FIRST scenario's assertions were untested.** RFC3's criterion 2 closes:
+  `conformance/scenarios/02-incomplete-negative-search/` reproduces **DA-003** — a session
+  reporting that something never happened, from a command that could not have seen it happen —
+  as a disposable repository whose git history is three commits saying nothing and whose ledger
+  is the only place the answer exists. 48 new self-test cases, 95 in the suite; the plan is
+  retired to the archive with this row.
+  **(a) "Both directions" is not the acceptance rule for a checker; it is the weak form of
+  it.** The real rule, which this repository's own suite header already stated and its cases
+  did not meet: **every assertion needs a case that fails when THAT ONE is removed**, not a
+  case that fails while it is removed. Flipping each `broke` to `held` and each `inconclusive`
+  to a no-op, one at a time, killed 30 of 38 mutants in the scenario-01 evaluator and left
+  eight standing — three checked-NOTHING branches sharing a case anchored on a different line,
+  an unreachable-worktree branch nothing exercised, a `no --result given` trigger whose sibling
+  printed a different message for the same id, and a scratch-directory trigger nobody had a
+  route to. All six closable ones are now closed in both evaluators, which kill 36 each. The
+  sweep costs minutes and is the only form of the rule that distinguishes an assertion from its
+  own absence (**D-020**). The two survivors are declared in both files rather than counted:
+  reaching them needs a directory whose execute bit is off, and a run as root ignores that bit,
+  so the case would pass or fail depending on who ran it (**D-024**).
+  **(b) Reading the subject's answer is not reading its account of itself, and the distinction
+  is worth stating because it looks like the banned shape.** The evaluator reads
+  docs/ANSWER.md, which the subject wrote. What it never does is BELIEVE it: the expected set
+  of ledger rows is computed in this process from the baseline ledger, and a subject asserting
+  "I searched thoroughly" satisfies nothing. The ids exist in exactly one file in the fixture,
+  so naming them is the observable consequence of having read it — the same relationship
+  scenario 01 has with a corrected README. Two bounds are stated in the file rather than
+  discovered: a subject that GUESSED both ids would pass, and one that names both rows and then
+  asserts the opposite in prose would too, because judging the sentence needs the manufactured
+  oracle **P19** refuses. The failure the scenario exists to catch is the search that came back
+  empty, and an answer naming both rows did not come back empty.
+  **(c) One mechanism per scenario, and the reason is a hazard rather than tidiness.** DA-026's
+  criterion 2 names DA-002 and DA-003 together. DA-002's instance — the distributed fact read
+  locally — is already built into scenario 01, whose queue item is settled by `git ls-remote`
+  against a clone carrying no tags. Reproducing it again in 02 would have meant an evaluator
+  asking a remote what exists, which a subject can rob of its own preconditions by deleting a
+  remote: maximal noncompliance routed into INCONCLUSIVE, which is exactly **DB-003**(b). Both
+  rows are covered across the lab; neither scenario carries two mechanisms.
+  **(d) Retiring a plan into the archive loses the guard exemption the plan was written
+  under.** `scripts/guards/path-refs.sh` exempts the plans directory and not `docs/history/`,
+  so the completed plan — which named nine paths belonging to designs that were adjudicated and
+  refused — would have reddened the tree on arrival. The remedy is the one **DA-002** already
+  prescribes: a name that is not a live citation loses its backticks. Stated here because the
+  ordering rule generalises past deletion — **retiring a document is a move ACROSS guard scopes,
+  and the scope it lands in is the one that binds.** The three RFC files were deleted rather
+  than archived for the same reason and by the owner's decision 5: their durable content is
+  DA-024, DA-025 and DA-026.
+  **(e) The unit whose subject is the incomplete negative search opened by committing one.**
+  `docs/STATE.md` listed the adopter-tree absence assertion as owed by this unit. It was not:
+  U3 had already landed it and **DB-003**(f) records it. The cost of believing the queue would
+  have been a duplicate assertion and a false claim in a changelog line; the cost of checking
+  was one grep. This is DA-011's shape in the state file rather than the queue, and it argues
+  for the same discipline — a work item is a claim about the tree, and the tree settles it.
+  **(f) RFC3's seven adjudicated criteria, mapped, because a criterion with neither a fixture
+  nor an honest "prose-only" is not met.** 1 (layers separate) — three directories, structural.
+  2 (two scenarios on named rows) — met, see (c). 3 (both directions, checked-NOTHING branches)
+  — met, and (a) is what it took. 4 (no evaluator reads what the subject could have written
+  about itself) — met, with (b)'s bounds. 5 (deterministic tests in ordinary CI, model runs
+  non-blocking) — `scripts/verify.sh` runs the suite; nothing runs a model. 6 (INCONCLUSIVE
+  only from an enumerated trigger) — met, one case per trigger per (a). 7 (adopter-tree absence
+  asserted mechanically) — met in U3, per (e). Criterion 2's second half, one scenario run
+  through a hosted agent, is **not** a criterion an agent session can close and remains the
+  owner's queue item (**DA-026**, C14).
+  **(g) The one defect the sweep could not have found, found by reading the checklist instead.**
+  The new evaluator collected cited row ids with `grep -oE 'L-[0-9]+'`, which matches inside a
+  longer word: `XL-003` in an answer read as a citation to L-003 — and L-003 is the fixture's
+  CONTROL row, the one an answer must not name, so an innocent token turned a compliant session
+  into a FAIL. **D-007**'s entry, "matching a word anywhere instead of in position", in a helper
+  written the same day the checklist was reread. A mutation sweep is blind to it by construction:
+  every assertion was pinned, and the defect was in what an assertion was fed. The fix matches
+  the whole surrounding word and keeps only exact ids, and it has a case — the sweep tests the
+  checker's branches, the checklist tests its inputs, and neither substitutes for the other.
+
+- DB-005: **"Durable" was claimed for a line in working memory — the tier whose defining property
+  is that it gets compressed away.** Asked to make sure the last unbuilt unit would not be
+  forgotten, this session answered that it was already safe because `docs/STATE.md` records it,
+  and called that durable. It is not. STATE is RAM (P2): capacity-bounded, folded on a schedule,
+  and its **Current state** section is precisely what a compression pass is instructed to turn
+  into a Changelog pointer. Only the Owner queue is protected from silent dropping, and only the
+  ledger is permanent. The owner caught it by asking whether the word was true; no check did, and
+  none could.
+  **(a) The cause is structural, not a slip of vocabulary.** P16 puts multi-session work in a
+  plan file plus a STATE checklist. Close-out archived the plan — correctly, per the unit's
+  approved scope — and the checklist went into cold storage with it, leaving the remaining unit
+  tracked only in narrative. **Archiving a plan while work remains transfers a tracking
+  obligation that nothing enforces.** Whoever archives owes the surviving work a new anchor in
+  the same change; that is now the rule, and it is prose.
+  **(b) The fix and its exact bound.** The remaining unit becomes an Owner-queue ITEM, because
+  the queue is the one section whose preamble forbids dropping items during compression. What
+  this does NOT do is make the tracking machine-checked: a guard asking "is the remaining work
+  still tracked?" would have to consume the session's own account of what remains, which is the
+  banned attestation shape (P3, D-014). So this is prose plus a protected section, and the item
+  says so rather than implying a guard.
+  **(c) The generalisation worth carrying: a claim about persistence is a claim about a TIER.**
+  Before saying something survives, name the tier it lives in and check that tier's mutability
+  rule. Constitution is read-mostly, working memory is folded, the ledger is append-only, the
+  archive is frozen. The agent maintaining the hierarchy made a tier-confusion error inside it,
+  which is the strongest evidence available that the analogy has to be applied deliberately
+  rather than remembered.
+
+- DB-006: **The second scenario's evaluator was correct and its coverage was not — and the
+  asymmetry between two sibling evaluators is what exposed it.** The adversarial pass built
+  result trees for every route it could think of and every one got the right verdict; no shipped
+  behavioural defect. Then it mutated the evaluator and found ten survivors, four of them real.
+  **(a) The sharpest finding was a two-command demonstration.** Evaluator 02 drops
+  `--exclude-standard` from its untracked probe on purpose, because a subject can write
+  `.git/info/exclude`. Scenario 01 has a case for that route; scenario 02 did not — its scripted
+  subject implemented two of the three leftover-hiding routes and omitted that one. Adding the
+  flag back to evaluator 02 left the suite at 97 green; the identical regression on evaluator 01
+  went red. **A deliberate omission with no case is indistinguishable from an oversight**, and
+  the way it surfaced generalises: when two components make the same decision, mutate both and
+  compare — a defect that survives in one and not the other is a coverage hole, not a judgement
+  call.
+  **(b) The isolation comment overclaimed while citing the row about overclaiming.** Both
+  evaluators justified their isolated HOME with `clone.defaultRemoteName` turning a correct run
+  into a FAIL, "verified rather than supposed", and cited **DB-003**(d) — the row recording that
+  exact error one unit earlier. Neither evaluator clones or names a remote, so the mechanism
+  cannot reach them; with the isolation removed and a hostile config the verdict is byte-identical.
+  The isolation stays as defence in depth on the honest ground (every git probe reads
+  configuration); the specific claim is gone. Copying a justification along with the code it
+  justified is how a true sentence becomes a false one.
+  **(c) A proposed fix that closed half of what it was proposed for, and was recorded as such.**
+  The pass suggested one prepend case to cover two surviving mutants on the append-only ledger
+  check. It covers the assertion's ABSENCE; unquoting the comparison still survives, because a
+  false PASS there needs a ledger crafted so its `**` markup globs. The case was added and the
+  quoting is DECLARED UNTESTED in the code. Applying a reviewer's fix and then checking whether
+  it did what the reviewer said is the replay bound doing its job on the remedy rather than the
+  finding.
+  **(d) Also fixed:** a body-scoping rule argued at length that this fixture cannot exercise
+  (declared untested rather than deleted or oversold); `ids_named_in`'s `sort -u`, now load-bearing
+  because one passing case cites its rows in descending order; and a T0 diagnostic that echoed an
+  unrecognised argument verbatim, which the sibling runner already refuses to do by name (P17).
+  Two evaluators, one leak, propagated by copy.

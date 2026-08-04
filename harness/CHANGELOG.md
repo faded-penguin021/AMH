@@ -11,6 +11,72 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## Unreleased
+
+Three externally-authored RFCs were entered as data, adjudicated claim by claim, and mostly
+refused; what survived is here. No shipped script was added, no artifact format was introduced,
+no dependency was taken, and no exit code changed. **The version number is deliberately not
+chosen yet** — the ledger-volume rollover still to land moves guard semantics, and whether that
+lands as a pure superset is what decides MINOR against MAJOR. Until then this section carries
+no number, because a heading is a claim.
+
+- **The ladder says green OF WHAT.** All five verdict lines now name the commit they verified
+  and whether the tree that was verified IS that commit — `HEAD <sha>, worktree clean`, or a
+  count of uncommitted paths and a sentence saying in those words that the verified tree is not
+  that commit. The ladder verifies the WORKING tree (the secret and citation scans read
+  untracked files), so a green run rendered as a bare sha was a claim about something nobody
+  checked. Four states are distinguished, because two of them read exactly like "clean" if they
+  are collapsed: no repository, git refusing to answer, an unborn HEAD, and a real commit. The
+  probe reads the same sources the guards read rather than `git status`, which honours a
+  configuration key that let a tree print a guard failure on untracked content and
+  `worktree clean` in the same run. Only the count of paths is printed, never their names.
+
+- **The session banner reports a runtime inventory.** Two new `amh.conf` keys —
+  `REQUIRED_TOOLS` and `ADAPTER_FILES` — are probed at session start and printed. Tools are
+  `observed` or `unavailable`; adapter files are `configured` or `unknown`, **never** observed
+  and never unavailable, because a file's presence is a request for an integration and not
+  evidence a hook ever fired. Nothing reads these states: they are output for a human, and the
+  adapter-set guard reads the LIST, never a state. Tools are probed with `type -P`, not
+  `command -v`, which resolves builtins and functions — the first version of this reported the
+  script's own helper function as an installed tool.
+
+- **What was refused, recorded because a refusal is as durable as an acceptance.** A runtime
+  capability manifest and the script to write it; lifecycle-hook probing (no marker can name its
+  caller); runtime profiles; a versioned JSON run receipt and its status tool (forgeable, and a
+  flat enum cannot express a verdict space where WARN deliberately outranks `skip`); CI receipt
+  artifacts. Each refusal has a stated argument in this repository's ledger rather than in a
+  changelog bullet.
+
+- **A behavioural conformance lab, which you do not receive.** `conformance/` is repo-local and
+  is not installed into an adopting repository — the installer copies only from
+  `harness/templates/`, and the end-to-end installation test now asserts the absence rather than
+  leaving it structural. It exists because a few of this harness's rules are prose that no guard
+  can ever reach: anything checking whether a session "verified" something consumes the session's
+  own say-so, which is the attestation shape the constitution bans. Two scenarios, seeded on
+  recorded failures. **It demonstrates that its evaluators are deterministic and
+  mutation-sensitive, and nothing whatever about how any agent behaves** — that sentence travels
+  with every mention of it, including this one.
+
+### Upgrading
+
+1. **Copy the shipped scripts** — the whole directory, manifest included. The ladder's new
+   verdict line and the session banner's inventory come with them, and neither changes an exit
+   code or the meaning of any existing line.
+
+2. **Add the two new `amh.conf` keys**, both space-separated lists:
+
+   - `REQUIRED_TOOLS` — the commands your ladder needs on PATH. List a tool your CI installs but
+     your laptop does not, if you have one; being told it is `unavailable` locally is the point.
+   - `ADAPTER_FILES` — the agent-adapter files your repository ships.
+
+   Leaving either empty is a supported answer: the corresponding banner line simply does not
+   appear. Copy the commentary from `harness/templates/amh.conf.example`, which explains what
+   each state does and does not assert — the distinction is the reason the keys exist, and a
+   value without it invites the states to be read as evidence.
+
+3. **Nothing else.** No binding rule moved, no seed file changed, and no guard changed its
+   verdict for a tree that was green before.
+
 ## 3.0.0 — 2026-08-02
 
 One binding rule changed — a completed plan may now be retired into the archive instead of

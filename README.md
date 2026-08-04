@@ -193,6 +193,8 @@ docs/
   STATE.md           working memory: current state, Owner queue, changelog
   RUNBOOK.md         playbooks
   LEDGER.md          permanent memory: append-only D-NNN rows
+  LEDGER_A.md        continuation volumes, capped by line count; STATE names the live one
+  LEDGER_B.md
   UPGRADING.md       for an adopting repo moving to a newer harness version
   history/           frozen archive: completed plans and other documents retired whole
   plans/             active multi-session build plans (absent when none is active)
@@ -218,8 +220,17 @@ scripts/             THE INSTANCE — this repo living under what it ships
   build-manifest.sh  regenerate the integrity manifest
   guards/            repo-local guards; the ladder runs every one it finds here
   tests/             fixtures for the repo-local guards, and the end-to-end init test
+conformance/         behavioural scenarios for the prose rules no guard can reach
+  scenarios/         each builds its own disposable repo at runtime; nothing is stored
+  evaluators/        one per scenario; computes its evidence in its own process
+  runners/           one concrete runner — isolate, launch, evaluate, throw away
+  selftest.sh        deterministic, blocks CI, and says nothing about how an agent behaves
 .github/workflows/   CI, which runs the same ladder and nothing else
 ```
+
+`conformance/` is the one directory here that is neither the product nor the instance running
+it: it is repo-local and never installed, which the installer end-to-end test asserts rather
+than claims.
 
 The two halves are the point. A template no repository executes is a liability, so the
 reference instance runs the exact files it ships, and a guard fails the build if they ever

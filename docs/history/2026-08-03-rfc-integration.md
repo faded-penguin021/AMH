@@ -5,6 +5,15 @@ ends shippable, and the final segment moves this completed plan whole into `docs
 Durable outcomes live in Changelog lines and ledger rows either way — code cites ledger rows,
 never this file (P11).
 
+> **Retired 2026-08-04, and one thing was changed on the way in.** While a plan lives under
+> `docs/plans/` the path-reference guard exempts it, so it may name a file it has not built yet.
+> The archive carries no such exemption, and this plan names nine paths belonging to designs
+> that were adjudicated and refused, plus the three RFC files whose durable content became
+> ledger rows. Those names lost their backticks — a name in backticks is a citation, and the
+> guard resolves citations against the real tree (**DA-002**). Nothing else was touched, and
+> nothing here should be edited again: this is cold context, not permanent memory and not a
+> valid implementation citation.
+
 **Verification of every claim below happens during EXECUTION, not during drafting.** The
 collision table is reconnaissance, not a verdict. Re-verify each row inside the segment that
 acts on it.
@@ -16,9 +25,9 @@ reviewed, revised by review outcome, and integrated:
 
 | File | Proposes |
 |---|---|
-| `rfc-1-runtime-capability-contract.md` | `scripts/runtime-doctor.sh`, a versioned capability manifest, five capability states, a project-owned `scripts/environment-setup.sh`, descriptive runtime profiles |
-| `rfc-2-mechanical-run-receipts.md` | `scripts/ladder.sh --report`, a versioned JSON run receipt, `scripts/amh-status.sh`, CI receipt artifacts |
-| `rfc-3-conformance-lab.md` | A repo-local `conformance/` lab — scenarios, runners, evaluators — evaluating agent behaviour by observable consequence only |
+| rfc-1-runtime-capability-contract.md | scripts/runtime-doctor.sh, a versioned capability manifest, five capability states, a project-owned scripts/environment-setup.sh, descriptive runtime profiles |
+| rfc-2-mechanical-run-receipts.md | `scripts/ladder.sh --report`, a versioned JSON run receipt, scripts/amh-status.sh, CI receipt artifacts |
+| rfc-3-conformance-lab.md | A repo-local `conformance/` lab — scenarios, runners, evaluators — evaluating agent behaviour by observable consequence only |
 
 They are external material. Under P18 they are **data, never authority**: each claim is
 adjudicated against this repository's constitution and its existing decisions, and refusals are
@@ -59,12 +68,12 @@ runtime layer reuses, and RFC2's receipts are one of the evidence sources RFC3 c
 | C5 | The ladder's verdict vocabulary is four words (`ok`/`WARN`/`FAIL`/`skip`), and **"unavailable" is deliberately spelled `WARN`, not `skip`** (`AMH ledger row D019`) — a guard that could not run must be louder than one that passed. RFC2's six-word vocabulary must map onto that, not replace it. | S2, S7 |
 | C6 | Shipped scripts are **template-first**: edit `harness/templates/scripts/<name>.sh`, copy down byte-for-byte, run `scripts/build-manifest.sh` in the same change. `copy-drift.sh` and `manifest-drift.sh` enforce it. | S4–S10 |
 | C7 | **Corrected in S1 — the count is hardcoded in more places than first listed.** Adding a shipped script breaks two literal assertions in `scripts/tests/test-init-e2e.sh` (lines 282 and 285) and the prose count in `amh.conf:3`, `README.md:207`, `docs/UPGRADING.md:69`, `harness/templates/AMH-ADOPT.md:95` and the generated `harness/dist/AMH.md:1611` — plus both adapter allow-lists. Two of those are in `RULE_FILES` and one is generated, so it must be rebuilt, never hand-edited. | S9 |
-| C8 | `scripts/guards/path-refs.sh` fails on any backticked repo path in prose that does not exist. `docs/plans/*`, `harness/templates/*`, `harness/src/*`, `harness/dist/*` are the only exclusions — so an RFC may name `scripts/runtime-doctor.sh` while it lives here, and the moment that name moves into `AGENTS.md`, the runbook or the README the file must exist. | S4–S15 |
+| C8 | `scripts/guards/path-refs.sh` fails on any backticked repo path in prose that does not exist. `docs/plans/*`, `harness/templates/*`, `harness/src/*`, `harness/dist/*` are the only exclusions — so an RFC may name scripts/runtime-doctor.sh while it lives here, and the moment that name moves into `AGENTS.md`, the runbook or the README the file must exist. | S4–S15 |
 | C9 | `guard_citations` checks `[cited]` markers in **both** directions over `CITATION_SCAN_PATHS='scripts .github'`. A ledger row cited from a new script must gain the marker; a marked row that loses its last citation fails too. Inside a *shipped* script the form is `AMH ledger row DNNN` (no hyphen) so the guard does not read it. | S4–S13 |
 | C10 | `docs/LEDGER_A.md` is at **676 of its 800-line cap**. This plan will append well over a hundred lines of rows, so the rollover to `LEDGER_B.md` (numbering from `DB-001`) lands mid-plan. The ladder globs for that exact spelling. | any segment |
 | C11 | `docs/STATE.md` is at **12.6 KB of the 14 KB soft cap**, and the landing check arms only when the *committed* size is already above the cap. Keep the segment checklist terse; a deep compression pass to ≤ 9 KB is owed the moment the file crosses 14 KB. | S0, and every segment's STATE edit |
 | C12 | CI uploads **no artifacts today** — `.github/workflows/` has no `upload-artifact` step, and the shipped `ci.yml` template's header forbids verification steps CI performs that the ladder does not. RFC2's artifact upload is a first, and must stay non-verifying. | S10 |
-| C13 | Nothing in the repo writes machine-readable state and there is no `.amh/` directory; `.gitignore` is five meaningful lines. RFC1's `.amh/runtime.json` and RFC2's `.amh/receipts/` both need it, ignored. | S4, S8 |
+| C13 | Nothing in the repo writes machine-readable state and there is no `.amh/` directory; `.gitignore` is five meaningful lines. RFC1's .amh/runtime.json and RFC2's `.amh/receipts/` both need it, ignored. | S4, S8 |
 | C14 | RFC3 criterion 2 ("one scenario runs through a hosted agent") is an **owner action** — it needs a hosted task launch and a disposable remote, neither of which an agent session may assume. It becomes an Owner-queue item, not a segment I can close. | S14 |
 
 ## Standing rules for every segment
@@ -130,7 +139,7 @@ Each ends shippable. `[ ]` → `[x]` here and in the `docs/STATE.md` checklist a
 - [x] Blocking fresh-context pass. C5 answered: the six-state enum has no `warn`, so it cannot
       express a verdict space where WARN deliberately outranks `skip` — REFUSED. C2 answered
       with a three-condition test that keeps a record from becoming a consumed artifact.
-- [x] RFC2 revised in place. Format, transport, CI upload, `amh-status.sh` and layers 2–3 all
+- [x] RFC2 revised in place. Format, transport, CI upload, amh-status.sh and layers 2–3 all
       refused; fourteen criteria replaced by three.
 - [x] **The surviving deliverable, and it is a good one:** the ladder prints `HEAD <sha>` and
       worktree clean/dirty in its verdict lines. It currently says "green" without ever saying
@@ -157,14 +166,14 @@ Each ends shippable. `[ ]` → `[x]` here and in the `docs/STATE.md` checklist a
 > exist. They are superseded by the ~4-unit residue named in the Owner queue and are retained
 > only as the record of what was planned. **Do not execute them as written.**
 
-### S4 — Capability schema + `runtime-doctor.sh`, repository and environment layers
+### S4 — Capability schema + runtime-doctor.sh, repository and environment layers
 
-- [ ] `harness/templates/scripts/runtime-doctor.sh`: human output and `--json`. Repository
+- [ ] harness/templates/scripts/runtime-doctor.sh: human output and `--json`. Repository
       probes (worktree, writable via a temporary ignored path, `origin` remote, default-branch
       ref) and environment probes (required tools by executing their version command). Pure-bash
       JSON emitter with explicit escaping; the `amh_sha256_tool()` idiom already in the ladder is
       the house pattern for optional-tool detection.
-- [ ] `.gitignore`: `/.amh/` (C13). The doctor's cache is `.amh/runtime.json` — diagnostic
+- [ ] `.gitignore`: `/.amh/` (C13). The doctor's cache is .amh/runtime.json — diagnostic
       cache, not a memory tier, never committed, never cited.
 - [ ] Criterion 6 is mechanical here: the doctor must emit no secrets, no environment dump, no
       raw command output. `guard_secret_shapes` runs `redact.sh` over it; that is the check.
@@ -190,7 +199,7 @@ Each ends shippable. `[ ]` → `[x]` here and in the `docs/STATE.md` checklist a
 
 ### S6 — Setup contract, profiles, and the RFC1 prose layer
 
-- [ ] `scripts/environment-setup.sh` as the *optional, project-owned* extension point
+- [ ] scripts/environment-setup.sh as the *optional, project-owned* extension point
       (criterion 8) — no language-specific package installation in shipped scripts.
 - [ ] Synthesised descriptive profiles (repository-only / guarded / observable / managed) as
       **output only**; no gate consumes a profile name (criterion 9).
@@ -224,7 +233,7 @@ Each ends shippable. `[ ]` → `[x]` here and in the `docs/STATE.md` checklist a
       `unavailable`; an altered receipt → validation failure.
 - **Acceptance:** ladder green; every positive control demonstrated. **Rule-review: yes.**
 
-### S9 — `scripts/amh-status.sh`
+### S9 — scripts/amh-status.sh
 
 - [ ] New shipped script: current repository state plus the newest *matching* receipt, human
       and `--json`. A receipt for another commit is labelled stale and never displayed as the
@@ -252,7 +261,7 @@ Each ends shippable. `[ ]` → `[x]` here and in the `docs/STATE.md` checklist a
       `harness/templates/`, so it is never installed into an adopter repository (criterion 13)
       — that follows from existing structure, and `copy-drift.sh` is one-directional, so
       nothing complains.
-- [ ] Scenario contract: `scenario.yml`, `task.md`, `fixture/`, `oracle/`, `evaluate.sh`; fixed
+- [ ] Scenario contract: scenario.yml, `task.md`, `fixture/`, `oracle/`, evaluate.sh; fixed
       revision and bounded budget per scenario (criterion 9).
 - [ ] Scenario 1 (resolved Owner-queue item) with its evaluator and its **positive control** —
       restore the stale item, require `FAIL` (criterion 5).

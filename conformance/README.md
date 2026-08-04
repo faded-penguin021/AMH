@@ -24,6 +24,16 @@ say-so, which is the banned attestation shape. The fix that shipped was prose �
 discipline item 7 in `docs/RUNBOOK.md` — and nothing in this repository tests whether that
 prose works.
 
+The second recorded case is the same shape one layer over: a session that reported a negative
+from a command which could not have seen the thing it was denying. It asserted that
+`docs/STATE.md` had never crossed its cap and no compression pass had ever run, from
+`git log --follow` — while two ledger rows existed *because* of those passes (DA-003). The
+reason the log disagreed with reality is structural: this repository squash-merges, so every
+intermediate state is destroyed on purpose and the memory tiers ARE the history. DA-002 is the
+same failure through a second door, `git tag` in a clone that had never fetched tags. No guard
+reaches this either — the rule is about a belief a session formed, and only its consequence is
+observable.
+
 The runbook concedes the blind spot in its own words: bash fixtures exercising bash guards in
 one interpreter cannot see a defect in an assumption they share. A behavioural scenario is
 the only instrument in this constitution's toolbox that can watch a prose rule fail.
@@ -32,6 +42,18 @@ That argument earns two scenarios. It does not earn seven, a runner abstraction,
 contract or a report transport — all four were refused (ledger row DA-026). One concrete
 runner is not a runner abstraction, and the difference is the thing to preserve if this
 directory ever grows.
+
+| Scenario | The prose rule it watches | Seeded on |
+|---|---|---|
+| `01-stale-queue-item` | test a queue item before restating it; retire the ones the test settles | DA-011, DA-012 |
+| `02-incomplete-negative-search` | before reporting that something never happened, establish that the command could have seen it | DA-002, DA-003 |
+
+DA-002's own instance — the distributed fact read locally — is reproduced inside scenario 01,
+whose queue item is settled by `git ls-remote --tags origin` against a clone that carries no
+tags. Scenario 02 reproduces DA-003's. One mechanism per scenario, both rows covered, and the
+reason for the split is written into scenario 02's fixture: an evaluator that has to ask a
+remote what exists can be robbed of its own preconditions by a subject that deletes a remote,
+which routes maximal noncompliance into the quiet verdict (DB-003(b)).
 
 ## The rule that shapes every evaluator here
 
@@ -88,7 +110,7 @@ either.
 ```sh
 conformance/selftest.sh                       # deterministic, no model, no network
 conformance/runners/local-clone.sh \
-  --scenario conformance/scenarios/01-stale-queue-item \
+  --scenario conformance/scenarios/02-incomplete-negative-search \
   --subject 'your-agent-command --prompt-from-stdin'
 ```
 
@@ -114,7 +136,7 @@ For an owner-launched hosted run, skip the runner: point the evaluator at a clon
 branch the agent produced, with the baseline commit the launch recorded.
 
 ```sh
-conformance/evaluators/01-stale-queue-item.sh --result <clone> --baseline <sha>
+conformance/evaluators/02-incomplete-negative-search.sh --result <clone> --baseline <sha>
 ```
 
 ## Fixtures are generated, never stored
@@ -125,12 +147,44 @@ reddens the secret-shape scan that stores it (ledger row D-004), and a stored ma
 naming paths that exist only inside the fixture reddens the path-reference guard, whose
 exclusion list does not cover this directory.
 
+The one stored markdown file per scenario is its `task.md`, and it inherits that constraint
+directly: a fixture-only path named there in backticks is a citation, and the guard resolves
+citations against the REAL tree. Scenario 02's task names its answer file in plain text for
+exactly this reason. That is not a workaround — it is the rule DA-002 states, that a name which
+is not a live citation should not be in backticks, applied where it bites. Adding a
+`conformance/*` exclusion to the guard instead was available and was not taken: the exclusion
+would also stop the guard checking the paths in these files that ARE live citations.
+
 Not a reason, though it reads like one: the state-size and structure rungs do **not** scan a
 stored `docs/STATE.md` under here. They read the single path `STATE_FILE` names in
 `amh.conf`, never a glob — verified by planting a 30 KB AMH-shaped state file in a scenario
 directory and watching both rungs stay green. Keeping the false half of that sentence would
 have been prose claiming enforcement nothing performs, which is the thing `docs/RUNBOOK.md`
 says is worse than claiming nothing.
+
+## The acceptance rule, in the form that actually bites
+
+Both directions is the rule everywhere in this repository, and for an evaluator it has a
+sharper form than "break it and watch the suite go red":
+
+> **Every assertion and every enumerated trigger needs a case that fails when THAT ONE is
+> removed** — not a case that fails while it is removed.
+
+The difference is the whole thing. Scenario 01 shipped with nineteen assertions and nineteen
+enumerated triggers, and a 47-case suite that ran green over eight of them: four assertions and
+four triggers were individually deletable without a single case noticing — three
+checked-NOTHING branches sharing a case that anchored on a different line, an
+unreachable-worktree branch nothing exercised, and two triggers whose siblings printed a
+different message for the same id (the other two are the declared pair below). They were found
+by sweeping: flip each `broke` to `held` and each `inconclusive` to a no-op, one at a time, and
+require the suite to go red every time. Cheap — a full sweep is a few minutes — and it is the
+only form of the rule that distinguishes an assertion from its own absence (D-020). Both
+evaluators now kill 36 of their 38 mutants.
+
+Two branches survive that sweep today and are declared in both evaluators rather than counted
+as covered: the `cd` failures behind T1, which need a directory whose execute bit is off, and a
+run as root ignores that bit. A case whose verdict depends on who ran it is a flake, and a
+flaky gate gets disabled rather than fixed (D-024).
 
 ## Citations here are prose
 

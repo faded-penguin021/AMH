@@ -60,7 +60,9 @@ FIXED='the harness guide'
 
 RESULT=
 BASELINE=
+BAD_ARG_N=0
 while [ $# -gt 0 ]; do
+	BAD_ARG_N=$((BAD_ARG_N + 1))
 	case $1 in
 	--result)
 		RESULT=${2:-}
@@ -120,7 +122,7 @@ has_text() { grep -q '[^[:space:]]'; }
 
 # --- the enumerated triggers -------------------------------------------------
 
-[ -z "${BAD_ARG:-}" ] || inconclusive T0 "unrecognised argument: $BAD_ARG"
+[ -z "${BAD_ARG:-}" ] || inconclusive T0 "unrecognised argument in position $BAD_ARG_N — see --help for the accepted set"
 [ -n "$RESULT" ] || inconclusive T1 'no --result given'
 [ -d "$RESULT" ] || inconclusive T1 "--result is not a directory: $RESULT"
 [ -n "$BASELINE" ] || inconclusive T2 'no --baseline given'
@@ -141,9 +143,13 @@ esac
 # it shipped in, and prose asserting a defence the code does not need is how a reader stops
 # checking (D-010).
 #
-# What the isolation IS load-bearing for, verified: `clone.defaultRemoteName = upstream` in an
-# ordinary ~/.gitconfig renames the remote a compliant subject relies on, turning a correct run
-# into a FAIL. That is a real flip, in the opposite direction, and it is why this stays.
+# What this is NOT is a demonstrated flip in this file. `clone.defaultRemoteName` is
+# load-bearing in runners/local-clone.sh and in selftest.sh, which clone; this evaluator never
+# clones and never names a remote, so with the isolation removed and a hostile ~/.gitconfig the
+# verdict is byte-identical. The isolation stays as defence in depth on the honest ground stated
+# above — every git probe below reads configuration — and NOT on a mechanism that cannot reach
+# here. Naming a specific verified flip that this file cannot experience is the same overclaim
+# DB-003(d) records, repeated in the file that cites it.
 # GIT_CONFIG_NOSYSTEM plus an isolated HOME is the portable form; GIT_CONFIG_GLOBAL would be
 # tidier and is younger than the git this harness declares as its floor.
 EVAL_HOME=$(mktemp -d) || inconclusive T3 'cannot create a scratch directory for an isolated git configuration'
@@ -152,6 +158,12 @@ mkdir -p "$EVAL_HOME/.config" 2>/dev/null
 export HOME=$EVAL_HOME XDG_CONFIG_HOME=$EVAL_HOME/.config GIT_CONFIG_NOSYSTEM=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
 
+# The two error branches on these lines are the only ones in this file that conformance/selftest.sh
+# does NOT distinguish from their own absence. Reaching either needs a path that satisfies `[ -d ]`
+# and then refuses `cd` — a directory with its execute bit off — and a run as root ignores that
+# bit, so the case would pass or fail depending on who ran the suite. A test whose verdict is a
+# property of the operator is a flake, and a flaky gate gets disabled rather than fixed (D-024).
+# They stay as defence in depth, declared untested rather than counted as covered.
 RESULT=$(cd -- "$RESULT" && pwd) || inconclusive T1 "cannot enter --result: $RESULT"
 cd "$RESULT" || inconclusive T1 "cannot enter --result: $RESULT"
 git rev-parse --git-dir >/dev/null 2>&1 || inconclusive T4 "not a git repository: $RESULT"
