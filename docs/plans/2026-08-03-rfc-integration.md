@@ -140,11 +140,22 @@ Each ends shippable. `[ ]` → `[x]` here and in the `docs/STATE.md` checklist a
 - [x] S7–S10 collapse to roughly one unit. Folded into the existing Owner-queue fork rather
       than raising a second.
 
-### S3 — Adjudicate RFC3 *(docs-only)*
+### S3 — Adjudicate RFC3 *(docs-only)* — **DONE**
 
-- [ ] Same shape. Adjudicate C14 (the hosted-agent criterion is an owner action) and the
-      non-blocking model-run policy.
-- [ ] Revise `docs/plans/rfc-3-conformance-lab.md` in place; ledger the verdicts.
+- [x] Blocking fresh-context pass. RFC3 is the only one of the three strengthened by its
+      siblings' refusal: with receipts and hook markers struck, the surviving rule is that **an
+      evaluator computes its evidence in its own process and never reads an artifact the subject
+      could have written.**
+- [x] RFC3 revised in place: seven scenarios cut to two on provenance, YAML metadata, the oracle
+      directory and in-tree reports all refused, fifteen criteria replaced by seven.
+- [x] C14 confirmed: the hosted run stays an Owner-queue item. Model-backed execution is
+      **permanently** non-blocking, not "until repeatability is demonstrated" (**D-024**).
+- [x] **DA-026** records the verdicts, including (g): two defects in this plan, both corrected —
+      the false E2E claim above, and S11's rule-review marking below.
+
+> **Plan status after S1–S3:** S4–S15 below were written against RFC designs that no longer
+> exist. They are superseded by the ~4-unit residue named in the Owner queue and are retained
+> only as the record of what was planned. **Do not execute them as written.**
 
 ### S4 — Capability schema + `runtime-doctor.sh`, repository and environment layers
 
@@ -248,7 +259,10 @@ Each ends shippable. `[ ]` → `[x]` here and in the `docs/STATE.md` checklist a
 - [ ] PASS / FAIL / INCONCLUSIVE semantics, with infrastructure failure never reported as agent
       noncompliance (criterion 6).
 - **Acceptance:** the evaluator passes a compliant fixture and fails the mutation.
-  **Rule-review: no** (nothing in `RULE_FILES`); **adversarial pass: yes**.
+  **Rule-review: YES — corrected in S3.** This was marked "no" on the reasoning that
+  `conformance/` is outside `RULE_FILES`, which is true and irrelevant: the fixtures require a
+  `conformance/*` exclusion in `scripts/guards/path-refs.sh`, and `scripts/guards` is squarely in
+  scope. **Adversarial pass: yes.**
 
 ### S12 — A non-hosted runner, and evaluator tests in ordinary CI
 
@@ -298,8 +312,12 @@ Each ends shippable. `[ ]` → `[x]` here and in the `docs/STATE.md` checklist a
   docs-only segments S0–S3, full otherwise. Every new fixture demonstrated to fail against the
   pre-change behaviour by stashing the *behaviour*, not by deleting a file.
 - **End to end:** `scripts/tests/test-init-e2e.sh` proves an adopter tree still instantiates and
-  its own ladder goes green with the new shipped scripts, and that the conformance lab is absent
-  from that tree.
+  its own ladder goes green. **Corrected in S3:** an earlier draft of this line also claimed the
+  suite proves the conformance lab is absent from that tree. It proves no such thing — nothing
+  under `scripts/`, `.github/` or `harness/` mentions the lab at all. Absence is currently
+  structural (the installer sources only `harness/templates/`), not asserted. Either add the
+  assertion or claim nothing; prose claiming enforcement nothing performs is worse than prose
+  claiming nothing (**D-010**).
 - **RFC criteria:** S6, S10 and S14 each close with an explicit map from every acceptance
   criterion in their RFC to the fixture that covers it or the sentence stating it is prose-only.
   A criterion with neither is not met, and saying so is the honest outcome.

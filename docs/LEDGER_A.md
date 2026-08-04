@@ -776,3 +776,51 @@
   the finding survived and its evidence did not. Replaying a pass's falsifiable claims is the
   bound that caught it; the twenty-eighth pass, and the count of passes finding a real defect
   inside the FIX now applies in both directions.
+
+- DA-026: **RFC3's conformance lab is accepted in reduced form — two scenarios, not seven — and
+  it is the only one of the three RFCs strengthened by its siblings' refusal.** Refused: five of
+  seven scenarios on provenance, the per-scenario YAML metadata, the oracle directory, the
+  in-tree reports directory, the temporal half of the nondeterminism policy, and the
+  receipt-commit field. Accepted: the untrusted-implementation principle, the
+  insufficient-evidence list, scenario isolation, and the release-claims bound.
+  **(a) The rule that survives the sibling refusals, and generalizes past them: an evaluator must
+  compute its evidence in its own process and never read an artifact the subject could have
+  written.** Receipts died as forgeable (DA-025) and hook markers as unable to name their caller
+  (DA-024), which looked fatal and was not: DA-025 accepted the ladder naming its own subject
+  commit, which is what an evaluator needed all along, with nothing in between. The document had
+  half the rule already — it barred a self-authored conformance report — then broke it by
+  admitting receipts. Six of seven scenarios lose nothing under the strict form.
+  **(b) Scenario provenance, checked against both volumes, is what cut seven to two.** Real here:
+  the stale Owner-queue item (DA-011, which the owner reports as RECURRING, plus DA-012) and the
+  incomplete negative search (DA-002, DA-003 — this repo's most-recorded class). Hypothetical:
+  prompt injection, bounded recovery and session interruption, all zero ledger hits. Inverse to
+  its recorded instance: the broken probe (D-020 records the agent narrowing the CHECKER, not
+  altering production code). No subject at all: runtime integration failure, killed with DA-024.
+  P12 already said this — the adversarial checklist is seeded by our own bug history and labels
+  which entries are real-here, because a checklist that overstates its provenance invites the
+  reader to discount all of it. Seeding from ledger rows would have cleared the incident bar
+  without needing DA-023's override.
+  **(c) Goodhart at the level of the acceptance criteria, in a document about self-certification
+  being worthless.** Thirteen of the received fifteen were satisfiable with no agent ever running;
+  criterion 10 never defined "operational"; and the positive-control requirement was
+  one-directional, so an evaluator consisting of a bare failure exit satisfied it and all five
+  listed controls. Replaced by seven criteria requiring both directions, checked-NOTHING branches
+  on every absence assertion, and a mechanical assertion of adopter-tree absence.
+  **(d) The two positive-control rules are orthogonal, not duplicates.** This repository mutates
+  the CHECKER and holds the subject fixed; the received document mutates the SUBJECT and holds
+  the checker fixed. Both are needed and neither implies the other — the received direction is
+  one the local fixture rule genuinely does not cover, and D-020 demanded it.
+  **(e) The asymmetry that should shape any build here: a FAIL is cheap and highly informative, a
+  PASS is one model, one fixture, one run and means almost nothing.** Build a FAIL-detector;
+  suppress PASS aggregation. This is also why the reports directory stays out of the tree.
+  **(f) The case for building anything at all, which is narrow and real.** DA-011(c) proves no
+  guard can reach a recurring failure, because anything checking whether a session verified the
+  queue is the banned attestation shape; the fix shipped as PROSE and nothing tests whether prose
+  works. The runbook concedes bash fixtures cannot see a defect in an assumption they share. A
+  behavioural scenario is the only instrument left. It earns two scenarios, not a lab.
+  **(g) Two defects the pass found in the integration plan itself, both mine.** Its Verification
+  section claimed the installer E2E suite proves the lab is absent from an adopter tree; it
+  proves no such thing, and a grep for the lab across scripts, workflows and the harness returns
+  nothing — D-010's shape, prose claiming enforcement nothing performs. And S11 was marked as
+  needing no rule-review, but the fixtures require a path-reference guard exclusion, which is a
+  guard diff and squarely in scope. Both corrected in the plan.

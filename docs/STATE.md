@@ -57,8 +57,11 @@ DIRECTLY, never piped — a red tree has been pushed that way; **`git log` canno
 about this repo's past**, the memory tiers ARE the history (**DA-003**); `path-refs.sh` skips
 `harness/templates/*`, so template findings are carried here by hand. **No open findings.**
 
-**The ledger has rolled over**: `docs/LEDGER.md` is closed at 826 lines (last row D-035);
-`docs/LEDGER_A.md` is live from `DA-001`. Append there; a citation's prefix names its file.
+**The ledger is AT ROLLOVER**: `docs/LEDGER.md` closed at 826 lines (last row D-035);
+`docs/LEDGER_A.md` is live from `DA-001` and now stands at 826 lines, past its 800-line cap.
+DA-026 legally *starts* under the cap, so the guard is green — but **the next row must open
+LEDGER_B.md numbering from `DB-001`**, spelled exactly that way or the ladder cannot see it.
+A citation's prefix names its file.
 
 ## Owner queue
 
@@ -80,16 +83,20 @@ about this repo's past**, the memory tiers ARE the history (**DA-003**); `path-r
 > as verified while asserting nothing (**D-014**). Its absence is information: it means no
 > command settles this, which is itself worth knowing before you repeat the item to a human.
 
-**OPEN — two independent passes collapsed the scope you approved.** RFC1 was refused at its core
-(**DA-024**) and RFC2's format was too (**DA-025**), so S4–S10 no longer have the subjects they
-were written for. What survives both is small and worth building: a required-tools and
-adapter-presence line in the existing banner, and the ladder naming its subject commit and
-worktree state in its verdict lines — together roughly one unit, no new shipped script, no new
-artifact. That collides with your "full acceptance criteria" decision, so the call is yours.
-Options: **(a)** build the surviving residue and let the criteria counts fall where the
-adjudications left them; **(b)** overturn specific refusals on a stated argument, as you did the
-incident bar — name which, and the reasoning goes in the ledger; **(c)** stop after S3 with the
-adjudications as the deliverable and build nothing. **Recommend (a).** No check: this is a
+**OPEN — all three adjudications are done, and together they collapsed the scope you approved.**
+RFC1 refused at its core (**DA-024**), RFC2's format refused (**DA-025**), RFC3 accepted in
+reduced form (**DA-026**). S4–S15 as planned no longer match what survived. What did survive is
+real and is about **four units**, not twelve: a required-tools and adapter-presence line in the
+session banner; the ladder naming its subject commit and worktree state in its verdict lines; and
+two conformance scenarios seeded on **DA-011**/**DA-012** and **DA-002**/**DA-003**, each
+exercised in both directions. No new shipped script, no new artifact, no new dependency.
+
+That collides with your "full acceptance criteria" decision, so the call is yours. Options:
+**(a)** build the ~4-unit residue and let the criteria counts fall where the adjudications left
+them; **(b)** overturn specific refusals on a stated argument, as you did the incident bar — name
+which, and the reasoning goes in the ledger; **(c)** stop here with the three adjudications as
+the deliverable and build nothing. **Recommend (a)** — the conformance scenarios in particular
+test a prose rule that **DA-011**(c) proves no guard can ever reach. No check: this is a
 judgement about what you want built, and only you can settle it.
 
 *Owed with it:* the refusals belong in Decided non-items below, which is rule-bearing, so that
@@ -133,57 +140,26 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
-- 2026-08-03 — **S2: RFC2's receipt format refused, but it found a real gap** (**DA-025**). The
-  ladder prints "green" and never says green OF WHAT — no commit, no worktree state, anywhere in
-  a session's output. Closed by two facts in the ladder's own verdict lines, the DA-022(d) shape:
-  no format, no transport, no sixth shipped script. A flat six-state enum cannot express a
-  verdict space where WARN deliberately outranks skip (**D-019**). Replay found a defect inside
-  the review itself — the finding held, its supporting claim did not.
+- 2026-08-03 — **The three owner-supplied RFCs are landed and fully adjudicated** (**DA-023**
+  through **DA-026**). They entered as DATA under P18 and were judged claim by claim, not obeyed.
+  RFC1's runtime capability contract was refused at its core — the absence of a capability
+  manifest is a decision here, not a gap (DA-001(d)) — and the nonce marker is not new evidence
+  against **DA-022**, because the probe is circular. RFC2's receipt format was refused as
+  forgeable and unable to express a verdict space where WARN outranks skip (**D-019**), but it
+  found a real gap nobody had noticed: the ladder says "green" and never says green OF WHAT.
+  RFC3's conformance lab was accepted in reduced form, two scenarios rather than seven, and was
+  the only one strengthened by its siblings' refusal. The owner's incident-bar override is
+  **DA-023**, recorded with its argument so it is not cited loosely later. The surviving build is
+  about four units and is the open Owner-queue item.
 
-- 2026-08-03 — **S1: RFC1 adjudicated, and refused at its core** (**DA-024**). The absence of a
-  capability manifest is a decision here, not a gap — DA-001(d) made assurance emergent from
-  repository topology precisely so no code could branch on a machine-readable record. The nonce
-  marker is not new evidence against **DA-022**: the probe is circular and the mandated manual
-  fallback writes a byte-identical marker. The vocabulary survives as a naming convention.
-
-- 2026-08-03 — **Three owner-supplied RFCs landed verbatim and a multi-session plan opened**
-  (**DA-023**). The runtime capability contract, mechanical run receipts and the agent
-  conformance lab enter as data under P18, to be adjudicated claim by claim before any of them
-  is built. The row records the owner's override of the incident bar, with the argument, so no
-  future session cites this as precedent for skipping the bar. The 3.0.0 release queue item
-  closed the same session: its check output named `refs/tags/amh-v3.0.0`.
-
-- 2026-08-02 — **AMH 3.0.0.** A MAJOR because one binding rule changed: a completed plan may
-  retire into the archive instead of being deleted (**DA-020**). The release also carries the
-  work that had accumulated unreleased — the Codex adapter and its cross-layer guard, the
-  agent-neutral branch namespace (**DA-014**), the compact constitution and its navigation
-  guard (**DA-017**, **DA-018**), the P11 citation scope (**DA-019**), the PR handoff
-  checkpoint and the adoption-acceptance corrections — plus this plan's four hardening
-  segments, S1–S4. The completed plan is archived at
+- 2026-08-02 — **AMH 3.0.0, and the external review's four hardening segments** (**DA-020**,
+  **DA-022**). A MAJOR because a completed plan may now retire into the archive instead of being
+  deleted; the release also carried the Codex adapter and its cross-layer guard, the
+  agent-neutral branch namespace, the compact constitution and its navigation guard, the P11
+  citation scope, and the PR handoff checkpoint. The ledger became stated retrieval storage, the
+  command guard gained its consolidated does-NOT-catch block, and `config-schema.sh` landed. Both
+  blocking passes found real defects inside the fixes. The completed plan is archived at
   `docs/history/2026-07-28-external-review-validation.md`.
-
-- 2026-08-02 — **The external review's four hardening segments landed** (**DA-022**). The ledger
-  is stated to be retrieval storage and its cap rung now reports size beside lines; the command
-  guard's header carries a consolidated list of what it does NOT catch, and the hookless
-  posture is prose; `config-schema.sh` keeps this instance's `amh.conf` complete against the
-  shipped example, one-directionally and repo-locally. Both blocking review passes found real
-  defects INSIDE the fixes — a wrapper claim that was false, an `awk` claim that contradicted
-  the reader list two lines above it, and a guard that reported green with `comm` absent.
-
-- 2026-08-01 — **The harness-wide consistency audit closed three stale plan-lifecycle phrases**
-  (**DA-021**). The shipped advisory, scaffold description and active plan now agree with
-  P2/P16; no new principle, consolidation or unplanned component earned its cost, while the
-  approved S1–S5 roadmap remains the bounded source of prospective hardening work.
-
-- 2026-08-01 — **Completed plans may now retire whole into `docs/history/`** (**DA-020**).
-  Plans worth retaining become frozen archive context while durable outcomes and implementation
-  citations remain in the ledger; repositories without the archive tier still delete them.
-
-- 2026-08-01 — **Adoption and initializer prose now describe only what the executable checks.**
-  The README calls the ladder the mechanical gate without treating it as proof that manual
-  adoption obligations were completed; installer E2E comments name their guards-only scope;
-  the initializer points at the existing downstream malformed-flag defence rather than an open
-  finding.
 
 - 2026-07-25/31 — **Everything through the compact constitution, folded**: founding and
   self-hosting, AMH 2.0.0 and 2.1.x, installation profiles and integrity manifests, release and
