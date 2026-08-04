@@ -404,3 +404,19 @@
   and a collation-dependent `[A-Z]` glob range — were all unreachable from the two callers and
   all fixed anyway: a helper that is correct only because of where it is called from is a trap
   for the next caller, and the next caller here was the citation guard three findings up.
+
+- DB-008: **U6 made committed ledger history append-only by machine check, without freezing
+  draft rows inside the active unit.** The guard compares the working tree to `HEAD`, not the
+  default branch: under branch-train squash history and sometimes-unfetched remotes, `HEAD` is
+  the local pre-commit boundary that the session can actually verify. Every row id reachable in
+  the ledger chain at `HEAD` must still resolve in the working tree. New ids absent from `HEAD`
+  are ignored until they are committed, so a session may draft, rewrite, renumber or delete its
+  own in-flight row before the checkpoint.
+  **(a) Keeping the id is not enough.** U5's preamble rewrite was the incident shape: a row can
+  survive under the same id while losing historical detail that a squash merge would otherwise
+  erase. So the guard compares each committed row byte-for-byte and permits exactly one edit to
+  an existing row: append one standalone final sentence matching `Superseded by D[A-Z]*-NNN.`
+  with a real numeric suffix. Anything broader would be Goodhart-open — a rewrite plus the magic
+  words would satisfy the machine while defeating the point. The fixture suite pins unstaged deletion, staged deletion, arbitrary rewrite, strict
+  supersession and draft-row freedom separately; staged deletion is the bypass the blocking pass
+  caught before commit.
