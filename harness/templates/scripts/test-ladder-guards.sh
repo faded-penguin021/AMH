@@ -116,7 +116,7 @@ mk() { # mk <name> -> prints the fixture path
 	# rots the first time a shipped comment cites a new row (it did).
 	{
 		printf '# LEDGER\n\n- D-001: a durable fact.\n- D-002: another durable fact.\n'
-		grep -ohE 'D[A-Z]?-[0-9]+' "$d/scripts"/*.sh | sort -u | grep -vxE 'D-00[12]' |
+		grep -ohwE 'D[A-Z]*-[0-9]+' "$d/scripts"/*.sh | sort -u | grep -vxE 'D-00[12]' |
 			while IFS= read -r id; do
 				printf -- '- %s [cited]: a durable fact a shipped script cites.\n' "$id"
 			done
@@ -479,6 +479,118 @@ printf -- '- D-003: a row past the cap.\n' >>"$d/docs/LEDGER.md"
 expect_fail "the rollover FAILURE reports the size too — that is the branch that needs it" "$d" \
 	"KB), past the 4-line cap"
 
+# --- ledger volumes past Z, and what counts as a volume at all
+#
+# One continuation volume whose first row starts at line 5, for a fixture whose cap is 4.
+# The suffix is BOTH the file name's and the row prefix's, and that they are the same
+# string is precisely what a rollover diagnostic can get wrong, so the fixture derives
+# both from one variable rather than spelling them separately. The base volume is never
+# written this way: `mk` puts the rows the shipped scripts cite in it, and overwriting it
+# would fail the citation guard in a case that is not about citations.
+add_volume() { # <fixture dir> <suffix>
+	local d=$1 s=$2
+	{
+		printf '# LEDGER — volume %s\n\n' "$s"
+		printf 'padding\npadding\n'
+		printf -- '- D%s-001: the first row of this volume.\n' "$s"
+	} >"$d/docs/LEDGER_$s.md"
+}
+
+# A DENSE chain, which is what a real ledger is: volumes are only reachable through their
+# predecessors, so a fixture that wants LEDGER_AA.md live has to have opened the
+# twenty-six before it. The names come from brace expansion rather than from a copy of
+# the odometer under test — a fixture that computes the answer the same way the code does
+# agrees with it by construction.
+add_chain() { # <fixture dir> <suffix>... — in order
+	local d=$1 s
+	shift
+	for s in "$@"; do add_volume "$d" "$s"; done
+}
+
+# Past Z, with the twenty-six volumes that make AA reachable. Under the shell's collation
+# LEDGER_AA.md sorts between LEDGER_A.md and LEDGER_B.md, so a rung taking the last glob
+# match reports LEDGER_Z.md as live with AA sitting right there — every subsequent row
+# invisible to a cap measuring the wrong file, quietly.
+d=$(mk ledger_volume_past_z)
+add_chain "$d" {A..Z} AA
+expect_pass_saying "a two-letter volume is live once the chain reaches it" "$d" \
+	"docs/LEDGER_AA.md: 5/800 lines"
+
+# Membership is REACHABILITY, not spelling, and this is the case that settles it: an
+# all-capitals stray file satisfies every name-shaped rule (`[A-Z]+`, and LONG, so it wins
+# any length-first ordering) while belonging to no chain. Ranked, it pins the rung on a
+# file nobody writes to and prints `ok` over a volume that is past its cap — one untracked
+# one-line file switching the guard off. The cap must still fire on the real live volume.
+d=$(mk ledger_volume_archive)
+sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+add_volume "$d" A
+printf '# archived notes\n' >"$d/docs/LEDGER_ARCHIVE.md"
+expect_fail "an all-caps stray file does not become the live volume" "$d" \
+	"docs/LEDGER_A.md: a row STARTS at line 5"
+
+# The same file, on a tree that is under its cap: the rung reports the chain's volume and
+# says out loud that something volume-shaped is unreachable. A warning, not a failure —
+# the rung cannot tell a deleted volume from a misnamed file, and it does not guess.
+d=$(mk ledger_volume_orphan)
+add_volume "$d" A
+printf '# archived notes\n' >"$d/docs/LEDGER_ARCHIVE.md"
+expect_warn "an unreachable volume-shaped file is named, not silently ignored" "$d" \
+	"the chain does not reach: docs/LEDGER_ARCHIVE.md"
+
+# A gap in the chain stops the walk. LEDGER_C.md here is not "the live volume with two
+# missing"; it is unreachable, and its rows are read by nothing.
+d=$(mk ledger_volume_gap)
+add_chain "$d" A C
+expect_pass_saying "the walk stops at the first gap" "$d" "docs/LEDGER_A.md: 5/800 lines"
+
+# The base volume is where the chain starts, so its absence is not "no ledger yet" — that
+# rendering is a skip, and a skip reads exactly like a pass. Citations are switched off in
+# this fixture so the verdict under test is the only one on trial.
+d=$(mk ledger_volume_no_base)
+sed -i "s/^CITATION_SCAN_PATHS=.*/CITATION_SCAN_PATHS=''/" "$d/amh.conf"
+add_volume "$d" A
+rm "$d/docs/LEDGER.md"
+expect_fail "a missing base volume with continuations fails instead of skipping" "$d" \
+	"docs/LEDGER.md is missing while continuation volume(s) exist"
+
+# The row pattern admits any number of volume letters. With the one-letter pattern a
+# `DAA-` row matched nothing, so the cap could not fire however long the volume grew —
+# the failure this whole scheme change exists to remove, and it was silent.
+d=$(mk ledger_volume_multiletter_cap)
+sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+add_chain "$d" {A..Z} AA
+expect_fail "a multi-letter row past the cap fails instead of passing invisibly" "$d" \
+	"docs/LEDGER_AA.md: a row STARTS at line 5"
+
+# The next volume's name is computed by carry, not looked up in a table that ends at Z.
+# One case per transition the odometer has to get right; each is anchored on its own
+# message, so no one of them can be deleted while a sibling covers for it. The chains are
+# dense because the rung will not call an unreachable file live — which is why the ZZ case
+# builds seven hundred volumes rather than one.
+d=$(mk ledger_next_base)
+sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+printf -- '- D-003: past the cap.\n' >>"$d/docs/LEDGER.md"
+expect_fail "the base volume rolls to _A / DA-" "$d" \
+	"open docs/LEDGER_A.md, numbering from DA-001"
+
+d=$(mk ledger_next_z)
+sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+add_chain "$d" {A..Z}
+expect_fail "Z rolls to AA, which is where the old scheme simply stopped" "$d" \
+	"open docs/LEDGER_AA.md, numbering from DAA-001"
+
+d=$(mk ledger_next_az)
+sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+add_chain "$d" {A..Z} A{A..Z}
+expect_fail "AZ rolls to BA — the carry advances the letter to its left, not the length" "$d" \
+	"open docs/LEDGER_BA.md, numbering from DBA-001"
+
+d=$(mk ledger_next_zz)
+sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+add_chain "$d" {A..Z} {A..Z}{A..Z}
+expect_fail "ZZ rolls to AAA — a carry off the left end lengthens the suffix" "$d" \
+	"open docs/LEDGER_AAA.md, numbering from DAAA-001"
+
 # --- citations
 d=$(mk cite_missing)
 printf '# see D-099\n' >"$d/scripts/thing.sh"
@@ -507,6 +619,41 @@ expect_fail "a citation in a file name with a space is still seen" "$d" "no such
 d=$(mk cite_dupe)
 printf -- '- D-001: a second row with the same number.\n' >>"$d/docs/LEDGER.md"
 expect_fail "duplicate row numbers fail" "$d" "duplicate ledger row numbers"
+
+# Citations resolve for a multi-letter volume, in both directions. Under the one-letter
+# pattern `DAA-099` was not an unresolved citation, it was not a citation at all: the
+# guard saw nothing to check and printed the same green it prints for a clean tree.
+d=$(mk cite_multiletter_missing)
+add_chain "$d" {A..Z} AA
+printf '# see DAA-099\n' >"$d/scripts/thing.sh"
+expect_fail "a multi-letter citation with no ledger row fails" "$d" "no such ledger row"
+
+d=$(mk cite_multiletter_ok)
+add_chain "$d" {A..Z} AA
+sed -i 's/^- DAA-001:/- DAA-001 [cited]:/' "$d/docs/LEDGER_AA.md"
+printf '# see DAA-001\n' >"$d/scripts/thing.sh"
+expect_pass "a multi-letter citation with its marker passes" "$d"
+
+# Rows are read from the CHAIN, not from every file whose name starts with the basename.
+# Globbing, a scratch file could supply a row id the ledger already has — and the rung
+# above would refuse to call that same file a volume. Two guards, one question, one answer.
+d=$(mk cite_offchain_rows)
+printf -- '- D-001: a duplicate row id in an unreachable file.\n' >"$d/docs/LEDGER_notes.md"
+expect_pass "rows in an unreachable file are not read" "$d"
+
+# The widened pattern matches whole words only. Unanchored it matches INSIDE one, so
+# `README-12` reports an unresolved citation to DME-12 — an id that appears nowhere in the
+# tree, which is a diagnostic nobody can act on. Same trap one letter down as the `XL-003`
+# → L-003 defect this repository already shipped once.
+d=$(mk cite_midword)
+printf '# see README-12 and PRODUCTION-1 for details\n' >"$d/scripts/thing.sh"
+expect_pass "an id-shaped substring inside a longer word is not a citation" "$d"
+
+# The other direction, which is the real cost of the wider pattern and is stated in the
+# upgrade notes: a STANDALONE token of that shape is a citation now, and it fails.
+d=$(mk cite_standalone_token)
+printf '# see DEBUG-2 for details\n' >"$d/scripts/thing.sh"
+expect_fail "a standalone token of the id shape IS read as a citation" "$d" "no such ledger row"
 
 # --- secret shapes
 d=$(mk secret_plain)

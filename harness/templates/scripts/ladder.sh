@@ -246,22 +246,132 @@ guard_state_structure() {
 	fi
 }
 
-live_ledger() {
-	local f last=''
-	for f in "$LEDGER_DIR/$LEDGER_BASENAME.md" "$LEDGER_DIR/${LEDGER_BASENAME}"_*.md; do
-		[ -f "$f" ] && last=$f
+# THE VOLUME CHAIN. A volume is not a file whose name looks right — it is a file the
+# scheme can REACH: start at the base volume and apply the carry rule below until the
+# next name is missing. Membership is reachability, and the walk stops at the first gap.
+#
+# Two rejected rules, both of which failed on a real tree and both of which failed
+# QUIETLY, which is why this one is computed rather than matched:
+#
+#   * last glob match — the shell's collation, not volume age. Under C, LEDGER_AA.md
+#     sorts BETWEEN LEDGER_A.md and LEDGER_B.md; under a locale ignoring punctuation at
+#     the primary level it sorts before LEDGER_A.md. Either way the live volume sticks
+#     at Z forever.
+#   * greatest `[A-Z]+` suffix in shortlex order (length, then alphabet) — right about
+#     the numbering and wrong about membership. LEDGER_ARCHIVE.md is all capitals and
+#     LONG, so it outranks every real volume and pins the cap rung on a file nobody
+#     writes to, reporting `ok` forever. A one-line untracked file switched the rung off.
+#
+# A chain cannot be joined by naming a file well, and the same walk answers both
+# questions this script asks — which file is live, and which files hold rows.
+volume_path() { # <suffix, empty for the base volume>
+	if [ -z "$1" ]; then
+		printf '%s/%s.md' "$LEDGER_DIR" "$LEDGER_BASENAME"
+	else
+		printf '%s/%s_%s.md' "$LEDGER_DIR" "$LEDGER_BASENAME" "$1"
+	fi
+}
+
+# One copy of the name-parsing rule. The prefix is CHECKED rather than assumed: `${name#pre}`
+# is a no-op when the prefix is absent, so without the case below this answers "volume,
+# suffix OTHER" for docs/OTHER.md. Unreachable from the two callers here, which feed it
+# names this file constructed — and a helper that is only correct because of where it is
+# called from is a trap for the next caller.
+#
+# The bracket range is spelled out instead of `A-Z`: a glob range is collation-dependent,
+# and a locale with dictionary ordering can admit lowercase letters into `A-Z`.
+volume_suffix() { # <ledger path>; prints its suffix ('' for the base volume), 1 if not a volume
+	local name suffix
+	name=${1##*/}
+	name=${name%.md}
+	[ "$name" = "$LEDGER_BASENAME" ] && return 0
+	case $name in "${LEDGER_BASENAME}_"*) ;; *) return 1 ;; esac
+	suffix=${name#"${LEDGER_BASENAME}_"}
+	case $suffix in
+	'' | *[!ABCDEFGHIJKLMNOPQRSTUVWXYZ]*) return 1 ;;
+	esac
+	printf '%s' "$suffix"
+}
+
+# Every volume the chain reaches, base first, one path per line. Empty output means no
+# ledger at all — NOT "no volumes past the base", which is one line.
+chain_volumes() {
+	local suffix='' path
+	while :; do
+		path=$(volume_path "$suffix")
+		[ -f "$path" ] || return 0
+		printf '%s\n' "$path"
+		suffix=$(next_volume_suffix "$suffix") || return 0
 	done
-	printf '%s' "$last"
+}
+
+live_ledger() { chain_volumes | tail -1; }
+
+# The suffix of the volume AFTER the given one, as an odometer over A–Z with carry:
+# '' → A, A → B, Z → AA, AZ → BA, ZZ → AAA. Computed rather than looked up, because a
+# table is the thing that has a last entry — the single-letter scheme this replaces was a
+# table with Z at the end of it, and nothing said what came next.
+next_volume_suffix() { # <current suffix, empty for the base volume>
+	local s=$1 alphabet=ABCDEFGHIJKLMNOPQRSTUVWXYZ i c head out='' carry=1
+	if [ -z "$s" ]; then
+		printf 'A'
+		return
+	fi
+	i=$((${#s} - 1))
+	while [ "$i" -ge 0 ]; do
+		c=${s:i:1}
+		if [ "$carry" -eq 1 ]; then
+			if [ "$c" = Z ]; then
+				c=A # carry stays set: Z rolls to A and the digit to its left advances
+			else
+				head=${alphabet%%"$c"*}
+				# A character this odometer does not know leaves `head` as the WHOLE
+				# alphabet, and the substring one past its end is empty — so the digit
+				# would silently vanish and the answer come back one character short.
+				# Refuse instead. The callers here only ever pass a validated suffix,
+				# so this is declared unreachable rather than fixtured; it exists
+				# because a shorter name is the one wrong answer nobody would notice.
+				[ "${#head}" -lt 26 ] || return 1
+				c=${alphabet:${#head}+1:1}
+				carry=0
+			fi
+		fi
+		out=$c$out
+		i=$((i - 1))
+	done
+	[ "$carry" -eq 1 ] && out=A$out
+	printf '%s' "$out"
 }
 
 guard_ledger_rollover() {
 	section "Permanent memory: ledger file cap"
-	local live lines last_row size
+	local live lines last_row size suffix next f orphans=''
 	live=$(live_ledger)
 	if [ -z "$live" ]; then
+		# The chain starts at the base volume, so a tree holding continuation volumes
+		# and no base has nothing this rung can measure — and `skip` would render that
+		# identically to a repository that has not started a ledger yet. Say which.
+		for f in "$LEDGER_DIR/${LEDGER_BASENAME}"_*.md; do
+			if [ -f "$f" ]; then
+				fail "$(volume_path '') is missing while continuation volume(s) exist — the chain is walked from the base volume, so no cap can be checked until it is back (volumes are never deleted)"
+				return
+			fi
+		done
 		skip "no ledger yet"
 		return
 	fi
+	# Volume-SHAPED files the chain does not reach: a volume that was deleted from the
+	# middle, or a file that merely looks like one. This rung cannot tell those apart and
+	# does not guess — but it will not stay quiet either, because rows in an unreachable
+	# file are invisible to every check here. The cap below is still the live volume's.
+	chain_volumes >"$TMP/chain"
+	for f in "$LEDGER_DIR/${LEDGER_BASENAME}"_*.md; do
+		[ -f "$f" ] || continue
+		grep -qxF "$f" "$TMP/chain" && continue
+		orphans="$orphans $f"
+	done
+	[ -n "$orphans" ] &&
+		warn "volume-shaped file(s) the chain does not reach:$orphans — either a volume is missing from the chain or these are not volumes. Nothing reads their rows."
 	lines=$(wc -l <"$live")
 	# Bytes are REPORTED, never gated. The cap counts lines because a line is what a
 	# row is appended in, but the quantity it stands in for is read cost — and the two
@@ -276,12 +386,24 @@ guard_ledger_rollover() {
 	size=$(wc -c <"$live")
 	size=$((size * 10 / 1024))
 	size="$((size / 10)).$((size % 10))"
-	last_row=$(grep -n '^- D[A-Z]\?-[0-9]\+' "$live" | tail -1 | cut -d: -f1)
+	# The row pattern admits ANY number of volume letters (a `DAA-` row, a `DAAA-` row),
+	# not the one it used to. A scheme that stops at Z is a scheme with a silent failure at
+	# the end of it: rows in a volume the pattern cannot match are invisible here, so the
+	# cap can never fire on them, and invisible to the citation scan below in both
+	# directions at once — every rung green, on a file nobody is writing to.
+	# The examples above stop at the hyphen on purpose: a complete id in a shipped comment
+	# IS a citation as far as the guard below is concerned, and these rows do not exist.
+	last_row=$(grep -n '^- D[A-Z]*-[0-9]\+' "$live" | tail -1 | cut -d: -f1)
 	# Every branch carries the size, the FAIL branch above all: that is the volume at
 	# its largest, and rollover is the one moment the owner is deciding whether a line
 	# cap still stands in for read cost at all.
 	if [ -n "$last_row" ] && [ "$last_row" -gt "$LEDGER_LINE_CAP" ]; then
-		fail "$live: a row STARTS at line $last_row (${size} KB), past the ${LEDGER_LINE_CAP}-line cap — open the next volume (rows are never moved or renumbered)"
+		# The next volume's name is COMPUTED, so the diagnostic stays right past Z — and
+		# it names the row prefix too, because the file name and the prefix are the same
+		# suffix and a rollover that gets one of them wrong is not caught by anything.
+		suffix=$(volume_suffix "$live")
+		next=$(next_volume_suffix "$suffix")
+		fail "$live: a row STARTS at line $last_row (${size} KB), past the ${LEDGER_LINE_CAP}-line cap — open $LEDGER_DIR/${LEDGER_BASENAME}_$next.md, numbering from D$next-001 (rows are never moved or renumbered)"
 	elif [ "$lines" -ge $((LEDGER_LINE_CAP * 9 / 10)) ]; then
 		warn "$live: $lines lines / ${size} KB, approaching the ${LEDGER_LINE_CAP}-line cap — the next rollover is near"
 	else
@@ -327,11 +449,14 @@ guard_citations() {
 	# Every ledger row, and whether it carries the machine-synced [cited] marker.
 	: >"$rows"
 	: >"$marked"
+	# The CHAIN, not the glob. Globbing would harvest rows from any LEDGER_*.md sitting in
+	# the directory, so a scratch file could supply a duplicate row id — and the rung above
+	# would refuse to call that same file a volume. Two guards disagreeing about what a
+	# volume is was the shape being fixed; the walk is shared so they cannot.
 	local f
-	for f in "$LEDGER_DIR/$LEDGER_BASENAME.md" "$LEDGER_DIR/${LEDGER_BASENAME}"_*.md; do
-		[ -f "$f" ] || continue
-		sed -n 's/^- \(D[A-Z]\?-[0-9]\+\)\( \[cited\]\)\?:.*/\1\2/p' "$f" >>"$rows.raw"
-	done
+	while IFS= read -r f; do
+		sed -n 's/^- \(D[A-Z]*-[0-9]\+\)\( \[cited\]\)\?:.*/\1\2/p' "$f" >>"$rows.raw"
+	done < <(chain_volumes)
 	if [ -f "$rows.raw" ]; then
 		awk '{print $1}' "$rows.raw" | sort >"$rows"
 		awk 'NF>1{print $1}' "$rows.raw" | sort >"$marked"
@@ -347,7 +472,19 @@ guard_citations() {
 
 	: >"$cited"
 	if [ -s "$scan_files" ]; then
-		xargs -0 grep -hoE 'D[A-Z]?-[0-9]+' <"$scan_files" 2>/dev/null | sort -u >"$cited"
+		# Same unbounded volume pattern the row scan uses: an id the scan cannot see is
+		# not an unresolved citation, it is no citation at all, and every `DAA-` row used
+		# to be exactly that in both directions.
+		#
+		# `-w` is what keeps the widening honest, and it is not decoration. Unanchored,
+		# `D[A-Z]*-[0-9]+` matches INSIDE a word: `README-<n>` and `PRODUCTION-<n>` each
+		# yield an id built from the tail of the word — an id that appears nowhere in the
+		# tree, reported as an unresolved citation the reader cannot grep for. (Spelling
+		# those two out here would file this comment as a citation to them. Widening a
+		# pattern changes what the text around it MEANS, this file included.) Whole-word
+		# matching also closes the same trap one letter down, where `XL-003` used to
+		# yield a citation to L-003 (AMH ledger row DB004(g)); that one shipped.
+		xargs -0 grep -hwoE 'D[A-Z]*-[0-9]+' <"$scan_files" 2>/dev/null | sort -u >"$cited"
 	fi
 
 	local unresolved missing_marker stale_marker

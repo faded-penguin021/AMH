@@ -30,9 +30,19 @@ shipped bug teaches session N+9's review pass.
 > LINES, not rows — rows vary in length, and it is read and context cost that is being
 > bounded; keep the number in lockstep with `LEDGER_LINE_CAP` in `amh.conf`). The final row
 > may finish past the cap, but no row may ever *start* past it: when the file stands over the
-> cap, create `LEDGER_A.md` with this same header discipline, numbering from **DA-001** (then
-> `_B.md`/`DB-001`, …). Existing rows are never moved or renumbered — the cap bounds file
-> size, not history. A citation's prefix names its file.
+> cap, create the next volume with this same header discipline and number its rows from the
+> matching prefix — `LEDGER.md`/`D-` rolls to `LEDGER_A.md`/`DA-`, then `_B.md`/`DB-`. The
+> suffix advances as an odometer over A–Z, not a list with a last entry: `_Z` rolls to `_AA`,
+> `_AZ` to `_BA`, `_ZZ` to `_AAA`, without limit. The ladder computes that name and prints it
+> in the failure telling you to roll over, so you never have to spell it yourself.
+>
+> **The volumes form a CHAIN, and the ladder walks it from `LEDGER.md`, stopping at the first
+> missing link.** A volume is a file the scheme can reach, not a file whose name looks right:
+> a `LEDGER_X.md` with no `LEDGER_A.md`…`LEDGER_W.md` before it is unreachable, and its rows
+> are read by nothing. The rung says so rather than ignoring it quietly — one warning naming
+> the unreachable file, and a failure if `LEDGER.md` itself is the one missing. Existing rows
+> are never moved or renumbered — the cap bounds file size, not history. A citation's prefix
+> names its file.
 >
 > **`[cited]` marker (machine-CHECKED — you write it, the ladder verifies it).** A row cited
 > from the ladder's scan scope carries ` [cited]` after its number. The ladder checks it BOTH

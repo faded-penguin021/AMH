@@ -32,30 +32,25 @@
 > ever *start* past it: when this file stands over the cap, create LEDGER_C.md (this file's
 > name with a _C suffix) with the same header discipline, numbering from **DC-001**. It is
 > named without backticks on purpose — a name in backticks is a citation, and the path-refs
-> guard resolves citations against the real tree. The exact spelling matters: the ladder
-> globs for it, so a volume named any other way is invisible to the line-cap and citation
-> guards.
+> guard resolves citations against the real tree. **You do not have to work that name out:
+> the ladder's rollover failure prints the next volume's file name AND its row prefix,
+> computed rather than looked up.** The exact spelling still matters: the ladder reaches this
+> file by walking the chain of names the scheme generates, so a volume named any other way is
+> not part of it — the cap rung warns and names such a file, and nothing reads its rows.
 >
-> **As the code stands TODAY the scheme is single-letter and stops at Z, and DAA- is the one
-> spelling that fails silently in both directions at once.** Verified against the code, not
-> assumed: the row pattern both the cap rung and the citation guard use is `D[A-Z]?-[0-9]+`,
-> which admits at most one letter, so a `DAA-001` row matches nothing — invisible to the cap
-> check, and its citations resolve to no row in either direction, with every rung green. And
-> `live_ledger()` takes the LAST glob match, whose order is the shell's collation rather than
-> volume age: under C and C.UTF-8, LEDGER_AA.md lands between LEDGER_A.md and LEDGER_B.md, and
-> under a locale that ignores punctuation at the primary level it sorts before LEDGER_A.md.
-> Both orderings are wrong in the same way — the live volume stays Z — which is why the fix
-> below replaces the assumption rather than picking a locale.
->
-> **The owner approved the durable fix on 2026-08-04; it is unit U5, not yet built.** Unbounded
-> shortlex: the row pattern widens to `D[A-Z]*-[0-9]+`, `live_ledger()` orders volumes by
-> suffix LENGTH then alphabetically, and the next volume's name is COMPUTED by base-26 carry
-> (Z→AA, AZ→BA, ZZ→AAA) rather than looked up — a table is the thing that has a last entry, a
-> carry rule is not. Until that lands, do not invent DAA-: twenty-four volumes of headroom
-> remain, and widening the pattern is a guard-semantics change owing its own rule-review pass.
-> Owed with it: the shipped seed preamble at `harness/templates/seed/docs/LEDGER.md` still
-> describes the sequence with an open-ended ellipsis, which invites exactly the spelling this
-> paragraph refuses, and adopters read that file rather than this one.
+> **The scheme does not stop at Z, and the volumes are a CHAIN** (U5, shipped 2026-08-04;
+> **DB-007** is the record, and the two defects the blocking pass found inside the fix are
+> worth reading before touching any of this). The row pattern both the cap rung and the
+> citation guard use is `D[A-Z]*-[0-9]+`, matched as a whole word, so a `DAA-001` row is seen —
+> under the one-letter pattern it matched nothing, which made it invisible to the cap check AND
+> unresolvable as a citation in both directions, with every rung green. The next suffix is an
+> odometer over A–Z with carry (Z→AA, AZ→BA, ZZ→AAA), so there is no last entry to fall off.
+> The live volume is found by WALKING that same carry rule from LEDGER.md and stopping at the
+> first missing link: a volume is a file the scheme can reach, never a file whose name looks
+> right. Rows are read from the chain too, so this rung and the citation guard cannot disagree
+> about what a volume is. A volume-shaped file the walk does not reach is named in a warning
+> and its rows are read by nothing; a missing LEDGER.md with continuations present is a
+> failure, because `skip` reads like a pass.
 >
 > **`[cited]` marker (machine-CHECKED — you write it, the ladder verifies it).** A row cited
 > from the ladder's scan scope carries ` [cited]` after its number. The ladder checks it in
@@ -348,3 +343,64 @@
   because one passing case cites its rows in descending order; and a T0 diagnostic that echoed an
   unrecognised argument verbatim, which the sibling runner already refuses to do by name (P17).
   Two evaluators, one leak, propagated by copy.
+
+- DB-007: **The volume scheme stops being a table with a last entry — and the rule that
+  replaced it was still a rule about SPELLING, which the blocking pass broke in one command.**
+  U5, the last of the approved five: the row pattern goes from `D[A-Z]?-[0-9]+` to
+  `D[A-Z]*-[0-9]+` in all three places that used it, matched as a whole word; the rollover
+  failure names the next volume — file name and row prefix both — computed by an odometer over
+  A–Z with carry; and the live volume is found by WALKING that carry rule from the base file,
+  stopping at the first missing link. Fifteen new fixtures, thirteen of which fail against the
+  pre-change script; the two that do not each die to their own mutation, checked rather than
+  asserted — dropping `-w` kills the mid-word case and nothing else, and narrowing the pattern
+  back to one letter kills the resolving multi-letter citation.
+  **(a) The defect inside the fix, caught by the suite on its first run — and again on its
+  third.** The new comments spelled complete example ids, and the fixture builder derives each
+  fixture's ledger by grepping the SHIPPED SCRIPTS for the row pattern, so fixtures acquired
+  marked rows for ids nothing cited. Fixed, and then reintroduced verbatim in the comment
+  explaining the fix for finding 2 below, which needed to name two ids that must not exist.
+  The generalisation is the part worth keeping: **widening a scanner's pattern retroactively
+  changes what already-written text MEANS, including the scanner's own comments.** Examples now
+  stop at the hyphen. This is D-004's shape (a stored literal that makes a file fail its own
+  scan) reached from the other end, and the ladder's header already carried the rule for the
+  harness's own rows — `AMH ledger row DNNN`, deliberately unmatchable — which is the same
+  instinct one letter short of general.
+  **(b) The pass's first blocking finding: a name-shaped membership rule is satisfiable by a
+  file that belongs to no chain.** The reviewed version ordered volumes by shortlex — suffix
+  length, then alphabet — and admitted any `[A-Z]+` suffix. LEDGER_ARCHIVE.md is all capitals
+  and LONG, so it outranked every real volume: the reviewer created it in one command and
+  watched a FAIL over a volume past its cap turn into `ok` over a one-line file. That is
+  DA-001(c)'s green button, introduced by the fix for a different silent failure — collation
+  ordering, which had pinned the live volume at Z. **Both wrong rules were rules about what a
+  name looks like.** The rule now is reachability: the same carry function that computes the
+  next name generates the chain, and a file the walk does not reach is not a volume however it
+  is spelled. Two silences the walk would have created are closed with it — an unreachable
+  volume-shaped file is WARNED and named rather than ignored, and a missing base volume with
+  continuations present FAILS rather than printing `no ledger yet`, which is D-019's rule
+  (the switched-off state must be louder than the passing one). Whether such a file is likely
+  is not the question the guard can answer; whether the rung can be pointed at the wrong file
+  by one is.
+  **(c) The second blocking finding: `-o` without `-w` matches inside a word, and the widened
+  pattern made that reachable.** Unanchored, `D[A-Z]*-[0-9]+` turns `README-<n>` and
+  `PRODUCTION-<n>` into citations to ids built from the tails of those words — ids that appear
+  nowhere in the tree, so the adopter's first move, grepping for the reported id, returns
+  nothing. Whole-word matching also closes the same trap one letter down, which is **DB-004**(g)
+  exactly: `XL-003` read as a citation to L-003, shipped. The narrowing is worth stating on its
+  own, because it means the pattern is not a pure superset in the other direction either: an
+  id-shaped substring inside a longer word USED to be a citation and is not one now.
+  **(d) What the widening still costs, stated because it is the half a superset claim hides.**
+  Every existing `D-`/`DA-`/`DB-` citation resolves — verified by diffing this repository's
+  citation set under both patterns, 12 ids, byte-identical — but a standalone `DEBUG-2` in
+  scanned code is now an unresolved citation, and a differently-named volume stops being live.
+  A tree that was green can go red on a file nobody touched, which is an adopter-visible break
+  by the version-bump item's own criterion, and is why the recommendation there moved from
+  MINOR to MAJOR rather than resting on "no citation broke".
+  **(e) The pass also confirmed the fixture claims rather than taking them, and that is the
+  half of a review that usually goes unrecorded.** It ran the suite against the pre-change
+  script and got exactly the eight failures the row claimed, mutated the two fixtures that pass
+  either way and confirmed each dies to its own mutation, and verified the byte-identical copy
+  rule, both manifests and the bundle rebuild. Findings 6 through 8 in its report — an unchecked
+  prefix strip, an odometer that silently shortened its answer on an out-of-alphabet character,
+  and a collation-dependent `[A-Z]` glob range — were all unreachable from the two callers and
+  all fixed anyway: a helper that is correct only because of where it is called from is a trap
+  for the next caller, and the next caller here was the citation guard three findings up.
