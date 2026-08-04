@@ -683,6 +683,25 @@ REMOTE_FLAG={{REMOTE_FLAG}}
 VERSION_FILE=
 RELEASE_TAG_PREFIX=
 
+# --- Runtime inventory (session-start banner) -------------------------------
+# Both optional and independent; an empty value switches its line off entirely.
+# REQUIRED_TOOLS is a space-separated list of commands your ladder needs on PATH. Each is
+# probed with `type -P` and reported `observed` or `unavailable` — a real probe, so a real
+# answer about this environment. Only the name is printed, never the resolved path. (`type -P`
+# and not `command -v`: the latter resolves builtins, functions and aliases before it looks at
+# PATH, so it reports `printf` as observed on a machine holding no binaries at all.)
+# ADAPTER_FILES is a space-separated list of the agent-adapter files this repository ships.
+# Each is reported `configured` when present and `unknown` when absent — NEVER `observed`
+# and never `unavailable`. Present means this repo REQUESTS an integration; nothing can see
+# a hook actually fire. Absent means this repo declares none, which is not evidence that
+# none exists — an adapter configured at user level is invisible from inside the tree.
+# Neither list can express a name containing a space. NOTHING CONSUMES THE REPORTED STATES:
+# they are printed for a human and discarded, and no guard or gate may ever branch on them. (A
+# guard may read the ADAPTER_FILES *list* to check it has not drifted from the adapters you
+# ship — that reads paths you wrote, never a state this banner derived.)
+REQUIRED_TOOLS=
+ADAPTER_FILES=
+
 # --- Working memory: the state file's size band (hysteresis) ----------------
 # Grow freely to WARN. Over WARN, one deep compression pass must land at or below
 # COMPRESS_TO — landing between them fails, because a micro-trim to just under the

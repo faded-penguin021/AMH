@@ -20,12 +20,26 @@ ADAPTERS=(
 	'harness/templates/configs/codex-amh.rules|.codex/rules/amh.rules'
 )
 
-rule_files_value() { # rule_files_value <config>
-	sed -n "s/^RULE_FILES='\([^']*\)'/\1/p" "$1" | head -1
+conf_value() { # conf_value <key> <config>
+	sed -n "s/^$1='\([^']*\)'/\1/p" "$2" | head -1
 }
 
-reference_rules=$(rule_files_value amh.conf)
-adopter_rules=$(rule_files_value harness/templates/amh.conf.example)
+reference_rules=$(conf_value RULE_FILES amh.conf)
+adopter_rules=$(conf_value RULE_FILES harness/templates/amh.conf.example)
+
+# The session banner reports adapter presence from this list, which makes it a SIXTH place
+# the set is written down and therefore a sixth place it can drift. It is checked in both
+# directions: a missing entry silently stops reporting an adapter, and a stale entry reports
+# `unknown` forever for a file nobody ships any more — and `unknown` is the honest word for
+# "this repo declares none", so the wrong one here reads as a fact rather than a typo.
+#
+# Checked ONLY in the reference instance. The shipped example ships this key empty on
+# purpose (an adopter declares their own adapters, and most have none on day one), so
+# requiring the set there would fail every correct adopter config.
+banner_adapters=$(conf_value ADAPTER_FILES amh.conf)
+if [ -z "$banner_adapters" ]; then
+	note "amh.conf ADAPTER_FILES is empty or unset — the banner reports no adapter at all, which is indistinguishable from a repo that ships none"
+fi
 
 for declaration in "${ADAPTERS[@]}"; do
 	IFS='|' read -r source destination <<<"$declaration"
@@ -44,7 +58,32 @@ for declaration in "${ADAPTERS[@]}"; do
 	*" $destination "*) ;;
 	*) note "adopter RULE_FILES does not cover adapter path: $destination" ;;
 	esac
+	case " $banner_adapters " in
+	*" $destination "*) ;;
+	*) note "amh.conf ADAPTER_FILES does not list adapter path: $destination — the session banner will not report it" ;;
+	esac
 done
+
+# The other direction: an entry naming a file this repo does not ship. The banner would call
+# it `unknown`, which reads as "this repo declares no adapter" rather than "this list is stale".
+#
+# The allowed set is DERIVED from ADAPTERS above, never written out again here. A literal list
+# at this point would be a seventh copy of the set inside the guard whose whole job is stopping
+# the set from being copied — and the two loops would then disagree by construction: adding a
+# fourth adapter correctly everywhere would make the forward loop REQUIRE the path and this loop
+# reject it, in the same run.
+known=''
+for declaration in "${ADAPTERS[@]}"; do
+	known="$known ${declaration#*|} "
+done
+set -f
+for listed in $banner_adapters; do
+	case " $known " in
+	*" $listed "*) ;;
+	*) note "amh.conf ADAPTER_FILES names '$listed', which is not in the first-class adapter set" ;;
+	esac
+done
+set +f
 
 [ "$fails" -eq 0 ] || exit 1
 printf 'first-class adapter set is complete across sources, reference paths, installation and legislation\n'

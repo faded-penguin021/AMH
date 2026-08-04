@@ -164,6 +164,22 @@ d=$(snapshot adapter_codex_reference_legislation_gone)
 sed -i 's/ \.codex\/config\.toml//' "$d/amh.conf"
 expect fail "adapter-set: a Codex reference legislation entry was removed" "$d" adapter-set.sh "reference RULE_FILES"
 
+# ADAPTER_FILES is the sixth place the set is written down — the session banner reports from
+# it — so it drifts like any other. All three mutations below are silent without the guard:
+# the banner simply stops mentioning an adapter, or mentions one nobody ships, and `unknown`
+# is the honest word for "this repo declares none", so a stale entry reads as a fact.
+d=$(snapshot adapter_banner_entry_gone)
+sed -i "s|^ADAPTER_FILES='\.claude/settings\.json |ADAPTER_FILES='|" "$d/amh.conf"
+expect fail "adapter-set: an adapter dropped from the banner list" "$d" adapter-set.sh "does not list adapter path"
+
+d=$(snapshot adapter_banner_empty)
+sed -i "s|^ADAPTER_FILES=.*|ADAPTER_FILES=''|" "$d/amh.conf"
+expect fail "adapter-set: an empty banner list reports no adapter at all" "$d" adapter-set.sh "empty or unset"
+
+d=$(snapshot adapter_banner_stale_entry)
+sed -i "s|^ADAPTER_FILES='|ADAPTER_FILES='.zed/settings.json |" "$d/amh.conf"
+expect fail "adapter-set: the banner lists a file outside the adapter set" "$d" adapter-set.sh "not in the first-class adapter set"
+
 d=$(snapshot drift_dist)
 printf 'hand edit\n' >>"$d/harness/dist/AMH.md"
 expect fail "dist-drift: a hand-edited bundle" "$d" dist-drift.sh "stale or hand-edited"

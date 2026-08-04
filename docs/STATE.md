@@ -33,7 +33,7 @@ acts on it**, and S4–S15 are SUPERSEDED prose, drafted against designs the adj
 
 **Five units replace twelve segments** (owner chose option (a), 2026-08-04): **U1** the ladder's
 subject line ✅ (**DB-001**) · **U2** the session banner's required-tools and adapter-presence
-inventory · **U3** `conformance/` plus scenario 1 (stale queue item, DA-011/DA-012) · **U4**
+inventory ✅ (**DB-002**) · **U3** `conformance/` plus scenario 1 (stale queue item, DA-011/DA-012) · **U4**
 scenario 2 (incomplete negative search, DA-002/DA-003), the adopter-tree absence assertion, and
 close-out · **U5** the ledger rollover — the scheme dies at Z and `DAA-` fails silently in BOTH
 the row pattern and the volume ordering; the approved fix is unbounded shortlex, **specified in
@@ -136,6 +136,14 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
+
+- 2026-08-04 — **U2: the session banner reports a runtime inventory** (**DB-002**). RFC1's
+  surviving residue: two `amh.conf` lists, probed and printed, no file written and no shipped
+  script added. Tools are observed/unavailable, adapter files configured/unknown — never
+  observed, never unavailable. Eleven fixtures, ten failing against the pre-change tree. The
+  blocking pass found six defects, the sharpest being that `command -v` resolves builtins and
+  functions, so the probe reported the script's OWN helper as an installed tool; `type -P` now.
+  Two new adopter-facing keys, so the release changelog owes them an Upgrading note.
 
 - 2026-08-04 — **U1: the ladder says green OF WHAT, and the owner chose option (a)** — build the
   RFC residue, plus a fifth unit for the ledger rollover. All five verdict lines now name their

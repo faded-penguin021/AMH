@@ -827,6 +827,142 @@ else
 	report no "a VERSION_FILE that is a directory says so" "it reported something else" "$out"
 fi
 
+# --- session-start.sh: the runtime inventory (AMH ledger row DA024)
+# The vocabulary is the behaviour under test here, not the presence check. Two states per
+# list, and the asymmetry between the lists is what the refused capability manifest was
+# refused FOR: a tool probe runs, an adapter file only ever states an intention.
+
+# Both keys empty (and an adopter's amh.conf predating them entirely) must print no line at
+# all. This is the upgrade path: `set -u` plus an unset key would kill the whole banner, and
+# a repo that declares neither list gets no inventory rather than an empty one.
+d=$(mk ss_inventory_off)
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if ! printf '%s' "$out" | grep -qE '^· (tools|adapters):' &&
+	printf '%s' "$out" | grep -qF "AMH session start"; then
+	report ok
+else
+	report no "unset inventory keys print no inventory and do not kill the banner" "a line appeared or the banner died" "$out"
+fi
+
+# A tool that IS on PATH is `observed` — and the resolved path must never appear. `command -v`
+# prints /usr/bin/sh or /home/<someone>/bin/sh, and a username in the transcript is a leak
+# with no diagnostic value (P17).
+d=$(mk ss_inventory_tool_present)
+printf "REQUIRED_TOOLS='sh'\n" >>"$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qxF "· tools: sh observed" &&
+	! printf '%s' "$out" | grep -qE '· tools:.*/'; then
+	report ok
+else
+	report no "a present tool is observed, by name only" "state wrong or a path leaked" "$out"
+fi
+
+# A tool that is NOT on PATH is `unavailable` — the probe ran and answered. Distinct from the
+# adapter case below, and the fixture asserts the exact word because the whole point of the
+# vocabulary is that these two are not interchangeable.
+d=$(mk ss_inventory_tool_absent)
+printf "REQUIRED_TOOLS='amh-no-such-tool-xyz'\n" >>"$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qxF "· tools: amh-no-such-tool-xyz unavailable"; then
+	report ok
+else
+	report no "an absent tool is unavailable" "state wrong" "$out"
+fi
+
+# A tool name that resolves as a shell FUNCTION or builtin rather than a PATH entry must read
+# `unavailable`. `say` is this script's own output helper, defined ~180 lines above the probe,
+# so under `command -v` — which resolves functions, builtins and aliases before it looks at
+# PATH — the banner reported its own internals as an installed tool, and `printf` as `observed`
+# on a machine with no binaries at all. `observed` is the state whose whole warrant is that the
+# answer is a fact about the ENVIRONMENT; a builtin makes it a fact about this bash. The
+# fixtures pin `unknown`→`unavailable` in the adapter direction; this pins the symmetric
+# hazard, a non-fact becoming `observed`.
+d=$(mk ss_inventory_tool_is_a_shell_function)
+printf "REQUIRED_TOOLS='say'\n" >>"$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qxF "· tools: say unavailable"; then
+	report ok
+else
+	report no "a shell function is unavailable, never observed" "the probe resolved a non-PATH name" "$out"
+fi
+
+# A whitespace-only value splits to nothing. Gating the line on the raw config value rather than
+# on what the loop produced prints a bare header — and for adapters, two lines of gloss
+# explaining zero states.
+d=$(mk ss_inventory_blank_value)
+printf "REQUIRED_TOOLS='   '\nADAPTER_FILES='   '\n" >>"$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if ! printf '%s' "$out" | grep -qE '^· (tools|adapters):' &&
+	! printf '%s' "$out" | grep -qF "never observed firing"; then
+	report ok
+else
+	report no "a whitespace-only list prints no header and no gloss" "an empty inventory was printed" "$out"
+fi
+
+# A glob in the list must not expand against the working directory. Unguarded, `set -f`
+# absent, `REQUIRED_TOOLS='*'` reports every file in the repo root as a missing tool.
+d=$(mk ss_inventory_glob)
+printf "REQUIRED_TOOLS='*'\n" >>"$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qF "· tools: * unavailable" &&
+	! printf '%s' "$out" | grep -qF "amh.conf unavailable"; then
+	report ok
+else
+	report no "a glob in REQUIRED_TOOLS is not expanded against the tree" "it globbed" "$out"
+fi
+
+# A present adapter file is `configured` and must NEVER be `observed`. Presence is a request
+# for an integration; nothing in this script can see a hook fire, which is why the lifecycle
+# probe layer was refused rather than deferred.
+d=$(mk ss_inventory_adapter_present)
+mkdir -p "$d/.agent-a"
+printf '{}\n' >"$d/.agent-a/settings.json"
+printf "ADAPTER_FILES='.agent-a/settings.json'\n" >>"$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qxF "· adapters: .agent-a/settings.json configured" &&
+	! printf '%s' "$out" | grep -qE '^· adapters:.*observed'; then
+	report ok
+else
+	report no "a present adapter is configured, never observed" "state wrong" "$out"
+fi
+
+# An ABSENT adapter file is `unknown`, never `unavailable`. This is the assertion the whole
+# section exists for: an adapter configured at user level is invisible from inside the tree,
+# so `unavailable` would be a claim about the world derived from a fact about the repo, and
+# `unknown` is never translated into `unavailable`, `disabled` or `safe`.
+d=$(mk ss_inventory_adapter_absent)
+printf "ADAPTER_FILES='.agent-a/settings.json'\n" >>"$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qxF "· adapters: .agent-a/settings.json unknown" &&
+	! printf '%s' "$out" | grep -qE '^· adapters:.*unavailable'; then
+	report ok
+else
+	report no "an absent adapter is unknown, never unavailable" "state wrong" "$out"
+fi
+
+# The gloss ships with the states. Without it `configured` reads as "the hook works", which
+# is the single misreading this vocabulary exists to prevent.
+d=$(mk ss_inventory_gloss)
+printf "ADAPTER_FILES='.agent-b/config.toml'\n" >>"$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qF "never observed firing" &&
+	printf '%s' "$out" | grep -qF "Nothing reads these states."; then
+	report ok
+else
+	report no "the adapter states ship with their gloss" "the gloss is missing" "$out"
+fi
+
+# The two lists are independent: declaring one must not switch the other on.
+d=$(mk ss_inventory_independent)
+printf "REQUIRED_TOOLS='sh'\n" >>"$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qE '^· tools:' &&
+	! printf '%s' "$out" | grep -qE '^· adapters:'; then
+	report ok
+else
+	report no "REQUIRED_TOOLS and ADAPTER_FILES are independent" "one switched on the other" "$out"
+fi
+
 # Only the first line is the version: a trailing note would otherwise be concatenated into a tag
 # name no release can match, and the banner would report that mangled string as unreleased.
 d=$(mk ss_release_multiline_version)

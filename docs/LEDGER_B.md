@@ -132,3 +132,42 @@
   it is appended identically to the green and the red verdicts. Those are the three conditions
   **DA-025**(c) set for a record that has not become a consumed artifact, and the moment a
   guard, CI step or merge gate branches on this sentence it has failed all three.
+
+- DB-002: **The session banner reports a runtime inventory — and the probe that seemed obviously
+  right reported the script's own helper function as an installed tool.** RFC1's surviving
+  residue (**DA-024**) ships: `REQUIRED_TOOLS` and `ADAPTER_FILES` in `amh.conf`, probed and
+  printed at session start, writing no file and adding no shipped script. Tools are `observed` or
+  `unavailable`; adapter files are `configured` or `unknown`, never `observed` and never
+  `unavailable`. Eleven fixtures, ten of which fail against the pre-change tree.
+  **(a) `command -v` is not a PATH probe, and the difference is the whole warrant for
+  `observed`.** It resolves builtins, functions and aliases first, so `REQUIRED_TOOLS='say'`
+  reported `session-start.sh`'s own output helper — defined 180 lines above the probe — as an
+  installed tool, and `printf` read `observed` on a machine holding no binaries at all.
+  `observed` means "a probe ran and the answer is a fact about this ENVIRONMENT"; a builtin makes
+  it a fact about this bash. The design was scrupulous that `unknown` is never translated into
+  `unavailable`; nobody had guarded the symmetric hazard, a non-fact becoming `observed`. Fixed
+  to `type -P` with a fixture pinning the function case. Generalise: when a vocabulary's value
+  comes from a probe, test the probe against a case whose answer you already know — the RFC that
+  proposed this vocabulary said exactly that about diagnostics and it applied to its own residue.
+  **(b) A guard that hardcodes the set it exists to keep from being copied.** `adapter-set.sh`
+  gained a reverse check whose allowed list was written out literally instead of derived from the
+  `ADAPTERS` array five lines above. Adding a fourth adapter correctly — array, installer, both
+  `RULE_FILES`, `ADAPTER_FILES`, both files shipped — would make the forward loop REQUIRE the
+  path and the reverse loop reject it, in the same run, with a message that is not a false
+  positive but factually false. Now derived. The rule: a guard against duplication may hold
+  exactly one copy of what it checks.
+  **(c) Vendor names reached a shipped script for the first time, inside the diff whose stated
+  rationale is that they do not.** The new fixtures used `.claude/settings.json` and
+  `.codex/config.toml` as test data in `test-ladder-guards.sh`, which every adopter installs and
+  runs — while `session-start.sh` three files away cites P14 for taking both lists from config so
+  it names no vendor. Verified: all four shipped scripts contained zero vendor references before
+  this change. Renamed to neutral placeholders. Shipped CONFIG templates may name adapters, since
+  the installer installs those files; shipped SCRIPTS are the boundary, and it was intact until
+  this diff nearly broke it.
+  **(d) An assertion that cannot fail is not a fixture.** Every new assertion used a prefix
+  `grep -qF`, so a mutation deleting the trailing-separator strip left the suite fully green. Now
+  exact-line. This is D-020's shape in the fixtures added to satisfy D-020.
+  **(e) One claim in the review was wrong, and replay caught it.** It reported the Decided
+  non-items debt from DA-024(d) as still owed by this unit; **DB-001** discharged it in U1, and
+  the section carries five such citations. The rest of that finding — that this diff owed a
+  changelog line and a ledger row — was correct and is this row.
