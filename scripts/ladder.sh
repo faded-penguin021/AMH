@@ -918,6 +918,110 @@ advisories() {
 	[ "$WARNS" = 0 ] && ok "nothing to flag"
 }
 
+# --- the verdict's subject --------------------------------------------------
+# Every verdict line below ends with the commit and the worktree state it is a verdict
+# ABOUT. The ladder said "green" and never said green OF WHAT — not here, not in the boot
+# banner, nowhere in a session's output — for three releases, until an external reader
+# found it in one pass (AMH ledger row DA025).
+#
+# It is one printf on lines that already existed, deliberately. The alternative on offer
+# was a JSON run receipt written to an ignored directory; it was refused as forgeable and
+# as a second verdict vocabulary, and this is the same intent reported in output the ladder
+# already prints — the shape DA022(d) settled on for the ledger's byte count.
+#
+# Nothing consumes this string. It is not parsed, no exit code varies with it, and no
+# guard, CI step or agent decision procedure may take it as input: it is a sentence for
+# whoever reads the transcript, and the moment something branches on it, it has become the
+# self-report gate the harness bans (P3).
+#
+# The dirty case is the whole reason the line exists, so it does not merely append a word.
+# The ladder verifies the WORKING TREE — the secret scan and the citation scan both read
+# untracked files — so attributing a green run to `HEAD` while the tree differs from it is
+# a claim about a commit nobody verified. It says so in those words.
+#
+# THE DIRTINESS PROBE IS NOT `git status --porcelain`, and that is the single most
+# important line in this function. `status` honours `status.showUntrackedFiles`, which can
+# be set in the repository's own `.git/config` or in a user-level `~/.gitconfig` that no
+# diff can see; `git ls-files -co --exclude-standard` — what the secret scan and the
+# citation scan actually read — does not. With that key set to `no`, `status` reports a
+# tree as clean while the scans are reading, and failing on, untracked files that are not
+# in HEAD: the exact misattribution this line exists to prevent, reachable by one command
+# that edits no tracked file and therefore appears in no diff and trips no guard. So the
+# probe is built from the SAME sources the guards read. `.gitignore` is honoured by both,
+# which is why an ignored build directory still does not render every run dirty.
+#
+# `--no-renames` because the count claims to be PATHS: rename detection collapses a moved
+# file into one entry, so `git mv a b` would report one path having changed two.
+#
+# What this still cannot see, stated because the paragraph above is a coverage claim:
+# `git update-index --assume-unchanged` hides a modified tracked file from `diff` and from
+# `status` alike, so such a file reads as clean here. That is a deliberate act on one path,
+# not a passive misconfiguration, and no probe built out of git's own plumbing escapes it.
+#
+# Four states, and none of them may be reported as one of the others:
+#
+#   (a) git names no repository from here — an extracted tarball outside any checkout, or
+#                               an adopter mid-setup. Names no commit. Note what `has_git`
+#                               actually asks, since every guard above uses it too: whether
+#                               git resolves A repository from the working directory, which
+#                               inside a monorepo `vendor/` or a dotfiles $HOME is the
+#                               ENCLOSING one. A tree with no `.git` of its own is then
+#                               described by its parent's commit, and so is the rest of the
+#                               ladder. A repository too broken for `rev-parse --git-dir`
+#                               also lands here, which understates it and is accepted: both
+#                               readings tell the reader not to trust a commit name.
+#   (b) git will not answer   — a corrupt index, above all. (An index LOCK is not this: a
+#                               stale `.git/index.lock` leaves `git diff` exiting 0.) An
+#                               empty answer is INDISTINGUISHABLE from a clean tree, so the
+#                               exit status is read and an unusable answer is reported as
+#                               UNKNOWN rather than collapsed into "clean" (AMH ledger row
+#                               D019).
+#   (c) unborn HEAD           — `git init` with nothing committed. There is no commit to
+#                               name, which is not the same as there being no repository.
+#   (d) a commit, clean or dirty.
+#
+# Only the COUNT is printed: the names are the tree's business and a verdict line is not
+# where a path belongs. It is sampled AFTER rung 3 returns, so a verification set that
+# wrote into its own worktree would be counted — none of the shipped ones does, and one
+# that did would be reporting something true.
+subject() {
+	local sha paths rc n
+	if ! has_git; then
+		printf 'git names no repository from here, so this verdict names no commit'
+		return
+	fi
+	sha=$(git rev-parse --short HEAD 2>/dev/null)
+	# `&&`-chained rather than piped, so a git that refuses is caught by this assignment's
+	# own exit status instead of by whatever `sort` thought of it. Not sorted here for the
+	# same reason: the dedup happens below, once the status has been read.
+	paths=$({
+		git diff --name-only --no-renames &&
+			git diff --cached --name-only --no-renames &&
+			git ls-files -o --exclude-standard
+	} 2>/dev/null)
+	rc=$?
+	if [ "$rc" -ne 0 ]; then
+		if [ -n "$sha" ]; then
+			printf 'HEAD %s, worktree state UNKNOWN (git would not report it) — this verdict may not be about that commit' "$sha"
+		else
+			printf 'commit and worktree state both UNKNOWN (git would not report them) — this verdict names no commit'
+		fi
+		return
+	fi
+	if [ -z "$paths" ]; then
+		n=0
+	else
+		n=$(printf '%s\n' "$paths" | sort -u | wc -l | tr -d ' ')
+	fi
+	if [ -z "$sha" ]; then
+		printf 'no commit yet (unborn HEAD), %s uncommitted path(s) — this verdict names no commit' "$n"
+	elif [ "$n" = 0 ]; then
+		printf 'HEAD %s, worktree clean' "$sha"
+	else
+		printf 'HEAD %s + %s uncommitted path(s) — the tree just verified is NOT that commit' "$sha" "$n"
+	fi
+}
+
 # =============================================================================
 run_guards() {
 	guard_state_size
@@ -936,12 +1040,12 @@ run_guards() {
 run_guards
 
 if [ "$FAILS" -gt 0 ]; then
-	printf '\n✗ guards: %d failure(s), %d warning(s)\n' "$FAILS" "$WARNS"
+	printf '\n✗ guards: %d failure(s), %d warning(s) — %s\n' "$FAILS" "$WARNS" "$(subject)"
 	exit 1
 fi
 
 if [ "$GUARDS_ONLY" = 1 ]; then
-	printf '\n✓ guards clean (%d warning(s)) — guards-only run, verification set NOT executed\n' "$WARNS"
+	printf '\n✓ guards clean (%d warning(s)), verification set NOT executed (guards-only run) — %s\n' "$WARNS" "$(subject)"
 	exit 0
 fi
 
@@ -951,12 +1055,12 @@ fi
 section "Verification set (scripts/verify.sh)"
 if [ ! -x scripts/verify.sh ]; then
 	fail "scripts/verify.sh is missing or not executable — the ladder has no verification rung"
-	printf '\n✗ ladder red\n'
+	printf '\n✗ ladder red — %s\n' "$(subject)"
 	exit 1
 fi
 if scripts/verify.sh; then
-	printf '\n✓ ladder green (%d warning(s))\n' "$WARNS"
+	printf '\n✓ ladder green (%d warning(s)) — %s\n' "$WARNS" "$(subject)"
 	exit 0
 fi
-printf '\n✗ ladder red — verification set failed\n'
+printf '\n✗ ladder red (verification set failed) — %s\n' "$(subject)"
 exit 1

@@ -137,6 +137,11 @@ mk() { # mk <name> -> prints the fixture path
 
 run() { (cd "$1" && CI=1 scripts/ladder.sh --guards-only 2>&1); }
 
+# The FULL ladder, verification rung included. `run()` always passes --guards-only, so the
+# two `✗ ladder red` verdicts below rung 3 are unreachable through it — untestable by
+# construction, which is the defect D-020 names, not merely untested.
+run_full() { (cd "$1" && CI=1 scripts/ladder.sh 2>&1); }
+
 # The advisory rung starts with `in_ci && return`, so nothing that runs under `run()`
 # can ever reach it. Local advisories are warn-only and cannot fail the ladder, so the
 # assertion is on the warning TEXT.
@@ -183,6 +188,38 @@ expect_pass_saying() { # <name> <dir> <grep-pattern, verdict word included>
 		report no "$1" "expected exit 0, got $rc" "$out"
 	elif ! printf '%s' "$out" | grep -qF "$3"; then
 		report no "$1" "passed but the output never mentioned '$3'" "$out"
+	else
+		report ok
+	fi
+}
+
+# The ladder's final verdict line, and nothing else. `✓`/`✗` in the first column is what
+# marks one; `tail -1` because a fixture may legitimately print more than one over a run.
+#
+# This exists because "the output mentions X" and "the VERDICT mentions X" are different
+# assertions, and only the second is worth making about a verdict line. Asserted with the
+# bare-substring helpers, a change that moved the subject out of the verdict and into an
+# `ok` line inside the guard section left the whole suite green — the reader's takeaway
+# line lost the fact while every fixture agreed it was present. That is the same shape as
+# the docstring on expect_pass_saying above, one level further in.
+verdict_line() { # <ladder output>
+	printf '%s\n' "$1" | grep -E '^(✓|✗) ' | tail -1
+}
+
+# Asserts on the verdict line specifically, with an explicit checked-NOTHING branch: a run
+# that printed no verdict at all must be a failure and not a vacuous pass, which is the
+# hollow-guard case the runbook requires an arm for.
+expect_verdict() { # <name> <runner: run|run_full> <dir> <expected rc> <fixed substring>
+	local out rc line
+	out=$("$2" "$3")
+	rc=$?
+	line=$(verdict_line "$out")
+	if [ "$rc" -ne "$4" ]; then
+		report no "$1" "expected exit $4, got $rc" "$out"
+	elif [ -z "$line" ]; then
+		report no "$1" "the ladder printed NO verdict line at all" "$out"
+	elif ! printf '%s' "$line" | grep -qF "$5"; then
+		report no "$1" "the verdict line does not carry '$5'" "$line"
 	else
 		report ok
 	fi
@@ -1207,6 +1244,127 @@ if printf '%s' "$out" | grep -qF "Local advisories"; then
 else
 	report ok
 fi
+
+# --- the verdict's subject: which commit, and whether the tree IS that commit
+# The ladder printed "green" for three releases without ever saying green OF WHAT
+# (AMH ledger row DA025). Every case below is asserted on the VERDICT LINE, because that
+# is the line a reader takes away, and each of the four states is separately silent: the
+# dirty rendering and the clean one are one word apart, and the two "cannot tell" states
+# read exactly like a clean tree if the code collapses them.
+d=$(mk subject_clean)
+sha=$(git -C "$d" rev-parse --short HEAD)
+# The real short sha, not a pattern. Grepping `HEAD ` alone would be satisfied by a line
+# that printed the word and no commit — which is the defect, spelled differently.
+expect_verdict "the verdict names its commit and a clean worktree" run "$d" 0 \
+	" — HEAD $sha, worktree clean"
+
+# Dirty is the case the line exists FOR: the ladder verifies the working tree, so a green
+# run attributed to HEAD alone is a claim about a commit nobody verified. The count is
+# asserted too — a constant here would report every dirty tree as one path.
+d=$(mk subject_dirty)
+sha=$(git -C "$d" rev-parse --short HEAD)
+printf '\n# an uncommitted edit\n' >>"$d/amh.conf"
+printf 'untracked\n' >"$d/untracked-file"
+expect_verdict "a dirty worktree is named, counted, and NOT attributed to HEAD" run "$d" 0 \
+	" — HEAD $sha + 2 uncommitted path(s) — the tree just verified is NOT that commit"
+
+# The probe honours .gitignore. Without that the first adopter with a build directory gets
+# "dirty" on every run, learns the line means nothing, and the clean/dirty distinction is
+# dead on arrival.
+d=$(mk subject_ignored_is_clean)
+printf 'ignored/\n' >"$d/.gitignore"
+mkdir -p "$d/ignored"
+printf 'x\n' >"$d/ignored/artifact"
+git -C "$d" add -A >/dev/null 2>&1
+git -C "$d" commit -qm "ignore rule" >/dev/null 2>&1
+sha=$(git -C "$d" rev-parse --short HEAD)
+expect_verdict "an ignored path does not make the worktree dirty" run "$d" 0 \
+	" — HEAD $sha, worktree clean"
+
+# ...but `status.showUntrackedFiles=no` must NOT make it clean, and this is the case the
+# probe is built the way it is for. The key is settable in .git/config or in a user-level
+# ~/.gitconfig, neither of which is in the tree, so nothing else in this suite or in the
+# ladder can see it. With `git status --porcelain` as the probe the ladder FAILS on the
+# untracked file below while its verdict line calls the tree clean — a guard failing on
+# content the verdict attributes to a commit that does not contain it.
+d=$(mk subject_untracked_hidden_from_status)
+sha=$(git -C "$d" rev-parse --short HEAD)
+git -C "$d" config status.showUntrackedFiles no
+printf 'untracked\n' >"$d/not-in-head"
+expect_verdict "an untracked file hidden from git status still reads as dirty" run "$d" 0 \
+	" — HEAD $sha + 1 uncommitted path(s) — the tree just verified is NOT that commit"
+
+# No repository at all. Naming no commit is the honest answer; the failure mode being
+# closed is a line that says "worktree clean" about a tree git was never asked about.
+#
+# NOTE the assumption this fixture rests on, since it is not local to the fixture: $WORK
+# comes from `mktemp -d`, and if TMPDIR pointed inside a git checkout, `has_git` would
+# resolve the ENCLOSING repository and this case would go red rather than silently green.
+d=$(mk subject_no_git)
+rm -rf "$d/.git"
+expect_verdict "with no repository the verdict names no commit" run "$d" 0 \
+	"git names no repository from here, so this verdict names no commit"
+
+# An initialised repository with nothing committed. Distinct from the case above — there
+# IS a repository — and distinct from clean, which is what it would collapse into if the
+# empty `rev-parse` output were treated as a sha.
+d=$(mk subject_unborn_head)
+rm -rf "$d/.git"
+git -C "$d" init -q
+expect_verdict "an unborn HEAD is named as such, not rendered as clean" run "$d" 0 \
+	"no commit yet (unborn HEAD)"
+
+# State (b): git present, git refusing to answer. A corrupt index is the reachable trigger
+# — verified, and unlike a stale index.lock, which leaves `git diff` exiting 0. Without
+# this case the whole rc branch could be deleted with the suite green, and the rendering
+# would silently become "worktree clean" for a tree nobody could read: D-019's rule, in the
+# one place where the honest answer is that there is no answer.
+#
+# Exit 0 is the expectation and it is not an oversight: a fixture's guards survive a corrupt
+# index (the scans that read it fall back or go vacuous), so this case isolates the RENDERING
+# rather than riding on a failure. The red verdict gets its own fixture below.
+d=$(mk subject_git_unreadable)
+sha=$(git -C "$d" rev-parse --short HEAD)
+printf 'JUNKJUNKJUNK' >"$d/.git/index"
+expect_verdict "an unreadable worktree state is UNKNOWN, never clean" run "$d" 0 \
+	" — HEAD $sha, worktree state UNKNOWN (git would not report it)"
+
+# The `✗ guards:` red verdict. Committed rather than left untracked, so the assertion is
+# about the red rendering and not about the dirty one it would otherwise pick up.
+d=$(mk subject_red_guards)
+printf '#!/usr/bin/env bash\nexit 1\n' >"$d/scripts/guards/always-fails.sh"
+chmod +x "$d/scripts/guards/always-fails.sh"
+git -C "$d" add -A >/dev/null 2>&1
+git -C "$d" commit -qm "a failing repo-local guard" >/dev/null 2>&1
+sha=$(git -C "$d" rev-parse --short HEAD)
+expect_verdict "the red guards verdict names its subject" run "$d" 1 \
+	"✗ guards: 1 failure(s), 0 warning(s) — HEAD $sha, worktree clean"
+
+# The two `✗ ladder red` verdicts below rung 3, which --guards-only can never reach.
+d=$(mk subject_red_no_verify)
+sha=$(git -C "$d" rev-parse --short HEAD)
+expect_verdict "the missing-verification-rung verdict names its subject" run_full "$d" 1 \
+	"✗ ladder red — HEAD $sha, worktree clean"
+
+d=$(mk subject_red_verify_fails)
+printf '#!/usr/bin/env bash\nexit 1\n' >"$d/scripts/verify.sh"
+chmod +x "$d/scripts/verify.sh"
+git -C "$d" add -A >/dev/null 2>&1
+git -C "$d" commit -qm "a failing verification set" >/dev/null 2>&1
+sha=$(git -C "$d" rev-parse --short HEAD)
+expect_verdict "the failed-verification verdict names its subject" run_full "$d" 1 \
+	"✗ ladder red (verification set failed) — HEAD $sha, worktree clean"
+
+# The green full-ladder verdict, for the same reason: it is a different printf from the
+# guards-only one and nothing else in this suite reaches it.
+d=$(mk subject_green_full)
+printf '#!/usr/bin/env bash\nexit 0\n' >"$d/scripts/verify.sh"
+chmod +x "$d/scripts/verify.sh"
+git -C "$d" add -A >/dev/null 2>&1
+git -C "$d" commit -qm "a passing verification set" >/dev/null 2>&1
+sha=$(git -C "$d" rev-parse --short HEAD)
+expect_verdict "the full green verdict names its subject" run_full "$d" 0 \
+	"✓ ladder green"
 
 # =============================================================================
 printf '\n%d passed, %d failed\n' "$PASSED" "$FAILED"

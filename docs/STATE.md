@@ -23,45 +23,37 @@ the copy that counts.
 
 ## Current state
 
-> **Session handoff (2026-08-03).** Adopted version is **AMH 3.0.0** and the tag is confirmed on
-> origin, so that queue item is closed. A new multi-session plan is ACTIVE:
-> `2026-08-03-rfc-integration.md`. The external-review plan is COMPLETE and archived at
-> `docs/history/2026-07-28-external-review-validation.md`.
-
 **ACTIVE PLAN — integrate three owner-supplied RFCs** (`docs/plans/2026-08-03-rfc-integration.md`;
-the RFCs themselves are `rfc-1-runtime-capability-contract.md`, `rfc-2-mechanical-run-receipts.md`
-and `rfc-3-conformance-lab.md`, landed verbatim and revised in place by review outcome). They are
-external material worked as DATA under P18, the DA-001 precedent. **The owner overrode the
-incident bar for this work only** (**DA-023**, the DA-008 shape) and authorised fresh-context
-reviewers, full acceptance criteria, and no new dependency — JSON is hand-rolled, `jq` is not
-adopted. Segments: S0 land ✅ · S1–S3 adjudicate each RFC · S4–S6 runtime capability contract ·
-S7–S10 mechanical run receipts · S11–S14 conformance lab · S15 close out. The plan's collision
-table (C1–C14) is reconnaissance — **re-verify each row inside the segment that acts on it**.
-Two known head-on collisions: RFC1 wants hook-invocation detection, which **DA-022** refused and
-Decided non-items still bars; and nothing may ever *consume* a manifest or receipt (P3, DA-001).
+the RFCs are `rfc-1-runtime-capability-contract.md`, `rfc-2-mechanical-run-receipts.md` and
+`rfc-3-conformance-lab.md`, landed verbatim and revised in place by review outcome). External
+material worked as DATA under P18, the DA-001 precedent. **The owner overrode the incident bar
+for this work only** (**DA-023**) and authorised fresh-context reviewers and no new dependency.
+The plan's collision table (C1–C14) is reconnaissance — **re-verify each row in the unit that
+acts on it**, and S4–S15 are SUPERSEDED prose, drafted against designs the adjudications refused.
 
-**Closed stages, folded — the rows are the record**: the Qwen external review, worked as DATA
-throughout and adjudicated finding by finding (**DA-022**); the rule that a queue item outlives
-its own truth, with what a check can honestly claim (**DA-011**, **DA-012**); and the
-agent-neutral branch namespace with its identity-allowlist decision (**DA-014**).
+**Five units replace twelve segments** (owner chose option (a), 2026-08-04): **U1** the ladder's
+subject line ✅ (**DB-001**) · **U2** the session banner's required-tools and adapter-presence
+inventory · **U3** `conformance/` plus scenario 1 (stale queue item, DA-011/DA-012) · **U4**
+scenario 2 (incomplete negative search, DA-002/DA-003), the adopter-tree absence assertion, and
+close-out · **U5** the ledger rollover — the scheme dies at Z and `DAA-` fails silently in BOTH
+the row pattern and the volume ordering; the approved fix is unbounded shortlex, **specified in
+`docs/LEDGER_B.md`'s preamble**, which also names what it owes the shipped seed. No new shipped
+script, artifact or dependency. Standing bar: nothing may ever *consume* a record (P3, DA-001,
+DA-025(c)).
 
 Legislation (a binding-rule or guard-semantics diff) means ONE blocking fresh-context reviewer,
-strongest tier, one pass, no self-review fallback (D-015, bounded by **D-035**); `RULE_FILES`
-is its file-granular tripwire, not its complete scope. **Twenty-six of
-twenty-seven passes found a real defect inside the FIX**. A session forbidden subagents ASKS
-rather than parking the work (runbook).
+strongest tier, one pass, no self-review fallback (D-015, bounded by **D-035**); `RULE_FILES` is
+its file-granular tripwire, not its complete scope. **Nearly every pass has found a real defect
+inside the FIX** — U1's found six. A session forbidden subagents ASKS rather than parking the
+work (runbook).
 
 Standing gotchas: `shellcheck` is CI-only and its rung load-bearing (**D-026**), installed each
 remote session by `scripts/bootstrap.sh` under `AMH_REMOTE=1` (**D-028**); run the ladder
 DIRECTLY, never piped — a red tree has been pushed that way; **`git log` cannot answer a question
 about this repo's past**, the memory tiers ARE the history (**DA-003**); `path-refs.sh` skips
 `harness/templates/*`, so template findings are carried here by hand. **No open findings.**
-
-**The ledger is AT ROLLOVER**: `docs/LEDGER.md` closed at 826 lines (last row D-035);
-`docs/LEDGER_A.md` is live from `DA-001` and now stands at 826 lines, past its 800-line cap.
-DA-026 legally *starts* under the cap, so the guard is green — but **the next row must open
-LEDGER_B.md numbering from `DB-001`**, spelled exactly that way or the ladder cannot see it.
-A citation's prefix names its file.
+Ledger volumes: `docs/LEDGER.md` closed at D-035, `docs/LEDGER_A.md` at DA-026, `docs/LEDGER_B.md`
+live from `DB-001`. A citation's prefix names its file.
 
 ## Owner queue
 
@@ -83,35 +75,24 @@ A citation's prefix names its file.
 > as verified while asserting nothing (**D-014**). Its absence is information: it means no
 > command settles this, which is itself worth knowing before you repeat the item to a human.
 
-**OPEN — all three adjudications are done, and together they collapsed the scope you approved.**
-RFC1 refused at its core (**DA-024**), RFC2's format refused (**DA-025**), RFC3 accepted in
-reduced form (**DA-026**). S4–S15 as planned no longer match what survived. What did survive is
-real and is about **four units**, not twelve: a required-tools and adapter-presence line in the
-session banner; the ladder naming its subject commit and worktree state in its verdict lines; and
-two conformance scenarios seeded on **DA-011**/**DA-012** and **DA-002**/**DA-003**, each
-exercised in both directions. No new shipped script, no new artifact, no new dependency.
+**OPEN — the version bump for this work, at close-out.** Additive shipped-script behaviour reads
+MINOR; U5 changes guard semantics (the ledger row pattern and volume ordering), which reads
+MAJOR. The runbook makes an ambiguous call yours. **Recommend MINOR** if U5 lands as a pure
+superset — every existing `D-`/`DA-`/`DB-` citation still resolves, no adopter must act — and
+MAJOR on any adopter-visible break. Raise again once U5 is built. No check: a semantics
+judgement.
 
-That collides with your "full acceptance criteria" decision, so the call is yours. Options:
-**(a)** build the ~4-unit residue and let the criteria counts fall where the adjudications left
-them; **(b)** overturn specific refusals on a stated argument, as you did the incident bar — name
-which, and the reasoning goes in the ledger; **(c)** stop here with the three adjudications as
-the deliverable and build nothing. **Recommend (a)** — the conformance scenarios in particular
-test a prose rule that **DA-011**(c) proves no guard can ever reach. No check: this is a
-judgement about what you want built, and only you can settle it.
+**OPEN — RFC3 criterion 2: one conformance scenario run through a hosted agent.** Needs a hosted
+task launch on a disposable remote, which an agent session may not assume (C14, **DA-026**). You
+launch it and name the branch; I point the same deterministic oracle at it. Until then the lab
+demonstrates its evaluators are deterministic and mutation-sensitive, and **nothing whatever**
+about how any agent behaves — that sentence belongs in the lab's README and in any release claim.
+No check: only you can settle it.
 
-*Owed with it:* the refusals belong in Decided non-items below, which is rule-bearing, so that
-edit waits for a unit carrying its own rule-review pass. **DA-024** holds them meanwhile.
-
-Five closed: the 2.0.0 release (merged and tagged, verified against
-`git ls-remote`), `main`'s branch protection repointed at `ladder`, and the 2.1.0 release
-(PR #4 merged, tag `amh-v2.1.0` verified via `git ls-remote`) on 2026-07-27; the
-`amh-v2.1.1` tag, confirmed by the owner on 2026-07-29 and re-verified via
-`git ls-remote --tags origin amh-v2.1.1` on 2026-08-02; the 3.0.0 release, whose check
-output named `refs/tags/amh-v3.0.0` on 2026-08-03.
-
-**Open questions:** none. Everything asked before it has been answered and recorded —
-the 2.0.0 severity call and the rule-scope additions in **DA-005**, the delegated closures of
-D-005, D-014 and D-018 in **D-035**.
+**Open questions:** none. Answered and recorded: the 2.0.0 severity call and rule-scope additions
+(**DA-005**); the D-005/D-014/D-018 closures (**D-035**); the RFC scope fork (option (a)); the
+U5 scheme (unbounded shortlex). Closed earlier: the 2.0.0, 2.1.0, 2.1.1 and 3.0.0 releases, each
+verified by `git ls-remote` naming its tag, and `main`'s protection repointed at `ladder`.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -134,37 +115,45 @@ re-litigate from.
   refused — **DA-022**.
 - A guard that checks the session branch matches `BRANCH_PREFIX` — the harness assigns the name;
   such a guard fails every legitimately-assigned branch — **DA-022**.
+- A runtime capability manifest and a runtime-doctor script to write it; the lifecycle probe
+  layer; runtime profiles; a second setup extension point; and "gates consume observed facts
+  where justified", a wider hole than the one DA-001(c) closed — **DA-024**. The nonce-marker
+  probe is **not** new evidence against DA-022: a marker cannot name its caller, and the mandated
+  manual path writes a byte-identical one.
+- RFC2's run-receipt FORMAT, its ignored local transport, the CI receipt artifact and a status
+  tool to render one — forgeable, and a flat enum cannot express a verdict space where WARN
+  deliberately outranks `skip` (**D-019**) — **DA-025**. Scope precisely: a record a human reads
+  stays permitted while DA-025(c)'s three conditions hold. The refusal is that format and those
+  mechanisms, never the idea of a record; the gap it correctly found was closed in the ladder's
+  own verdict lines (**DB-001**).
+- A seven-scenario conformance lab with per-scenario YAML metadata, an oracle directory and an
+  in-tree reports transport — **DA-026**. Two scenarios seeded on recorded rows survive; the
+  other five failed provenance three DIFFERENT ways, which this line must not flatten — three had
+  zero ledger hits, one is *inverse* to its recorded instance (D-020 records the agent narrowing
+  the checker, not altering production code), and one lost its subject when DA-024 landed.
 
 ## Changelog
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
 
-- 2026-08-03 — **The three owner-supplied RFCs are landed and fully adjudicated** (**DA-023**
-  through **DA-026**). They entered as DATA under P18 and were judged claim by claim, not obeyed.
-  RFC1's runtime capability contract was refused at its core — the absence of a capability
-  manifest is a decision here, not a gap (DA-001(d)) — and the nonce marker is not new evidence
-  against **DA-022**, because the probe is circular. RFC2's receipt format was refused as
-  forgeable and unable to express a verdict space where WARN outranks skip (**D-019**), but it
-  found a real gap nobody had noticed: the ladder says "green" and never says green OF WHAT.
-  RFC3's conformance lab was accepted in reduced form, two scenarios rather than seven, and was
-  the only one strengthened by its siblings' refusal. The owner's incident-bar override is
-  **DA-023**, recorded with its argument so it is not cited loosely later. The surviving build is
-  about four units and is the open Owner-queue item.
+- 2026-08-04 — **U1: the ladder says green OF WHAT, and the owner chose option (a)** — build the
+  RFC residue, plus a fifth unit for the ledger rollover. All five verdict lines now name their
+  subject commit and worktree state; eleven fixtures; no artifact, flag, vocabulary or shipped
+  script added. The blocking pass found six defects and changed the design. `docs/LEDGER_B.md`
+  opened at the rollover, and the Decided non-items entries **DA-024**(d) had left owed are
+  written. No refusal was reopened. **DB-001** is the record.
 
-- 2026-08-02 — **AMH 3.0.0, and the external review's four hardening segments** (**DA-020**,
-  **DA-022**). A MAJOR because a completed plan may now retire into the archive instead of being
-  deleted; the release also carried the Codex adapter and its cross-layer guard, the
-  agent-neutral branch namespace, the compact constitution and its navigation guard, the P11
-  citation scope, and the PR handoff checkpoint. The ledger became stated retrieval storage, the
-  command guard gained its consolidated does-NOT-catch block, and `config-schema.sh` landed. Both
-  blocking passes found real defects inside the fixes. The completed plan is archived at
-  `docs/history/2026-07-28-external-review-validation.md`.
+- 2026-08-03 — **The three owner-supplied RFCs, landed and fully adjudicated** (**DA-023**
+  through **DA-026**): entered as DATA under P18 and judged claim by claim, not obeyed. RFC1
+  refused at its core, RFC2's format refused but its diagnosis right, RFC3 accepted at two
+  scenarios of seven. Those four rows are the record.
 
-- 2026-07-25/31 — **Everything through the compact constitution, folded**: founding and
-  self-hosting, AMH 2.0.0 and 2.1.x, installation profiles and integrity manifests, release and
-  queue visibility, agent-neutral branches, Claude/Codex adapter delivery and its cross-layer
-  guard, PR-template guidance, context-compression coaching; then the ~90-line entry constitution
-  itself, query-first bounded document reading with its navigation guard, and the structural
-  review that found one prose/guard scope mismatch rather than missing principles. Durable detail
-  is in **D-001**…**D-035** and **DA-001**…**DA-019**; those rows, not this line, are the record.
+- 2026-07-25/2026-08-02 — **Everything through AMH 3.0.0, folded**: founding and self-hosting;
+  2.0.0, 2.1.x and the 3.0.0 MAJOR that let a completed plan retire into the archive;
+  installation profiles and integrity manifests; release and queue visibility; agent-neutral
+  branches; Claude and Codex adapter delivery with its cross-layer guard; the ~90-line entry
+  constitution with query-first bounded reading and its navigation guard; the ledger as stated
+  retrieval storage; the command guard's does-NOT-catch block; `config-schema.sh`. The completed
+  external-review plan is archived at `docs/history/2026-07-28-external-review-validation.md`.
+  Durable detail is in **D-001**…**D-035** and **DA-001**…**DA-022**; those rows are the record.
