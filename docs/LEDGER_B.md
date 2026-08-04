@@ -171,3 +171,46 @@
   non-items debt from DA-024(d) as still owed by this unit; **DB-001** discharged it in U1, and
   the section carries five such citations. The rest of that finding — that this diff owed a
   changelog line and a ledger row — was correct and is this row.
+
+- DB-003: **The conformance lab ships one scenario — and its own self-test reported green over
+  cases that never ran.** RFC3's reduced form (**DA-026**): `conformance/` with the stale
+  Owner-queue scenario seeded on **DA-011**/**DA-012**, one concrete runner, a deterministic
+  self-test wired into `scripts/verify.sh`. No YAML, no oracle directory, no in-tree reports,
+  fixtures generated at runtime. The blocking pass found six defects and the fix for them
+  introduced a seventh.
+  **(a) A subshell cannot report a failure by incrementing a variable, and the whole rung
+  rested on it.** `selftest.sh`'s tree-builder raised `FAILED` on both failure paths, but every
+  one of its seventeen call sites is `if d=$(tree …)` — a command substitution. The increments
+  died with the subshell, the `if` skipped the case body, and the case vanished from the tally
+  without touching the count. With all seventeen setups failing the suite printed `19 passed, 0
+  failed` and exited 0, and `verify.sh` never called `bad()`. Ambient config reaches it:
+  `clone.defaultRemoteName = upstream` in a developer's `~/.gitconfig` renames the remote the
+  scripted subject uses. Failure is now a FILE, which crosses the boundary; the suite asserts
+  its own assertion COUNT, so a shrinking suite is louder than a passing one; and the self-test
+  isolates `HOME` like the runner already did. Generalise: **when a helper reports failure to a
+  caller, check what boundary the report crosses.** This is D-019 in the one file standing
+  behind an evaluator, and the header claimed it "dies loudly" — it died loudly on stderr and
+  silently in the verdict.
+  **(b) The quiet verdict was reachable after all.** The evaluator claimed FAIL was the
+  structural default so a broken subject could never route itself into INCONCLUSIVE, and the
+  runner settled repository-destruction as FAIL first. Both checks read the baseline COMMIT; a
+  subject that deletes one loose blob leaves the commit intact, passes both, and trips T6 — so
+  maximal noncompliance was filed as infrastructure. `git archive` over the baseline walks the
+  whole tree and closes it, with a case pinning the check.
+  **(c) A trigger id is not a branch.** Seven preconditions shared two ids, so removing any one
+  left a sibling firing the same id and the suite green: all seven were individually deletable.
+  The file said exactly this about one trigger and did not carry it to the rest. Each now has a
+  case anchored on its own message.
+  **(d) A justification for a defence the code does not need stops the next reader checking.**
+  The isolation was explained by `core.excludesFile` turning FAIL into PASS, "demonstrated, not
+  theorised". Not reachable here — the untracked probe passes no `--exclude-standard`, and a
+  hostile HOME produces an identical verdict either way. The isolation is still load-bearing,
+  for a different and verified mechanism, and the prose now names that one (D-010).
+  **(e) D-006, reintroduced in the fix for a review that asked for it.** The helper added to
+  close (c) opened `local name=$1 snippet=$2 d=$WORK/pre-$name`, which expands `$name` before
+  `name` is assigned and explodes under `set -u` — the first entry on this repository's own
+  adversarial checklist, written into a diff that had just been told to check for it. Caught by
+  running the suite, not by reading it.
+  **(f) Criterion 7 was prose in two places.** DA-026 required the adopter-tree absence to be
+  asserted mechanically; the README and the runbook asserted it and nothing checked it. One
+  line in the installer E2E now does.

@@ -285,6 +285,18 @@ else
 	fail "the instantiated repo verifies all five shipped scripts against the manifest" "$out"
 fi
 
+# The conformance lab is repo-local and must never reach an adopter. That is structurally true
+# — amh-init.sh copies only from harness/templates/, and nothing about the lab lives there — but
+# structurally true and asserted are different things, and the adjudication that admitted the lab
+# requires this one MECHANICALLY rather than in prose (DA-026, criterion 7). The README and the
+# runbook both state the claim; without this line they would be the only thing stating it, which
+# is the shape D-010 names.
+if [ ! -e "$d/conformance" ]; then
+	pass
+else
+	fail "the conformance lab is absent from an instantiated adopter tree" "$(ls -a "$d/conformance")"
+fi
+
 # The defect the whole unit exists to catch, exercised where it actually happens: a local edit
 # to a shipped script in somebody else's repo.
 printf '\n# a local edit to a shipped rail\n' >>"$d/scripts/redact.sh"

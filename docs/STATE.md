@@ -33,7 +33,7 @@ acts on it**, and S4–S15 are SUPERSEDED prose, drafted against designs the adj
 
 **Five units replace twelve segments** (owner chose option (a), 2026-08-04): **U1** the ladder's
 subject line ✅ (**DB-001**) · **U2** the session banner's required-tools and adapter-presence
-inventory ✅ (**DB-002**) · **U3** `conformance/` plus scenario 1 (stale queue item, DA-011/DA-012) · **U4**
+inventory ✅ (**DB-002**) · **U3** `conformance/` plus scenario 1 (stale queue item, DA-011/DA-012) ✅ (**DB-003**) · **U4**
 scenario 2 (incomplete negative search, DA-002/DA-003), the adopter-tree absence assertion, and
 close-out · **U5** the ledger rollover — the scheme dies at Z and `DAA-` fails silently in BOTH
 the row pattern and the volume ordering; the approved fix is unbounded shortlex, **specified in
@@ -136,6 +136,15 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows and in git history — this section is a pointer index, not a narrative.
+
+- 2026-08-04 — **U3: the conformance lab ships, one scenario** (**DB-003**). RFC3's reduced
+  form: `conformance/` with the stale Owner-queue scenario seeded on **DA-011**/**DA-012**, one
+  concrete runner, and a deterministic self-test wired into `scripts/verify.sh` — no YAML, no
+  oracle, no in-tree reports, fixtures generated at runtime. **It demonstrates that its
+  evaluators are deterministic and mutation-sensitive, and nothing whatever about how any agent
+  behaves**, until an owner funds a run. The blocking pass found six defects — the worst being a
+  self-test that reported green over cases that never ran, because a subshell cannot report
+  failure by incrementing a variable — and the fix for them reintroduced **D-006**.
 
 - 2026-08-04 — **U2: the session banner reports a runtime inventory** (**DB-002**). RFC1's
   surviving residue: two `amh.conf` lists, probed and printed, no file written and no shipped

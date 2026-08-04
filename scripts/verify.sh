@@ -45,6 +45,14 @@ scripts/test-ladder-guards.sh || bad "scripts/test-ladder-guards.sh"
 step "repo-local guard fixture suite"
 scripts/tests/local-guards.sh || bad "scripts/tests/local-guards.sh"
 
+# The behavioural conformance lab's own tests. Deterministic by construction — no model, no
+# network, no cost — which is the whole reason they may block here while model-backed runs
+# stay permanently non-blocking. Read conformance/README.md before treating a green line
+# from this rung as information about an agent: it says the evaluators are deterministic and
+# mutation-sensitive, and nothing at all about how any agent behaves.
+step "conformance evaluator self-test"
+conformance/selftest.sh || bad "conformance/selftest.sh"
+
 # Last, because it is the slowest rung and the only one that builds a whole second repo.
 # It is also the only one that executes the adopter's path at all: everything above tests
 # this repo against itself, and the defects that path has produced were invisible to all
