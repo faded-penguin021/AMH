@@ -45,21 +45,18 @@ U1–U6 as AMH 4.0.0; publishing the tag remains queued below.
 and publishing are owner steps. Create and push `amh-v4.0.0` after merge. No check: only the
 owner may tag/publish.
 
-**OPEN — RFC3 criterion 2: one conformance scenario run through a hosted agent.** Needs a hosted
-task launch on a disposable remote, which an agent session may not assume (**DA-026**). If you
-have no terminal, this can still work in a cloud coding agent that has a shell and this repo:
-launch the scenario task in one disposable clone, then ask a second cloud session to run the
-deterministic evaluator against the produced branch/clone and the fixture baseline, e.g.
-`conformance/evaluators/02-incomplete-negative-search.sh --result <clone> --baseline <sha>`, or
-scenario 1 the same way. If the hosted product cannot expose a result clone and baseline SHA to
-an evaluator process, AMH cannot make that product run count yet; do not change the conformance
-tests for that. **Both** scenarios are built, so either will do. Until then the lab says nothing
-whatever about how any agent behaves, in the words `conformance/README.md` opens with and every
-release claim carries. No check: only you can settle it.
-
-**Open questions:** none. Everything asked has been answered and recorded in the rows the
-Changelog cites; the release tag for 4.0.0 is queued above, tags through 3.0.0 are cut and each
-was verified by `git ls-remote` naming it, and `main`'s protection is repointed at `ladder`.
+**Open questions — ONE.** What may the lab now claim? The owner has accepted six agent-backed
+runs as satisfying RFC3 criterion 2 (**DB-009**), so `conformance/README.md`'s opening — "until
+an owner funds a model-backed run on a disposable remote, this lab demonstrates that its
+evaluators are deterministic and mutation-sensitive… it demonstrates nothing whatever about how
+any agent behaves" — is now stale in its premise, and that sentence is the one every release
+claim carries. The honest replacement is narrower than "the lab works": A5 held 6/6, so six
+subjects of one model on one fixture did not reproduce the DA-003 class, and A6's 5/6 break says
+more about the evaluator than about them. Recommendation: keep the release-claims bound and
+restate it as one model, one fixture, six runs, with the DB-009(d) residues named — never as a
+conformance claim. Owner's call because it is a release claim, not a description. Everything else
+asked has been answered in the rows the Changelog cites; tags through 3.0.0 are cut, each
+verified by `git ls-remote` naming it, and `main`'s protection is repointed at `ladder`.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -91,6 +88,20 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-05 — **RFC3 criterion 2 closed by owner decision.** The owner accepted the six
+  agent-backed scenario-02 runs as satisfying it, over the two residues **DB-009**(d) names —
+  a container rather than a disposable remote, and verdicts relayed by the launching process.
+  The queue item is retired; what the lab may now claim replaces it as the open question.
+
+- 2026-08-05 — **Scenario 02 run through six agent-backed subjects; the finding is the
+  evaluator's own, and no behaviour shipped.** A5 held 6/6 — the DA-003 class the scenario exists
+  to catch was not reproduced once — while A6 broke 5/6 on the control row, every time inside a
+  sentence excluding it. A task-text fix was tried, failed its first verification run by making
+  the answer worse, and was reverted unshipped. The cause is polarity-blindness in
+  `ids_named_in`, which over-fires A6 and under-fires A5 alike; it is now DECLARED in the
+  evaluator rather than patched, because separating an asserted citation from a disclaimed one is
+  the manufactured oracle P19 refuses. **DB-009** is the record.
 
 - 2026-08-04 — **Release classification set to AMH 4.0.0.** Owner answered the version fork as
   MAJOR; the changelog's Unreleased section became 4.0.0, lockstep version copies moved, and
