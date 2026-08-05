@@ -72,10 +72,26 @@ The guards it ships with:
   Ask the question of the document, not of the configured list, or you close the one heading
   that broke and leave the class open.
 - **Ledger rollover** — warn approaching the line cap; fail when the live file's LAST row
-  *starts* past the cap. The final row may overflow; the next belongs in the next file.
+  *starts* past the cap. The final row may overflow; the next belongs in the next file, and the
+  failure NAMES that file — file name and row prefix both, computed by an odometer over A–Z
+  with carry (`Z`→`AA`, `AZ`→`BA`, `ZZ`→`AAA`), because a lookup table is the thing that has a
+  last entry and the scheme's old one ended at Z. The same carry rule answers *which file is
+  live*: the volumes are a **chain** walked from the base volume, and the walk stops at the
+  first missing link. Membership is reachability, not spelling — a name-shaped rule (last glob
+  match, or the greatest `[A-Z]+` suffix) can be satisfied by a file that belongs to no chain,
+  and then the rung measures a file nobody writes to while printing `ok`. Anything volume-shaped
+  the walk does not reach is named in a warning rather than ignored, and a missing base volume
+  is a failure rather than a `skip`, because both of those otherwise read exactly like a pass.
 - **Citation integrity** — grep the source trees (code and workflows, NOT docs, and not the
   guard's own fixture suite, which carries synthetic and harness-internal IDs by design and is
-  what the shipped `amh.conf` excludes) for `D[A-Z]?-\d+`. The other shipped scripts stay in
+  what the shipped `amh.conf` excludes) for `D[A-Z]*-\d+` **as a whole word** — any number of
+  volume letters, so a `DAA-001` citation is checked rather than silently unseen. Both halves
+  matter: unanchored, that pattern matches inside longer words and reports ids that exist
+  nowhere. Whole-word matching also closes the same trap one letter down, where an `XL-003` in
+  a fixture read as a citation to `L-003`. The price is that a standalone token of that shape
+  in your code — `DEBUG-2` and the like — now reads as an unresolved citation. Rows are read
+  from the volume chain, never from every file whose name starts with the basename, so the two
+  guards cannot disagree about what a volume is. The other shipped scripts stay in
   scope and need no exemption: they name the harness's own rows as `AMH ledger row DNNN`,
   deliberately not a citation, because those rows are ours and can never resolve in your ledger
   — written as citations they failed an adopter's first ladder run. The rail scripts and the

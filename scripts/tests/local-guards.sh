@@ -72,6 +72,39 @@ expect pass "manifest-drift: clean tree" "$base" manifest-drift.sh
 expect pass "adapter-set: clean tree" "$base" adapter-set.sh
 expect pass "doc-navigation: clean tree" "$base" doc-navigation.sh
 expect pass "config-schema: clean tree" "$base" config-schema.sh
+expect pass "ledger-append-only: clean tree" "$base" ledger-append-only.sh
+
+
+# --- ledger-append-only -------------------------------------------------------
+d=$(snapshot ledger_append_only_delete)
+awk 'BEGIN { drop = 0 } /^- D-001 / { drop = 1 } /^- D-002 / { drop = 0 } !drop { print }' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect fail "ledger-append-only: a committed row cannot be deleted" "$d" \
+	ledger-append-only.sh "D-001 existed at HEAD but is missing"
+
+d=$(snapshot ledger_append_only_staged_delete)
+awk 'BEGIN { drop = 0 } /^- D-001 / { drop = 1 } /^- D-002 / { drop = 0 } !drop { print }' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+(cd "$d" && git add docs/LEDGER.md)
+expect fail "ledger-append-only: a staged committed-row deletion cannot bypass the guard" "$d" \
+	ledger-append-only.sh "D-001 existed at HEAD but is missing"
+
+d=$(snapshot ledger_append_only_rewrite)
+sed '0,/This repository is both the harness/s//This repository WAS both the harness/' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect fail "ledger-append-only: a committed row cannot be rewritten" "$d" \
+	ledger-append-only.sh "D-001 existed at HEAD and was edited"
+
+d=$(snapshot ledger_append_only_superseded)
+awk '/^- D-002 / && !done { print "  Superseded by DB-999."; done = 1 } { print }' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect pass "ledger-append-only: strict superseded pointer is allowed" "$d" ledger-append-only.sh
+
+d=$(snapshot ledger_append_only_new_row_draft)
+cat >>"$d/docs/LEDGER_B.md" <<'ROW'
+- DB-999: **Draft row can be rewritten before commit.** First draft.
+ROW
+expect pass "ledger-append-only: new uncommitted rows are draft-editable" "$d" ledger-append-only.sh
 
 # --- config-schema ------------------------------------------------------------
 d=$(snapshot config_schema_missing)
@@ -163,6 +196,22 @@ expect fail "adapter-set: a Codex legislation entry was removed" "$d" adapter-se
 d=$(snapshot adapter_codex_reference_legislation_gone)
 sed -i 's/ \.codex\/config\.toml//' "$d/amh.conf"
 expect fail "adapter-set: a Codex reference legislation entry was removed" "$d" adapter-set.sh "reference RULE_FILES"
+
+# ADAPTER_FILES is the sixth place the set is written down — the session banner reports from
+# it — so it drifts like any other. All three mutations below are silent without the guard:
+# the banner simply stops mentioning an adapter, or mentions one nobody ships, and `unknown`
+# is the honest word for "this repo declares none", so a stale entry reads as a fact.
+d=$(snapshot adapter_banner_entry_gone)
+sed -i "s|^ADAPTER_FILES='\.claude/settings\.json |ADAPTER_FILES='|" "$d/amh.conf"
+expect fail "adapter-set: an adapter dropped from the banner list" "$d" adapter-set.sh "does not list adapter path"
+
+d=$(snapshot adapter_banner_empty)
+sed -i "s|^ADAPTER_FILES=.*|ADAPTER_FILES=''|" "$d/amh.conf"
+expect fail "adapter-set: an empty banner list reports no adapter at all" "$d" adapter-set.sh "empty or unset"
+
+d=$(snapshot adapter_banner_stale_entry)
+sed -i "s|^ADAPTER_FILES='|ADAPTER_FILES='.zed/settings.json |" "$d/amh.conf"
+expect fail "adapter-set: the banner lists a file outside the adapter set" "$d" adapter-set.sh "not in the first-class adapter set"
 
 d=$(snapshot drift_dist)
 printf 'hand edit\n' >>"$d/harness/dist/AMH.md"

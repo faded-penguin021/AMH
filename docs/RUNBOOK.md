@@ -18,6 +18,7 @@ disagrees with the code, trust the code and fix the doc.
 | `scripts/*.sh` (five) + `scripts/MANIFEST.sha256` | this repo's instance of the shipped files | byte-identical copies (D-002) |
 | `scripts/verify.sh`, `scripts/guards/*`, `scripts/tests/*` | this repo's local verification | the ladder's only two extension points; `tests/` hangs off `verify.sh` |
 | `scripts/amh-init.sh`, `scripts/build-dist.sh`, `scripts/build-manifest.sh` | repo-local tooling: instantiate an adopter, generate the bundle, generate the integrity manifest | not shipped — they run FROM here, never inside an adopting repo |
+| `conformance/` | behavioural scenarios for the prose rules no guard can reach | repo-local, never installed; evaluators compute their own evidence |
 | `docs/STATE.md` | working memory | capped, compressible, Owner queue protected |
 | `docs/LEDGER.md` | permanent memory | append-only; never rewritten |
 
@@ -161,6 +162,38 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
 
 - `scripts/ladder.sh --guards-only` is the acceptance gate (seconds). If the change touches
   `harness/src/`, rebuild the bundle first — otherwise the dist-drift guard fails, correctly.
+
+### 7. Add or change a conformance scenario
+
+- **When:** a *prose* rule needs testing — one no guard can reach, because reaching it would
+  mean consuming the session's own account of what it did. Not for anything a guard can
+  check: a scenario costs a model run, a guard costs milliseconds.
+- **Read first:** `conformance/README.md` in full, and the ledger rows the scenario claims as
+  its provenance.
+- **Touch:** `conformance/scenarios/<name>/` (a `fixture.sh` that builds the disposable repo
+  at runtime and prints its baseline commit, plus the `task.md` handed to the subject),
+  `conformance/evaluators/<name>.sh`, and `conformance/selftest.sh`, which the acceptance
+  rule below requires cases in. The runner is shared and should not need changing; if it
+  does, keep it one concrete runner rather than growing the abstraction that was refused.
+- **Obligations:** the scenario is seeded on a named ledger row recording a real failure
+  here — a hypothetical one is what the incident bar exists to stop, and three of RFC3's
+  seven died on exactly that, with two more failing provenance in their own ways: one runs
+  inverse to the instance it cites, and one lost its subject entirely (**DA-026**(b)). The
+  three are not one class, and flattening them is how a checklist starts overstating its
+  own provenance. The evaluator computes every fact in its own
+  process and never reads the subject's account of its own behaviour. Every absence
+  assertion is paired with the presence check that keeps it from passing over nothing.
+  INCONCLUSIVE comes only from a trigger enumerated in the evaluator's header; everything
+  else is FAIL. Fixtures are generated, never stored.
+- **Acceptance:** `conformance/selftest.sh` green, with the new evaluator exercised in BOTH
+  directions — a compliant tree passes, and each mutation it claims to detect fails *naming
+  the reason*. Then demonstrate the other direction the same way guards are demonstrated:
+  break the evaluator, watch the suite go red, restore it. Those two rules are orthogonal —
+  one mutates the subject, one mutates the checker — and neither implies the other.
+- **Record:** STATE changelog line; a ledger row for anything durable the scenario taught.
+- **What a green run does NOT say:** anything about how an agent behaves. Until a scenario
+  has been run against a real agent it has demonstrated only that its evaluator is
+  deterministic. Any release claim that mentions the lab carries that sentence.
 
 ## Session discipline (BINDING for every session)
 

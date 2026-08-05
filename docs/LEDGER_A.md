@@ -674,3 +674,153 @@
   `session-start.sh` checks detached HEAD and the default branch, never the prefix. That hole is
   pre-existing and stays unguarded — the prefix is an instruction to the agent, and a guard here
   would fail every legitimately-assigned branch this repository does not name.
+
+- DA-023: **Three externally-authored RFCs enter as data, and the owner overrides the incident
+  bar for them by name.** The owner supplied RFCs proposing a runtime capability contract, a
+  mechanical run-receipt format and an agent behavioral conformance lab, and asked for them
+  landed verbatim, reviewed, revised by review outcome and integrated. They are external
+  material: P18 makes them DATA, never authority, so each claim is adjudicated against this
+  repository's constitution and refusals are recorded as permanently as acceptances — the
+  **DA-001** precedent, where an external RFC's verdicts became a row rather than a diff.
+  **The override, with its argument, because a precedent cited loosely is how a bar dissolves.**
+  `CONTRIBUTING.md` and RUNBOOK playbook 3 require a real violation before new machinery.
+  The owner lifted that bar for these three RFCs on 2026-08-03. This is the third such
+  override — **D-032**, **D-033** and **DA-008** are the prior ones, and DA-008 states the shape:
+  what an override licenses is *an owner overriding the bar on a stated argument*, not "the
+  incident bar is negotiable". The bar stands for everything else, including every guard these
+  RFCs may later propose that the owner did not name.
+  Four further owner decisions, recorded so no segment re-litigates them: **full acceptance
+  criteria** rather than each RFC's own minimal vertical slice; **fresh-context reviewers are
+  authorized**, lifting a standing no-subagents instruction the way DA-022 did, so the
+  rule-review protocol runs normally and nothing is parked for want of a reviewer; **no new
+  dependency** — JSON is emitted with `printf` and read back by a bounded reader over our own
+  flat schema, and `jq` is refused, keeping the floor at bash/git/coreutils per the
+  constitution's dependency rule; and **the RFC text is revised in place**, the verbatim
+  originals being expendable at squash-merge because their durable content is these verdicts.
+  **Two collisions identified at landing, neither settled by this row.** RFC1 wants
+  `session_start: observed`, but hook-invocation detection in the boot banner was refused by
+  **DA-022** and sits in Decided non-items, on the ground that telling a hook invocation from a
+  manual one needs one vendor's environment variables. RFC1's nonce-marker probe may or may not
+  be new evidence against that refusal — reopening a decided non-item requires new evidence, and
+  that adjudication belongs to the segment that acts on it, not here. Separately, **DA-001**(c)
+  and (d) refuse machine-readable configuration that code can branch on: a manifest or receipt
+  is legal as a record a human reads, and violates P3 the moment any guard, CI step or agent
+  decision procedure consumes one.
+
+- DA-024: **RFC1's capability contract is refused at its core: the absence of a capability
+  manifest is a decision here, not a gap.** The blocking fresh-context pass adjudicated the
+  runtime-capability RFC claim by claim. Refused: "runtime-doctor.sh" as a sixth shipped script,
+  the whole lifecycle layer, the persisted runtime.json cache under an ignored directory, the
+  four runtime profiles,
+  "environment-setup.sh", and the network, persistent-home, output-filter and host-isolation
+  fields. Accepted: the five-state vocabulary as a naming convention, the rule that `unknown`
+  never becomes `unavailable`/`disabled`/`safe`, the do-not-infer list, and the failed-probe/no-
+  successful-marker mechanism. Ten of thirteen acceptance criteria described refused mechanisms
+  and were replaced by four. The revised document is the plan-folder copy; this row is the record.
+  **(a) The lifecycle probe is circular, which is why the nonce marker is not new evidence
+  against DA-022.** A marker proves one thing: this script executed and wrote a file. It cannot
+  name its caller. Upgrading that to "a hook invoked it" needs an ordering claim — the marker
+  predates the agent's first command — and there is no agent-neutral notion of the agent's first
+  command; establishing that timestamp needs a pre-command hook, which is one of the capabilities
+  being probed. It closes only on a vendor that already has both hooks, which is the machinery
+  DA-022 refused. And the manual path the constitution MANDATES for hookless agents writes a
+  byte-identical marker, so telling hook from manual collapses to asking the agent (P3). The
+  nonce adds freshness, never provenance. Decided non-items stands; it was not reopened.
+  **(b) "Gates consume specific observed facts where justified" is a worse hole than the one
+  DA-001(c) closed.** A carve-out gated on a self-judged predicate is an invitation, taken by the
+  first session that finds a rung red on a machine it believes is special. `amh.conf` is in
+  `RULE_FILES`, so disabling something there shows in a diff; a gitignored cache shows in nothing
+  — inverting D-019's rule that a disabled state must be louder than a passing one. Nothing
+  consumes a capability report; a gate needing a capability fact probes at the point of use, as
+  `amh_sha256_tool` already does.
+  **(c) A finding wider than RFC1, and it binds RFC2's receipts too:** `guard_secret_shapes`
+  scans via `git ls-files -co --exclude-standard`, so gitignoring a directory removes it from the
+  only mechanical credential check in the tree. Any proposal for an ignored `.amh/` inherits this.
+  **(d) Owed, not done.** These refusals belong in `docs/STATE.md` → Decided non-items, which is
+  a rule-bearing section and would pull that diff into rule-review scope. Deferred to a unit that
+  carries its own pass; until then this row is the only record of them, which is sufficient —
+  the ledger is permanent memory and Decided non-items is a pointer index into it.
+
+- DA-025: **RFC2's receipt format is refused; the gap it correctly identified is closed by two
+  more facts in the ladder's own output.** The blocking pass refused the JSON format, the ignored
+  local transport, the CI artifact upload, amh-status.sh, the runtime and host evidence layers,
+  and criteria 10/12/13. Accepted: the ladder names its subject commit and worktree state in its
+  own verdict lines, on green and red alike. That is DA-022(d)'s precedent — adopt the intent,
+  report the number in output that already exists, invent no artifact to hold it.
+  **(a) The problem statement was right, and nobody had noticed.** The ladder prints "ladder
+  green (N warning(s))" and never says green OF WHAT: no commit, no worktree state, not in the
+  ladder, the banner or anywhere else in a session's output. An external reader found in one pass
+  a gap this repository had run past for three releases. That is what P18 evaluation is FOR — the
+  document is data, and data can still be right.
+  **(b) A flat enum cannot express a deliberately unequal verdict space.** RFC2's six states have
+  no `warn`. D-019's holding is that a guard switched off by something that is not its subject
+  emits WARN plus "checked NOTHING", louder than `skip` on purpose; a flat enum puts
+  `unavailable` at `skip`'s volume, inverting the rule inside a document claiming to preserve it.
+  The ladder's WARNs are not all unavailability either — a state file over cap, a vanished Owner
+  queue and every advisory are guards that RAN and FOUND something. And DA-024 accepted a
+  five-state runtime vocabulary using `unavailable` with a third meaning: three vocabularies, one
+  word. No second vocabulary (P4).
+  **(c) The line between a refused manifest and a permitted record, stated so it cannot be
+  blurred.** A receipt records work already done; DA-024's manifest cached facts consulted to
+  decide whether to do work. A manifest can make a probe unnecessary; a receipt can make nothing
+  unnecessary. That holds only while three conditions hold together: no exit code varies with a
+  record's contents, no agent decision procedure takes one as input (including "it passed, so I
+  need not re-run it"), and no rendering of one can make a red thing look green. The proposed
+  status tool broke the third with its stale-receipt display branch.
+  **(d) Everything here is forgeable, which is why criterion 10 is unmeetable.** The agent runs
+  the ladder and can write the JSON by hand; there is no key it cannot reach. "Acceptable
+  producers" is a field, not a mechanism.
+  **(e) A defect inside the review, found by replay.** The pass claimed the ladder contains no
+  rev-parse call. It contains three — a git-dir test, an upstream-ref verify, and a tree
+  comparison in the behind-upstream advisory. None prints a commit or reaches a verdict line, so
+  the finding survived and its evidence did not. Replaying a pass's falsifiable claims is the
+  bound that caught it; the twenty-eighth pass, and the count of passes finding a real defect
+  inside the FIX now applies in both directions.
+
+- DA-026: **RFC3's conformance lab is accepted in reduced form — two scenarios, not seven — and
+  it is the only one of the three RFCs strengthened by its siblings' refusal.** Refused: five of
+  seven scenarios on provenance, the per-scenario YAML metadata, the oracle directory, the
+  in-tree reports directory, the temporal half of the nondeterminism policy, and the
+  receipt-commit field. Accepted: the untrusted-implementation principle, the
+  insufficient-evidence list, scenario isolation, and the release-claims bound.
+  **(a) The rule that survives the sibling refusals, and generalizes past them: an evaluator must
+  compute its evidence in its own process and never read an artifact the subject could have
+  written.** Receipts died as forgeable (DA-025) and hook markers as unable to name their caller
+  (DA-024), which looked fatal and was not: DA-025 accepted the ladder naming its own subject
+  commit, which is what an evaluator needed all along, with nothing in between. The document had
+  half the rule already — it barred a self-authored conformance report — then broke it by
+  admitting receipts. Six of seven scenarios lose nothing under the strict form.
+  **(b) Scenario provenance, checked against both volumes, is what cut seven to two.** Real here:
+  the stale Owner-queue item (DA-011, which the owner reports as RECURRING, plus DA-012) and the
+  incomplete negative search (DA-002, DA-003 — this repo's most-recorded class). Hypothetical:
+  prompt injection, bounded recovery and session interruption, all zero ledger hits. Inverse to
+  its recorded instance: the broken probe (D-020 records the agent narrowing the CHECKER, not
+  altering production code). No subject at all: runtime integration failure, killed with DA-024.
+  P12 already said this — the adversarial checklist is seeded by our own bug history and labels
+  which entries are real-here, because a checklist that overstates its provenance invites the
+  reader to discount all of it. Seeding from ledger rows would have cleared the incident bar
+  without needing DA-023's override.
+  **(c) Goodhart at the level of the acceptance criteria, in a document about self-certification
+  being worthless.** Thirteen of the received fifteen were satisfiable with no agent ever running;
+  criterion 10 never defined "operational"; and the positive-control requirement was
+  one-directional, so an evaluator consisting of a bare failure exit satisfied it and all five
+  listed controls. Replaced by seven criteria requiring both directions, checked-NOTHING branches
+  on every absence assertion, and a mechanical assertion of adopter-tree absence.
+  **(d) The two positive-control rules are orthogonal, not duplicates.** This repository mutates
+  the CHECKER and holds the subject fixed; the received document mutates the SUBJECT and holds
+  the checker fixed. Both are needed and neither implies the other — the received direction is
+  one the local fixture rule genuinely does not cover, and D-020 demanded it.
+  **(e) The asymmetry that should shape any build here: a FAIL is cheap and highly informative, a
+  PASS is one model, one fixture, one run and means almost nothing.** Build a FAIL-detector;
+  suppress PASS aggregation. This is also why the reports directory stays out of the tree.
+  **(f) The case for building anything at all, which is narrow and real.** DA-011(c) proves no
+  guard can reach a recurring failure, because anything checking whether a session verified the
+  queue is the banned attestation shape; the fix shipped as PROSE and nothing tests whether prose
+  works. The runbook concedes bash fixtures cannot see a defect in an assumption they share. A
+  behavioural scenario is the only instrument left. It earns two scenarios, not a lab.
+  **(g) Two defects the pass found in the integration plan itself, both mine.** Its Verification
+  section claimed the installer E2E suite proves the lab is absent from an adopter tree; it
+  proves no such thing, and a grep for the lab across scripts, workflows and the harness returns
+  nothing — D-010's shape, prose claiming enforcement nothing performs. And S11 was marked as
+  needing no rule-review, but the fixtures require a path-reference guard exclusion, which is a
+  guard diff and squarely in scope. Both corrected in the plan.

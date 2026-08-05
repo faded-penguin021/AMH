@@ -11,6 +11,108 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 4.0.0 — 2026-08-04
+
+Three externally-authored RFCs were entered as data, adjudicated claim by claim, and mostly
+refused; what survived is here. No shipped script was added, no artifact format was introduced,
+no dependency was taken, and no exit code changed.
+
+- **The ladder says green OF WHAT.** All five verdict lines now name the commit they verified
+  and whether the tree that was verified IS that commit — `HEAD <sha>, worktree clean`, or a
+  count of uncommitted paths and a sentence saying in those words that the verified tree is not
+  that commit. The ladder verifies the WORKING tree (the secret and citation scans read
+  untracked files), so a green run rendered as a bare sha was a claim about something nobody
+  checked. Four states are distinguished, because two of them read exactly like "clean" if they
+  are collapsed: no repository, git refusing to answer, an unborn HEAD, and a real commit. The
+  probe reads the same sources the guards read rather than `git status`, which honours a
+  configuration key that let a tree print a guard failure on untracked content and
+  `worktree clean` in the same run. Only the count of paths is printed, never their names.
+
+- **The session banner reports a runtime inventory.** Two new `amh.conf` keys —
+  `REQUIRED_TOOLS` and `ADAPTER_FILES` — are probed at session start and printed. Tools are
+  `observed` or `unavailable`; adapter files are `configured` or `unknown`, **never** observed
+  and never unavailable, because a file's presence is a request for an integration and not
+  evidence a hook ever fired. Nothing reads these states: they are output for a human, and the
+  adapter-set guard reads the LIST, never a state. Tools are probed with `type -P`, not
+  `command -v`, which resolves builtins and functions — the first version of this reported the
+  script's own helper function as an installed tool.
+
+- **What was refused, recorded because a refusal is as durable as an acceptance.** A runtime
+  capability manifest and the script to write it; lifecycle-hook probing (no marker can name its
+  caller); runtime profiles; a versioned JSON run receipt and its status tool (forgeable, and a
+  flat enum cannot express a verdict space where WARN deliberately outranks `skip`); CI receipt
+  artifacts. Each refusal has a stated argument in this repository's ledger rather than in a
+  changelog bullet.
+
+- **A behavioural conformance lab, which you do not receive.** `conformance/` is repo-local and
+  is not installed into an adopting repository — the installer copies only from
+  `harness/templates/`, and the end-to-end installation test now asserts the absence rather than
+  leaving it structural. It exists because a few of this harness's rules are prose that no guard
+  can ever reach: anything checking whether a session "verified" something consumes the session's
+  own say-so, which is the attestation shape the constitution bans. Two scenarios, seeded on
+  recorded failures. **It demonstrates that its evaluators are deterministic and
+  mutation-sensitive, and nothing whatever about how any agent behaves** — that sentence travels
+  with every mention of it, including this one.
+
+- **The ledger's volume scheme no longer ends at Z, and "which file is live" is computed.**
+  The row pattern is `D[A-Z]*-[0-9]+` rather than `D[A-Z]?-[0-9]+`, so a `DAA-` row is seen by
+  the cap rung and by the citation guard instead of matching nothing in both at once; the
+  rollover failure NAMES the next volume, file name and row prefix, as an odometer over A–Z
+  with carry (`Z`→`AA`, `AZ`→`BA`, `ZZ`→`AAA`) rather than a table whose last entry was the
+  bug. The same carry rule decides which volume is live: the volumes are a **chain** walked
+  from the base volume and the walk stops at the first missing link, replacing "the last file
+  the shell globbed" — which was the shell's collation order, not volume age, and pinned the
+  live volume at Z. Membership is reachability rather than spelling, so no name-shaped rule can
+  promote a file that belongs to no chain; anything volume-shaped the walk does not reach is
+  named in a warning, and a missing base volume fails rather than reporting `no ledger yet`.
+  Row scanning follows the same chain, so the cap rung and the citation guard can no longer
+  disagree about what a volume is.
+
+- **Citations are matched as whole words.** Unanchored, the wider row pattern matches inside
+  longer words and reports ids that appear nowhere in the tree; whole-word matching also closes
+  the same trap one letter down, where an `XL-003` in a file read as a citation to `L-003`.
+  That one had shipped.
+
+### Upgrading
+
+1. **Copy the shipped scripts** — the whole directory, manifest included. The ladder's new
+   verdict line and the session banner's inventory come with them, and neither changes an exit
+   code or the meaning of any existing line. The volume-scheme change does move guard verdicts,
+   in three directions worth checking before you copy:
+
+   - **The citation pattern now admits any number of capitals between the `D` and the hyphen**,
+     as a whole word. A standalone token of that shape inside `CITATION_SCAN_PATHS` — `DEBUG-2`
+     and the like — now reads as a citation to a row you do not have and fails the ladder on a
+     file nobody touched. Check with `grep -rwoE 'D[A-Z][A-Z][A-Z]*-[0-9]+' <your scan paths>`;
+     note the two-or-more-capitals spelling, since one capital is an ordinary `DA-` citation
+     that still resolves. The fix is a rename or a `CITATION_EXCLUDE` entry, never widening the
+     exclusion to the whole tree.
+   - **A volume the chain cannot reach stops being live.** If you named a continuation volume
+     anything other than the base name plus `_A`, `_B`, … — LEDGER_part2.md, LEDGER_v2.md —
+     it was the live volume under the old glob rule and is now unreachable: the rung warns and
+     names it, and measures the last volume the chain does reach. Rename it into the scheme.
+   - **A ledger with continuation volumes but no base volume now fails** instead of reporting
+     `no ledger yet`, which was a skip that read like a pass.
+
+2. **Add the two new `amh.conf` keys**, both space-separated lists:
+
+   - `REQUIRED_TOOLS` — the commands your ladder needs on PATH. List a tool your CI installs but
+     your laptop does not, if you have one; being told it is `unavailable` locally is the point.
+   - `ADAPTER_FILES` — the agent-adapter files your repository ships.
+
+   Leaving either empty is a supported answer: the corresponding banner line simply does not
+   appear. Copy the commentary from `harness/templates/amh.conf.example`, which explains what
+   each state does and does not assert — the distinction is the reason the keys exist, and a
+   value without it invites the states to be read as evidence.
+
+3. **One seed change, hand-applied.** `harness/templates/seed/docs/LEDGER.md`'s rollover
+   paragraph ended in an open-ended ellipsis (_B.md/DB-001, …), which is the spelling that
+   invited a scheme with no rule past Z. Your copy is yours, so apply it by hand: the suffix
+   advances by carry without limit, the ladder prints the next volume's name for you, and the
+   volumes are a chain walked from the base file — a volume the walk cannot reach is not a
+   volume, however well it is named. Nothing else moved: no other binding rule, and no guard
+   verdict beyond the three named in step 1 changed for a tree that was green before.
+
 ## 3.0.0 — 2026-08-02
 
 One binding rule changed — a completed plan may now be retired into the archive instead of

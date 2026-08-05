@@ -116,7 +116,7 @@ mk() { # mk <name> -> prints the fixture path
 	# rots the first time a shipped comment cites a new row (it did).
 	{
 		printf '# LEDGER\n\n- D-001: a durable fact.\n- D-002: another durable fact.\n'
-		grep -ohE 'D[A-Z]?-[0-9]+' "$d/scripts"/*.sh | sort -u | grep -vxE 'D-00[12]' |
+		grep -ohwE 'D[A-Z]*-[0-9]+' "$d/scripts"/*.sh | sort -u | grep -vxE 'D-00[12]' |
 			while IFS= read -r id; do
 				printf -- '- %s [cited]: a durable fact a shipped script cites.\n' "$id"
 			done
@@ -136,6 +136,11 @@ mk() { # mk <name> -> prints the fixture path
 }
 
 run() { (cd "$1" && CI=1 scripts/ladder.sh --guards-only 2>&1); }
+
+# The FULL ladder, verification rung included. `run()` always passes --guards-only, so the
+# two `✗ ladder red` verdicts below rung 3 are unreachable through it — untestable by
+# construction, which is the defect D-020 names, not merely untested.
+run_full() { (cd "$1" && CI=1 scripts/ladder.sh 2>&1); }
 
 # The advisory rung starts with `in_ci && return`, so nothing that runs under `run()`
 # can ever reach it. Local advisories are warn-only and cannot fail the ladder, so the
@@ -183,6 +188,38 @@ expect_pass_saying() { # <name> <dir> <grep-pattern, verdict word included>
 		report no "$1" "expected exit 0, got $rc" "$out"
 	elif ! printf '%s' "$out" | grep -qF "$3"; then
 		report no "$1" "passed but the output never mentioned '$3'" "$out"
+	else
+		report ok
+	fi
+}
+
+# The ladder's final verdict line, and nothing else. `✓`/`✗` in the first column is what
+# marks one; `tail -1` because a fixture may legitimately print more than one over a run.
+#
+# This exists because "the output mentions X" and "the VERDICT mentions X" are different
+# assertions, and only the second is worth making about a verdict line. Asserted with the
+# bare-substring helpers, a change that moved the subject out of the verdict and into an
+# `ok` line inside the guard section left the whole suite green — the reader's takeaway
+# line lost the fact while every fixture agreed it was present. That is the same shape as
+# the docstring on expect_pass_saying above, one level further in.
+verdict_line() { # <ladder output>
+	printf '%s\n' "$1" | grep -E '^(✓|✗) ' | tail -1
+}
+
+# Asserts on the verdict line specifically, with an explicit checked-NOTHING branch: a run
+# that printed no verdict at all must be a failure and not a vacuous pass, which is the
+# hollow-guard case the runbook requires an arm for.
+expect_verdict() { # <name> <runner: run|run_full> <dir> <expected rc> <fixed substring>
+	local out rc line
+	out=$("$2" "$3")
+	rc=$?
+	line=$(verdict_line "$out")
+	if [ "$rc" -ne "$4" ]; then
+		report no "$1" "expected exit $4, got $rc" "$out"
+	elif [ -z "$line" ]; then
+		report no "$1" "the ladder printed NO verdict line at all" "$out"
+	elif ! printf '%s' "$line" | grep -qF "$5"; then
+		report no "$1" "the verdict line does not carry '$5'" "$line"
 	else
 		report ok
 	fi
@@ -442,6 +479,118 @@ printf -- '- D-003: a row past the cap.\n' >>"$d/docs/LEDGER.md"
 expect_fail "the rollover FAILURE reports the size too — that is the branch that needs it" "$d" \
 	"KB), past the 4-line cap"
 
+# --- ledger volumes past Z, and what counts as a volume at all
+#
+# One continuation volume whose first row starts at line 5, for a fixture whose cap is 4.
+# The suffix is BOTH the file name's and the row prefix's, and that they are the same
+# string is precisely what a rollover diagnostic can get wrong, so the fixture derives
+# both from one variable rather than spelling them separately. The base volume is never
+# written this way: `mk` puts the rows the shipped scripts cite in it, and overwriting it
+# would fail the citation guard in a case that is not about citations.
+add_volume() { # <fixture dir> <suffix>
+	local d=$1 s=$2
+	{
+		printf '# LEDGER — volume %s\n\n' "$s"
+		printf 'padding\npadding\n'
+		printf -- '- D%s-001: the first row of this volume.\n' "$s"
+	} >"$d/docs/LEDGER_$s.md"
+}
+
+# A DENSE chain, which is what a real ledger is: volumes are only reachable through their
+# predecessors, so a fixture that wants LEDGER_AA.md live has to have opened the
+# twenty-six before it. The names come from brace expansion rather than from a copy of
+# the odometer under test — a fixture that computes the answer the same way the code does
+# agrees with it by construction.
+add_chain() { # <fixture dir> <suffix>... — in order
+	local d=$1 s
+	shift
+	for s in "$@"; do add_volume "$d" "$s"; done
+}
+
+# Past Z, with the twenty-six volumes that make AA reachable. Under the shell's collation
+# LEDGER_AA.md sorts between LEDGER_A.md and LEDGER_B.md, so a rung taking the last glob
+# match reports LEDGER_Z.md as live with AA sitting right there — every subsequent row
+# invisible to a cap measuring the wrong file, quietly.
+d=$(mk ledger_volume_past_z)
+add_chain "$d" {A..Z} AA
+expect_pass_saying "a two-letter volume is live once the chain reaches it" "$d" \
+	"docs/LEDGER_AA.md: 5/800 lines"
+
+# Membership is REACHABILITY, not spelling, and this is the case that settles it: an
+# all-capitals stray file satisfies every name-shaped rule (`[A-Z]+`, and LONG, so it wins
+# any length-first ordering) while belonging to no chain. Ranked, it pins the rung on a
+# file nobody writes to and prints `ok` over a volume that is past its cap — one untracked
+# one-line file switching the guard off. The cap must still fire on the real live volume.
+d=$(mk ledger_volume_archive)
+sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+add_volume "$d" A
+printf '# archived notes\n' >"$d/docs/LEDGER_ARCHIVE.md"
+expect_fail "an all-caps stray file does not become the live volume" "$d" \
+	"docs/LEDGER_A.md: a row STARTS at line 5"
+
+# The same file, on a tree that is under its cap: the rung reports the chain's volume and
+# says out loud that something volume-shaped is unreachable. A warning, not a failure —
+# the rung cannot tell a deleted volume from a misnamed file, and it does not guess.
+d=$(mk ledger_volume_orphan)
+add_volume "$d" A
+printf '# archived notes\n' >"$d/docs/LEDGER_ARCHIVE.md"
+expect_warn "an unreachable volume-shaped file is named, not silently ignored" "$d" \
+	"the chain does not reach: docs/LEDGER_ARCHIVE.md"
+
+# A gap in the chain stops the walk. LEDGER_C.md here is not "the live volume with two
+# missing"; it is unreachable, and its rows are read by nothing.
+d=$(mk ledger_volume_gap)
+add_chain "$d" A C
+expect_pass_saying "the walk stops at the first gap" "$d" "docs/LEDGER_A.md: 5/800 lines"
+
+# The base volume is where the chain starts, so its absence is not "no ledger yet" — that
+# rendering is a skip, and a skip reads exactly like a pass. Citations are switched off in
+# this fixture so the verdict under test is the only one on trial.
+d=$(mk ledger_volume_no_base)
+sed -i "s/^CITATION_SCAN_PATHS=.*/CITATION_SCAN_PATHS=''/" "$d/amh.conf"
+add_volume "$d" A
+rm "$d/docs/LEDGER.md"
+expect_fail "a missing base volume with continuations fails instead of skipping" "$d" \
+	"docs/LEDGER.md is missing while continuation volume(s) exist"
+
+# The row pattern admits any number of volume letters. With the one-letter pattern a
+# `DAA-` row matched nothing, so the cap could not fire however long the volume grew —
+# the failure this whole scheme change exists to remove, and it was silent.
+d=$(mk ledger_volume_multiletter_cap)
+sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+add_chain "$d" {A..Z} AA
+expect_fail "a multi-letter row past the cap fails instead of passing invisibly" "$d" \
+	"docs/LEDGER_AA.md: a row STARTS at line 5"
+
+# The next volume's name is computed by carry, not looked up in a table that ends at Z.
+# One case per transition the odometer has to get right; each is anchored on its own
+# message, so no one of them can be deleted while a sibling covers for it. The chains are
+# dense because the rung will not call an unreachable file live — which is why the ZZ case
+# builds seven hundred volumes rather than one.
+d=$(mk ledger_next_base)
+sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+printf -- '- D-003: past the cap.\n' >>"$d/docs/LEDGER.md"
+expect_fail "the base volume rolls to _A / DA-" "$d" \
+	"open docs/LEDGER_A.md, numbering from DA-001"
+
+d=$(mk ledger_next_z)
+sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+add_chain "$d" {A..Z}
+expect_fail "Z rolls to AA, which is where the old scheme simply stopped" "$d" \
+	"open docs/LEDGER_AA.md, numbering from DAA-001"
+
+d=$(mk ledger_next_az)
+sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+add_chain "$d" {A..Z} A{A..Z}
+expect_fail "AZ rolls to BA — the carry advances the letter to its left, not the length" "$d" \
+	"open docs/LEDGER_BA.md, numbering from DBA-001"
+
+d=$(mk ledger_next_zz)
+sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+add_chain "$d" {A..Z} {A..Z}{A..Z}
+expect_fail "ZZ rolls to AAA — a carry off the left end lengthens the suffix" "$d" \
+	"open docs/LEDGER_AAA.md, numbering from DAAA-001"
+
 # --- citations
 d=$(mk cite_missing)
 printf '# see D-099\n' >"$d/scripts/thing.sh"
@@ -470,6 +619,41 @@ expect_fail "a citation in a file name with a space is still seen" "$d" "no such
 d=$(mk cite_dupe)
 printf -- '- D-001: a second row with the same number.\n' >>"$d/docs/LEDGER.md"
 expect_fail "duplicate row numbers fail" "$d" "duplicate ledger row numbers"
+
+# Citations resolve for a multi-letter volume, in both directions. Under the one-letter
+# pattern `DAA-099` was not an unresolved citation, it was not a citation at all: the
+# guard saw nothing to check and printed the same green it prints for a clean tree.
+d=$(mk cite_multiletter_missing)
+add_chain "$d" {A..Z} AA
+printf '# see DAA-099\n' >"$d/scripts/thing.sh"
+expect_fail "a multi-letter citation with no ledger row fails" "$d" "no such ledger row"
+
+d=$(mk cite_multiletter_ok)
+add_chain "$d" {A..Z} AA
+sed -i 's/^- DAA-001:/- DAA-001 [cited]:/' "$d/docs/LEDGER_AA.md"
+printf '# see DAA-001\n' >"$d/scripts/thing.sh"
+expect_pass "a multi-letter citation with its marker passes" "$d"
+
+# Rows are read from the CHAIN, not from every file whose name starts with the basename.
+# Globbing, a scratch file could supply a row id the ledger already has — and the rung
+# above would refuse to call that same file a volume. Two guards, one question, one answer.
+d=$(mk cite_offchain_rows)
+printf -- '- D-001: a duplicate row id in an unreachable file.\n' >"$d/docs/LEDGER_notes.md"
+expect_pass "rows in an unreachable file are not read" "$d"
+
+# The widened pattern matches whole words only. Unanchored it matches INSIDE one, so
+# `README-12` reports an unresolved citation to DME-12 — an id that appears nowhere in the
+# tree, which is a diagnostic nobody can act on. Same trap one letter down as the `XL-003`
+# → L-003 defect this repository already shipped once.
+d=$(mk cite_midword)
+printf '# see README-12 and PRODUCTION-1 for details\n' >"$d/scripts/thing.sh"
+expect_pass "an id-shaped substring inside a longer word is not a citation" "$d"
+
+# The other direction, which is the real cost of the wider pattern and is stated in the
+# upgrade notes: a STANDALONE token of that shape is a citation now, and it fails.
+d=$(mk cite_standalone_token)
+printf '# see DEBUG-2 for details\n' >"$d/scripts/thing.sh"
+expect_fail "a standalone token of the id shape IS read as a citation" "$d" "no such ledger row"
 
 # --- secret shapes
 d=$(mk secret_plain)
@@ -788,6 +972,142 @@ if printf '%s' "$out" | grep -qF "is a directory, not a file"; then
 	report ok
 else
 	report no "a VERSION_FILE that is a directory says so" "it reported something else" "$out"
+fi
+
+# --- session-start.sh: the runtime inventory (AMH ledger row DA024)
+# The vocabulary is the behaviour under test here, not the presence check. Two states per
+# list, and the asymmetry between the lists is what the refused capability manifest was
+# refused FOR: a tool probe runs, an adapter file only ever states an intention.
+
+# Both keys empty (and an adopter's amh.conf predating them entirely) must print no line at
+# all. This is the upgrade path: `set -u` plus an unset key would kill the whole banner, and
+# a repo that declares neither list gets no inventory rather than an empty one.
+d=$(mk ss_inventory_off)
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if ! printf '%s' "$out" | grep -qE '^· (tools|adapters):' &&
+	printf '%s' "$out" | grep -qF "AMH session start"; then
+	report ok
+else
+	report no "unset inventory keys print no inventory and do not kill the banner" "a line appeared or the banner died" "$out"
+fi
+
+# A tool that IS on PATH is `observed` — and the resolved path must never appear. `command -v`
+# prints /usr/bin/sh or /home/<someone>/bin/sh, and a username in the transcript is a leak
+# with no diagnostic value (P17).
+d=$(mk ss_inventory_tool_present)
+printf "REQUIRED_TOOLS='sh'\n" >>"$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qxF "· tools: sh observed" &&
+	! printf '%s' "$out" | grep -qE '· tools:.*/'; then
+	report ok
+else
+	report no "a present tool is observed, by name only" "state wrong or a path leaked" "$out"
+fi
+
+# A tool that is NOT on PATH is `unavailable` — the probe ran and answered. Distinct from the
+# adapter case below, and the fixture asserts the exact word because the whole point of the
+# vocabulary is that these two are not interchangeable.
+d=$(mk ss_inventory_tool_absent)
+printf "REQUIRED_TOOLS='amh-no-such-tool-xyz'\n" >>"$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qxF "· tools: amh-no-such-tool-xyz unavailable"; then
+	report ok
+else
+	report no "an absent tool is unavailable" "state wrong" "$out"
+fi
+
+# A tool name that resolves as a shell FUNCTION or builtin rather than a PATH entry must read
+# `unavailable`. `say` is this script's own output helper, defined ~180 lines above the probe,
+# so under `command -v` — which resolves functions, builtins and aliases before it looks at
+# PATH — the banner reported its own internals as an installed tool, and `printf` as `observed`
+# on a machine with no binaries at all. `observed` is the state whose whole warrant is that the
+# answer is a fact about the ENVIRONMENT; a builtin makes it a fact about this bash. The
+# fixtures pin `unknown`→`unavailable` in the adapter direction; this pins the symmetric
+# hazard, a non-fact becoming `observed`.
+d=$(mk ss_inventory_tool_is_a_shell_function)
+printf "REQUIRED_TOOLS='say'\n" >>"$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qxF "· tools: say unavailable"; then
+	report ok
+else
+	report no "a shell function is unavailable, never observed" "the probe resolved a non-PATH name" "$out"
+fi
+
+# A whitespace-only value splits to nothing. Gating the line on the raw config value rather than
+# on what the loop produced prints a bare header — and for adapters, two lines of gloss
+# explaining zero states.
+d=$(mk ss_inventory_blank_value)
+printf "REQUIRED_TOOLS='   '\nADAPTER_FILES='   '\n" >>"$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if ! printf '%s' "$out" | grep -qE '^· (tools|adapters):' &&
+	! printf '%s' "$out" | grep -qF "never observed firing"; then
+	report ok
+else
+	report no "a whitespace-only list prints no header and no gloss" "an empty inventory was printed" "$out"
+fi
+
+# A glob in the list must not expand against the working directory. Unguarded, `set -f`
+# absent, `REQUIRED_TOOLS='*'` reports every file in the repo root as a missing tool.
+d=$(mk ss_inventory_glob)
+printf "REQUIRED_TOOLS='*'\n" >>"$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qF "· tools: * unavailable" &&
+	! printf '%s' "$out" | grep -qF "amh.conf unavailable"; then
+	report ok
+else
+	report no "a glob in REQUIRED_TOOLS is not expanded against the tree" "it globbed" "$out"
+fi
+
+# A present adapter file is `configured` and must NEVER be `observed`. Presence is a request
+# for an integration; nothing in this script can see a hook fire, which is why the lifecycle
+# probe layer was refused rather than deferred.
+d=$(mk ss_inventory_adapter_present)
+mkdir -p "$d/.agent-a"
+printf '{}\n' >"$d/.agent-a/settings.json"
+printf "ADAPTER_FILES='.agent-a/settings.json'\n" >>"$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qxF "· adapters: .agent-a/settings.json configured" &&
+	! printf '%s' "$out" | grep -qE '^· adapters:.*observed'; then
+	report ok
+else
+	report no "a present adapter is configured, never observed" "state wrong" "$out"
+fi
+
+# An ABSENT adapter file is `unknown`, never `unavailable`. This is the assertion the whole
+# section exists for: an adapter configured at user level is invisible from inside the tree,
+# so `unavailable` would be a claim about the world derived from a fact about the repo, and
+# `unknown` is never translated into `unavailable`, `disabled` or `safe`.
+d=$(mk ss_inventory_adapter_absent)
+printf "ADAPTER_FILES='.agent-a/settings.json'\n" >>"$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qxF "· adapters: .agent-a/settings.json unknown" &&
+	! printf '%s' "$out" | grep -qE '^· adapters:.*unavailable'; then
+	report ok
+else
+	report no "an absent adapter is unknown, never unavailable" "state wrong" "$out"
+fi
+
+# The gloss ships with the states. Without it `configured` reads as "the hook works", which
+# is the single misreading this vocabulary exists to prevent.
+d=$(mk ss_inventory_gloss)
+printf "ADAPTER_FILES='.agent-b/config.toml'\n" >>"$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qF "never observed firing" &&
+	printf '%s' "$out" | grep -qF "Nothing reads these states."; then
+	report ok
+else
+	report no "the adapter states ship with their gloss" "the gloss is missing" "$out"
+fi
+
+# The two lists are independent: declaring one must not switch the other on.
+d=$(mk ss_inventory_independent)
+printf "REQUIRED_TOOLS='sh'\n" >>"$d/amh.conf"
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+if printf '%s' "$out" | grep -qE '^· tools:' &&
+	! printf '%s' "$out" | grep -qE '^· adapters:'; then
+	report ok
+else
+	report no "REQUIRED_TOOLS and ADAPTER_FILES are independent" "one switched on the other" "$out"
 fi
 
 # Only the first line is the version: a trailing note would otherwise be concatenated into a tag
@@ -1207,6 +1527,127 @@ if printf '%s' "$out" | grep -qF "Local advisories"; then
 else
 	report ok
 fi
+
+# --- the verdict's subject: which commit, and whether the tree IS that commit
+# The ladder printed "green" for three releases without ever saying green OF WHAT
+# (AMH ledger row DA025). Every case below is asserted on the VERDICT LINE, because that
+# is the line a reader takes away, and each of the four states is separately silent: the
+# dirty rendering and the clean one are one word apart, and the two "cannot tell" states
+# read exactly like a clean tree if the code collapses them.
+d=$(mk subject_clean)
+sha=$(git -C "$d" rev-parse --short HEAD)
+# The real short sha, not a pattern. Grepping `HEAD ` alone would be satisfied by a line
+# that printed the word and no commit — which is the defect, spelled differently.
+expect_verdict "the verdict names its commit and a clean worktree" run "$d" 0 \
+	" — HEAD $sha, worktree clean"
+
+# Dirty is the case the line exists FOR: the ladder verifies the working tree, so a green
+# run attributed to HEAD alone is a claim about a commit nobody verified. The count is
+# asserted too — a constant here would report every dirty tree as one path.
+d=$(mk subject_dirty)
+sha=$(git -C "$d" rev-parse --short HEAD)
+printf '\n# an uncommitted edit\n' >>"$d/amh.conf"
+printf 'untracked\n' >"$d/untracked-file"
+expect_verdict "a dirty worktree is named, counted, and NOT attributed to HEAD" run "$d" 0 \
+	" — HEAD $sha + 2 uncommitted path(s) — the tree just verified is NOT that commit"
+
+# The probe honours .gitignore. Without that the first adopter with a build directory gets
+# "dirty" on every run, learns the line means nothing, and the clean/dirty distinction is
+# dead on arrival.
+d=$(mk subject_ignored_is_clean)
+printf 'ignored/\n' >"$d/.gitignore"
+mkdir -p "$d/ignored"
+printf 'x\n' >"$d/ignored/artifact"
+git -C "$d" add -A >/dev/null 2>&1
+git -C "$d" commit -qm "ignore rule" >/dev/null 2>&1
+sha=$(git -C "$d" rev-parse --short HEAD)
+expect_verdict "an ignored path does not make the worktree dirty" run "$d" 0 \
+	" — HEAD $sha, worktree clean"
+
+# ...but `status.showUntrackedFiles=no` must NOT make it clean, and this is the case the
+# probe is built the way it is for. The key is settable in .git/config or in a user-level
+# ~/.gitconfig, neither of which is in the tree, so nothing else in this suite or in the
+# ladder can see it. With `git status --porcelain` as the probe the ladder FAILS on the
+# untracked file below while its verdict line calls the tree clean — a guard failing on
+# content the verdict attributes to a commit that does not contain it.
+d=$(mk subject_untracked_hidden_from_status)
+sha=$(git -C "$d" rev-parse --short HEAD)
+git -C "$d" config status.showUntrackedFiles no
+printf 'untracked\n' >"$d/not-in-head"
+expect_verdict "an untracked file hidden from git status still reads as dirty" run "$d" 0 \
+	" — HEAD $sha + 1 uncommitted path(s) — the tree just verified is NOT that commit"
+
+# No repository at all. Naming no commit is the honest answer; the failure mode being
+# closed is a line that says "worktree clean" about a tree git was never asked about.
+#
+# NOTE the assumption this fixture rests on, since it is not local to the fixture: $WORK
+# comes from `mktemp -d`, and if TMPDIR pointed inside a git checkout, `has_git` would
+# resolve the ENCLOSING repository and this case would go red rather than silently green.
+d=$(mk subject_no_git)
+rm -rf "$d/.git"
+expect_verdict "with no repository the verdict names no commit" run "$d" 0 \
+	"git names no repository from here, so this verdict names no commit"
+
+# An initialised repository with nothing committed. Distinct from the case above — there
+# IS a repository — and distinct from clean, which is what it would collapse into if the
+# empty `rev-parse` output were treated as a sha.
+d=$(mk subject_unborn_head)
+rm -rf "$d/.git"
+git -C "$d" init -q
+expect_verdict "an unborn HEAD is named as such, not rendered as clean" run "$d" 0 \
+	"no commit yet (unborn HEAD)"
+
+# State (b): git present, git refusing to answer. A corrupt index is the reachable trigger
+# — verified, and unlike a stale index.lock, which leaves `git diff` exiting 0. Without
+# this case the whole rc branch could be deleted with the suite green, and the rendering
+# would silently become "worktree clean" for a tree nobody could read: D-019's rule, in the
+# one place where the honest answer is that there is no answer.
+#
+# Exit 0 is the expectation and it is not an oversight: a fixture's guards survive a corrupt
+# index (the scans that read it fall back or go vacuous), so this case isolates the RENDERING
+# rather than riding on a failure. The red verdict gets its own fixture below.
+d=$(mk subject_git_unreadable)
+sha=$(git -C "$d" rev-parse --short HEAD)
+printf 'JUNKJUNKJUNK' >"$d/.git/index"
+expect_verdict "an unreadable worktree state is UNKNOWN, never clean" run "$d" 0 \
+	" — HEAD $sha, worktree state UNKNOWN (git would not report it)"
+
+# The `✗ guards:` red verdict. Committed rather than left untracked, so the assertion is
+# about the red rendering and not about the dirty one it would otherwise pick up.
+d=$(mk subject_red_guards)
+printf '#!/usr/bin/env bash\nexit 1\n' >"$d/scripts/guards/always-fails.sh"
+chmod +x "$d/scripts/guards/always-fails.sh"
+git -C "$d" add -A >/dev/null 2>&1
+git -C "$d" commit -qm "a failing repo-local guard" >/dev/null 2>&1
+sha=$(git -C "$d" rev-parse --short HEAD)
+expect_verdict "the red guards verdict names its subject" run "$d" 1 \
+	"✗ guards: 1 failure(s), 0 warning(s) — HEAD $sha, worktree clean"
+
+# The two `✗ ladder red` verdicts below rung 3, which --guards-only can never reach.
+d=$(mk subject_red_no_verify)
+sha=$(git -C "$d" rev-parse --short HEAD)
+expect_verdict "the missing-verification-rung verdict names its subject" run_full "$d" 1 \
+	"✗ ladder red — HEAD $sha, worktree clean"
+
+d=$(mk subject_red_verify_fails)
+printf '#!/usr/bin/env bash\nexit 1\n' >"$d/scripts/verify.sh"
+chmod +x "$d/scripts/verify.sh"
+git -C "$d" add -A >/dev/null 2>&1
+git -C "$d" commit -qm "a failing verification set" >/dev/null 2>&1
+sha=$(git -C "$d" rev-parse --short HEAD)
+expect_verdict "the failed-verification verdict names its subject" run_full "$d" 1 \
+	"✗ ladder red (verification set failed) — HEAD $sha, worktree clean"
+
+# The green full-ladder verdict, for the same reason: it is a different printf from the
+# guards-only one and nothing else in this suite reaches it.
+d=$(mk subject_green_full)
+printf '#!/usr/bin/env bash\nexit 0\n' >"$d/scripts/verify.sh"
+chmod +x "$d/scripts/verify.sh"
+git -C "$d" add -A >/dev/null 2>&1
+git -C "$d" commit -qm "a passing verification set" >/dev/null 2>&1
+sha=$(git -C "$d" rev-parse --short HEAD)
+expect_verdict "the full green verdict names its subject" run_full "$d" 0 \
+	"✓ ladder green"
 
 # =============================================================================
 printf '\n%d passed, %d failed\n' "$PASSED" "$FAILED"

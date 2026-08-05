@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 3.0.0.** Repos that adopt it record the version they took
+**Harness version 4.0.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -683,6 +683,25 @@ REMOTE_FLAG={{REMOTE_FLAG}}
 VERSION_FILE=
 RELEASE_TAG_PREFIX=
 
+# --- Runtime inventory (session-start banner) -------------------------------
+# Both optional and independent; an empty value switches its line off entirely.
+# REQUIRED_TOOLS is a space-separated list of commands your ladder needs on PATH. Each is
+# probed with `type -P` and reported `observed` or `unavailable` — a real probe, so a real
+# answer about this environment. Only the name is printed, never the resolved path. (`type -P`
+# and not `command -v`: the latter resolves builtins, functions and aliases before it looks at
+# PATH, so it reports `printf` as observed on a machine holding no binaries at all.)
+# ADAPTER_FILES is a space-separated list of the agent-adapter files this repository ships.
+# Each is reported `configured` when present and `unknown` when absent — NEVER `observed`
+# and never `unavailable`. Present means this repo REQUESTS an integration; nothing can see
+# a hook actually fire. Absent means this repo declares none, which is not evidence that
+# none exists — an adapter configured at user level is invisible from inside the tree.
+# Neither list can express a name containing a space. NOTHING CONSUMES THE REPORTED STATES:
+# they are printed for a human and discarded, and no guard or gate may ever branch on them. (A
+# guard may read the ADAPTER_FILES *list* to check it has not drifted from the adapters you
+# ship — that reads paths you wrote, never a state this banner derived.)
+REQUIRED_TOOLS=
+ADAPTER_FILES=
+
 # --- Working memory: the state file's size band (hysteresis) ----------------
 # Grow freely to WARN. Over WARN, one deep compression pass must land at or below
 # COMPRESS_TO — landing between them fails, because a micro-trim to just under the
@@ -1099,9 +1118,19 @@ shipped bug teaches session N+9's review pass.
 > LINES, not rows — rows vary in length, and it is read and context cost that is being
 > bounded; keep the number in lockstep with `LEDGER_LINE_CAP` in `amh.conf`). The final row
 > may finish past the cap, but no row may ever *start* past it: when the file stands over the
-> cap, create `LEDGER_A.md` with this same header discipline, numbering from **DA-001** (then
-> `_B.md`/`DB-001`, …). Existing rows are never moved or renumbered — the cap bounds file
-> size, not history. A citation's prefix names its file.
+> cap, create the next volume with this same header discipline and number its rows from the
+> matching prefix — `LEDGER.md`/`D-` rolls to `LEDGER_A.md`/`DA-`, then `_B.md`/`DB-`. The
+> suffix advances as an odometer over A–Z, not a list with a last entry: `_Z` rolls to `_AA`,
+> `_AZ` to `_BA`, `_ZZ` to `_AAA`, without limit. The ladder computes that name and prints it
+> in the failure telling you to roll over, so you never have to spell it yourself.
+>
+> **The volumes form a CHAIN, and the ladder walks it from `LEDGER.md`, stopping at the first
+> missing link.** A volume is a file the scheme can reach, not a file whose name looks right:
+> a `LEDGER_X.md` with no `LEDGER_A.md`…`LEDGER_W.md` before it is unreachable, and its rows
+> are read by nothing. The rung says so rather than ignoring it quietly — one warning naming
+> the unreachable file, and a failure if `LEDGER.md` itself is the one missing. Existing rows
+> are never moved or renumbered — the cap bounds file size, not history. A citation's prefix
+> names its file.
 >
 > **`[cited]` marker (machine-CHECKED — you write it, the ladder verifies it).** A row cited
 > from the ladder's scan scope carries ` [cited]` after its number. The ladder checks it BOTH
@@ -1137,10 +1166,26 @@ The guards it ships with:
   Ask the question of the document, not of the configured list, or you close the one heading
   that broke and leave the class open.
 - **Ledger rollover** — warn approaching the line cap; fail when the live file's LAST row
-  *starts* past the cap. The final row may overflow; the next belongs in the next file.
+  *starts* past the cap. The final row may overflow; the next belongs in the next file, and the
+  failure NAMES that file — file name and row prefix both, computed by an odometer over A–Z
+  with carry (`Z`→`AA`, `AZ`→`BA`, `ZZ`→`AAA`), because a lookup table is the thing that has a
+  last entry and the scheme's old one ended at Z. The same carry rule answers *which file is
+  live*: the volumes are a **chain** walked from the base volume, and the walk stops at the
+  first missing link. Membership is reachability, not spelling — a name-shaped rule (last glob
+  match, or the greatest `[A-Z]+` suffix) can be satisfied by a file that belongs to no chain,
+  and then the rung measures a file nobody writes to while printing `ok`. Anything volume-shaped
+  the walk does not reach is named in a warning rather than ignored, and a missing base volume
+  is a failure rather than a `skip`, because both of those otherwise read exactly like a pass.
 - **Citation integrity** — grep the source trees (code and workflows, NOT docs, and not the
   guard's own fixture suite, which carries synthetic and harness-internal IDs by design and is
-  what the shipped `amh.conf` excludes) for `D[A-Z]?-\d+`. The other shipped scripts stay in
+  what the shipped `amh.conf` excludes) for `D[A-Z]*-\d+` **as a whole word** — any number of
+  volume letters, so a `DAA-001` citation is checked rather than silently unseen. Both halves
+  matter: unanchored, that pattern matches inside longer words and reports ids that exist
+  nowhere. Whole-word matching also closes the same trap one letter down, where an `XL-003` in
+  a fixture read as a citation to `L-003`. The price is that a standalone token of that shape
+  in your code — `DEBUG-2` and the like — now reads as an unresolved citation. Rows are read
+  from the volume chain, never from every file whose name starts with the basename, so the two
+  guards cannot disagree about what a volume is. The other shipped scripts stay in
   scope and need no exemption: they name the harness's own rows as `AMH ledger row DNNN`,
   deliberately not a citation, because those rows are ours and can never resolve in your ledger
   — written as citations they failed an adopter's first ladder run. The rail scripts and the
