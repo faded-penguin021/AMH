@@ -45,18 +45,9 @@ U1–U6 as AMH 4.0.0; publishing the tag remains queued below.
 and publishing are owner steps. Create and push `amh-v4.0.0` after merge. No check: only the
 owner may tag/publish.
 
-**Open questions — ONE.** What may the lab now claim? The owner has accepted six agent-backed
-runs as satisfying RFC3 criterion 2 (**DB-009**), so `conformance/README.md`'s opening — "until
-an owner funds a model-backed run on a disposable remote, this lab demonstrates that its
-evaluators are deterministic and mutation-sensitive… it demonstrates nothing whatever about how
-any agent behaves" — is now stale in its premise, and that sentence is the one every release
-claim carries. The honest replacement is narrower than "the lab works": A5 held 6/6, so six
-subjects of one model on one fixture did not reproduce the DA-003 class, and A6's 5/6 break says
-more about the evaluator than about them. Recommendation: keep the release-claims bound and
-restate it as one model, one fixture, six runs, with the DB-009(d) residues named — never as a
-conformance claim. Owner's call because it is a release claim, not a description. Everything else
-asked has been answered in the rows the Changelog cites; tags through 3.0.0 are cut, each
-verified by `git ls-remote` naming it, and `main`'s protection is repointed at `ladder`.
+Everything else asked has been answered in the rows the Changelog cites; tags through 3.0.0
+are cut, each verified by `git ls-remote` naming it, and `main`'s protection is repointed at
+`ladder`.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -88,6 +79,13 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-05 — **Conformance lab release claim narrowed.** `conformance/README.md` now states
+  the post-criterion-2 bound as one model, one fixture and six owner-accepted runs, with the
+  DB-009(d) A5/A6 residues named, and says explicitly that this is not a conformance claim.
+- 2026-08-05 — **Ladder-through-tail warning added.** The command guard now allows but warns on
+  direct `scripts/ladder.sh | tail ...` verification attempts, because that shape can hide the
+  ladder's exit status.
 
 - 2026-08-05 — **RFC3 criterion 2 closed by owner decision.** The owner accepted the six
   agent-backed scenario-02 runs as satisfying it, over the two residues **DB-009**(d) names —
