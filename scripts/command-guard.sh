@@ -64,7 +64,7 @@
 #   command-guard.sh --command 'CMD'  check one command directly
 #   command-guard.sh --self-test      blocked + allowed fixture matrix
 #
-# Exit codes: 0 = allowed (or fail-open), 2 = blocked (reason on stderr).
+# Exit codes: 0 = allowed (or fail-open; warnings may print on stderr), 2 = blocked (reason on stderr).
 #
 # Shipped by the Agentic Maintenance Harness. Repo-agnostic: do not edit locally.
 #
@@ -267,6 +267,7 @@ strip_heredocs() {
 
 # --- rails ------------------------------------------------------------------
 BLOCK_REASON=''
+WARN_REASON=''
 
 is_env_template() { # .env.example and friends carry no secrets
 	case $1 in
@@ -785,10 +786,59 @@ check_segment() {
 	return 0
 }
 
+leading_command() {
+	local raw=$1 w i=0
+	local words=()
+	while IFS= read -r -d '' w; do words+=("$w"); done < <(split_words "$raw")
+	while [ "$i" -lt "${#words[@]}" ]; do
+		w=${words[$i]}
+		case $w in
+		*=*) i=$((i + 1)) ;;
+		sudo | nohup | nice | time | command | builtin | exec) i=$((i + 1)) ;;
+		env)
+			# Mirror check_segment's transparent-prefix treatment for ordinary
+			# `env NAME=value cmd` forms. An `env` dump is not the advisory's subject.
+			if [ $((i + 1)) -lt "${#words[@]}" ]; then
+				case ${words[$((i + 1))]} in -*) break ;; *) i=$((i + 1)) ;; esac
+			else
+				break
+			fi
+			;;
+		*) break ;;
+		esac
+	done
+	[ "$i" -lt "${#words[@]}" ] || return 1
+	printf '%s' "${words[$i]##*/}"
+}
+
+warn_ladder_tail() {
+	local cmd=$1 seg lead prev_ladder=0
+	case $cmd in *ladder.sh*tail*) ;; *) return 0 ;; esac
+	# Warn only for the ordinary mistaken shape: a direct ladder invocation whose
+	# output is piped to tail. Reuse the shell-ish segment and word scanners so quoted
+	# prose like a commit message stays data, not a warning.
+	cmd=$(strip_heredocs "$cmd")
+	while IFS= read -r -d '' seg; do
+		[ -n "${seg// /}" ] || continue
+		lead=$(leading_command "$seg") || { prev_ladder=0; continue; }
+		# split_segments treats the `&` in `2>&1` as an operator, yielding a bare
+		# file-descriptor segment between the ladder and the real pipe target. Ignore
+		# that artifact so the common `2>&1 | tail` spelling still warns.
+		[ "$prev_ladder" -eq 1 ] && case $lead in [0-9]*) continue ;; esac
+		if [ "$prev_ladder" -eq 1 ] && [ "$lead" = tail ]; then
+			WARN_REASON="Running the AMH ladder through \`tail\` can hide the ladder exit status. Run \`scripts/ladder.sh\` directly when verifying; use a separate read-only command only after the direct run."
+			return 0
+		fi
+		case $lead in ladder.sh) prev_ladder=1 ;; *) prev_ladder=0 ;; esac
+	done < <(split_segments "$cmd")
+}
+
 check_command() {
 	local cmd=$1
 	local seg
 	BLOCK_REASON=''
+	WARN_REASON=''
+	warn_ladder_tail "$cmd"
 	cmd=$(strip_heredocs "$cmd")
 	while IFS= read -r -d '' seg; do
 		[ -n "${seg// /}" ] || continue
@@ -821,6 +871,7 @@ run_hook() {
 		printf 'BLOCKED by the AMH command guard.\n\n%s\n' "$BLOCK_REASON" >&2
 		exit 2
 	fi
+	[ -n "$WARN_REASON" ] && printf 'WARNING from the AMH command guard.\n\n%s\n' "$WARN_REASON" >&2
 	exit 0
 }
 
@@ -835,6 +886,18 @@ st_blocked() {
 st_allowed() {
 	if ! check_command "$1"; then
 		printf 'SELF-TEST FAIL: should have been ALLOWED: %s\n   reason given: %s\n' "$1" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif [ -n "$WARN_REASON" ]; then
+		printf 'SELF-TEST FAIL: should have been ALLOWED WITHOUT WARNING: %s\n   warning given: %s\n' "$1" "$WARN_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+}
+st_warn_allowed() {
+	if ! check_command "$1"; then
+		printf 'SELF-TEST FAIL: should have been ALLOWED WITH WARNING: %s\n   reason given: %s\n' "$1" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif [ -z "$WARN_REASON" ]; then
+		printf 'SELF-TEST FAIL: should have WARNED: %s\n' "$1" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	fi
 }
@@ -945,6 +1008,9 @@ printenv'
 	st_allowed 'echo "cat .env is forbidden by P17"'
 	st_allowed 'grep -rn "printenv" docs/'
 	st_allowed 'scripts/command-guard.sh --self-test'
+	st_warn_allowed 'scripts/ladder.sh | tail -20'
+	st_warn_allowed './scripts/ladder.sh --guards-only 2>&1 | tail -40'
+	st_allowed 'git commit -m "document scripts/ladder.sh | tail warning"'
 	# Prose naming a forbidden path.
 	st_allowed 'grep -rn "force-push" docs/RUNBOOK.md'
 	# Ordinary correct usage.
@@ -1069,7 +1135,10 @@ git push --force origin main
 case "${1:-}" in
 "") run_hook ;;
 --command)
-	if check_command "${2:-}"; then exit 0; fi
+	if check_command "${2:-}"; then
+		[ -n "$WARN_REASON" ] && printf 'WARNING from the AMH command guard.\n\n%s\n' "$WARN_REASON" >&2
+		exit 0
+	fi
 	printf 'BLOCKED by the AMH command guard.\n\n%s\n' "$BLOCK_REASON" >&2
 	exit 2
 	;;

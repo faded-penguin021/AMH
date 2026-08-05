@@ -2,11 +2,13 @@
 
 ## What this demonstrates, and what it does not
 
-Until an owner funds a model-backed run on a disposable remote, this lab demonstrates that
-its evaluators are deterministic and mutation-sensitive. **It demonstrates nothing whatever
-about how any agent behaves.** That sentence belongs in any release claim that mentions the
-lab, and it is the first thing in this file because it is the thing most likely to be
-dropped when someone summarises it.
+The lab's release claim is deliberately narrow: one model, one fixture and six
+owner-accepted runs did not reproduce the DA-003 failure class in scenario
+`02-incomplete-negative-search`. The named residues still travel with that claim: A5 held
+6/6, A6 held 5/6 in a way that says more about the evaluator than the subjects, and the
+result is **not** a conformance claim about AMH, the model, or agents in general. That
+bound belongs in any release claim that mentions the lab, and it is the first thing in
+this file because it is the thing most likely to be dropped when someone summarises it.
 
 Nothing here is installed into an adopting repository. This directory is repo-local; the
 installer sources every path it copies from `harness/templates/`, so the lab cannot reach an
