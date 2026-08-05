@@ -17,7 +17,7 @@ The AMH meta-repository: both the **source of truth** for the Agentic Maintenanc
 reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
 **reference instance**, running byte-identical copies of the scripts it ships. The product is
 `harness/` (prose source, templates, generated bundle); this repo's instance is `AGENTS.md` +
-`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 4.0.0** — see `harness/VERSION`,
+`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 4.1.0** — see `harness/VERSION`,
 the copy that counts.
 
 ## Current state
@@ -26,8 +26,9 @@ the copy that counts.
 guard compares the working tree to `HEAD`, so rows that predate the active unit must remain
 present and byte-identical; the sole allowed edit is appending one strict standalone
 `Superseded by D[A-Z]*-NNN.` sentence. Rows first created in the uncommitted unit remain draft
-material until commit. **DB-008** records the rule and its tradeoff. The owner has classified
-U1–U6 as AMH 4.0.0; publishing the tag remains queued below.
+material until commit. **DB-008** records the rule and its tradeoff. The owner has tagged
+AMH 4.0.0; the current working release line is AMH 4.1.0 for the one-time `.env`
+advisory and runtime-restatement principle.
 
 ## Owner queue
 
@@ -41,13 +42,12 @@ U1–U6 as AMH 4.0.0; publishing the tag remains queued below.
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
 
-**OPEN — publish AMH 4.0.0.** Version files and changelog now name 4.0.0, but tagging
-and publishing are owner steps. Create and push `amh-v4.0.0` after merge. No check: only the
+**OPEN — publish AMH 4.1.0.** Version files and changelog now name 4.1.0, but tagging
+and publishing are owner steps. Create and push `amh-v4.1.0` after merge. No check: only the
 owner may tag/publish.
 
-Everything else asked has been answered in the rows the Changelog cites; tags through 3.0.0
-are cut, each verified by `git ls-remote` naming it, and `main`'s protection is repointed at
-`ladder`.
+Everything else currently asked has been answered in the rows the Changelog cites; tags through
+4.0.0 are cut by owner report, and `main`'s protection is repointed at `ladder`.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -76,6 +76,16 @@ re-litigate from.
   see. Each of the three carries an argument this line deliberately does not reproduce.
 
 ## Changelog
+
+- 2026-08-05 — **Long ladder runtime triaged.** The apparent hang during verification was the
+  shipped guard fixture suite repeatedly invoking guard-only ladders and command-guard
+  self-tests; no surviving processes were observed after completion. **DB-011** is the record.
+
+- 2026-08-05 — **4.1.0 selected after 4.0.0 tag.** The `.env` advisory and
+  runtime-restatement principle are additive for adopters, so the next harness version is
+  MINOR: 4.1.0. The owner reported 4.0.0 tagged, so that Owner-queue item is retired.
+
+- 2026-08-05 — **One-time `.env` advisory added.** The command guard now blocks the first command text in a session that mentions `.env`, explains why credential-file access is dangerous, and tells the agent to rerun only if the warning is inapplicable; later attempts fall through to the existing precise rails. P13 now names narrow, incident-earned runtime restatement as the design rule behind that diagnostic. **DB-010** is the record.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.

@@ -11,6 +11,25 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 4.1.0 — 2026-08-05
+
+- **The command guard has a one-time `.env` advisory.** The first command text in a session
+  that mentions `.env` is blocked with a diagnostic explaining why credential-file access is
+  dangerous and how to proceed if the match is a false positive. The advisory deliberately
+  rearms at session start and then stays spent for the rest of that session, so broad
+  interpreter snippets get one salient warning while the existing precise secret-file rails
+  remain responsible for definite reader commands.
+
+- **Runtime restatement is named as a guard design principle.** Diagnostics should restate only
+  the narrow, incident-earned behavioural rules whose failure is likely and expensive, naming
+  why the tempting action is dangerous and the safe next move without implying coverage the
+  guard does not have.
+
+### Upgrading
+
+1. Copy the shipped scripts if you want the new `.env` advisory. No adopter action is required
+   for the principle clarification.
+
 ## 4.0.0 — 2026-08-04
 
 Three externally-authored RFCs were entered as data, adjudicated claim by claim, and mostly

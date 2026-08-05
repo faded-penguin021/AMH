@@ -462,3 +462,29 @@
   which session discipline 1 forbids without qualification (D-009). It was rationalised in
   flight as experiment specimens rather than units of work; the rule carries no such exemption,
   and the section was read afterwards rather than before. Runs 1 and 6 were sequential.
+
+- DB-010: **The interpreter `.env` hole earned a one-time speed bump, not a false promise of
+  parsing every interpreter.** The command guard still cannot understand `python3 -c
+  "open('.env')"` as a file read after the speed bump is spent; enumerating interpreters would
+  only move the miss to a different spelling inside the interpreter program. The useful owner
+  intervention is therefore a session-local advisory block on the first command text that names
+  `.env`: it stops the likely mistake, explains that credential files can leak through values,
+  hashes, lengths, copies and interpreter reads, and tells the agent to rerun only if the warning
+  is inapplicable or false positive. `session-start.sh` rearms the state by deleting the
+  repository's advisory marker, and the command-guard self-test uses an explicit temporary marker
+  so verification cannot spend the live session's warning. Subsequent attempts fall through to the
+  existing precise rails, so `cat .env` remains blocked by the real reader rail while a
+  prose/template false positive does not brick the session.
+
+- DB-011: **The long quiet ladder run was fixture cost, not an observed process leak.** During
+  the 4.1.0 advisory work, `scripts/ladder.sh` appeared stuck while it was inside
+  `scripts/test-ladder-guards.sh`; process inspection showed the suite repeatedly running
+  `scripts/ladder.sh --guards-only`, whose rail rung runs `scripts/command-guard.sh --self-test`.
+  A standalone command-guard self-test took about nine seconds in this container, and the shipped
+  fixture suite invokes guard-only ladders across many temporary repos, producing long stretches
+  with no terminal output before eventually reporting `133 passed, 0 failed`. No surviving guard
+  or ladder processes remained after completion. This is a performance/observability cost rather
+  than a correctness failure; do not add cleanup machinery without evidence of orphaned processes
+  or stale state, because killing by name would risk deleting the command under verification.
+  Prefer a future progress note or fixture-suite timing work if the silence becomes a repeated
+  operational problem.

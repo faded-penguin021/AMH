@@ -26,9 +26,11 @@
 #
 #   * INTERPRETERS. The secret-file scanners recognise a file read through an enumerated
 #     list of reader commands (`cat`, `grep`, `awk`, `wc`, `md5sum` and about thirty more)
-#     or a `<` redirection. That list is a list, not a category: `python3 -c
-#     "open('.env')"`, `perl -e`, `node -e`, `ruby -e` and every other interpreter NOT on
-#     it reach the file unjudged. This is the widest hole and it is structural —
+#     or a `<` redirection. A one-time `.env` advisory now blocks the first command text
+#     that names the path, but after that speed bump the list is still a list, not a
+#     category: `python3 -c "open('.env')"`, `perl -e`, `node -e`, `ruby -e` and every
+#     other interpreter NOT on it reach the file unjudged. This remains the widest hole
+#     and it is structural —
 #     enumerating interpreters would not close it, since each has unbounded ways to spell
 #     a read. Note the shape of the miss for a listed one: `awk '{print}' .env` is blocked
 #     because `awk` leads the segment, while `awk 'BEGIN{while((getline<".env")>0)print}'`
@@ -268,12 +270,45 @@ strip_heredocs() {
 # --- rails ------------------------------------------------------------------
 BLOCK_REASON=''
 WARN_REASON=''
+DOTENV_ADVISORY_REASON=''
 
 is_env_template() { # .env.example and friends carry no secrets
 	case $1 in
 	*.env.example | *.env.sample | *.env.template | *.env.dist) return 0 ;;
 	*) return 1 ;;
 	esac
+}
+
+
+# A broad, one-time speed bump for commands that merely CONTAIN `.env`, including
+# interpreter snippets this guard deliberately cannot parse as file reads. This is an
+# advisory block, not a proof of danger: the second attempt in the same session is
+# allowed through to the normal rails so false positives do not brick the agent.
+#
+# Session identity is not portable across agent vendors, so the default state is a
+# per-repository file under /tmp. Tests override DOTENV_ADVISORY_STATE explicitly.
+dotenv_advisory_state_file() {
+	if [ -n "${DOTENV_ADVISORY_STATE+x}" ]; then
+		printf '%s' "$DOTENV_ADVISORY_STATE"
+		return 0
+	fi
+	local slug uid
+	slug=${ROOT//\//_}
+	slug=${slug// /_}
+	uid=${UID:-unknown}
+	printf '/tmp/amh-command-guard-dotenv-advisory-%s-%s' "$uid" "$slug"
+}
+
+needs_dotenv_advisory() {
+	local cmd=$1 state
+	case $cmd in *.env*) ;; *) return 1 ;; esac
+	state=$(dotenv_advisory_state_file)
+	[ -n "$state" ] || return 1
+	[ -e "$state" ] && return 1
+	: >"$state" 2>/dev/null || return 1
+	# shellcheck disable=SC2016 # the presence-check example must print literally.
+	DOTENV_ADVISORY_REASON='This command mentions `.env`. Those files commonly contain live credentials, and even lengths, hashes, excerpts, copies or interpreter reads can disclose or spread secrets. The command guard is stopping this once so you can reconsider: prefer presence-only checks (for example, `[ -n "${MY_KEY:-}" ] && echo set`) or let the tool that needs credentials read them directly. If this warning is not applicable, or this is a false positive such as prose or a template-safe operation, run the same command again; this one-time advisory will not rearm during this session.'
+	return 0
 }
 
 names_env_file() {
@@ -708,8 +743,9 @@ check_segment() {
 		;;
 	# Commands that PRINT what they read. `wc`, `md5sum` and friends are here because
 	# a length and a hash are exactly what P17 forbids reporting — not because they
-	# show the file. This list is a list: `python3 -c "open('.env')"` is an accepted
-	# miss and the prose must not claim otherwise.
+	# show the file. This list is a list: after the one-time `.env` advisory is spent,
+	# `python3 -c "open('.env')"` is an accepted miss and the prose must not claim
+	# otherwise.
 	cat | less | more | head | tail | bat | xxd | od | strings | nl | \
 		grep | egrep | fgrep | rg | awk | cut | tr | base64 | uniq | \
 		wc | md5sum | sha1sum | sha256sum | sha512sum | shasum | cksum | sum | cmp | diff)
@@ -838,6 +874,11 @@ check_command() {
 	local seg
 	BLOCK_REASON=''
 	WARN_REASON=''
+	DOTENV_ADVISORY_REASON=''
+	if needs_dotenv_advisory "$cmd"; then
+		BLOCK_REASON=$DOTENV_ADVISORY_REASON
+		return 1
+	fi
 	warn_ladder_tail "$cmd"
 	cmd=$(strip_heredocs "$cmd")
 	while IFS= read -r -d '' seg; do
@@ -892,6 +933,31 @@ st_allowed() {
 		ST_FAILS=$((ST_FAILS + 1))
 	fi
 }
+st_dotenv_advisory_once() {
+	local state old_set old_state
+	old_set=${DOTENV_ADVISORY_STATE+x}
+	old_state=${DOTENV_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-dotenv-advisory-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	DOTENV_ADVISORY_STATE=$state
+	if check_command "$1"; then
+		printf 'SELF-TEST FAIL: should have had one-time .env advisory: %s\n' "$1" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif [ -z "$DOTENV_ADVISORY_REASON" ]; then
+		printf 'SELF-TEST FAIL: .env advisory did not explain itself: %s\n' "$1" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif ! check_command "$1"; then
+		printf 'SELF-TEST FAIL: second .env advisory attempt should have reached normal rails: %s\n   reason given: %s\n' "$1" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then
+		DOTENV_ADVISORY_STATE=$old_state
+	else
+		unset DOTENV_ADVISORY_STATE
+	fi
+}
+
 st_warn_allowed() {
 	if ! check_command "$1"; then
 		printf 'SELF-TEST FAIL: should have been ALLOWED WITH WARNING: %s\n   reason given: %s\n' "$1" "$BLOCK_REASON" >&2
@@ -906,6 +972,13 @@ st_warn_allowed() {
 # text to be evaluated: single quotes are what stop `$GITHUB_TOKEN` expanding in this
 # shell, and expanding it would test nothing. Scoped to this function on purpose.
 self_test() {
+	local old_dotenv_advisory_state_set=${DOTENV_ADVISORY_STATE+x}
+	local old_dotenv_advisory_state=${DOTENV_ADVISORY_STATE:-}
+	local self_dotenv_advisory_state
+	self_dotenv_advisory_state=$(mktemp "${TMPDIR:-/tmp}/amh-dotenv-advisory-self-test.XXXXXX") || exit 1
+	rm -f -- "$self_dotenv_advisory_state"
+	DOTENV_ADVISORY_STATE=$self_dotenv_advisory_state
+
 	# --- must block: the rails themselves
 	st_blocked 'git push --force origin feature'
 	st_blocked 'git push -f origin feature'
@@ -1000,6 +1073,7 @@ printenv'
 	st_blocked 'dd if=.env of=/tmp/e'
 	st_blocked 'sed -n "/KEY/p" .env'
 	st_blocked 'sort .env'
+	st_dotenv_advisory_once 'python3 -c "open('"'"'.env'"'"')"'
 
 	# --- must allow: the known false-positive classes.
 	# Quoted text naming a forbidden command is DATA, not a command.
@@ -1125,6 +1199,12 @@ git push --force origin main
 	st_allowed ''
 	st_allowed '   '
 
+	rm -f -- "$self_dotenv_advisory_state"
+	if [ -n "$old_dotenv_advisory_state_set" ]; then
+		DOTENV_ADVISORY_STATE=$old_dotenv_advisory_state
+	else
+		unset DOTENV_ADVISORY_STATE
+	fi
 	if [ "$ST_FAILS" -ne 0 ]; then
 		printf 'command-guard.sh self-test: %d failure(s)\n' "$ST_FAILS" >&2
 		return 1

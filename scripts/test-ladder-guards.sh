@@ -819,6 +819,31 @@ else
 	report ok
 fi
 
+# Starting a new session rearms the broad `.env` advisory. Without this cleanup,
+# the first warning in one container lifetime spends the advisory for later sessions
+# in the same repo, which contradicts the diagnostic's session-local promise.
+d=$(mk ss_rearms_dotenv_advisory)
+out=$(cd "$d" && scripts/command-guard.sh --command 'python3 -c "open('"'"'.env'"'"')"' 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF "This command mentions \`.env\`"; then
+	report ok
+else
+	report no "the first .env command gets the advisory" "rc=$rc" "$out"
+fi
+if (cd "$d" && scripts/command-guard.sh --command 'python3 -c "open('"'"'.env'"'"')"' >/dev/null 2>&1); then
+	report ok
+else
+	report no "the second interpreter .env command reaches normal rails" "it was still blocked"
+fi
+(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh >/dev/null 2>&1)
+out=$(cd "$d" && scripts/command-guard.sh --command 'python3 -c "open('"'"'.env'"'"')"' 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF "This command mentions \`.env\`"; then
+	report ok
+else
+	report no "session-start rearms the one-time .env advisory" "rc=$rc" "$out"
+fi
+
 # --- the protocol pointer names only documents that exist
 # Not every install profile ships a runbook — the smallest one, which is the default,
 # deliberately does not. The banner used to name docs/RUNBOOK.md unconditionally, so the
