@@ -17,7 +17,7 @@ The AMH meta-repository: both the **source of truth** for the Agentic Maintenanc
 reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
 **reference instance**, running byte-identical copies of the scripts it ships. The product is
 `harness/` (prose source, templates, generated bundle); this repo's instance is `AGENTS.md` +
-`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 3.0.0** — see `harness/VERSION`,
+`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 4.0.0** — see `harness/VERSION`,
 the copy that counts.
 
 ## Current state
@@ -26,8 +26,8 @@ the copy that counts.
 guard compares the working tree to `HEAD`, so rows that predate the active unit must remain
 present and byte-identical; the sole allowed edit is appending one strict standalone
 `Superseded by D[A-Z]*-NNN.` sentence. Rows first created in the uncommitted unit remain draft
-material until commit. **DB-008** records the rule and its tradeoff. What is open is the version
-number for U1–U6, which is the owner's.
+material until commit. **DB-008** records the rule and its tradeoff. The owner has classified
+U1–U6 as AMH 4.0.0; publishing the tag remains queued below.
 
 ## Owner queue
 
@@ -41,30 +41,25 @@ number for U1–U6, which is the owner's.
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
 
-**OPEN — the version bump for this work, and U5's evidence flips the recommendation to MAJOR.**
-`harness/CHANGELOG.md` carries an **Unreleased** section with its Upgrading notes and
-deliberately no number, because a heading is a claim; read it for what shipped. U1–U4 are
-additive. U5 keeps every existing `D-`/`DA-`/`DB-` citation resolving — the superset half holds,
-verified by diffing this repo's citation set under both patterns — but the widened pattern is
-**not** side-effect-free for an adopter: `D[A-Z]*-[0-9]+` now matches a token of the shape
-`DEBUG-<n>` in scanned code, and a continuation volume named outside the scheme stops being the
-live one, so a tree that was green can go red — or get quieter — on a file nobody touched. By
-the criterion this item has always stated, that is an adopter-visible break and reads MAJOR
-(4.0.0). It stays yours: the runbook makes an ambiguous major-vs-minor call the owner's, and
-"unlikely in practice" is a judgement, not a fact. The bump then touches five lockstep copies
-plus the manifest and the bundle. No check: a semantics judgement.
+**OPEN — publish AMH 4.0.0.** Version files and changelog now name 4.0.0, but tagging
+and publishing are owner steps. Create and push `amh-v4.0.0` after merge. No check: only the
+owner may tag/publish.
 
 **OPEN — RFC3 criterion 2: one conformance scenario run through a hosted agent.** Needs a hosted
-task launch on a disposable remote, which an agent session may not assume (**DA-026**). You
-launch it and name the branch; I point the same deterministic evaluator at that clone —
+task launch on a disposable remote, which an agent session may not assume (**DA-026**). If you
+have no terminal, this can still work in a cloud coding agent that has a shell and this repo:
+launch the scenario task in one disposable clone, then ask a second cloud session to run the
+deterministic evaluator against the produced branch/clone and the fixture baseline, e.g.
 `conformance/evaluators/02-incomplete-negative-search.sh --result <clone> --baseline <sha>`, or
-scenario 1 the same way. **Both** scenarios are built, so either will do. Until then the lab says
-nothing whatever about how any agent behaves, in the words `conformance/README.md` opens with and
-every release claim carries. No check: only you can settle it.
+scenario 1 the same way. If the hosted product cannot expose a result clone and baseline SHA to
+an evaluator process, AMH cannot make that product run count yet; do not change the conformance
+tests for that. **Both** scenarios are built, so either will do. Until then the lab says nothing
+whatever about how any agent behaves, in the words `conformance/README.md` opens with and every
+release claim carries. No check: only you can settle it.
 
 **Open questions:** none. Everything asked has been answered and recorded in the rows the
-Changelog cites; the release tags through 3.0.0 are cut and each was verified by `git ls-remote`
-naming it, and `main`'s protection is repointed at `ladder`.
+Changelog cites; the release tag for 4.0.0 is queued above, tags through 3.0.0 are cut and each
+was verified by `git ls-remote` naming it, and `main`'s protection is repointed at `ladder`.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -96,6 +91,10 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-04 — **Release classification set to AMH 4.0.0.** Owner answered the version fork as
+  MAJOR; the changelog's Unreleased section became 4.0.0, lockstep version copies moved, and
+  the Quick Start now pins `amh-v4.0.0`. Tagging/publishing remain owner work.
 
 - 2026-08-04 — **U6: committed ledger rows are append-only under a local guard.** Added
   `scripts/guards/ledger-append-only.sh` plus fixtures covering deletion, arbitrary rewrite,

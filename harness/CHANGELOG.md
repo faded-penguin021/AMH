@@ -11,15 +11,11 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
-## Unreleased
+## 4.0.0 — 2026-08-04
 
 Three externally-authored RFCs were entered as data, adjudicated claim by claim, and mostly
 refused; what survived is here. No shipped script was added, no artifact format was introduced,
-no dependency was taken, and no exit code changed. **The version number is deliberately not
-chosen yet** — the ledger-volume rollover has now landed and it moves guard semantics: every
-existing citation still resolves, but the widened pattern can fail a tree that was green, which
-is the adopter-visible half that decides MINOR against MAJOR. The call is the owner's and is
-open. Until it is made this section carries no number, because a heading is a claim.
+no dependency was taken, and no exit code changed.
 
 - **The ladder says green OF WHAT.** All five verdict lines now name the commit they verified
   and whether the tree that was verified IS that commit — `HEAD <sha>, worktree clean`, or a
