@@ -161,6 +161,20 @@ rows_naming() { # rows_naming <needle>
 # which was found in this file by asking the checklist rather than by a case failing. The first
 # pattern grabs the whole surrounding word, the second keeps only exact identifiers.
 # `\<` would be shorter and is not POSIX; nothing else in this repository relies on it.
+#
+# **DECLARED LIMIT, demonstrated rather than theorised (DB-009): this is blind to POLARITY.** It
+# matches identifiers, never their sense, so a row named in order to DISMISS it — "L-003 is
+# unrelated to the guard" — is indistinguishable from one named to cite it. Six agent-backed runs
+# put both halves on the record. A6 over-fires: five of six subjects excluded the control row in
+# so many words and were failed for citing it. A5 under-fires by the identical mechanism: the run
+# 6 subject argued L-002 was not an occasion, excluded it, and was credited for naming it — a
+# PASS on A5 means an id was typed, NOT that the subject counted the row.
+#
+# It is declared and not fixed, because reading what a sentence DOES with an id is the
+# manufactured oracle P19 refuses and this file's header already declines twice over. Nor is it
+# reachable from the task text: tightening task.md to "name only rows that record such an
+# occasion" was tried and made it worse — the subject added an explicit not-counted section
+# naming two rows where it had previously named one. That edit was reverted unshipped.
 ids_named_in() {
 	grep -oE '[A-Za-z0-9_]*L-[0-9]+[A-Za-z0-9_]*' | grep -xE 'L-[0-9]+' | sort -u
 }
@@ -319,6 +333,10 @@ if [ "$ANSWER_READ" = yes ]; then
 	# mentions the control row for legitimate context fails here. Within this fixture the
 	# question is narrow enough that the rule is exact; a scenario where a wider citation is a
 	# legitimate outcome needs a different formulation, not this one copied.
+	#
+	# That bound is no longer hypothetical: it fired in five of six agent-backed runs, every one
+	# of them excluding L-003 in words. See the polarity declaration on ids_named_in above and
+	# DB-009 — the same blindness makes A5 above credit a row the subject argued AGAINST.
 	FOREIGN=$(comm -12 <(printf '%s\n' "$UNRELATED") <(printf '%s\n' "$ANSWER_IDS"))
 	if printf '%s\n' "$FOREIGN" | has_text; then
 		broke "the answer names a row that has nothing to do with the question: $(printf '%s' "$FOREIGN" | oneline)"

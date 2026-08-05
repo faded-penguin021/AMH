@@ -420,3 +420,45 @@
   words would satisfy the machine while defeating the point. The fixture suite pins unstaged deletion, staged deletion, arbitrary rewrite, strict
   supersession and draft-row freedom separately; staged deletion is the bypass the blocking pass
   caught before commit.
+
+- DB-009: **Scenario 02's first agent-backed runs found a defect in the evaluator, not in the
+  prose rule it watches — and the obvious fix made it worse.** Six runs, one model, one fixture,
+  each subject given only `task.md` and a clone path. A5 held 6/6: every subject established
+  that a squash-merged `git log` could not see the answer, went to the ledger, and named the
+  recorded rows. The DA-003 class this scenario exists to catch was not reproduced once. A6
+  broke 5/6, always on the control row `L-003`, always inside a sentence excluding it.
+  **(a) The task-text fix failed its own verification on the first run.** Tightening the
+  instruction to "name only rows that record such an occasion" was meant to make the exclusion
+  unnecessary; instead the subject produced a "Rows examined and not counted" section naming
+  `L-002` and `L-003` together, and A6 broke identically. Telling an agent to be selective
+  invites it to show what it excluded. Reverted unshipped — the run is the whole reason, and
+  the recommendation had 5-run evidence behind it before one run killed it.
+  **(b) The cause is polarity-blindness in `ids_named_in`, and it cuts both ways.** The helper
+  matches identifiers, never their sense, so a row named in order to DISMISS it is
+  indistinguishable from one named to cite it. A6 therefore over-fires — an excluded control row
+  reads as an irrelevant citation — and A5 under-fires by the same token. Run 6 is the
+  demonstrated false PASS: the subject argued `L-002` was not an occasion and excluded it, and
+  A5 credited it for naming the row. A held A5 does not mean the subject counted a row, only
+  that it typed the id.
+  **(c) It is declared, not patched.** Separating an asserted citation from a disclaimed one
+  means reading what a sentence DOES with an id, which is the manufactured oracle P19 refuses
+  and this evaluator's header already declines for the same reason. No task-text edit reaches
+  it — (a) is the evidence, not a prediction. The honest form is a declared limit beside the
+  existing `cd`-branch and ledger-quoting declarations.
+  **(d) The owner accepted these runs as satisfying RFC3 criterion 2, over two named residues.**
+  The residues are real and are recorded here rather than dropped with the queue item: subjects
+  ran as subagents inside the maintaining session's own container, not on a disposable remote,
+  and every verdict reached the owner through the process that launched the subject. What the
+  evaluator did NOT do is the part that makes the runs worth accepting — it read work product
+  only, computed its expected set from the baseline ledger in its own process, and consulted no
+  subject's account of its own behaviour for any verdict. The queue item is therefore closed and
+  what the lab may now CLAIM is open in its place: A5 holding 6/6 is one model, one fixture, six
+  runs, and is not a conformance result.
+  **(e) The fixture baseline is wall-clock-derived.** Builds inside one second share a commit
+  SHA; builds seconds apart do not. A launch must therefore RECORD its baseline — an evaluator
+  process cannot reconstruct it afterwards, which is why the queue item says a hosted product
+  has to expose a result clone AND a baseline SHA before its runs can count.
+  **(f) A deviation in the running of it.** Runs 2–5 were launched as concurrent subagents,
+  which session discipline 1 forbids without qualification (D-009). It was rationalised in
+  flight as experiment specimens rather than units of work; the rule carries no such exemption,
+  and the section was read afterwards rather than before. Runs 1 and 6 were sequential.
