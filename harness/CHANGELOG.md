@@ -13,6 +13,11 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
 
 ## 4.1.0 — 2026-08-05
 
+- **Destructive filesystem commands get a one-time advisory.** Recursive forced removal and
+  forced directory cleaning now pause once with safer alternatives and proceed through the
+  normal rails when intentionally rerun. The advisory mechanism is shared with the existing
+  `.env` speed bump, while shell-aware parsing keeps command-shaped prose out of scope.
+
 - **The command guard has a one-time `.env` advisory.** The first command text in a session
   that mentions `.env` is blocked with a diagnostic explaining why credential-file access is
   dangerous and how to proceed if the match is a false positive. The advisory deliberately
@@ -27,8 +32,8 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
 
 ### Upgrading
 
-1. Copy the shipped scripts if you want the new `.env` advisory. No adopter action is required
-   for the principle clarification.
+1. Copy the shipped scripts if you want the new `.env` and destructive-command advisories. No
+   adopter action is required for the principle clarification.
 
 ## 4.0.0 — 2026-08-04
 
