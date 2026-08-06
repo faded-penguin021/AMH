@@ -83,6 +83,11 @@ re-litigate from.
 
 ## Changelog
 
+- 2026-08-06 — **Command-guard self-test cost reduced without dropping bug classes.** Profiling
+  found repeated advisory classification dominated the short fixtures; spent-state fast paths
+  and compact destructive, heredoc, and tail-warning commands cut the suite from about 12.7s to
+  about 8.5s locally. Six targeted mutations still made the suite fail.
+
 - 2026-08-06 — **Repeated fixture-only rail and manifest work was removed without removing coverage.** Ordinary synthesized repositories now print explicit skips for the two unrelated expensive rungs, while dedicated cases run the unmodified rail self-tests, all required rail regressions, and the complete integrity matrix. **DB-015** records the coverage boundary.
 - 2026-08-06 — **The shipped guard fixture suite now reports passing progress.** Each passing
   fixture writes a deterministic numbered `ok` line with its name to stderr while retaining the

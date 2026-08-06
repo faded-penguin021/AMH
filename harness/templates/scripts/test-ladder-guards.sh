@@ -272,7 +272,7 @@ timing_diagnostics_self_test() {
 		report no "timing diagnostics filter and summarize fixtures" \
 			"an out-of-range threshold was accepted"
 	else
-		report ok
+		report ok "timing diagnostics filter and summarize fixtures"
 	fi
 }
 

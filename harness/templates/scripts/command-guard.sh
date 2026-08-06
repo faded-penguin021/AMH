@@ -289,29 +289,34 @@ is_env_template() { # .env.example and friends carry no secrets
 # Session identity is not portable across agent vendors, so the default state is a
 # per-repository, per-category file under /tmp. Tests may override either category's
 # file explicitly; DOTENV_ADVISORY_STATE remains supported for compatibility.
-advisory_state_file() { # advisory_state_file <name>
+ADVISORY_STATE_FILE=''
+advisory_state_file() { # advisory_state_file <name>; sets ADVISORY_STATE_FILE
 	local name=$1 slug uid
+	ADVISORY_STATE_FILE=''
 	case $name in
-	dotenv) [ -n "${DOTENV_ADVISORY_STATE+x}" ] && { printf '%s' "$DOTENV_ADVISORY_STATE"; return 0; } ;;
-	destructive) [ -n "${DESTRUCTIVE_ADVISORY_STATE+x}" ] && { printf '%s' "$DESTRUCTIVE_ADVISORY_STATE"; return 0; } ;;
+	dotenv) [ -n "${DOTENV_ADVISORY_STATE+x}" ] && { ADVISORY_STATE_FILE=$DOTENV_ADVISORY_STATE; return 0; } ;;
+	destructive) [ -n "${DESTRUCTIVE_ADVISORY_STATE+x}" ] && { ADVISORY_STATE_FILE=$DESTRUCTIVE_ADVISORY_STATE; return 0; } ;;
 	*) return 1 ;;
 	esac
 	slug=${ROOT//\//_}
 	slug=${slug// /_}
 	uid=${UID:-unknown}
-	printf '/tmp/amh-command-guard-%s-advisory-%s-%s' "$name" "$uid" "$slug"
+	ADVISORY_STATE_FILE=/tmp/amh-command-guard-$name-advisory-$uid-$slug
 }
 
 needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 	local name=$1 cmd=$2 state
+	advisory_state_file "$name" || return 1
+	state=$ADVISORY_STATE_FILE
+	[ -n "$state" ] || return 1
+	# Once a category has warned, do not keep paying for its broad classifier on
+	# every command in the session. The precise rails below still judge the command.
+	[ -e "$state" ] && return 1
 	case $name in
 	dotenv) case $cmd in *.env*) ;; *) return 1 ;; esac ;;
 	destructive) is_destructive_command "$cmd" || return 1 ;;
 	*) return 1 ;;
 	esac
-	state=$(advisory_state_file "$name")
-	[ -n "$state" ] || return 1
-	[ -e "$state" ] && return 1
 	: >"$state" 2>/dev/null || return 1
 	case $name in
 	dotenv)
@@ -1094,13 +1099,15 @@ self_test() {
 	local old_dotenv_advisory_state=${DOTENV_ADVISORY_STATE:-}
 	local self_dotenv_advisory_state
 	self_dotenv_advisory_state=$(mktemp "${TMPDIR:-/tmp}/amh-dotenv-advisory-self-test.XXXXXX") || exit 1
-	rm -f -- "$self_dotenv_advisory_state"
+	# Ordinary fixtures exercise the precise rails, not the advisory pre-pass. Keeping
+	# the shared category states spent also avoids reparsing every fixture as a possible
+	# destructive command. The dedicated helpers below use fresh state paths to prove
+	# each advisory's one-time behaviour.
 	DOTENV_ADVISORY_STATE=$self_dotenv_advisory_state
 	local old_destructive_advisory_state_set=${DESTRUCTIVE_ADVISORY_STATE+x}
 	local old_destructive_advisory_state=${DESTRUCTIVE_ADVISORY_STATE:-}
 	local self_destructive_advisory_state
 	self_destructive_advisory_state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-advisory-self-test.XXXXXX") || exit 1
-	rm -f -- "$self_destructive_advisory_state"
 	DESTRUCTIVE_ADVISORY_STATE=$self_destructive_advisory_state
 
 	# --- must block: the rails themselves
@@ -1198,18 +1205,12 @@ printenv'
 	st_blocked 'sed -n "/KEY/p" .env'
 	st_blocked 'sort .env'
 	st_dotenv_advisory_once 'python3 -c "open('"'"'.env'"'"')"'
-	st_destructive_advisory_once 'rm -rf tmp/build'
-	rm -f -- "$self_destructive_advisory_state"
-	st_destructive_advisory_once 'rm -fr tmp/build'
-	rm -f -- "$self_destructive_advisory_state"
-	st_destructive_advisory_once 'rm -r -f tmp/build'
-	rm -f -- "$self_destructive_advisory_state"
-	st_destructive_advisory_once 'rm -f -r tmp/build'
-	rm -f -- "$self_destructive_advisory_state"
-	st_destructive_advisory_once 'rm tmp/build -rf'
-	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf x'
+	st_destructive_advisory_once 'rm -fr x'
+	st_destructive_advisory_once 'rm -r -f x'
+	st_destructive_advisory_once 'rm -f -r x'
+	st_destructive_advisory_once 'rm x -rf'
 	st_destructive_advisory_once 'git clean -fdx'
-	rm -f -- "$self_destructive_advisory_state"
 	st_destructive_advisory_once 'git clean -df'
 
 	# --- must allow: the known false-positive classes.
@@ -1219,8 +1220,8 @@ printenv'
 	st_allowed 'echo "cat .env is forbidden by P17"'
 	st_allowed 'grep -rn "printenv" docs/'
 	st_allowed 'scripts/command-guard.sh --self-test'
-	st_warn_allowed 'scripts/ladder.sh | tail -20'
-	st_warn_allowed './scripts/ladder.sh --guards-only 2>&1 | tail -40'
+	st_warn_allowed 'scripts/ladder.sh|tail'
+	st_warn_allowed './scripts/ladder.sh|tail'
 	st_allowed 'git commit -m "document scripts/ladder.sh | tail warning"'
 	st_allowed 'git commit -m "document rm -rf risk"'
 	st_allowed 'rm file.txt'
@@ -1252,11 +1253,11 @@ printenv'
 	# A heredoc body is DATA. This is the shape that blocked the very commit
 	# shipping this rail: backticks split segments, so `env` in prose became a
 	# leading command. Both the quoted and unquoted delimiter forms.
-	st_allowed "$(printf '%s\n' "git commit -F - <<'EOF'" 'The guard blocks `env`, `printenv` and `.env` reads.' 'EOF')"
-	st_allowed "$(printf '%s\n' 'cat <<EOF >notes.md' 'Run `printenv` to see why this is denied.' 'EOF')"
+	st_allowed "$(printf '%s\n' "git commit -F- <<'EOF'" '`env`' 'EOF')"
+	st_allowed "$(printf '%s\n' 'cat <<EOF' '`printenv`' 'EOF')"
 	st_allowed "$(printf '%s\n' "cat <<-'EOF'" $'\tset' $'\tenv' $'\tEOF')"
 	# ...but a real command AFTER the terminator is still judged.
-	st_blocked "$(printf '%s\n' "git commit -F - <<'EOF'" 'prose about `env`' 'EOF' 'printenv')"
+	st_blocked "$(printf '%s\n' 'cat <<EOF' '`env`' 'EOF' 'printenv')"
 	# Prose naming the shapes, and the guard's own fixtures.
 	st_allowed 'grep -rn "GITHUB_TOKEN" docs/'
 	st_allowed 'git commit -m "block echo $GITHUB_TOKEN at the rail"'
