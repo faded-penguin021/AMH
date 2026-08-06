@@ -28,7 +28,7 @@ shipped bug teaches session N+9's review pass.
 >
 > **File cap & rollover.** This file holds at most **{{LINE_CAP}}** lines (the cap bounds
 > LINES, not rows — rows vary in length, and it is read and context cost that is being
-> bounded; keep the number in lockstep with `LEDGER_LINE_CAP` in `amh.conf`). The final row
+> bounded; keep the number in lockstep with `LEDGER_LINE_CAP` in `amh.conf`). Future rows must also stay at or below `LEDGER_ROW_CHAR_CAP` byte-counted characters; the ladder counts bytes under `LC_ALL=C` for a locale-stable result, so ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. The final row
 > may finish past the cap, but no row may ever *start* past it: when the file stands over the
 > cap, create the next volume with this same header discipline and number its rows from the
 > matching prefix — `LEDGER.md`/`D-` rolls to `LEDGER_A.md`/`DA-`, then `_B.md`/`DB-`. The

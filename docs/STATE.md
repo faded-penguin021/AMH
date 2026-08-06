@@ -24,9 +24,10 @@ the copy that counts.
 
 **U6 has landed: committed ledger rows are protected by a repo-local append-only guard.** The
 guard compares the working tree to `HEAD`, so rows that predate the active unit must remain
-present and byte-identical; the sole allowed edit is appending one strict standalone
-`Superseded by D[A-Z]*-NNN.` sentence. Rows first created in the uncommitted unit remain draft
-material until commit. **DB-008** records the rule and its tradeoff. The owner has tagged
+present and byte-identical except for sanctioned additive metadata: adding `[cited]` to the
+header and/or appending one strict standalone `Superseded by D[A-Z]*-NNN.` sentence. Rows first
+created in the uncommitted unit remain draft material until commit. **DB-008** records the rule
+and its tradeoff. The owner has tagged
 AMH 4.0.0; the current working release line is AMH 4.1.0 for the one-time `.env`
 advisory and runtime-restatement principle.
 
@@ -77,6 +78,8 @@ re-litigate from.
 
 ## Changelog
 
+- 2026-08-05 — **New ledger rows gained a per-row byte-counted character cap.** The repo-local append-only guard now checks rows absent from `HEAD` across the live ledger chain, while committed historical rows and strict supersession pointers remain exempt. `LEDGER_ROW_CHAR_CAP` is set in both the reference config and shipped example; the ledger preambles state the future-row rule. **DB-012** is the record.
+
 - 2026-08-05 — **Long ladder runtime triaged.** The apparent hang during verification was the
   shipped guard fixture suite repeatedly invoking guard-only ladders and command-guard
   self-tests; no surviving processes were observed after completion. **DB-011** is the record.
@@ -89,6 +92,10 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-06 — **Ledger append-only enforcement now preserves both sanctioned metadata transitions.**
+  An existing row may gain `[cited]`, a strict supersession pointer, or both without becoming a
+  newly length-capped row; removal and prose rewrites still fail. **DB-013** is the record.
 
 - 2026-08-05 — **Conformance lab release claim narrowed.** `conformance/README.md` now states
   the post-criterion-2 bound as one model, one fixture and six owner-accepted runs, with the

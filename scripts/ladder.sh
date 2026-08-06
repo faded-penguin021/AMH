@@ -58,6 +58,7 @@ STATE_OWNER_QUEUE_SECTION='## Owner queue'
 LEDGER_DIR=docs
 LEDGER_BASENAME=LEDGER
 LEDGER_LINE_CAP=800
+LEDGER_ROW_CHAR_CAP=2000
 CITATION_SCAN_PATHS='scripts .github'
 CITATION_EXCLUDE=''
 POISON_TOKENS='[skip ci]|[ci skip]'
@@ -307,6 +308,89 @@ chain_volumes() {
 
 live_ledger() { chain_volumes | tail -1; }
 
+extract_ledger_rows() { # <tree-dir> <rows-dir>
+	local tree=$1 rows=$2 path
+	mkdir -p "$rows"
+	while IFS= read -r path; do
+		awk -v out="$rows" '
+			function flush(    file, n) {
+				if (id == "") return
+				n = count
+				while (n > 1 && lines[n] == "") n--
+				file = out "/" id
+				for (i = 1; i <= n; i++) print lines[i] >file
+				close(file)
+				delete lines
+				count = 0
+			}
+			/^- D[A-Z]*-[0-9]+( \[cited\])?: / {
+				flush()
+				id = $2
+				sub(/ \[cited\]:$/, "", id)
+				sub(/:$/, "", id)
+				lines[++count] = $0
+				next
+			}
+			id != "" { lines[++count] = $0 }
+			END { flush() }
+		' "$tree/$path"
+	done
+}
+
+guard_new_ledger_row_lengths() {
+	local cap=${LEDGER_ROW_CHAR_CAP:-0} changed path suffix='' next checked=0 row id count
+	case $cap in
+		'' | *[!0-9]*)
+			fail "LEDGER_ROW_CHAR_CAP must be a non-negative integer, got '${LEDGER_ROW_CHAR_CAP:-}'"
+			return
+			;;
+	esac
+	[ "$cap" -gt 0 ] || return
+	git rev-parse --verify -q HEAD >/dev/null 2>&1 || return
+	changed=$(git diff --name-only HEAD -- "$LEDGER_DIR" | awk -v dir="$LEDGER_DIR" -v base="$LEDGER_BASENAME" '
+		$0 == dir "/" base ".md" { found = 1 }
+		$0 ~ "^" dir "/" base "_[A-Z]+[.]md$" { found = 1 }
+		END { exit found ? 0 : 1 }
+	') || return
+	: "$changed"
+	mkdir -p "$TMP/head-ledger/$LEDGER_DIR" "$TMP/work-ledger/$LEDGER_DIR" "$TMP/head-rows" "$TMP/work-rows"
+	: >"$TMP/head-chain"
+	while :; do
+		path=$(volume_path "$suffix")
+		if ! git cat-file -e "HEAD:$path" 2>/dev/null; then
+			[ -n "$suffix" ] && break
+			return
+		fi
+		git show "HEAD:$path" >"$TMP/head-ledger/$path" || return
+		printf '%s\n' "$path" >>"$TMP/head-chain"
+		next=$(next_volume_suffix "$suffix") || break
+		suffix=$next
+	done
+	while IFS= read -r path; do
+		mkdir -p "$TMP/work-ledger/$(dirname "$path")"
+		cp "$path" "$TMP/work-ledger/$path" || return
+	done <"$TMP/chain"
+	extract_ledger_rows "$TMP/head-ledger" "$TMP/head-rows" <"$TMP/head-chain"
+	extract_ledger_rows "$TMP/work-ledger" "$TMP/work-rows" <"$TMP/chain"
+	for row in "$TMP"/work-rows/D*-*; do
+		[ -e "$row" ] || continue
+		id=${row##*/}
+		[ -f "$TMP/head-rows/$id" ] && continue
+		checked=$((checked + 1))
+		# Locale-stable character policy: count bytes with LC_ALL=C. For ordinary ASCII
+		# ledger prose that is one byte per character; UTF-8 non-ASCII text is charged by
+		# encoded bytes so the verdict is identical across host locales.
+		count=$(LC_ALL=C wc -c <"$row") || return
+		count=${count//[[:space:]]/}
+		if [ "$count" -gt "$cap" ]; then
+			fail "$id: new ledger row is $count byte-counted character(s), over LEDGER_ROW_CHAR_CAP=$cap — shorten the draft before commit; historical committed rows are exempt"
+			return
+		fi
+	done
+	[ "$checked" -gt 0 ] && ok "checked $checked new ledger row(s) against LEDGER_ROW_CHAR_CAP=$cap"
+}
+
+
 # The suffix of the volume AFTER the given one, as an odometer over A–Z with carry:
 # '' → A, A → B, Z → AA, AZ → BA, ZZ → AAA. Computed rather than looked up, because a
 # table is the thing that has a last entry — the single-letter scheme this replaces was a
@@ -365,6 +449,7 @@ guard_ledger_rollover() {
 	# does not guess — but it will not stay quiet either, because rows in an unreachable
 	# file are invisible to every check here. The cap below is still the live volume's.
 	chain_volumes >"$TMP/chain"
+	guard_new_ledger_row_lengths
 	for f in "$LEDGER_DIR/${LEDGER_BASENAME}"_*.md; do
 		[ -f "$f" ] || continue
 		grep -qxF "$f" "$TMP/chain" && continue

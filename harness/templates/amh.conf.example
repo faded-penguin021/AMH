@@ -75,6 +75,10 @@ LEDGER_DIR=docs
 LEDGER_BASENAME=LEDGER
 # Keep in lockstep with the number stated in the ledger's own header.
 LEDGER_LINE_CAP={{LINE_CAP}}
+# New rows appended to any live ledger volume are capped by bytes under LC_ALL=C
+# (ASCII/UTF-8 text therefore counts one byte per ASCII character). Historical rows
+# already committed at HEAD are exempt so append-only history is never rewritten.
+LEDGER_ROW_CHAR_CAP=2000
 
 # Where citations are scanned for: code and workflows only — NOT docs (prose mentions
 # IDs without citing them), and not the guard fixtures (which carry synthetic IDs).
