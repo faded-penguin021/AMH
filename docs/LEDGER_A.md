@@ -27,7 +27,7 @@
 >
 > **File cap & rollover.** This file holds at most **800 lines** (the cap bounds LINES, not
 > rows — it is read cost that is being bounded, and the number stays in lockstep with
-> `LEDGER_LINE_CAP` in `amh.conf`). The final row may finish past the cap, but no row may
+> `LEDGER_LINE_CAP` in `amh.conf`). Future rows appended after the row-length guard landed must also stay at or below **2,000 byte-counted characters** (`LEDGER_ROW_CHAR_CAP` in `amh.conf`); the guard counts bytes under `LC_ALL=C` for a locale-stable result, so ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. The final row may finish past the cap, but no row may
 > ever *start* past it: when this file stands over the cap, create LEDGER_B.md (this file's
 > name with a _B suffix) with the same header discipline, numbering from **DB-001**. It is
 > named without backticks on purpose — a name in backticks is a citation, and the path-refs

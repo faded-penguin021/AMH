@@ -88,6 +88,7 @@ mk() { # mk <name> -> prints the fixture path
 		LEDGER_DIR=docs
 		LEDGER_BASENAME=LEDGER
 		LEDGER_LINE_CAP=800
+		LEDGER_ROW_CHAR_CAP=2000
 		CITATION_SCAN_PATHS='scripts'
 		CITATION_EXCLUDE=''
 		POISON_TOKENS='[skip ci]'
@@ -186,7 +187,7 @@ expect_pass_saying() { # <name> <dir> <grep-pattern, verdict word included>
 	rc=$?
 	if [ "$rc" -ne 0 ]; then
 		report no "$1" "expected exit 0, got $rc" "$out"
-	elif ! printf '%s' "$out" | grep -qF "$3"; then
+	elif ! grep -qF "$3" <<<"$out"; then
 		report no "$1" "passed but the output never mentioned '$3'" "$out"
 	else
 		report ok
@@ -218,7 +219,7 @@ expect_verdict() { # <name> <runner: run|run_full> <dir> <expected rc> <fixed su
 		report no "$1" "expected exit $4, got $rc" "$out"
 	elif [ -z "$line" ]; then
 		report no "$1" "the ladder printed NO verdict line at all" "$out"
-	elif ! printf '%s' "$line" | grep -qF "$5"; then
+	elif ! grep -qF "$5" <<<"$line"; then
 		report no "$1" "the verdict line does not carry '$5'" "$line"
 	else
 		report ok
@@ -231,7 +232,7 @@ expect_fail() { # <name> <dir> <grep-pattern>
 	rc=$?
 	if [ "$rc" -eq 0 ]; then
 		report no "$1" "expected a failure, ladder passed" "$out"
-	elif ! printf '%s' "$out" | grep -qF "$3"; then
+	elif ! grep -qF "$3" <<<"$out"; then
 		report no "$1" "failed as expected but the message never mentioned '$3'" "$out"
 	else
 		report ok
@@ -250,9 +251,9 @@ expect_warn() { # <name> <dir> <grep-pattern>
 	rc=$?
 	if [ "$rc" -ne 0 ]; then
 		report no "$1" "expected exit 0 with a warning, got $rc" "$out"
-	elif ! printf '%s\n' "$out" | grep -q '^   WARN '; then
+	elif ! grep -q '^   WARN ' <<<"$out"; then
 		report no "$1" "expected a WARN line and there was none" "$out"
-	elif ! printf '%s' "$out" | grep -qF "$3"; then
+	elif ! grep -qF "$3" <<<"$out"; then
 		report no "$1" "no output mentioning '$3'" "$out"
 	else
 		report ok
@@ -479,6 +480,30 @@ printf -- '- D-003: a row past the cap.\n' >>"$d/docs/LEDGER.md"
 expect_fail "the rollover FAILURE reports the size too — that is the branch that needs it" "$d" \
 	"KB), past the 4-line cap"
 
+
+d=$(mk ledger_row_char_under_cap)
+sed -i 's/^LEDGER_ROW_CHAR_CAP=2000/LEDGER_ROW_CHAR_CAP=120/' "$d/amh.conf"
+printf -- '- D-003: short enough.\n' >>"$d/docs/LEDGER.md"
+expect_pass_saying "a new ledger row under the character cap passes" "$d" \
+	"checked 1 new ledger row(s) against LEDGER_ROW_CHAR_CAP=120"
+
+d=$(mk ledger_row_char_over_cap)
+sed -i 's/^LEDGER_ROW_CHAR_CAP=2000/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
+printf -- '- D-003: long row. %s\n' "$(filler 120)" >>"$d/docs/LEDGER.md"
+expect_fail "a new ledger row over the character cap fails" "$d" \
+	"over LEDGER_ROW_CHAR_CAP=80"
+
+d=$(mk ledger_row_char_committed_over_cap)
+sed -i 's/^LEDGER_ROW_CHAR_CAP=2000/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
+printf -- '- D-003: committed long row. %s\n' "$(filler 120)" >>"$d/docs/LEDGER.md"
+(cd "$d" && git add amh.conf docs/LEDGER.md && git commit -qm long-ledger-history)
+expect_pass "an already committed over-cap ledger row is historical" "$d"
+
+d=$(mk ledger_row_char_superseded_pointer_existing)
+sed -i 's/^LEDGER_ROW_CHAR_CAP=2000/LEDGER_ROW_CHAR_CAP=10/' "$d/amh.conf"
+printf -- '  Superseded by D-999.\n' >>"$d/docs/LEDGER.md"
+expect_pass "a strict superseded pointer appended to an existing row is not a new row" "$d"
+
 # --- ledger volumes past Z, and what counts as a volume at all
 #
 # One continuation volume whose first row starts at line 5, for a fixture whose cap is 4.
@@ -660,10 +685,10 @@ d=$(mk secret_plain)
 tok=$(akia_token)
 printf 'key = %s\n' "$tok" >"$d/scripts/deploy.sh"
 out=$(run "$d")
-if printf '%s' "$out" | grep -q 'credential-shaped'; then
+if grep -q 'credential-shaped' <<<"$out"; then
 	# The diagnostic must name the file and the position and NOTHING else. A
 	# regression to printing the matching line would defeat the whole guard.
-	if printf '%s' "$out" | grep -qF "$tok"; then
+	if grep -qF "$tok" <<<"$out"; then
 		report no "secret scan is value-free" "the diagnostic printed the token itself" "$out"
 	else
 		report ok
@@ -752,8 +777,7 @@ mk_bootstrap "$d" 0
 out=$(cd "$d" && env AMH_REMOTE=1 bash scripts/session-start.sh 2>&1)
 # The whole banner, ⚠ and verdict word included — the fixture is asserting how LOUD the
 # line is, so grepping a fragment of its middle would leave the loudness untested.
-if printf '%s' "$out" | grep -qF \
-	"· ⚠ REMOTE_FLAG 'AMH-REMOTE' is not a valid shell variable name — toolchain bootstrap SKIPPED"; then
+if grep -qF "· ⚠ REMOTE_FLAG 'AMH-REMOTE' is not a valid shell variable name — toolchain bootstrap SKIPPED" <<<"$out"; then
 	report ok
 else
 	report no "an invalid REMOTE_FLAG is announced, not swallowed" "no banner" "$out"
@@ -761,7 +785,7 @@ fi
 # ...and it must actually have SKIPPED. The banner and the bootstrap running anyway would
 # have satisfied the assertion above, which is why the fixture's bootstrap announces
 # itself: the claim under test is a claim about what did not happen.
-if printf '%s' "$out" | grep -qF "BOOTSTRAP RAN"; then
+if grep -qF "BOOTSTRAP RAN" <<<"$out"; then
 	report no "an invalid REMOTE_FLAG really does skip the bootstrap" "it ran anyway" "$out"
 else
 	report ok
@@ -780,7 +804,7 @@ d=$(mk ss_bootstrap_noexec)
 mk_bootstrap "$d" 0
 chmod -x "$d/scripts/bootstrap.sh"
 out=$(cd "$d" && env AMH_REMOTE=1 bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "BOOTSTRAP RAN"; then
+if grep -qF "BOOTSTRAP RAN" <<<"$out"; then
 	report ok
 else
 	report no "a non-executable bootstrap still runs" "the bootstrap did not run" "$out"
@@ -792,7 +816,7 @@ d=$(mk ss_bootstrap_fails)
 mk_bootstrap "$d" 1
 out=$(cd "$d" && env AMH_REMOTE=1 bash scripts/session-start.sh 2>&1)
 rc=$?
-if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF "bootstrap reported a problem"; then
+if [ "$rc" -eq 0 ] && grep -qF "bootstrap reported a problem" <<<"$out"; then
 	report ok
 else
 	report no "a failing bootstrap warns without killing the session" "rc=$rc" "$out"
@@ -802,7 +826,7 @@ fi
 # install — but a remote session skipping a configured step deserves its one line.
 d=$(mk ss_bootstrap_absent)
 out=$(cd "$d" && env AMH_REMOTE=1 bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "does not exist" && printf '%s' "$out" | grep -qF "SKIPPED"; then
+if grep -qF "does not exist"  <<<"$out"&& grep -qF "SKIPPED" <<<"$out"; then
 	report ok
 else
 	report no "a missing bootstrap under the remote flag says so" "no line about it" "$out"
@@ -813,7 +837,7 @@ fi
 d=$(mk ss_not_remote)
 mk_bootstrap "$d" 0
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "BOOTSTRAP RAN"; then
+if grep -qF "BOOTSTRAP RAN" <<<"$out"; then
 	report no "a local session does not run the bootstrap" "it ran anyway" "$out"
 else
 	report ok
@@ -825,7 +849,7 @@ fi
 d=$(mk ss_rearms_dotenv_advisory)
 out=$(cd "$d" && scripts/command-guard.sh --command 'python3 -c "open('"'"'.env'"'"')"' 2>&1)
 rc=$?
-if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF "This command mentions \`.env\`"; then
+if [ "$rc" -eq 2 ] && grep -qF "This command mentions \`.env\`" <<<"$out"; then
 	report ok
 else
 	report no "the first .env command gets the advisory" "rc=$rc" "$out"
@@ -838,7 +862,7 @@ fi
 (cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh >/dev/null 2>&1)
 out=$(cd "$d" && scripts/command-guard.sh --command 'python3 -c "open('"'"'.env'"'"')"' 2>&1)
 rc=$?
-if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF "This command mentions \`.env\`"; then
+if [ "$rc" -eq 2 ] && grep -qF "This command mentions \`.env\`" <<<"$out"; then
 	report ok
 else
 	report no "session-start rearms the one-time .env advisory" "rc=$rc" "$out"
@@ -854,7 +878,7 @@ fi
 # would satisfy the absent case while breaking every repo that has one.
 d=$(mk ss_no_runbook)
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "docs/RUNBOOK.md"; then
+if grep -qF "docs/RUNBOOK.md" <<<"$out"; then
 	report no "the protocol pointer omits a runbook the repo does not have" "it named it anyway" "$out"
 else
 	report ok
@@ -863,7 +887,7 @@ fi
 d=$(mk ss_with_runbook)
 printf '# RUNBOOK\n' >"$d/docs/RUNBOOK.md"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "playbook in docs/RUNBOOK.md"; then
+if grep -qF "playbook in docs/RUNBOOK.md" <<<"$out"; then
 	report ok
 else
 	report no "the protocol pointer names the runbook when there is one" "it did not" "$out"
@@ -924,7 +948,7 @@ if ! mk_git_repo "$d" v3.1.0 || ! mk_git_repo "$d2" ||
 else
 	# (a) Local ref present: the fast path answers without touching the network.
 	out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-	if printf '%s' "$out" | grep -qF "tag v3.1.0 is in this clone"; then
+	if grep -qF "tag v3.1.0 is in this clone" <<<"$out"; then
 		report ok
 	else
 		report no "an existing local release tag is reported as present" "it was not" "$out"
@@ -932,7 +956,7 @@ else
 
 	# (b) The state the line EXISTS for: no such tag anywhere. Only this one may say UNRELEASED.
 	out=$(cd "$d2" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-	if printf '%s' "$out" | grep -qF "NO tag v3.1.0 exists on origin — UNRELEASED"; then
+	if grep -qF "NO tag v3.1.0 exists on origin — UNRELEASED" <<<"$out"; then
 		report ok
 	else
 		report no "a version with no tag on origin is reported as unreleased" "it was not" "$out"
@@ -943,8 +967,8 @@ else
 	# unreleased made the line cry wolf on every session in the repo that ships it. It must
 	# name the tag as existing and must NOT say UNRELEASED.
 	out=$(cd "$d3" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-	if printf '%s' "$out" | grep -qF "tag v3.1.0 exists on origin" &&
-		! printf '%s' "$out" | grep -qF "UNRELEASED"; then
+	if grep -qF "tag v3.1.0 exists on origin"  <<<"$out"&&
+		! grep -qF "UNRELEASED" <<<"$out"; then
 		report ok
 	else
 		report no "a tag on origin but not in the clone is reported as existing, not as unreleased" \
@@ -954,8 +978,8 @@ else
 	# (d) Cannot ask is not an answer. A repo with no origin at all must say so and must make no
 	# claim in either direction — the failure being refused is "unreachable" rendering as "absent".
 	out=$(cd "$d4" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-	if printf '%s' "$out" | grep -qF "not be reached to check" &&
-		! printf '%s' "$out" | grep -qF "UNRELEASED"; then
+	if grep -qF "not be reached to check"  <<<"$out"&&
+		! grep -qF "UNRELEASED" <<<"$out"; then
 		report ok
 	else
 		report no "an unreachable origin is reported as unreachable, with no tag claim" \
@@ -970,8 +994,8 @@ d=$(mk ss_release_empty_version)
 : >"$d/VERSION"
 set_release_keys "$d" VERSION v
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "no version on its first line" &&
-	! printf '%s' "$out" | grep -qF "UNRELEASED"; then
+if grep -qF "no version on its first line"  <<<"$out"&&
+	! grep -qF "UNRELEASED" <<<"$out"; then
 	report ok
 else
 	report no "an empty VERSION_FILE is reported and no tag claim is made" "it claimed one anyway" "$out"
@@ -983,7 +1007,7 @@ d=$(mk ss_release_half_configured)
 printf '3.1.0\n' >"$d/VERSION"
 printf 'VERSION_FILE=VERSION\n' >>"$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "needs BOTH VERSION_FILE and RELEASE_TAG_PREFIX"; then
+if grep -qF "needs BOTH VERSION_FILE and RELEASE_TAG_PREFIX" <<<"$out"; then
 	report ok
 else
 	report no "setting one release key and not the other is reported" "it was silent" "$out"
@@ -993,7 +1017,7 @@ fi
 d=$(mk ss_release_dir_version)
 set_release_keys "$d" docs v
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "is a directory, not a file"; then
+if grep -qF "is a directory, not a file" <<<"$out"; then
 	report ok
 else
 	report no "a VERSION_FILE that is a directory says so" "it reported something else" "$out"
@@ -1009,8 +1033,8 @@ fi
 # a repo that declares neither list gets no inventory rather than an empty one.
 d=$(mk ss_inventory_off)
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if ! printf '%s' "$out" | grep -qE '^· (tools|adapters):' &&
-	printf '%s' "$out" | grep -qF "AMH session start"; then
+if ! grep -qE '^· (tools|adapters):' <<<"$out" &&
+	grep -qF "AMH session start" <<<"$out"; then
 	report ok
 else
 	report no "unset inventory keys print no inventory and do not kill the banner" "a line appeared or the banner died" "$out"
@@ -1022,8 +1046,8 @@ fi
 d=$(mk ss_inventory_tool_present)
 printf "REQUIRED_TOOLS='sh'\n" >>"$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qxF "· tools: sh observed" &&
-	! printf '%s' "$out" | grep -qE '· tools:.*/'; then
+if grep -qxF "· tools: sh observed"  <<<"$out"&&
+	! grep -qE '· tools:.*/' <<<"$out"; then
 	report ok
 else
 	report no "a present tool is observed, by name only" "state wrong or a path leaked" "$out"
@@ -1035,7 +1059,7 @@ fi
 d=$(mk ss_inventory_tool_absent)
 printf "REQUIRED_TOOLS='amh-no-such-tool-xyz'\n" >>"$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qxF "· tools: amh-no-such-tool-xyz unavailable"; then
+if grep -qxF "· tools: amh-no-such-tool-xyz unavailable" <<<"$out"; then
 	report ok
 else
 	report no "an absent tool is unavailable" "state wrong" "$out"
@@ -1052,7 +1076,7 @@ fi
 d=$(mk ss_inventory_tool_is_a_shell_function)
 printf "REQUIRED_TOOLS='say'\n" >>"$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qxF "· tools: say unavailable"; then
+if grep -qxF "· tools: say unavailable" <<<"$out"; then
 	report ok
 else
 	report no "a shell function is unavailable, never observed" "the probe resolved a non-PATH name" "$out"
@@ -1064,8 +1088,8 @@ fi
 d=$(mk ss_inventory_blank_value)
 printf "REQUIRED_TOOLS='   '\nADAPTER_FILES='   '\n" >>"$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if ! printf '%s' "$out" | grep -qE '^· (tools|adapters):' &&
-	! printf '%s' "$out" | grep -qF "never observed firing"; then
+if ! grep -qE '^· (tools|adapters):' <<<"$out" &&
+	! grep -qF "never observed firing" <<<"$out"; then
 	report ok
 else
 	report no "a whitespace-only list prints no header and no gloss" "an empty inventory was printed" "$out"
@@ -1076,8 +1100,8 @@ fi
 d=$(mk ss_inventory_glob)
 printf "REQUIRED_TOOLS='*'\n" >>"$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "· tools: * unavailable" &&
-	! printf '%s' "$out" | grep -qF "amh.conf unavailable"; then
+if grep -qF "· tools: * unavailable"  <<<"$out"&&
+	! grep -qF "amh.conf unavailable" <<<"$out"; then
 	report ok
 else
 	report no "a glob in REQUIRED_TOOLS is not expanded against the tree" "it globbed" "$out"
@@ -1091,8 +1115,8 @@ mkdir -p "$d/.agent-a"
 printf '{}\n' >"$d/.agent-a/settings.json"
 printf "ADAPTER_FILES='.agent-a/settings.json'\n" >>"$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qxF "· adapters: .agent-a/settings.json configured" &&
-	! printf '%s' "$out" | grep -qE '^· adapters:.*observed'; then
+if grep -qxF "· adapters: .agent-a/settings.json configured"  <<<"$out"&&
+	! grep -qE '^· adapters:.*observed' <<<"$out"; then
 	report ok
 else
 	report no "a present adapter is configured, never observed" "state wrong" "$out"
@@ -1105,8 +1129,8 @@ fi
 d=$(mk ss_inventory_adapter_absent)
 printf "ADAPTER_FILES='.agent-a/settings.json'\n" >>"$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qxF "· adapters: .agent-a/settings.json unknown" &&
-	! printf '%s' "$out" | grep -qE '^· adapters:.*unavailable'; then
+if grep -qxF "· adapters: .agent-a/settings.json unknown"  <<<"$out"&&
+	! grep -qE '^· adapters:.*unavailable' <<<"$out"; then
 	report ok
 else
 	report no "an absent adapter is unknown, never unavailable" "state wrong" "$out"
@@ -1117,8 +1141,8 @@ fi
 d=$(mk ss_inventory_gloss)
 printf "ADAPTER_FILES='.agent-b/config.toml'\n" >>"$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "never observed firing" &&
-	printf '%s' "$out" | grep -qF "Nothing reads these states."; then
+if grep -qF "never observed firing"  <<<"$out"&&
+	grep -qF "Nothing reads these states." <<<"$out"; then
 	report ok
 else
 	report no "the adapter states ship with their gloss" "the gloss is missing" "$out"
@@ -1128,8 +1152,8 @@ fi
 d=$(mk ss_inventory_independent)
 printf "REQUIRED_TOOLS='sh'\n" >>"$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qE '^· tools:' &&
-	! printf '%s' "$out" | grep -qE '^· adapters:'; then
+if grep -qE '^· tools:'  <<<"$out"&&
+	! grep -qE '^· adapters:' <<<"$out"; then
 	report ok
 else
 	report no "REQUIRED_TOOLS and ADAPTER_FILES are independent" "one switched on the other" "$out"
@@ -1141,7 +1165,7 @@ d=$(mk ss_release_multiline_version)
 printf '3.1.0\nnotes about the release\n' >"$d/VERSION"
 set_release_keys "$d" VERSION v
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "says 3.1.0" && ! printf '%s' "$out" | grep -qF "notes"; then
+if grep -qF "says 3.1.0"  <<<"$out"&& ! grep -qF "notes" <<<"$out"; then
 	report ok
 else
 	report no "only the first line of VERSION_FILE is read" "the rest leaked into the version" "$out"
@@ -1153,7 +1177,7 @@ fi
 d=$(mk ss_release_off)
 printf '3.1.0\n' >"$d/VERSION"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qiF "release:"; then
+if grep -qiF "release:" <<<"$out"; then
 	report no "the release line stays off when the keys are unset" "it printed anyway" "$out"
 else
 	report ok
@@ -1165,8 +1189,8 @@ fi
 d=$(mk ss_release_no_version_file)
 set_release_keys "$d" harness/VERSION v
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "does not exist — release line SKIPPED" &&
-	! printf '%s' "$out" | grep -qF "in this clone"; then
+if grep -qF "does not exist — release line SKIPPED"  <<<"$out"&&
+	! grep -qF "in this clone" <<<"$out"; then
 	report ok
 else
 	report no "a VERSION_FILE that does not exist is reported and no tag claim is made" \
@@ -1307,7 +1331,7 @@ else
 		rc=$?
 		if [ "$rc" -ne 0 ]; then
 			report no "no hashing tool is not fatal" "expected exit 0, got $rc" "$out"
-		elif printf '%s' "$out" | grep -qF "   WARN  neither sha256sum nor shasum is on PATH"; then
+		elif grep -qF "   WARN  neither sha256sum nor shasum is on PATH" <<<"$out"; then
 			report ok
 		else
 			report no "no hashing tool warns that the rung checked nothing" "no such warning" "$out"
@@ -1323,7 +1347,7 @@ fi
 d=$(mk ss_merge_mode_train)
 sed -i 's/^MERGE_MODE=.*/MERGE_MODE=branch-train/' "$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "merge mode: branch-train — main's history is squashed"; then
+if grep -qF "merge mode: branch-train — main's history is squashed" <<<"$out"; then
 	report ok
 else
 	report no "a branch-train repo is told its default branch's log is not its past" "no line" "$out"
@@ -1333,7 +1357,7 @@ fi
 # default branch's history IS the record, so the line would be a lie.
 d=$(mk ss_merge_mode_per_change)
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "branch-train"; then
+if grep -qF "branch-train" <<<"$out"; then
 	report no "a branch-per-change repo is not told its history is squashed" "it said so anyway" "$out"
 else
 	report ok
@@ -1347,8 +1371,8 @@ d=$(mk ss_merge_mode_unset)
 grep -v '^MERGE_MODE=' "$d/amh.conf" >"$d/t" && mv "$d/t" "$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
 rc=$?
-if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF "AMH session start" &&
-	! printf '%s' "$out" | grep -qF "branch-train"; then
+if [ "$rc" -eq 0 ] && grep -qF "AMH session start"  <<<"$out"&&
+	! grep -qF "branch-train" <<<"$out"; then
 	report ok
 else
 	report no "a conf with no MERGE_MODE key still boots" "rc=$rc" "$out"
@@ -1525,7 +1549,7 @@ d=$(mk advisory_rules)
 sed -i "s|^RULE_FILES=''|RULE_FILES='amh.conf'|" "$d/amh.conf"
 printf '\n# an uncommitted legislation edit\n' >>"$d/amh.conf"
 out=$(run_local "$d")
-if printf '%s' "$out" | grep -qF "touches legislation"; then
+if grep -qF "touches legislation" <<<"$out"; then
 	report ok
 else
 	report no "an uncommitted legislation edit warns" "no rule-review warning" "$out"
@@ -1537,7 +1561,7 @@ d=$(mk advisory_plan_lifecycle)
 mkdir -p "$d/docs/plans"
 printf '# completed plan\n' >"$d/docs/plans/completed.md"
 out=$(run_local "$d")
-if printf '%s' "$out" | grep -qF "Move a completed plan worth retaining whole to docs/history/ when that archive tier exists; otherwise delete it"; then
+if grep -qF "Move a completed plan worth retaining whole to docs/history/ when that archive tier exists; otherwise delete it" <<<"$out"; then
 	report ok
 else
 	report no "an orphaned plan is coached toward archive-or-delete" "no archive-or-delete warning" "$out"
@@ -1547,7 +1571,7 @@ d=$(mk advisory_ci)
 sed -i "s|^RULE_FILES=''|RULE_FILES='amh.conf'|" "$d/amh.conf"
 printf '\n# an uncommitted legislation edit\n' >>"$d/amh.conf"
 out=$(run "$d")
-if printf '%s' "$out" | grep -qF "Local advisories"; then
+if grep -qF "Local advisories" <<<"$out"; then
 	report no "advisories stay out of CI" "the advisory section ran under CI=1" "$out"
 else
 	report ok

@@ -28,7 +28,7 @@
 >
 > **File cap & rollover.** This file holds at most **800 lines** (the cap bounds LINES, not
 > rows — it is read cost that is being bounded, and the number stays in lockstep with
-> `LEDGER_LINE_CAP` in `amh.conf`). The final row may finish past the cap, but no row may
+> `LEDGER_LINE_CAP` in `amh.conf`). Future rows appended after the row-length guard landed must also stay at or below **2,000 byte-counted characters** (`LEDGER_ROW_CHAR_CAP` in `amh.conf`); the guard counts bytes under `LC_ALL=C` for a locale-stable result, so ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. The final row may finish past the cap, but no row may
 > ever *start* past it: when this file stands over the cap, create LEDGER_C.md (this file's
 > name with a _C suffix) with the same header discipline, numbering from **DC-001**. It is
 > named without backticks on purpose — a name in backticks is a citation, and the path-refs
@@ -488,3 +488,26 @@
   or stale state, because killing by name would risk deleting the command under verification.
   Prefer a future progress note or fixture-suite timing work if the silence becomes a repeated
   operational problem.
+
+- DB-012 [cited]: **New ledger length enforcement belongs at append time, not as a history
+  rewrite.** The incident behind this row is the owner request to prevent future ledger rows
+  from becoming retrieval-hostile without compressing or renumbering the append-only record.
+  The guard therefore compares the live ledger chain against `HEAD` as DB-008 established,
+  preserves the byte-identical historical-row rule and its strict final `Superseded by
+  D[A-Z]*-NNN.` exception, and checks only rows absent from `HEAD`. The cap is configured as
+  `LEDGER_ROW_CHAR_CAP`; despite the human word "character", the script deliberately counts
+  bytes under `LC_ALL=C`, because that verdict is stable across locales and matches the
+  harness's existing byte-size diagnostics. For ordinary ASCII ledger prose that is one byte
+  per character; non-ASCII UTF-8 pays by encoded bytes. The tradeoff is conservative but
+  reviewable: future authors can always shorten a draft row before commit, while committed
+  historical verbosity remains exempt instead of forcing forbidden ledger surgery.
+
+- DB-013: **Append-only means immutable prose, not frozen machine-checked metadata.** The first
+  row-length implementation inherited DB-008's supersession exception but overlooked the other
+  sanctioned transition in the ledger preamble: citation changes require an existing row to gain
+  `[cited]`. The append-only guard now normalizes only additive metadata before comparing with
+  `HEAD`: it may remove one newly appended strict `Superseded by D[A-Z]*-NNN.` line and may remove
+  one newly added `[cited]` header marker for comparison. This one-way normalization allows either
+  addition or both together, while marker removal, pointer replacement, and prose edits still
+  fail. Because the row id already exists at `HEAD`, neither metadata addition reclassifies the
+  historical row as new or subjects it retroactively to `LEDGER_ROW_CHAR_CAP`.
