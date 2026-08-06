@@ -145,7 +145,7 @@ sed -i 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=120/' "$d/amh.conf"
 cat >>"$d/docs/LEDGER_B.md" <<'ROW'
 - DB-999: **Short new row passes.** Small enough.
 ROW
-expect pass "ledger-append-only: a new row under the character cap passes" "$d" ledger-append-only.sh
+expect pass "ledger-append-only: a concise new row under the byte-counted character cap passes" "$d" ledger-append-only.sh
 
 d=$(snapshot ledger_append_only_new_row_over_cap)
 sed -i 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
@@ -154,7 +154,7 @@ from pathlib import Path
 import sys
 Path(sys.argv[1]).write_text(Path(sys.argv[1]).read_text() + "- DB-999: **Long new row fails.** " + ("x" * 120) + "\n")
 PYROW
-expect fail "ledger-append-only: a new row over the character cap fails" "$d" \
+expect fail "ledger-append-only: a new row over the byte-counted character cap fails" "$d" \
 	ledger-append-only.sh "over LEDGER_ROW_CHAR_CAP=80"
 
 d=$(snapshot ledger_append_only_committed_over_cap_exempt)
@@ -165,19 +165,19 @@ import sys
 Path(sys.argv[1]).write_text(Path(sys.argv[1]).read_text() + "- DB-999: **Committed long row is historical.** " + ("x" * 120) + "\n")
 PYROW
 (cd "$d" && git add amh.conf docs/LEDGER_B.md && git commit -qm over-cap-history)
-expect pass "ledger-append-only: an already committed over-cap row is historical" "$d" ledger-append-only.sh
+expect pass "ledger-append-only: an already committed over-cap row is historical and exempt" "$d" ledger-append-only.sh
 
 d=$(snapshot ledger_append_only_superseded_over_cap_existing_row)
 sed -i 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=10/' "$d/amh.conf"
 awk '/^- D-002 / && !done { print "  Superseded by DB-999."; done = 1 } { print }' \
 	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
-expect pass "ledger-append-only: strict superseded pointer ignores new-row cap" "$d" ledger-append-only.sh
+expect pass "ledger-append-only: sanctioned supersession metadata ignores the new-row cap" "$d" ledger-append-only.sh
 
 d=$(snapshot ledger_append_only_cited_over_cap_existing_row)
 sed -i 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=10/' "$d/amh.conf"
 sed '0,/^- D-004: /s//- D-004 [cited]: /' \
 	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
-expect pass "ledger-append-only: cited marker on an existing row ignores new-row cap" "$d" ledger-append-only.sh
+expect pass "ledger-append-only: sanctioned cited metadata ignores the new-row cap" "$d" ledger-append-only.sh
 
 # --- config-schema ------------------------------------------------------------
 d=$(snapshot config_schema_missing)

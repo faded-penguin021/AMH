@@ -125,7 +125,7 @@ validate_row_cap() { # validate_row_cap <row-file> <id>
 	count=$(LC_ALL=C wc -c <"$row") || exit 1
 	count=${count//[[:space:]]/}
 	if [ "$count" -gt "$LEDGER_ROW_CHAR_CAP" ]; then
-		fail "ledger append-only: $id is a new ledger row with $count byte-counted character(s), over LEDGER_ROW_CHAR_CAP=$LEDGER_ROW_CHAR_CAP"
+		fail "ledger append-only: $id is a new ledger row with $count byte-counted character(s), over LEDGER_ROW_CHAR_CAP=$LEDGER_ROW_CHAR_CAP — keep the durable lesson concise; historical committed rows and sanctioned metadata-only additions are exempt"
 	fi
 }
 

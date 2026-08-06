@@ -270,6 +270,7 @@ strip_heredocs() {
 # --- rails ------------------------------------------------------------------
 BLOCK_REASON=''
 WARN_REASON=''
+ADVISORY_REASON=''
 DOTENV_ADVISORY_REASON=''
 
 is_env_template() { # .env.example and friends carry no secrets
@@ -286,28 +287,42 @@ is_env_template() { # .env.example and friends carry no secrets
 # allowed through to the normal rails so false positives do not brick the agent.
 #
 # Session identity is not portable across agent vendors, so the default state is a
-# per-repository file under /tmp. Tests override DOTENV_ADVISORY_STATE explicitly.
-dotenv_advisory_state_file() {
-	if [ -n "${DOTENV_ADVISORY_STATE+x}" ]; then
-		printf '%s' "$DOTENV_ADVISORY_STATE"
-		return 0
-	fi
-	local slug uid
+# per-repository, per-category file under /tmp. Tests may override either category's
+# file explicitly; DOTENV_ADVISORY_STATE remains supported for compatibility.
+advisory_state_file() { # advisory_state_file <name>
+	local name=$1 slug uid
+	case $name in
+	dotenv) [ -n "${DOTENV_ADVISORY_STATE+x}" ] && { printf '%s' "$DOTENV_ADVISORY_STATE"; return 0; } ;;
+	destructive) [ -n "${DESTRUCTIVE_ADVISORY_STATE+x}" ] && { printf '%s' "$DESTRUCTIVE_ADVISORY_STATE"; return 0; } ;;
+	*) return 1 ;;
+	esac
 	slug=${ROOT//\//_}
 	slug=${slug// /_}
 	uid=${UID:-unknown}
-	printf '/tmp/amh-command-guard-dotenv-advisory-%s-%s' "$uid" "$slug"
+	printf '/tmp/amh-command-guard-%s-advisory-%s-%s' "$name" "$uid" "$slug"
 }
 
-needs_dotenv_advisory() {
-	local cmd=$1 state
-	case $cmd in *.env*) ;; *) return 1 ;; esac
-	state=$(dotenv_advisory_state_file)
+needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
+	local name=$1 cmd=$2 state
+	case $name in
+	dotenv) case $cmd in *.env*) ;; *) return 1 ;; esac ;;
+	destructive) is_destructive_command "$cmd" || return 1 ;;
+	*) return 1 ;;
+	esac
+	state=$(advisory_state_file "$name")
 	[ -n "$state" ] || return 1
 	[ -e "$state" ] && return 1
 	: >"$state" 2>/dev/null || return 1
-	# shellcheck disable=SC2016 # the presence-check example must print literally.
-	DOTENV_ADVISORY_REASON='This command mentions `.env`. Those files commonly contain live credentials, and even lengths, hashes, excerpts, copies or interpreter reads can disclose or spread secrets. The command guard is stopping this once so you can reconsider: prefer presence-only checks (for example, `[ -n "${MY_KEY:-}" ] && echo set`) or let the tool that needs credentials read them directly. If this warning is not applicable, or this is a false positive such as prose or a template-safe operation, run the same command again; this one-time advisory will not rearm during this session.'
+	case $name in
+	dotenv)
+		# shellcheck disable=SC2016 # the presence-check example must print literally.
+		ADVISORY_REASON='This command mentions `.env`. Those files commonly contain live credentials, and even lengths, hashes, excerpts, copies or interpreter reads can disclose or spread secrets. The command guard is stopping this once so you can reconsider: prefer presence-only checks (for example, `[ -n "${MY_KEY:-}" ] && echo set`) or let the tool that needs credentials read them directly. If this warning is not applicable, or this is a false positive such as prose or a template-safe operation, run the same command again; this one-time advisory will not rearm during this session.'
+		DOTENV_ADVISORY_REASON=$ADVISORY_REASON
+		;;
+	destructive)
+		ADVISORY_REASON='This destructive filesystem command may delete guard fixtures, source files, or untracked evidence. Prefer targeted removal, moving the path set to a temporary directory, or confirming the complete path set before deletion. The command guard is stopping this once so you can reconsider; rerun the command to proceed if the deletion is intentional.'
+		;;
+	esac
 	return 0
 }
 
@@ -847,6 +862,83 @@ leading_command() {
 	printf '%s' "${words[$i]##*/}"
 }
 
+is_destructive_segment() {
+	local raw=$1 w cmd recursive=1 force=1 descend=1 i=0
+	local words=()
+	while IFS= read -r -d '' w; do words+=("$w"); done < <(split_words "$raw")
+	# Find the same leading command that leading_command reports, without treating
+	# later quoted prose or operands as commands.
+	while [ "$i" -lt "${#words[@]}" ]; do
+		w=${words[$i]}
+		case $w in
+		*=* | sudo | nohup | nice | time | command | builtin | exec) i=$((i + 1)) ;;
+		env)
+			if [ $((i + 1)) -lt "${#words[@]}" ]; then
+				case ${words[$((i + 1))]} in -*) break ;; *) i=$((i + 1)) ;; esac
+			else break
+			fi
+			;;
+		*) break ;;
+		esac
+	done
+	[ "$i" -lt "${#words[@]}" ] || return 1
+	cmd=${words[$i]##*/}
+	i=$((i + 1))
+	case $cmd in
+	rm)
+		for w in "${words[@]:i}"; do
+			case $w in
+			--recursive) recursive=0 ;;
+			--force) force=0 ;;
+			--) break ;;
+			[^-]*) ;;
+			-*)
+				case ${w#-} in *[rR]*) recursive=0 ;; esac
+				case ${w#-} in *f*) force=0 ;; esac
+				;;
+			esac
+			done
+		[ "$recursive" -eq 0 ] && [ "$force" -eq 0 ]
+		;;
+	git)
+		# Skip git's global options, then require the clean subcommand and short
+		# options containing both -f and -d. Clusters may be ordered or split.
+		while [ "$i" -lt "${#words[@]}" ]; do
+			w=${words[$i]}
+			case $w in -C | -c | --git-dir | --work-tree) i=$((i + 2)) ;; -*) i=$((i + 1)) ;; *) break ;; esac
+		done
+		[ "$i" -lt "${#words[@]}" ] && [ "${words[$i]}" = clean ] || return 1
+		i=$((i + 1))
+		for w in "${words[@]:i}"; do
+			case $w in
+			-n | --dry-run) return 1 ;;
+			--force) force=0 ;;
+			--) break ;;
+			[^-]*) ;;
+			--*) ;;
+			-*)
+				case ${w#-} in *n*) return 1 ;; esac
+				case ${w#-} in *f*) force=0 ;; esac
+				case ${w#-} in *d*) descend=0 ;; esac
+				;;
+			esac
+			done
+		[ "$force" -eq 0 ] && [ "$descend" -eq 0 ]
+		;;
+	*) return 1 ;;
+	esac
+}
+
+is_destructive_command() {
+	local cmd=$1 seg
+	cmd=$(strip_heredocs "$cmd")
+	while IFS= read -r -d '' seg; do
+		[ -n "${seg// /}" ] || continue
+		is_destructive_segment "$seg" && return 0
+	done < <(split_segments "$cmd")
+	return 1
+}
+
 warn_ladder_tail() {
 	local cmd=$1 seg lead prev_ladder=0
 	case $cmd in *ladder.sh*tail*) ;; *) return 0 ;; esac
@@ -874,9 +966,14 @@ check_command() {
 	local seg
 	BLOCK_REASON=''
 	WARN_REASON=''
+	ADVISORY_REASON=''
 	DOTENV_ADVISORY_REASON=''
-	if needs_dotenv_advisory "$cmd"; then
-		BLOCK_REASON=$DOTENV_ADVISORY_REASON
+	if needs_one_time_advisory dotenv "$cmd"; then
+		BLOCK_REASON=$ADVISORY_REASON
+		return 1
+	fi
+	if needs_one_time_advisory destructive "$cmd"; then
+		BLOCK_REASON=$ADVISORY_REASON
 		return 1
 	fi
 	warn_ladder_tail "$cmd"
@@ -958,6 +1055,27 @@ st_dotenv_advisory_once() {
 	fi
 }
 
+st_destructive_advisory_once() {
+	local state old_set old_state
+	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
+	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-advisory-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	DESTRUCTIVE_ADVISORY_STATE=$state
+	if check_command "$1"; then
+		printf 'SELF-TEST FAIL: should have had one-time destructive advisory: %s\n' "$1" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif [ -z "$ADVISORY_REASON" ]; then
+		printf 'SELF-TEST FAIL: destructive advisory did not explain itself: %s\n' "$1" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif ! check_command "$1"; then
+		printf 'SELF-TEST FAIL: second destructive attempt should have reached normal rails: %s\n   reason given: %s\n' "$1" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
+}
+
 st_warn_allowed() {
 	if ! check_command "$1"; then
 		printf 'SELF-TEST FAIL: should have been ALLOWED WITH WARNING: %s\n   reason given: %s\n' "$1" "$BLOCK_REASON" >&2
@@ -978,6 +1096,12 @@ self_test() {
 	self_dotenv_advisory_state=$(mktemp "${TMPDIR:-/tmp}/amh-dotenv-advisory-self-test.XXXXXX") || exit 1
 	rm -f -- "$self_dotenv_advisory_state"
 	DOTENV_ADVISORY_STATE=$self_dotenv_advisory_state
+	local old_destructive_advisory_state_set=${DESTRUCTIVE_ADVISORY_STATE+x}
+	local old_destructive_advisory_state=${DESTRUCTIVE_ADVISORY_STATE:-}
+	local self_destructive_advisory_state
+	self_destructive_advisory_state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-advisory-self-test.XXXXXX") || exit 1
+	rm -f -- "$self_destructive_advisory_state"
+	DESTRUCTIVE_ADVISORY_STATE=$self_destructive_advisory_state
 
 	# --- must block: the rails themselves
 	st_blocked 'git push --force origin feature'
@@ -1074,6 +1198,19 @@ printenv'
 	st_blocked 'sed -n "/KEY/p" .env'
 	st_blocked 'sort .env'
 	st_dotenv_advisory_once 'python3 -c "open('"'"'.env'"'"')"'
+	st_destructive_advisory_once 'rm -rf tmp/build'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -fr tmp/build'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -r -f tmp/build'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -f -r tmp/build'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm tmp/build -rf'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git clean -fdx'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git clean -df'
 
 	# --- must allow: the known false-positive classes.
 	# Quoted text naming a forbidden command is DATA, not a command.
@@ -1085,6 +1222,10 @@ printenv'
 	st_warn_allowed 'scripts/ladder.sh | tail -20'
 	st_warn_allowed './scripts/ladder.sh --guards-only 2>&1 | tail -40'
 	st_allowed 'git commit -m "document scripts/ladder.sh | tail warning"'
+	st_allowed 'git commit -m "document rm -rf risk"'
+	st_allowed 'rm file.txt'
+	st_allowed 'git clean --force --dry-run'
+	st_allowed 'git clean -nfd'
 	# Prose naming a forbidden path.
 	st_allowed 'grep -rn "force-push" docs/RUNBOOK.md'
 	# Ordinary correct usage.
@@ -1204,6 +1345,12 @@ git push --force origin main
 		DOTENV_ADVISORY_STATE=$old_dotenv_advisory_state
 	else
 		unset DOTENV_ADVISORY_STATE
+	fi
+	rm -f -- "$self_destructive_advisory_state"
+	if [ -n "$old_destructive_advisory_state_set" ]; then
+		DESTRUCTIVE_ADVISORY_STATE=$old_destructive_advisory_state
+	else
+		unset DESTRUCTIVE_ADVISORY_STATE
 	fi
 	if [ "$ST_FAILS" -ne 0 ]; then
 		printf 'command-guard.sh self-test: %d failure(s)\n' "$ST_FAILS" >&2
