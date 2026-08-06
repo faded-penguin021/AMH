@@ -83,6 +83,7 @@ re-litigate from.
 
 ## Changelog
 
+- 2026-08-06 — **Repeated fixture-only rail and manifest work was removed without removing coverage.** Ordinary synthesized repositories now print explicit skips for the two unrelated expensive rungs, while dedicated cases run the unmodified rail self-tests, all required rail regressions, and the complete integrity matrix. **DB-015** records the coverage boundary.
 - 2026-08-06 — **The shipped guard fixture suite now reports passing progress.** Each passing
   fixture writes a deterministic numbered `ok` line with its name to stderr while retaining the
   terse final totals and detailed failure diagnostics.

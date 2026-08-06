@@ -72,7 +72,14 @@ mk() { # mk <name> -> prints the fixture path
 	cp "$ROOT/scripts/ladder.sh" "$ROOT/scripts/redact.sh" \
 		"$ROOT/scripts/command-guard.sh" "$ROOT/scripts/session-start.sh" "$d/scripts/"
 	chmod +x "$d/scripts"/*.sh
-	write_manifest "$d"
+	# Ordinary fixtures exercise other guards. Patch only their disposable ladder copy so the
+	# expensive, independently fixtured rungs return loudly; the shipped ladder has no bypass.
+	sed -i '/^guard_rail_selftests() {/a\
+\tskip "scripts/command-guard.sh and scripts/redact.sh self-tests already covered by fixture suite"\
+\treturn' "$d/scripts/ladder.sh"
+	sed -i '/^guard_shipped_integrity() {/a\
+\tskip "shipped-script manifest check already covered by fixture suite"\
+\treturn' "$d/scripts/ladder.sh"
 	cat >"$d/amh.conf" <<-'CONF'
 		DEFAULT_BRANCH=main
 		BRANCH_PREFIX=session
@@ -136,7 +143,38 @@ mk() { # mk <name> -> prints the fixture path
 	printf '%s' "$d"
 }
 
+# Ordinary guard fixtures do not exercise either expensive rung. Dedicated cases below run
+# each real rung against freshly copied scripts, and the ladder prints a named skip so this
+# fixture-only optimization can never resemble coverage it did not execute.
 run() { (cd "$1" && CI=1 scripts/ladder.sh --guards-only 2>&1); }
+
+mk_unmodified() { # mk_unmodified <name> -> prints a fixture with the real copied ladder
+	local d
+	d=$(mk "$1")
+	cp "$ROOT/scripts/ladder.sh" "$d/scripts/ladder.sh"
+	git -C "$d" add scripts/ladder.sh
+	git -C "$d" commit -qm "restore unmodified ladder" --amend
+	git -C "$d" update-ref "refs/remotes/origin/$DEFAULT_BRANCH_FIXTURE" HEAD
+	printf '%s' "$d"
+}
+
+run_rails() { (cd "$1" && CI=1 scripts/ladder.sh --guards-only 2>&1); }
+
+mk_integrity() { # mk_integrity <name> -> prints a fixture path with a current manifest
+	local d
+	d=$(mk "$1")
+	# Restore the real integrity rung, but retain the fixture-only rail skip. Integrity cases
+	# are not rail cases; using mk_unmodified here reran command-guard's self-test ten times.
+	cp "$ROOT/scripts/ladder.sh" "$d/scripts/ladder.sh"
+	sed -i '/^guard_rail_selftests() {/a\
+\tskip "scripts/command-guard.sh and scripts/redact.sh self-tests already covered by fixture suite"\
+\treturn' "$d/scripts/ladder.sh"
+	write_manifest "$d"
+	git -C "$d" add scripts/ladder.sh scripts/MANIFEST.sha256
+	git -C "$d" commit -qm "add fixture manifest" --amend
+	git -C "$d" update-ref "refs/remotes/origin/$DEFAULT_BRANCH_FIXTURE" HEAD
+	printf '%s' "$d"
+}
 
 # The FULL ladder, verification rung included. `run()` always passes --guards-only, so the
 # two `✗ ladder red` verdicts below rung 3 are unreachable through it — untestable by
@@ -227,6 +265,17 @@ expect_verdict() { # <name> <runner: run|run_full> <dir> <expected rc> <fixed su
 	fi
 }
 
+expect_runner_saying() { # <name> <runner> <dir> <expected rc> <fixed substring>
+	local name=$1 runner=$2 d=$3 want_rc=$4 needle=$5 out rc
+	out=$($runner "$d")
+	rc=$?
+	if [ "$rc" -eq "$want_rc" ] && grep -qF "$needle" <<<"$out"; then
+		report ok "$name"
+	else
+		report no "$name" "expected exit $want_rc and '$needle'; got exit $rc" "$out"
+	fi
+}
+
 expect_fail() { # <name> <dir> <grep-pattern>
 	local out rc
 	out=$(run "$2")
@@ -279,7 +328,16 @@ printf 'ladder guard fixtures\n'
 
 # --- baseline
 d=$(mk baseline)
-expect_pass "clean fixture passes" "$d"
+out=$(run "$d")
+rc=$?
+if [ "$rc" -eq 0 ] &&
+	grep -qF "   skip  scripts/command-guard.sh and scripts/redact.sh self-tests already covered by fixture suite" <<<"$out" &&
+	grep -qF "   skip  shipped-script manifest check already covered by fixture suite" <<<"$out"; then
+	report ok "clean optimized fixture passes with both loud skip verdicts"
+else
+	report no "clean optimized fixture passes with both loud skip verdicts" \
+		"expected exit 0 and both fixture-suite skip lines; got $rc" "$out"
+fi
 
 # --- STATE size band
 d=$(mk state_hard)
@@ -1214,19 +1272,33 @@ rm -f "$d/scripts/redact.sh"
 expect_fail "a missing redact.sh fails rather than skips" "$d" "IS this repo's secret scan"
 
 # --- rail self-tests (the rung that catches the above)
+# The unmodified copied rails really run once before any mutation cases. This is the suite's
+# coverage boundary: ordinary fixtures may skip the repeated work only because this assertion
+# proves that the actual dispatcher and actual command-guard self-test ran successfully.
+d=$(mk_unmodified rail_baseline)
+expect_runner_saying "unmodified copied rails run their real self-tests once" run_rails "$d" 0 \
+	"   ok    scripts/command-guard.sh"
+
 # Mutation: a rail whose self-test fails must turn the ladder red. Without this the
 # whole section could print nothing and no fixture would notice.
-d=$(mk rail_regressed)
+d=$(mk_unmodified rail_regressed)
 # Mutate the fixture matrix itself, not the tail of the file: a function appended
 # after the dispatcher is defined too late to ever run, which is a mutation that
 # proves nothing.
 sed -i 's/^\tst_allowed .cat README.md./\tst_allowed "cat .env"/' "$d/scripts/command-guard.sh"
-expect_fail "a regressed rail self-test fails the ladder" "$d" "self-test failed"
+expect_runner_saying "a regressed rail self-test fails the ladder" run_rails "$d" 1 \
+	"self-test failed"
 
-d=$(mk rail_noexec)
+d=$(mk_unmodified rail_noexec)
 sed -i 's/^\tst_allowed .cat README.md./\tst_allowed "cat .env"/' "$d/scripts/command-guard.sh"
 chmod -x "$d/scripts/command-guard.sh"
-expect_fail "a non-executable rail is still self-tested" "$d" "self-test failed"
+expect_runner_saying "a non-executable rail is still self-tested" run_rails "$d" 1 \
+	"self-test failed"
+
+d=$(mk_unmodified rail_missing)
+rm -f "$d/scripts/command-guard.sh"
+expect_runner_saying "a missing rail script loudly says that nothing self-tested it" run_rails "$d" 0 \
+	"   skip  scripts/command-guard.sh is not a readable file — nothing self-tested it"
 
 # --- shipped-script integrity
 # The manifest is the only thing in an adopter's tree that can tell an upgraded script from
@@ -1236,14 +1308,14 @@ expect_fail "a non-executable rail is still self-tested" "$d" "self-test failed"
 if [ -z "$HASHER" ]; then
 	printf '  SKIP 10 shipped-integrity case(s): no sha256sum or shasum on this machine, so no fixture manifest could be built\n' >&2
 else
-	d=$(mk integrity_ok)
+	d=$(mk_integrity integrity_ok)
 	expect_pass_saying "an untouched tree matches the manifest and says how many it checked" "$d" \
 		"   ok    4 shipped script(s) match the published hashes"
 
 	# The whole point of the rung: a local edit to a shipped script. session-start.sh is the
 	# subject because nothing else in this suite executes it during a `--guards-only` run, so
 	# the only rung that can react is the one under test.
-	d=$(mk integrity_edited)
+	d=$(mk_integrity integrity_edited)
 	printf '\n# a local edit to a shipped script\n' >>"$d/scripts/session-start.sh"
 	expect_fail "an edited shipped script fails against the published hash" "$d" \
 		"does not match the hash the harness published for it"
@@ -1254,20 +1326,20 @@ else
 	# asserts that: deleting the manifest is also the documented way to live with a deliberate
 	# local patch, so it is the one off-switch an adopter reaches on purpose, and `skip` is
 	# counted by nothing and vanishes from the summary line.
-	d=$(mk integrity_absent)
+	d=$(mk_integrity integrity_absent)
 	rm -f "$d/scripts/MANIFEST.sha256"
 	expect_warn "an absent manifest warns that the rung checked nothing" "$d" \
 		"   WARN  scripts/MANIFEST.sha256 is absent"
 
 	# A manifest that outlived the script it names. Same signature as a deleted rung, which is
 	# why it is a failure and not a skip.
-	d=$(mk integrity_script_gone)
+	d=$(mk_integrity integrity_script_gone)
 	rm -f "$d/scripts/session-start.sh"
 	expect_fail "a manifest entry with no file behind it fails" "$d" \
 		"which is not in this tree"
 
 	# A manifest this cannot parse verifies nothing, so it must not be read past in silence.
-	d=$(mk integrity_malformed)
+	d=$(mk_integrity integrity_malformed)
 	printf 'not-a-hash scripts/ladder.sh\n' >>"$d/scripts/MANIFEST.sha256"
 	expect_fail "a malformed manifest line fails rather than being skipped over" "$d" \
 		"is not a sha256 entry naming a shipped script"
@@ -1276,7 +1348,7 @@ else
 	# comment parses cleanly, checks nothing, and would otherwise print `ok 0 shipped
 	# script(s)`. A green earned by an empty manifest is the one verdict this rung may never
 	# give.
-	d=$(mk integrity_empty)
+	d=$(mk_integrity integrity_empty)
 	printf '# nothing but a comment\n' >"$d/scripts/MANIFEST.sha256"
 	expect_fail "a manifest listing no scripts fails instead of passing vacuously" "$d" \
 		"lists no scripts"
@@ -1285,7 +1357,7 @@ else
 	# that excuses the file deciding whether anything else is excused. Refused, or every other
 	# verdict this rung gives is worth nothing — and this fixture is what stops a later
 	# simplification from dropping the self-check as redundant.
-	d=$(mk integrity_self_excused)
+	d=$(mk_integrity integrity_self_excused)
 	grep -v ' scripts/ladder\.sh$' "$d/scripts/MANIFEST.sha256" >"$d/m" &&
 		mv "$d/m" "$d/scripts/MANIFEST.sha256"
 	printf '\n# a rung I quietly deleted\n' >>"$d/scripts/ladder.sh"
@@ -1296,7 +1368,7 @@ else
 	# be removed, and the only signal is the count. The assertion is on the count, because a
 	# count nobody reads is not a signal — and if this rung ever grows a way to refuse this
 	# case, this fixture is what will notice.
-	d=$(mk integrity_one_excused)
+	d=$(mk_integrity integrity_one_excused)
 	grep -v ' scripts/session-start\.sh$' "$d/scripts/MANIFEST.sha256" >"$d/m" &&
 		mv "$d/m" "$d/scripts/MANIFEST.sha256"
 	printf '\n# a local edit nobody will hear about\n' >>"$d/scripts/session-start.sh"
@@ -1307,7 +1379,7 @@ else
 	# will hash any path it is handed and then describe /etc/hostname as a shipped script the
 	# harness will restore — a true hash comparison wrapped in a false account of what was
 	# checked.
-	d=$(mk integrity_stray_path)
+	d=$(mk_integrity integrity_stray_path)
 	printf '%s  ../outside.sh\n' "$(fixture_sha256 "$d/scripts/ladder.sh")" \
 		>>"$d/scripts/MANIFEST.sha256"
 	expect_fail "a manifest entry pointing outside scripts/ is refused, not hashed" "$d" \
@@ -1318,7 +1390,7 @@ else
 	# skipping, and it must stay non-fatal. The PATH is CONSTRUCTED from the tools the ladder
 	# needs rather than filtered, because subtracting the directory holding sha256sum deletes
 	# /usr/bin on most machines and every rung then dies at exit 127.
-	d=$(mk integrity_no_hasher)
+	d=$(mk_integrity integrity_no_hasher)
 	SHIM="$WORK/nohash_path"
 	mkdir -p "$SHIM"
 	for t in bash sh env git grep sed awk sort uniq comm xargs cmp diff mktemp wc tr head cut find basename dirname cat rm mv cp chmod ls; do

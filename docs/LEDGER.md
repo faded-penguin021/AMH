@@ -841,3 +841,14 @@
   `glue-review pass: clean` while `docs/RUNBOOK.md` calls it `adversarial pass: clean`. Cosmetic,
   pre-existing, outside this unit — renaming a verdict string across shipped prose is its own
   change with its own pass.
+
+- DB-015: **Fixture-only rung skips reduce repetition, not production coverage.** DB-011 found
+  that ordinary synthesized repositories repeatedly paid for the same command-guard self-test;
+  subsequent timing isolated repeated manifest construction and verification as another large
+  cost. The suite now patches only each ordinary disposable fixture's copied ladder so those two
+  unrelated rungs print loud `skip` verdicts. It separately runs an unmodified copied ladder for
+  the real rail self-tests, the regressed and non-executable command-guard cases, and the
+  missing-rail diagnostic; integrity fixtures alone receive freshly generated manifests and
+  exercise every manifest verdict. The shipped ladder exposes no skip flag or configuration
+  switch. This batches identical coverage at the fixture boundary without accepting an
+  attestation or weakening either production rail.
