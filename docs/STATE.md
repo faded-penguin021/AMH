@@ -83,6 +83,12 @@ re-litigate from.
 
 ## Changelog
 
+- 2026-08-06 — **One-time advisories became reusable and now cover destructive commands.**
+  The command guard uses category-scoped state for both `.env` mentions and destructive
+  filesystem operations. Recursive forced `rm` and forced directory `git clean` commands pause
+  once, recommend safer handling, then reach the normal rails when rerun; shell-aware parsing
+  excludes quoted prose. **DB-014** is the record.
+
 - 2026-08-06 — **Ledger row-length guidance brought into prose/guard lockstep.** Ledger
   preambles and runbook Record steps now require concise durable lessons and route larger
   narratives through `docs/history/` plus STATE changelog pointers; guard and fixture wording
