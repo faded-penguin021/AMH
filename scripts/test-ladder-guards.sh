@@ -21,6 +21,50 @@ export GIT_COMMITTER_NAME=amh-test GIT_COMMITTER_EMAIL=amh@test.invalid
 
 PASSED=0
 FAILED=0
+SUITE_STARTED=$SECONDS
+SLOW_FIXTURE_SECONDS=${SLOW_FIXTURE_SECONDS:-10}
+slow_threshold_valid() { # <candidate> — bounded to integers every supported bash can compare
+	case $1 in
+		''|*[!0-9]*|??????????*) return 1 ;;
+	esac
+	[ "$1" -le 999999999 ]
+}
+if ! slow_threshold_valid "$SLOW_FIXTURE_SECONDS"; then
+		printf 'FIXTURE ERROR: SLOW_FIXTURE_SECONDS must be an integer from 0 to 999999999, got %q\n' \
+			"$SLOW_FIXTURE_SECONDS" >&2
+		exit 2
+fi
+
+# Keep the three slowest fixtures in shell variables: timing diagnostics must not add a
+# dependency merely to sort a few integer values. Bash's integer SECONDS counter is coarse
+# by design, monotonic enough for diagnostics within one process, and avoids non-portable
+# sub-second `date` formats. Ties retain fixture execution order.
+SLOWEST_SECONDS=(-1 -1 -1)
+SLOWEST_NAMES=('' '' '')
+
+record_timing() { # <fixture name> <elapsed whole seconds>
+	local name=$1 elapsed=$2 rank prior
+	if [ "$elapsed" -ge "$SLOW_FIXTURE_SECONDS" ]; then
+		printf '  SLOW %ss - %s\n' "$elapsed" "$name"
+	fi
+	for rank in 0 1 2; do
+		if [ "$elapsed" -gt "${SLOWEST_SECONDS[$rank]}" ]; then
+			prior=$elapsed elapsed=${SLOWEST_SECONDS[$rank]}
+			SLOWEST_SECONDS[rank]=$prior
+			prior=$name name=${SLOWEST_NAMES[$rank]}
+			SLOWEST_NAMES[rank]=$prior
+		fi
+	done
+}
+
+print_timing_summary() {
+	local rank
+	printf 'timing: %ss total; slowest fixtures:\n' "$((SECONDS - SUITE_STARTED))"
+	for rank in 0 1 2; do
+		[ "${SLOWEST_SECONDS[$rank]}" -ge 0 ] &&
+			printf '  %ss - %s\n' "${SLOWEST_SECONDS[$rank]}" "${SLOWEST_NAMES[$rank]}"
+	done
+}
 
 # --- fixture construction ---------------------------------------------------
 DEFAULT_BRANCH_FIXTURE=main # must match amh.conf's DEFAULT_BRANCH below
@@ -161,10 +205,44 @@ report() { # <ok|no> <name> <detail...>
 	fi
 }
 
+# Exercise the timing bookkeeping without recursively running this expensive suite. Fixed
+# whole-second samples prove threshold filtering and top-three ordering; the range check
+# proves an oversized digit string is rejected before `test -ge` can diagnose and continue.
+timing_diagnostics_self_test() {
+	local out
+	out=$(
+		SLOW_FIXTURE_SECONDS=10
+		SUITE_STARTED=$SECONDS
+		SLOWEST_SECONDS=(-1 -1 -1)
+		SLOWEST_NAMES=('' '' '')
+		record_timing below-threshold 9
+		record_timing second 12
+		record_timing first 14
+		record_timing third 11
+		print_timing_summary
+	)
+	if grep -q 'below-threshold' <<<"$out"; then
+		report no "timing diagnostics filter and summarize fixtures" \
+			"a below-threshold fixture was printed" "$out"
+	elif ! grep -qF 'SLOW 12s - second' <<<"$out" ||
+		! grep -qE '^timing: [0-9]+s total; slowest fixtures:$' <<<"$out" ||
+		[ "$(printf '%s\n' "$out" | tail -3)" != $'  14s - first\n  12s - second\n  11s - third' ]; then
+		report no "timing diagnostics filter and summarize fixtures" \
+			"threshold or slowest-three output is wrong" "$out"
+	elif slow_threshold_valid 9999999999; then
+		report no "timing diagnostics filter and summarize fixtures" \
+			"an out-of-range threshold was accepted"
+	else
+		report ok
+	fi
+}
+
 expect_pass() { # <name> <dir>
-	local out rc
+	local out rc started=$SECONDS elapsed
 	out=$(run "$2")
 	rc=$?
+	elapsed=$((SECONDS - started))
+	record_timing "$1" "$elapsed"
 	if [ "$rc" -eq 0 ]; then report ok; else report no "$1" "expected exit 0, got $rc" "$out"; fi
 }
 
@@ -182,9 +260,11 @@ expect_pass() { # <name> <dir>
 # entire property this unit exists to establish. D-027(a), repeated inside the fix for the
 # defect D-027(a) records.
 expect_pass_saying() { # <name> <dir> <grep-pattern, verdict word included>
-	local out rc
+	local out rc started=$SECONDS elapsed
 	out=$(run "$2")
 	rc=$?
+	elapsed=$((SECONDS - started))
+	record_timing "$1" "$elapsed"
 	if [ "$rc" -ne 0 ]; then
 		report no "$1" "expected exit 0, got $rc" "$out"
 	elif ! grep -qF "$3" <<<"$out"; then
@@ -211,9 +291,11 @@ verdict_line() { # <ladder output>
 # that printed no verdict at all must be a failure and not a vacuous pass, which is the
 # hollow-guard case the runbook requires an arm for.
 expect_verdict() { # <name> <runner: run|run_full> <dir> <expected rc> <fixed substring>
-	local out rc line
+	local out rc line started=$SECONDS elapsed
 	out=$("$2" "$3")
 	rc=$?
+	elapsed=$((SECONDS - started))
+	record_timing "$1" "$elapsed"
 	line=$(verdict_line "$out")
 	if [ "$rc" -ne "$4" ]; then
 		report no "$1" "expected exit $4, got $rc" "$out"
@@ -227,9 +309,11 @@ expect_verdict() { # <name> <runner: run|run_full> <dir> <expected rc> <fixed su
 }
 
 expect_fail() { # <name> <dir> <grep-pattern>
-	local out rc
+	local out rc started=$SECONDS elapsed
 	out=$(run "$2")
 	rc=$?
+	elapsed=$((SECONDS - started))
+	record_timing "$1" "$elapsed"
 	if [ "$rc" -eq 0 ]; then
 		report no "$1" "expected a failure, ladder passed" "$out"
 	elif ! grep -qF "$3" <<<"$out"; then
@@ -246,9 +330,11 @@ expect_fail() { # <name> <dir> <grep-pattern>
 # check's edit branch, which permits a shrink ONLY because the size warning stays armed: the
 # single property making that branch safe was verified by nothing.
 expect_warn() { # <name> <dir> <grep-pattern>
-	local out rc
+	local out rc started=$SECONDS elapsed
 	out=$(run "$2")
 	rc=$?
+	elapsed=$((SECONDS - started))
+	record_timing "$1" "$elapsed"
 	if [ "$rc" -ne 0 ]; then
 		report no "$1" "expected exit 0 with a warning, got $rc" "$out"
 	elif ! grep -q '^   WARN ' <<<"$out"; then
@@ -275,6 +361,7 @@ akia_token() {
 
 # =============================================================================
 printf 'ladder guard fixtures\n'
+timing_diagnostics_self_test
 
 # --- baseline
 d=$(mk baseline)
@@ -684,7 +771,11 @@ expect_fail "a standalone token of the id shape IS read as a citation" "$d" "no 
 d=$(mk secret_plain)
 tok=$(akia_token)
 printf 'key = %s\n' "$tok" >"$d/scripts/deploy.sh"
+started=$SECONDS
 out=$(run "$d")
+elapsed=$((SECONDS - started))
+record_timing "secret-shaped string is caught" "$elapsed"
+record_timing "secret scan is value-free" "$elapsed"
 if grep -q 'credential-shaped' <<<"$out"; then
 	# The diagnostic must name the file and the position and NOTHING else. A
 	# regression to printing the matching line would defeat the whole guard.
@@ -1548,7 +1639,10 @@ expect_warn "with no upstream ref the guard says it checked NOTHING" "$d" \
 d=$(mk advisory_rules)
 sed -i "s|^RULE_FILES=''|RULE_FILES='amh.conf'|" "$d/amh.conf"
 printf '\n# an uncommitted legislation edit\n' >>"$d/amh.conf"
+started=$SECONDS
 out=$(run_local "$d")
+elapsed=$((SECONDS - started))
+record_timing "an uncommitted legislation edit warns" "$elapsed"
 if grep -qF "touches legislation" <<<"$out"; then
 	report ok
 else
@@ -1560,7 +1654,10 @@ fi
 d=$(mk advisory_plan_lifecycle)
 mkdir -p "$d/docs/plans"
 printf '# completed plan\n' >"$d/docs/plans/completed.md"
+started=$SECONDS
 out=$(run_local "$d")
+elapsed=$((SECONDS - started))
+record_timing "an orphaned plan is coached toward archive-or-delete" "$elapsed"
 if grep -qF "Move a completed plan worth retaining whole to docs/history/ when that archive tier exists; otherwise delete it" <<<"$out"; then
 	report ok
 else
@@ -1570,7 +1667,10 @@ fi
 d=$(mk advisory_ci)
 sed -i "s|^RULE_FILES=''|RULE_FILES='amh.conf'|" "$d/amh.conf"
 printf '\n# an uncommitted legislation edit\n' >>"$d/amh.conf"
+started=$SECONDS
 out=$(run "$d")
+elapsed=$((SECONDS - started))
+record_timing "advisories stay out of CI" "$elapsed"
 if grep -qF "Local advisories" <<<"$out"; then
 	report no "advisories stay out of CI" "the advisory section ran under CI=1" "$out"
 else
@@ -1700,4 +1800,5 @@ expect_verdict "the full green verdict names its subject" run_full "$d" 0 \
 
 # =============================================================================
 printf '\n%d passed, %d failed\n' "$PASSED" "$FAILED"
+print_timing_summary
 [ "$FAILED" -eq 0 ]

@@ -78,6 +78,11 @@ re-litigate from.
 
 ## Changelog
 
+- 2026-08-06 — **Fixture timing diagnostics added.** The shipped ladder guard suite now
+  measures every ladder invocation in whole seconds, prints only threshold-crossing fixtures
+  during the run, and closes with total runtime plus the three slowest fixtures. The threshold
+  is configurable without adding a timing dependency; passing ladder transcripts stay captured.
+
 - 2026-08-05 — **New ledger rows gained a per-row byte-counted character cap.** The repo-local append-only guard now checks rows absent from `HEAD` across the live ledger chain, while committed historical rows and strict supersession pointers remain exempt. `LEDGER_ROW_CHAR_CAP` is set in both the reference config and shipped example; the ledger preambles state the future-row rule. **DB-012** is the record.
 
 - 2026-08-05 — **Long ladder runtime triaged.** The apparent hang during verification was the
