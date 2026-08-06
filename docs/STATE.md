@@ -47,6 +47,11 @@ advisory and runtime-restatement principle.
 and publishing are owner steps. Create and push `amh-v4.1.0` after merge. No check: only the
 owner may tag/publish.
 
+**OPEN — review the ledger-row documentation unit on branch `work`.** The unit changes
+binding ledger preambles, runbook guidance, and guard diagnostics, but the execution policy
+for this session prohibited spawning a fresh-context reviewer and no clean reviewer CLI was
+available. The commit is parked for owner review under the rule-review protocol.
+
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
 4.0.0 are cut by owner report, and `main`'s protection is repointed at `ladder`.
 
@@ -81,6 +86,18 @@ re-litigate from.
 - 2026-08-06 — **The shipped guard fixture suite now reports passing progress.** Each passing
   fixture writes a deterministic numbered `ok` line with its name to stderr while retaining the
   terse final totals and detailed failure diagnostics.
+
+- 2026-08-06 — **One-time advisories became reusable and now cover destructive commands.**
+  The command guard uses category-scoped state for both `.env` mentions and destructive
+  filesystem operations. Recursive forced `rm` and forced directory `git clean` commands pause
+  once, recommend safer handling, then reach the normal rails when rerun; shell-aware parsing
+  excludes quoted prose. **DB-014** is the record.
+
+- 2026-08-06 — **Ledger row-length guidance brought into prose/guard lockstep.** Ledger
+  preambles and runbook Record steps now require concise durable lessons and route larger
+  narratives through `docs/history/` plus STATE changelog pointers; guard and fixture wording
+  now names the same byte-counted cap and historical/metadata exemption model. **DB-012** is
+  the existing record for the mechanism.
 
 - 2026-08-05 — **New ledger rows gained a per-row byte-counted character cap.** The repo-local append-only guard now checks rows absent from `HEAD` across the live ledger chain, while committed historical rows and strict supersession pointers remain exempt. `LEDGER_ROW_CHAR_CAP` is set in both the reference config and shipped example; the ledger preambles state the future-row rule. **DB-012** is the record.
 

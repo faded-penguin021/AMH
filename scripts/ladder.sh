@@ -383,7 +383,7 @@ guard_new_ledger_row_lengths() {
 		count=$(LC_ALL=C wc -c <"$row") || return
 		count=${count//[[:space:]]/}
 		if [ "$count" -gt "$cap" ]; then
-			fail "$id: new ledger row is $count byte-counted character(s), over LEDGER_ROW_CHAR_CAP=$cap — shorten the draft before commit; historical committed rows are exempt"
+			fail "$id: new ledger row is $count byte-counted character(s), over LEDGER_ROW_CHAR_CAP=$cap — keep the durable lesson concise and shorten the draft before commit; historical committed rows and sanctioned metadata-only additions are exempt"
 			return
 		fi
 	done

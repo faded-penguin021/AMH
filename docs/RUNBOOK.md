@@ -74,7 +74,9 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
   neither is ceremony no matter how sophisticated it sounds. Rebuild the bundle
   (`scripts/build-dist.sh`). **Rule-review protocol applies.**
 - **Acceptance:** `scripts/ladder.sh` green (dist-drift and version-lockstep guards included).
-- **Record:** STATE changelog line; a ledger row if the change encodes a durable lesson.
+- **Record:** STATE changelog line; a concise ledger row if the change encodes a durable
+  lesson. Record that lesson, not the whole debugging narrative; archive a larger narrative
+  under `docs/history/` and point to it from the `docs/STATE.md` changelog.
 
 ### 2. Change a shipped script
 
@@ -93,7 +95,9 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
 - **Acceptance:** `scripts/ladder.sh` green, including the fixture suite and both rail
   self-tests; the new fixture must FAIL against the old script — check by stashing the
   behaviour change, or the fixture proves nothing.
-- **Record:** STATE changelog line; ledger row for any bug class the change fixes.
+- **Record:** STATE changelog line; a concise ledger row for any durable bug class the change
+  fixes, not its whole debugging narrative. Archive a larger narrative under `docs/history/`
+  and point to it from the `docs/STATE.md` changelog.
 
 ### 3. Add a guard
 
@@ -121,7 +125,9 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
   the fixture fail against the old script is the mitigation, not a proof of correctness, and
   it is why guards that can go hollow (a missing tool, an extraction that yields nothing)
   carry an explicit checked-NOTHING branch instead of trusting the comparison to be loud.
-- **Record:** STATE changelog line; a ledger row naming the incident that earned the guard.
+- **Record:** STATE changelog line; a concise ledger row naming the incident and durable
+  lesson that earned the guard, not the whole debugging narrative. Archive a larger narrative
+  under `docs/history/` and point to it from the `docs/STATE.md` changelog.
 
 ### 4. Change a seed template
 
@@ -190,7 +196,9 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
   the reason*. Then demonstrate the other direction the same way guards are demonstrated:
   break the evaluator, watch the suite go red, restore it. Those two rules are orthogonal —
   one mutates the subject, one mutates the checker — and neither implies the other.
-- **Record:** STATE changelog line; a ledger row for anything durable the scenario taught.
+- **Record:** STATE changelog line; a concise ledger row for the durable lesson the scenario
+  taught, not the whole debugging narrative. Archive a larger narrative under `docs/history/`
+  and point to it from the `docs/STATE.md` changelog.
 - **What a green run does NOT say:** anything about how an agent behaves. Until a scenario
   has been run against a real agent it has demonstrated only that its evaluator is
   deterministic. Any release claim that mentions the lab carries that sentence.
@@ -417,8 +425,10 @@ Containment outranks the checkpoint invariant.
    never-rewriting-pushed-history, scoped to removing the secret, **owner-executed, never by
    an agent**. The force-push rail stays in place for agents; the owner lifts it for
    themselves.
-5. **Afterward:** a ledger row, and if a guard or deny rail could have caught it, add one
-   with a fixture.
+5. **Afterward:** a concise ledger row capturing the durable lesson, not the whole incident
+   narrative; archive a larger narrative under `docs/history/` and point to it from the
+   `docs/STATE.md` changelog. If a guard or deny rail could have caught it, add one with a
+   fixture.
 
 ## Acceptance ladder
 

@@ -25,10 +25,17 @@
 > **Search before appending.** Grep ALL volumes for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes DA-NNN") and the old row gets a correction pointer, never deletion.
+> **Keep new rows concise and at or below `LEDGER_ROW_CHAR_CAP`.** Capture the durable lesson,
+> not the whole debugging narrative; put larger narratives in `docs/history/` and link them
+> from the `docs/STATE.md` changelog.
 >
 > **File cap & rollover.** This file holds at most **800 lines** (the cap bounds LINES, not
 > rows — it is read cost that is being bounded, and the number stays in lockstep with
-> `LEDGER_LINE_CAP` in `amh.conf`). Future rows appended after the row-length guard landed must also stay at or below **2,000 byte-counted characters** (`LEDGER_ROW_CHAR_CAP` in `amh.conf`); the guard counts bytes under `LC_ALL=C` for a locale-stable result, so ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. The final row may finish past the cap, but no row may
+> `LEDGER_LINE_CAP` in `amh.conf`). For new rows, the configured character cap is **2,000
+> byte-counted characters**; the guard counts bytes under `LC_ALL=C` for a locale-stable
+> result, so ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded
+> bytes. Rows already committed when checked are historical and exempt. The final row may
+> finish past the file cap, but no row may
 > ever *start* past it: when this file stands over the cap, create LEDGER_C.md (this file's
 > name with a _C suffix) with the same header discipline, numbering from **DC-001**. It is
 > named without backticks on purpose — a name in backticks is a citation, and the path-refs
@@ -511,3 +518,14 @@
   addition or both together, while marker removal, pointer replacement, and prose edits still
   fail. Because the row id already exists at `HEAD`, neither metadata addition reclassifies the
   historical row as new or subjects it retroactively to `LEDGER_ROW_CHAR_CAP`.
+
+- DB-014: **A broad destructive-command rail should be a category-scoped speed bump, not a
+  permanent deny.** Recursive forced removal is sometimes necessary, but an accidental run can
+  erase the guard fixtures, source files, or untracked evidence needed to understand the work.
+  The command guard therefore recognizes leading `rm` invocations combining recursive and force
+  options and leading `git clean` invocations combining force and directory options, using the
+  same heredoc, segment, and word parsing that keeps command-shaped prose out of other rails. It
+  blocks the category's first attempt with safer alternatives and lets an intentional rerun reach
+  the precise rails. Category-specific state also prevents acknowledging the `.env` advisory from
+  silently acknowledging destructive deletion, while one shared mechanism prevents each new
+  advisory from inventing its own session-state implementation.
