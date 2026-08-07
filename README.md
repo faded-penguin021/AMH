@@ -26,15 +26,15 @@ nobody can recover.
 
 The harness is the accumulated answer to those, and every mechanism in it is narrow:
 
-| Mechanism | What it is | What it prevents |
-|---|---|---|
-| **Constitution** (`AGENTS.md`) | The always-loaded operating prompt: principles, protocol, invariants. | A session inventing its own process. |
-| **Working memory** (`docs/STATE.md`) | Current state, Owner queue, changelog. Size-banded with hysteresis. | Handoff by guesswork; an unbounded file nobody reads. |
-| **Permanent memory** (`docs/LEDGER.md`) | Append-only rows: what broke, why, and the generalisation. | Session N's shipped bug being rediscovered by session N+9. |
-| **Runbook** (`docs/RUNBOOK.md`) | Playbooks for the recurring jobs. | Re-deriving a procedure badly, under time pressure. |
-| **The ladder** (`scripts/ladder.sh`) | One verification entrypoint, run identically by the agent and by CI. | "It passes locally" — and green-by-omission. |
-| **Rails** (`scripts/command-guard.sh`, `scripts/redact.sh`) | A pre-execution command guard, and a redaction filter that doubles as the repo's secret scan. | Force-pushes, `.env` reads, credentials in output. |
-| **Review protocols** | Fresh-context adversarial passes, with a no-self-review rule. | A session grading its own homework. |
+| Mechanism | What it is | What it prevents | Profile(s) |
+|---|---|---|---|
+| **Constitution** (`AGENTS.md`) | The always-loaded operating prompt: principles, protocol, invariants. | A session inventing its own process. | light, standard, full |
+| **Working memory** (`docs/STATE.md`) | Current state, Owner queue, changelog. Size-banded with hysteresis. | Handoff by guesswork; an unbounded file nobody reads. | light, standard, full |
+| **Permanent memory** (`docs/LEDGER.md`) | Append-only rows: what broke, why, and the generalisation. | Session N's shipped bug being rediscovered by session N+9. | standard, full |
+| **Runbook** (`docs/RUNBOOK.md`) | Playbooks for the recurring jobs. | Re-deriving a procedure badly, under time pressure. | standard, full |
+| **The ladder** (`scripts/ladder.sh`) | One verification entrypoint, run identically by the agent and by CI. | "It passes locally" — and green-by-omission. | light, standard, full |
+| **Rails** (`scripts/command-guard.sh`, `scripts/redact.sh`) | A pre-execution command guard, and a redaction filter that doubles as the repo's secret scan. | Force-pushes, `.env` reads, credentials in output. | light, standard, full |
+| **Review protocols** | Fresh-context adversarial passes, with a no-self-review rule. | A session grading its own homework. | light, standard, full |
 
 Nothing in the harness consumes a self-report. A checklist an agent ticks is not evidence;
 the ladder is.
