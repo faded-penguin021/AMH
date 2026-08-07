@@ -83,6 +83,11 @@ re-litigate from.
 
 ## Changelog
 
+- 2026-08-07 — **Fixture timing and reduced-cost progress reporting were reconciled after
+  their merge.** The timing self-test once again supplies the progress reporter's required
+  fixture name; every assertion now records a coarse elapsed value centrally, every passing
+  progress line prints it, and runner-specific plus optimized-baseline invocations are timed.
+
 - 2026-08-06 — **Repeated fixture-only rail and manifest work was removed without removing coverage.** Ordinary synthesized repositories now print explicit skips for the two unrelated expensive rungs, while dedicated cases run the unmodified rail self-tests, all required rail regressions, and the complete integrity matrix. **DB-015** records the coverage boundary.
 - 2026-08-06 — **The shipped guard fixture suite now reports passing progress.** Each passing
   fixture writes a deterministic numbered `ok` line with its name to stderr while retaining the

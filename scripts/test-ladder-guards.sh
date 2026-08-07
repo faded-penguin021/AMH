@@ -22,6 +22,7 @@ export GIT_COMMITTER_NAME=amh-test GIT_COMMITTER_EMAIL=amh@test.invalid
 PASSED=0
 FAILED=0
 SUITE_STARTED=$SECONDS
+REPORT_STARTED=$SECONDS
 SLOW_FIXTURE_SECONDS=${SLOW_FIXTURE_SECONDS:-10}
 slow_threshold_valid() { # <candidate> — bounded to integers every supported bash can compare
 	case $1 in
@@ -232,9 +233,11 @@ run_local() { (cd "$1" && env -u CI scripts/ladder.sh --guards-only 2>&1); }
 
 # --- assertions -------------------------------------------------------------
 report() { # <ok|no> <name> <detail...>
+	local elapsed=${FIXTURE_ELAPSED_SECONDS:-$((SECONDS - REPORT_STARTED))}
+	record_timing "$2" "$elapsed"
 	if [ "$1" = ok ]; then
 		PASSED=$((PASSED + 1))
-		printf 'ok %03d - %s\n' "$((PASSED + FAILED))" "$2" >&2
+		printf 'ok %03d - %ss - %s\n' "$((PASSED + FAILED))" "$elapsed" "$2" >&2
 	else
 		FAILED=$((FAILED + 1))
 		shift
@@ -242,6 +245,8 @@ report() { # <ok|no> <name> <detail...>
 		shift
 		[ $# -gt 0 ] && printf '%s\n' "$*" | sed 's/^/       /' >&2
 	fi
+	unset FIXTURE_ELAPSED_SECONDS
+	REPORT_STARTED=$SECONDS
 }
 
 # Exercise the timing bookkeeping without recursively running this expensive suite. Fixed
@@ -272,14 +277,15 @@ timing_diagnostics_self_test() {
 		report no "timing diagnostics filter and summarize fixtures" \
 			"an out-of-range threshold was accepted"
 	else
-		report ok
+		report ok "timing diagnostics filter and summarize fixtures"
 	fi
 }
 
 expect_pass() { # <name> <dir>
-	local out rc started=$SECONDS elapsed
+	local out rc started=$SECONDS
 	out=$(run "$2")
 	rc=$?
+	FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
 	if [ "$rc" -eq 0 ]; then report ok "$1"; else report no "$1" "expected exit 0, got $rc" "$out"; fi
 }
 
@@ -297,11 +303,10 @@ expect_pass() { # <name> <dir>
 # entire property this unit exists to establish. D-027(a), repeated inside the fix for the
 # defect D-027(a) records.
 expect_pass_saying() { # <name> <dir> <grep-pattern, verdict word included>
-	local out rc started=$SECONDS elapsed
+	local out rc started=$SECONDS
 	out=$(run "$2")
 	rc=$?
-	elapsed=$((SECONDS - started))
-	record_timing "$1" "$elapsed"
+	FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
 	if [ "$rc" -ne 0 ]; then
 		report no "$1" "expected exit 0, got $rc" "$out"
 	elif ! grep -qF "$3" <<<"$out"; then
@@ -328,11 +333,10 @@ verdict_line() { # <ladder output>
 # that printed no verdict at all must be a failure and not a vacuous pass, which is the
 # hollow-guard case the runbook requires an arm for.
 expect_verdict() { # <name> <runner: run|run_full> <dir> <expected rc> <fixed substring>
-	local out rc line started=$SECONDS elapsed
+	local out rc line started=$SECONDS
 	out=$("$2" "$3")
 	rc=$?
-	elapsed=$((SECONDS - started))
-	record_timing "$1" "$elapsed"
+	FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
 	line=$(verdict_line "$out")
 	if [ "$rc" -ne "$4" ]; then
 		report no "$1" "expected exit $4, got $rc" "$out"
@@ -346,9 +350,10 @@ expect_verdict() { # <name> <runner: run|run_full> <dir> <expected rc> <fixed su
 }
 
 expect_runner_saying() { # <name> <runner> <dir> <expected rc> <fixed substring>
-	local name=$1 runner=$2 d=$3 want_rc=$4 needle=$5 out rc
+	local name=$1 runner=$2 d=$3 want_rc=$4 needle=$5 out rc started=$SECONDS
 	out=$($runner "$d")
 	rc=$?
+	FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
 	if [ "$rc" -eq "$want_rc" ] && grep -qF "$needle" <<<"$out"; then
 		report ok "$name"
 	else
@@ -357,11 +362,10 @@ expect_runner_saying() { # <name> <runner> <dir> <expected rc> <fixed substring>
 }
 
 expect_fail() { # <name> <dir> <grep-pattern>
-	local out rc started=$SECONDS elapsed
+	local out rc started=$SECONDS
 	out=$(run "$2")
 	rc=$?
-	elapsed=$((SECONDS - started))
-	record_timing "$1" "$elapsed"
+	FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
 	if [ "$rc" -eq 0 ]; then
 		report no "$1" "expected a failure, ladder passed" "$out"
 	elif ! grep -qF "$3" <<<"$out"; then
@@ -378,11 +382,10 @@ expect_fail() { # <name> <dir> <grep-pattern>
 # check's edit branch, which permits a shrink ONLY because the size warning stays armed: the
 # single property making that branch safe was verified by nothing.
 expect_warn() { # <name> <dir> <grep-pattern>
-	local out rc started=$SECONDS elapsed
+	local out rc started=$SECONDS
 	out=$(run "$2")
 	rc=$?
-	elapsed=$((SECONDS - started))
-	record_timing "$1" "$elapsed"
+	FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
 	if [ "$rc" -ne 0 ]; then
 		report no "$1" "expected exit 0 with a warning, got $rc" "$out"
 	elif ! grep -q '^   WARN ' <<<"$out"; then
@@ -413,8 +416,10 @@ timing_diagnostics_self_test
 
 # --- baseline
 d=$(mk baseline)
+started=$SECONDS
 out=$(run "$d")
 rc=$?
+FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
 if [ "$rc" -eq 0 ] &&
 	grep -qF "   skip  scripts/command-guard.sh and scripts/redact.sh self-tests already covered by fixture suite" <<<"$out" &&
 	grep -qF "   skip  shipped-script manifest check already covered by fixture suite" <<<"$out"; then
@@ -831,19 +836,22 @@ printf 'key = %s\n' "$tok" >"$d/scripts/deploy.sh"
 started=$SECONDS
 out=$(run "$d")
 elapsed=$((SECONDS - started))
-record_timing "secret-shaped string is caught" "$elapsed"
-record_timing "secret scan is value-free" "$elapsed"
 if grep -q 'credential-shaped' <<<"$out"; then
 	# The diagnostic must name the file and the position and NOTHING else. A
 	# regression to printing the matching line would defeat the whole guard.
 	if grep -qF "$tok" <<<"$out"; then
+		FIXTURE_ELAPSED_SECONDS=$elapsed
 		report no "secret scan is value-free" "the diagnostic printed the token itself" "$out"
 	else
+		FIXTURE_ELAPSED_SECONDS=$elapsed
 		report ok "secret scan is value-free"
 	fi
+	FIXTURE_ELAPSED_SECONDS=$elapsed
 	report ok "secret-shaped string is caught"
 else
+	FIXTURE_ELAPSED_SECONDS=$elapsed
 	report no "secret-shaped string is caught" "not flagged" "$out"
+	FIXTURE_ELAPSED_SECONDS=$elapsed
 	report no "secret scan is value-free" "(not reached)"
 fi
 
@@ -1713,7 +1721,7 @@ printf '\n# an uncommitted legislation edit\n' >>"$d/amh.conf"
 started=$SECONDS
 out=$(run_local "$d")
 elapsed=$((SECONDS - started))
-record_timing "an uncommitted legislation edit warns" "$elapsed"
+FIXTURE_ELAPSED_SECONDS=$elapsed
 if grep -qF "touches legislation" <<<"$out"; then
 	report ok "an uncommitted legislation edit warns"
 else
@@ -1728,7 +1736,7 @@ printf '# completed plan\n' >"$d/docs/plans/completed.md"
 started=$SECONDS
 out=$(run_local "$d")
 elapsed=$((SECONDS - started))
-record_timing "an orphaned plan is coached toward archive-or-delete" "$elapsed"
+FIXTURE_ELAPSED_SECONDS=$elapsed
 if grep -qF "Move a completed plan worth retaining whole to docs/history/ when that archive tier exists; otherwise delete it" <<<"$out"; then
 	report ok "an orphaned plan is coached toward archive-or-delete"
 else
@@ -1741,7 +1749,7 @@ printf '\n# an uncommitted legislation edit\n' >>"$d/amh.conf"
 started=$SECONDS
 out=$(run "$d")
 elapsed=$((SECONDS - started))
-record_timing "advisories stay out of CI" "$elapsed"
+FIXTURE_ELAPSED_SECONDS=$elapsed
 if grep -qF "Local advisories" <<<"$out"; then
 	report no "advisories stay out of CI" "the advisory section ran under CI=1" "$out"
 else
