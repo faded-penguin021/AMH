@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 4.0.0.** Repos that adopt it record the version they took
+**Harness version 4.1.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -286,6 +286,14 @@ against the hard rails and blocks with a reason naming the rule and the correct 
 The reason is fed back to the agent, which self-corrects in one step instead of fighting a mute
 prefix-matched denial. (A deterministic rule enforced by a hook needs no prose repetition *for
 that agent* — keep the prose anyway; it binds hook-less agents.)
+
+Use runtime diagnostics to restate the small set of behavioural rules whose failure is both
+likely and expensive: a block or warning should name the violated rule, why the tempting action
+is dangerous, and the safe next move. This is not motivational prose bolted onto a gate; it is
+a correctness mechanism for untrustworthy agents with lossy attention, and it earns its keep
+under P0 when it prevents repeated owner correction without claiming coverage the guard does
+not have. Keep the set narrow, incident-earned and artifact-triggered, because restating every
+rule makes none salient.
 
 Hard-won pattern rules for such a guard: judge only each simple-command segment's LEADING
 command, so quoted text that merely *contains* a forbidden command (commit messages, doc
@@ -728,6 +736,10 @@ LEDGER_DIR=docs
 LEDGER_BASENAME=LEDGER
 # Keep in lockstep with the number stated in the ledger's own header.
 LEDGER_LINE_CAP={{LINE_CAP}}
+# New rows appended to any live ledger volume are capped by bytes under LC_ALL=C
+# (ASCII/UTF-8 text therefore counts one byte per ASCII character). Historical rows
+# already committed at HEAD are exempt so append-only history is never rewritten.
+LEDGER_ROW_CHAR_CAP=2000
 
 # Where citations are scanned for: code and workflows only — NOT docs (prose mentions
 # IDs without citing them), and not the guard fixtures (which carry synthetic IDs).
@@ -1113,11 +1125,17 @@ shipped bug teaches session N+9's review pass.
 > **Search before appending.** Grep the ledger for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes D-NNN") and the old row gets a correction pointer, never deletion.
+> **Keep new rows concise and at or below `LEDGER_ROW_CHAR_CAP`.** Capture the durable lesson,
+> not the whole debugging narrative; put larger narratives in `docs/history/` and link them
+> from the `docs/STATE.md` changelog.
 >
 > **File cap & rollover.** This file holds at most **{{LINE_CAP}}** lines (the cap bounds
 > LINES, not rows — rows vary in length, and it is read and context cost that is being
-> bounded; keep the number in lockstep with `LEDGER_LINE_CAP` in `amh.conf`). The final row
-> may finish past the cap, but no row may ever *start* past it: when the file stands over the
+> bounded; keep the number in lockstep with `LEDGER_LINE_CAP` in `amh.conf`). New rows must
+> stay at or below the configured `LEDGER_ROW_CHAR_CAP`, counted as bytes under `LC_ALL=C`;
+> ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. Rows
+> already committed when checked are historical and exempt. The final row may finish past the
+> file cap, but no row may ever *start* past it: when the file stands over the
 > cap, create the next volume with this same header discipline and number its rows from the
 > matching prefix — `LEDGER.md`/`D-` rolls to `LEDGER_A.md`/`DA-`, then `_B.md`/`DB-`. The
 > suffix advances as an odometer over A–Z, not a list with a last entry: `_Z` rolls to `_AA`,

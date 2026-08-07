@@ -100,11 +100,84 @@ awk '/^- D-002 / && !done { print "  Superseded by DB-999."; done = 1 } { print 
 	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
 expect pass "ledger-append-only: strict superseded pointer is allowed" "$d" ledger-append-only.sh
 
+d=$(snapshot ledger_append_only_cited)
+sed '0,/^- D-004: /s//- D-004 [cited]: /' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect pass "ledger-append-only: cited marker addition is allowed" "$d" ledger-append-only.sh
+
+d=$(snapshot ledger_append_only_cited_and_superseded)
+awk '/^- D-004: / { sub(":", " [cited]:") } /^- D-005/ { print "  Superseded by DB-999." } { print }' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect pass "ledger-append-only: cited marker and strict superseded pointer may be added together" "$d" ledger-append-only.sh
+
+d=$(snapshot ledger_append_only_cited_after_committed_supersession)
+awk '/^- D-005/ { print "  Superseded by DB-998." } { print }' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+(cd "$d" && git add docs/LEDGER.md && git commit -qm superseded-history)
+sed '0,/^- D-004: /s//- D-004 [cited]: /' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect pass "ledger-append-only: cited marker may be added while preserving a committed pointer" "$d" ledger-append-only.sh
+
+d=$(snapshot ledger_append_only_second_supersession)
+awk '/^- D-005/ { print "  Superseded by DB-998." } { print }' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+(cd "$d" && git add docs/LEDGER.md && git commit -qm superseded-history)
+awk '/^- D-005/ { print "  Superseded by DB-999." } { print }' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect fail "ledger-append-only: a committed supersession pointer cannot gain a second pointer" "$d" \
+	ledger-append-only.sh "D-004 existed at HEAD and was edited"
+
+d=$(snapshot ledger_append_only_cited_removal)
+sed '0,/^- D-001 \[cited\]: /s//- D-001: /' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect fail "ledger-append-only: cited marker removal is still a rewrite" "$d" \
+	ledger-append-only.sh "D-001 existed at HEAD and was edited"
+
 d=$(snapshot ledger_append_only_new_row_draft)
 cat >>"$d/docs/LEDGER_B.md" <<'ROW'
 - DB-999: **Draft row can be rewritten before commit.** First draft.
 ROW
 expect pass "ledger-append-only: new uncommitted rows are draft-editable" "$d" ledger-append-only.sh
+
+
+d=$(snapshot ledger_append_only_new_row_under_cap)
+sed -i 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=120/' "$d/amh.conf"
+cat >>"$d/docs/LEDGER_B.md" <<'ROW'
+- DB-999: **Short new row passes.** Small enough.
+ROW
+expect pass "ledger-append-only: a concise new row under the byte-counted character cap passes" "$d" ledger-append-only.sh
+
+d=$(snapshot ledger_append_only_new_row_over_cap)
+sed -i 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
+python3 - "$d/docs/LEDGER_B.md" <<'PYROW'
+from pathlib import Path
+import sys
+Path(sys.argv[1]).write_text(Path(sys.argv[1]).read_text() + "- DB-999: **Long new row fails.** " + ("x" * 120) + "\n")
+PYROW
+expect fail "ledger-append-only: a new row over the byte-counted character cap fails" "$d" \
+	ledger-append-only.sh "over LEDGER_ROW_CHAR_CAP=80"
+
+d=$(snapshot ledger_append_only_committed_over_cap_exempt)
+sed -i 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
+python3 - "$d/docs/LEDGER_B.md" <<'PYROW'
+from pathlib import Path
+import sys
+Path(sys.argv[1]).write_text(Path(sys.argv[1]).read_text() + "- DB-999: **Committed long row is historical.** " + ("x" * 120) + "\n")
+PYROW
+(cd "$d" && git add amh.conf docs/LEDGER_B.md && git commit -qm over-cap-history)
+expect pass "ledger-append-only: an already committed over-cap row is historical and exempt" "$d" ledger-append-only.sh
+
+d=$(snapshot ledger_append_only_superseded_over_cap_existing_row)
+sed -i 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=10/' "$d/amh.conf"
+awk '/^- D-002 / && !done { print "  Superseded by DB-999."; done = 1 } { print }' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect pass "ledger-append-only: sanctioned supersession metadata ignores the new-row cap" "$d" ledger-append-only.sh
+
+d=$(snapshot ledger_append_only_cited_over_cap_existing_row)
+sed -i 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=10/' "$d/amh.conf"
+sed '0,/^- D-004: /s//- D-004 [cited]: /' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect pass "ledger-append-only: sanctioned cited metadata ignores the new-row cap" "$d" ledger-append-only.sh
 
 # --- config-schema ------------------------------------------------------------
 d=$(snapshot config_schema_missing)

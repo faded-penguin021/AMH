@@ -21,6 +21,51 @@ export GIT_COMMITTER_NAME=amh-test GIT_COMMITTER_EMAIL=amh@test.invalid
 
 PASSED=0
 FAILED=0
+SUITE_STARTED=$SECONDS
+REPORT_STARTED=$SECONDS
+SLOW_FIXTURE_SECONDS=${SLOW_FIXTURE_SECONDS:-10}
+slow_threshold_valid() { # <candidate> — bounded to integers every supported bash can compare
+	case $1 in
+		''|*[!0-9]*|??????????*) return 1 ;;
+	esac
+	[ "$1" -le 999999999 ]
+}
+if ! slow_threshold_valid "$SLOW_FIXTURE_SECONDS"; then
+		printf 'FIXTURE ERROR: SLOW_FIXTURE_SECONDS must be an integer from 0 to 999999999, got %q\n' \
+			"$SLOW_FIXTURE_SECONDS" >&2
+		exit 2
+fi
+
+# Keep the three slowest fixtures in shell variables: timing diagnostics must not add a
+# dependency merely to sort a few integer values. Bash's integer SECONDS counter is coarse
+# by design, monotonic enough for diagnostics within one process, and avoids non-portable
+# sub-second `date` formats. Ties retain fixture execution order.
+SLOWEST_SECONDS=(-1 -1 -1)
+SLOWEST_NAMES=('' '' '')
+
+record_timing() { # <fixture name> <elapsed whole seconds>
+	local name=$1 elapsed=$2 rank prior
+	if [ "$elapsed" -ge "$SLOW_FIXTURE_SECONDS" ]; then
+		printf '  SLOW %ss - %s\n' "$elapsed" "$name"
+	fi
+	for rank in 0 1 2; do
+		if [ "$elapsed" -gt "${SLOWEST_SECONDS[$rank]}" ]; then
+			prior=$elapsed elapsed=${SLOWEST_SECONDS[$rank]}
+			SLOWEST_SECONDS[rank]=$prior
+			prior=$name name=${SLOWEST_NAMES[$rank]}
+			SLOWEST_NAMES[rank]=$prior
+		fi
+	done
+}
+
+print_timing_summary() {
+	local rank
+	printf 'timing: %ss total; slowest fixtures:\n' "$((SECONDS - SUITE_STARTED))"
+	for rank in 0 1 2; do
+		[ "${SLOWEST_SECONDS[$rank]}" -ge 0 ] &&
+			printf '  %ss - %s\n' "${SLOWEST_SECONDS[$rank]}" "${SLOWEST_NAMES[$rank]}"
+	done
+}
 
 # --- fixture construction ---------------------------------------------------
 DEFAULT_BRANCH_FIXTURE=main # must match amh.conf's DEFAULT_BRANCH below
@@ -72,7 +117,14 @@ mk() { # mk <name> -> prints the fixture path
 	cp "$ROOT/scripts/ladder.sh" "$ROOT/scripts/redact.sh" \
 		"$ROOT/scripts/command-guard.sh" "$ROOT/scripts/session-start.sh" "$d/scripts/"
 	chmod +x "$d/scripts"/*.sh
-	write_manifest "$d"
+	# Ordinary fixtures exercise other guards. Patch only their disposable ladder copy so the
+	# expensive, independently fixtured rungs return loudly; the shipped ladder has no bypass.
+	sed -i '/^guard_rail_selftests() {/a\
+\tskip "scripts/command-guard.sh and scripts/redact.sh self-tests already covered by fixture suite"\
+\treturn' "$d/scripts/ladder.sh"
+	sed -i '/^guard_shipped_integrity() {/a\
+\tskip "shipped-script manifest check already covered by fixture suite"\
+\treturn' "$d/scripts/ladder.sh"
 	cat >"$d/amh.conf" <<-'CONF'
 		DEFAULT_BRANCH=main
 		BRANCH_PREFIX=session
@@ -88,6 +140,7 @@ mk() { # mk <name> -> prints the fixture path
 		LEDGER_DIR=docs
 		LEDGER_BASENAME=LEDGER
 		LEDGER_LINE_CAP=800
+		LEDGER_ROW_CHAR_CAP=2000
 		CITATION_SCAN_PATHS='scripts'
 		CITATION_EXCLUDE=''
 		POISON_TOKENS='[skip ci]'
@@ -135,7 +188,38 @@ mk() { # mk <name> -> prints the fixture path
 	printf '%s' "$d"
 }
 
+# Ordinary guard fixtures do not exercise either expensive rung. Dedicated cases below run
+# each real rung against freshly copied scripts, and the ladder prints a named skip so this
+# fixture-only optimization can never resemble coverage it did not execute.
 run() { (cd "$1" && CI=1 scripts/ladder.sh --guards-only 2>&1); }
+
+mk_unmodified() { # mk_unmodified <name> -> prints a fixture with the real copied ladder
+	local d
+	d=$(mk "$1")
+	cp "$ROOT/scripts/ladder.sh" "$d/scripts/ladder.sh"
+	git -C "$d" add scripts/ladder.sh
+	git -C "$d" commit -qm "restore unmodified ladder" --amend
+	git -C "$d" update-ref "refs/remotes/origin/$DEFAULT_BRANCH_FIXTURE" HEAD
+	printf '%s' "$d"
+}
+
+run_rails() { (cd "$1" && CI=1 scripts/ladder.sh --guards-only 2>&1); }
+
+mk_integrity() { # mk_integrity <name> -> prints a fixture path with a current manifest
+	local d
+	d=$(mk "$1")
+	# Restore the real integrity rung, but retain the fixture-only rail skip. Integrity cases
+	# are not rail cases; using mk_unmodified here reran command-guard's self-test ten times.
+	cp "$ROOT/scripts/ladder.sh" "$d/scripts/ladder.sh"
+	sed -i '/^guard_rail_selftests() {/a\
+\tskip "scripts/command-guard.sh and scripts/redact.sh self-tests already covered by fixture suite"\
+\treturn' "$d/scripts/ladder.sh"
+	write_manifest "$d"
+	git -C "$d" add scripts/ladder.sh scripts/MANIFEST.sha256
+	git -C "$d" commit -qm "add fixture manifest" --amend
+	git -C "$d" update-ref "refs/remotes/origin/$DEFAULT_BRANCH_FIXTURE" HEAD
+	printf '%s' "$d"
+}
 
 # The FULL ladder, verification rung included. `run()` always passes --guards-only, so the
 # two `✗ ladder red` verdicts below rung 3 are unreachable through it — untestable by
@@ -149,8 +233,11 @@ run_local() { (cd "$1" && env -u CI scripts/ladder.sh --guards-only 2>&1); }
 
 # --- assertions -------------------------------------------------------------
 report() { # <ok|no> <name> <detail...>
+	local elapsed=${FIXTURE_ELAPSED_SECONDS:-$((SECONDS - REPORT_STARTED))}
+	record_timing "$2" "$elapsed"
 	if [ "$1" = ok ]; then
 		PASSED=$((PASSED + 1))
+		printf 'ok %03d - %ss - %s\n' "$((PASSED + FAILED))" "$elapsed" "$2" >&2
 	else
 		FAILED=$((FAILED + 1))
 		shift
@@ -158,13 +245,48 @@ report() { # <ok|no> <name> <detail...>
 		shift
 		[ $# -gt 0 ] && printf '%s\n' "$*" | sed 's/^/       /' >&2
 	fi
+	unset FIXTURE_ELAPSED_SECONDS
+	REPORT_STARTED=$SECONDS
+}
+
+# Exercise the timing bookkeeping without recursively running this expensive suite. Fixed
+# whole-second samples prove threshold filtering and top-three ordering; the range check
+# proves an oversized digit string is rejected before `test -ge` can diagnose and continue.
+timing_diagnostics_self_test() {
+	local out
+	out=$(
+		SLOW_FIXTURE_SECONDS=10
+		SUITE_STARTED=$SECONDS
+		SLOWEST_SECONDS=(-1 -1 -1)
+		SLOWEST_NAMES=('' '' '')
+		record_timing below-threshold 9
+		record_timing second 12
+		record_timing first 14
+		record_timing third 11
+		print_timing_summary
+	)
+	if grep -q 'below-threshold' <<<"$out"; then
+		report no "timing diagnostics filter and summarize fixtures" \
+			"a below-threshold fixture was printed" "$out"
+	elif ! grep -qF 'SLOW 12s - second' <<<"$out" ||
+		! grep -qE '^timing: [0-9]+s total; slowest fixtures:$' <<<"$out" ||
+		[ "$(printf '%s\n' "$out" | tail -3)" != $'  14s - first\n  12s - second\n  11s - third' ]; then
+		report no "timing diagnostics filter and summarize fixtures" \
+			"threshold or slowest-three output is wrong" "$out"
+	elif slow_threshold_valid 9999999999; then
+		report no "timing diagnostics filter and summarize fixtures" \
+			"an out-of-range threshold was accepted"
+	else
+		report ok "timing diagnostics filter and summarize fixtures"
+	fi
 }
 
 expect_pass() { # <name> <dir>
-	local out rc
+	local out rc started=$SECONDS
 	out=$(run "$2")
 	rc=$?
-	if [ "$rc" -eq 0 ]; then report ok; else report no "$1" "expected exit 0, got $rc" "$out"; fi
+	FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
+	if [ "$rc" -eq 0 ]; then report ok "$1"; else report no "$1" "expected exit 0, got $rc" "$out"; fi
 }
 
 # A pass is not always the whole assertion. Where the verdict under test is "the ladder
@@ -181,15 +303,16 @@ expect_pass() { # <name> <dir>
 # entire property this unit exists to establish. D-027(a), repeated inside the fix for the
 # defect D-027(a) records.
 expect_pass_saying() { # <name> <dir> <grep-pattern, verdict word included>
-	local out rc
+	local out rc started=$SECONDS
 	out=$(run "$2")
 	rc=$?
+	FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
 	if [ "$rc" -ne 0 ]; then
 		report no "$1" "expected exit 0, got $rc" "$out"
-	elif ! printf '%s' "$out" | grep -qF "$3"; then
+	elif ! grep -qF "$3" <<<"$out"; then
 		report no "$1" "passed but the output never mentioned '$3'" "$out"
 	else
-		report ok
+		report ok "$1"
 	fi
 }
 
@@ -210,31 +333,45 @@ verdict_line() { # <ladder output>
 # that printed no verdict at all must be a failure and not a vacuous pass, which is the
 # hollow-guard case the runbook requires an arm for.
 expect_verdict() { # <name> <runner: run|run_full> <dir> <expected rc> <fixed substring>
-	local out rc line
+	local out rc line started=$SECONDS
 	out=$("$2" "$3")
 	rc=$?
+	FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
 	line=$(verdict_line "$out")
 	if [ "$rc" -ne "$4" ]; then
 		report no "$1" "expected exit $4, got $rc" "$out"
 	elif [ -z "$line" ]; then
 		report no "$1" "the ladder printed NO verdict line at all" "$out"
-	elif ! printf '%s' "$line" | grep -qF "$5"; then
+	elif ! grep -qF "$5" <<<"$line"; then
 		report no "$1" "the verdict line does not carry '$5'" "$line"
 	else
-		report ok
+		report ok "$1"
+	fi
+}
+
+expect_runner_saying() { # <name> <runner> <dir> <expected rc> <fixed substring>
+	local name=$1 runner=$2 d=$3 want_rc=$4 needle=$5 out rc started=$SECONDS
+	out=$($runner "$d")
+	rc=$?
+	FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
+	if [ "$rc" -eq "$want_rc" ] && grep -qF "$needle" <<<"$out"; then
+		report ok "$name"
+	else
+		report no "$name" "expected exit $want_rc and '$needle'; got exit $rc" "$out"
 	fi
 }
 
 expect_fail() { # <name> <dir> <grep-pattern>
-	local out rc
+	local out rc started=$SECONDS
 	out=$(run "$2")
 	rc=$?
+	FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
 	if [ "$rc" -eq 0 ]; then
 		report no "$1" "expected a failure, ladder passed" "$out"
-	elif ! printf '%s' "$out" | grep -qF "$3"; then
+	elif ! grep -qF "$3" <<<"$out"; then
 		report no "$1" "failed as expected but the message never mentioned '$3'" "$out"
 	else
-		report ok
+		report ok "$1"
 	fi
 }
 
@@ -245,17 +382,18 @@ expect_fail() { # <name> <dir> <grep-pattern>
 # check's edit branch, which permits a shrink ONLY because the size warning stays armed: the
 # single property making that branch safe was verified by nothing.
 expect_warn() { # <name> <dir> <grep-pattern>
-	local out rc
+	local out rc started=$SECONDS
 	out=$(run "$2")
 	rc=$?
+	FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
 	if [ "$rc" -ne 0 ]; then
 		report no "$1" "expected exit 0 with a warning, got $rc" "$out"
-	elif ! printf '%s\n' "$out" | grep -q '^   WARN '; then
+	elif ! grep -q '^   WARN ' <<<"$out"; then
 		report no "$1" "expected a WARN line and there was none" "$out"
-	elif ! printf '%s' "$out" | grep -qF "$3"; then
+	elif ! grep -qF "$3" <<<"$out"; then
 		report no "$1" "no output mentioning '$3'" "$out"
 	else
-		report ok
+		report ok "$1"
 	fi
 }
 
@@ -274,10 +412,22 @@ akia_token() {
 
 # =============================================================================
 printf 'ladder guard fixtures\n'
+timing_diagnostics_self_test
 
 # --- baseline
 d=$(mk baseline)
-expect_pass "clean fixture passes" "$d"
+started=$SECONDS
+out=$(run "$d")
+rc=$?
+FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
+if [ "$rc" -eq 0 ] &&
+	grep -qF "   skip  scripts/command-guard.sh and scripts/redact.sh self-tests already covered by fixture suite" <<<"$out" &&
+	grep -qF "   skip  shipped-script manifest check already covered by fixture suite" <<<"$out"; then
+	report ok "clean optimized fixture passes with both loud skip verdicts"
+else
+	report no "clean optimized fixture passes with both loud skip verdicts" \
+		"expected exit 0 and both fixture-suite skip lines; got $rc" "$out"
+fi
 
 # --- STATE size band
 d=$(mk state_hard)
@@ -479,6 +629,30 @@ printf -- '- D-003: a row past the cap.\n' >>"$d/docs/LEDGER.md"
 expect_fail "the rollover FAILURE reports the size too — that is the branch that needs it" "$d" \
 	"KB), past the 4-line cap"
 
+
+d=$(mk ledger_row_char_under_cap)
+sed -i 's/^LEDGER_ROW_CHAR_CAP=2000/LEDGER_ROW_CHAR_CAP=120/' "$d/amh.conf"
+printf -- '- D-003: short enough.\n' >>"$d/docs/LEDGER.md"
+expect_pass_saying "a concise new ledger row under the byte-counted character cap passes" "$d" \
+	"checked 1 new ledger row(s) against LEDGER_ROW_CHAR_CAP=120"
+
+d=$(mk ledger_row_char_over_cap)
+sed -i 's/^LEDGER_ROW_CHAR_CAP=2000/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
+printf -- '- D-003: long row. %s\n' "$(filler 120)" >>"$d/docs/LEDGER.md"
+expect_fail "a new ledger row over the byte-counted character cap fails" "$d" \
+	"over LEDGER_ROW_CHAR_CAP=80"
+
+d=$(mk ledger_row_char_committed_over_cap)
+sed -i 's/^LEDGER_ROW_CHAR_CAP=2000/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
+printf -- '- D-003: committed long row. %s\n' "$(filler 120)" >>"$d/docs/LEDGER.md"
+(cd "$d" && git add amh.conf docs/LEDGER.md && git commit -qm long-ledger-history)
+expect_pass "an already committed over-cap ledger row is historical and exempt" "$d"
+
+d=$(mk ledger_row_char_superseded_pointer_existing)
+sed -i 's/^LEDGER_ROW_CHAR_CAP=2000/LEDGER_ROW_CHAR_CAP=10/' "$d/amh.conf"
+printf -- '  Superseded by D-999.\n' >>"$d/docs/LEDGER.md"
+expect_pass "a sanctioned metadata-only supersession on an existing row is exempt" "$d"
+
 # --- ledger volumes past Z, and what counts as a volume at all
 #
 # One continuation volume whose first row starts at line 5, for a fixture whose cap is 4.
@@ -659,18 +833,25 @@ expect_fail "a standalone token of the id shape IS read as a citation" "$d" "no 
 d=$(mk secret_plain)
 tok=$(akia_token)
 printf 'key = %s\n' "$tok" >"$d/scripts/deploy.sh"
+started=$SECONDS
 out=$(run "$d")
-if printf '%s' "$out" | grep -q 'credential-shaped'; then
+elapsed=$((SECONDS - started))
+if grep -q 'credential-shaped' <<<"$out"; then
 	# The diagnostic must name the file and the position and NOTHING else. A
 	# regression to printing the matching line would defeat the whole guard.
-	if printf '%s' "$out" | grep -qF "$tok"; then
+	if grep -qF "$tok" <<<"$out"; then
+		FIXTURE_ELAPSED_SECONDS=$elapsed
 		report no "secret scan is value-free" "the diagnostic printed the token itself" "$out"
 	else
-		report ok
+		FIXTURE_ELAPSED_SECONDS=$elapsed
+		report ok "secret scan is value-free"
 	fi
-	report ok
+	FIXTURE_ELAPSED_SECONDS=$elapsed
+	report ok "secret-shaped string is caught"
 else
+	FIXTURE_ELAPSED_SECONDS=$elapsed
 	report no "secret-shaped string is caught" "not flagged" "$out"
+	FIXTURE_ELAPSED_SECONDS=$elapsed
 	report no "secret scan is value-free" "(not reached)"
 fi
 
@@ -752,24 +933,23 @@ mk_bootstrap "$d" 0
 out=$(cd "$d" && env AMH_REMOTE=1 bash scripts/session-start.sh 2>&1)
 # The whole banner, ⚠ and verdict word included — the fixture is asserting how LOUD the
 # line is, so grepping a fragment of its middle would leave the loudness untested.
-if printf '%s' "$out" | grep -qF \
-	"· ⚠ REMOTE_FLAG 'AMH-REMOTE' is not a valid shell variable name — toolchain bootstrap SKIPPED"; then
-	report ok
+if grep -qF "· ⚠ REMOTE_FLAG 'AMH-REMOTE' is not a valid shell variable name — toolchain bootstrap SKIPPED" <<<"$out"; then
+	report ok "an invalid REMOTE_FLAG is announced, not swallowed"
 else
 	report no "an invalid REMOTE_FLAG is announced, not swallowed" "no banner" "$out"
 fi
 # ...and it must actually have SKIPPED. The banner and the bootstrap running anyway would
 # have satisfied the assertion above, which is why the fixture's bootstrap announces
 # itself: the claim under test is a claim about what did not happen.
-if printf '%s' "$out" | grep -qF "BOOTSTRAP RAN"; then
+if grep -qF "BOOTSTRAP RAN" <<<"$out"; then
 	report no "an invalid REMOTE_FLAG really does skip the bootstrap" "it ran anyway" "$out"
 else
-	report ok
+	report ok "an invalid REMOTE_FLAG really does skip the bootstrap"
 fi
 # ...and it must still be a WARNING. A boot hook that refuses to let the session start
 # over a malformed config value is worse than the silent skip it replaces.
 if (cd "$d" && env AMH_REMOTE=1 bash scripts/session-start.sh >/dev/null 2>&1); then
-	report ok
+	report ok "an invalid REMOTE_FLAG is not fatal"
 else
 	report no "an invalid REMOTE_FLAG is not fatal" "session-start exited non-zero"
 fi
@@ -780,8 +960,8 @@ d=$(mk ss_bootstrap_noexec)
 mk_bootstrap "$d" 0
 chmod -x "$d/scripts/bootstrap.sh"
 out=$(cd "$d" && env AMH_REMOTE=1 bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "BOOTSTRAP RAN"; then
-	report ok
+if grep -qF "BOOTSTRAP RAN" <<<"$out"; then
+	report ok "a non-executable bootstrap still runs"
 else
 	report no "a non-executable bootstrap still runs" "the bootstrap did not run" "$out"
 fi
@@ -792,8 +972,8 @@ d=$(mk ss_bootstrap_fails)
 mk_bootstrap "$d" 1
 out=$(cd "$d" && env AMH_REMOTE=1 bash scripts/session-start.sh 2>&1)
 rc=$?
-if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF "bootstrap reported a problem"; then
-	report ok
+if [ "$rc" -eq 0 ] && grep -qF "bootstrap reported a problem" <<<"$out"; then
+	report ok "a failing bootstrap warns without killing the session"
 else
 	report no "a failing bootstrap warns without killing the session" "rc=$rc" "$out"
 fi
@@ -802,8 +982,8 @@ fi
 # install — but a remote session skipping a configured step deserves its one line.
 d=$(mk ss_bootstrap_absent)
 out=$(cd "$d" && env AMH_REMOTE=1 bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "does not exist" && printf '%s' "$out" | grep -qF "SKIPPED"; then
-	report ok
+if grep -qF "does not exist"  <<<"$out"&& grep -qF "SKIPPED" <<<"$out"; then
+	report ok "a missing bootstrap under the remote flag says so"
 else
 	report no "a missing bootstrap under the remote flag says so" "no line about it" "$out"
 fi
@@ -813,10 +993,35 @@ fi
 d=$(mk ss_not_remote)
 mk_bootstrap "$d" 0
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "BOOTSTRAP RAN"; then
+if grep -qF "BOOTSTRAP RAN" <<<"$out"; then
 	report no "a local session does not run the bootstrap" "it ran anyway" "$out"
 else
-	report ok
+	report ok "a local session does not run the bootstrap"
+fi
+
+# Starting a new session rearms the broad `.env` advisory. Without this cleanup,
+# the first warning in one container lifetime spends the advisory for later sessions
+# in the same repo, which contradicts the diagnostic's session-local promise.
+d=$(mk ss_rearms_dotenv_advisory)
+out=$(cd "$d" && scripts/command-guard.sh --command 'python3 -c "open('"'"'.env'"'"')"' 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && grep -qF "This command mentions \`.env\`" <<<"$out"; then
+	report ok "the first .env command gets the advisory"
+else
+	report no "the first .env command gets the advisory" "rc=$rc" "$out"
+fi
+if (cd "$d" && scripts/command-guard.sh --command 'python3 -c "open('"'"'.env'"'"')"' >/dev/null 2>&1); then
+	report ok "the second interpreter .env command reaches normal rails"
+else
+	report no "the second interpreter .env command reaches normal rails" "it was still blocked"
+fi
+(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh >/dev/null 2>&1)
+out=$(cd "$d" && scripts/command-guard.sh --command 'python3 -c "open('"'"'.env'"'"')"' 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && grep -qF "This command mentions \`.env\`" <<<"$out"; then
+	report ok "session-start rearms the one-time .env advisory"
+else
+	report no "session-start rearms the one-time .env advisory" "rc=$rc" "$out"
 fi
 
 # --- the protocol pointer names only documents that exist
@@ -829,17 +1034,17 @@ fi
 # would satisfy the absent case while breaking every repo that has one.
 d=$(mk ss_no_runbook)
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "docs/RUNBOOK.md"; then
+if grep -qF "docs/RUNBOOK.md" <<<"$out"; then
 	report no "the protocol pointer omits a runbook the repo does not have" "it named it anyway" "$out"
 else
-	report ok
+	report ok "the protocol pointer omits a runbook the repo does not have"
 fi
 
 d=$(mk ss_with_runbook)
 printf '# RUNBOOK\n' >"$d/docs/RUNBOOK.md"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "playbook in docs/RUNBOOK.md"; then
-	report ok
+if grep -qF "playbook in docs/RUNBOOK.md" <<<"$out"; then
+	report ok "the protocol pointer names the runbook when there is one"
 else
 	report no "the protocol pointer names the runbook when there is one" "it did not" "$out"
 fi
@@ -899,16 +1104,16 @@ if ! mk_git_repo "$d" v3.1.0 || ! mk_git_repo "$d2" ||
 else
 	# (a) Local ref present: the fast path answers without touching the network.
 	out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-	if printf '%s' "$out" | grep -qF "tag v3.1.0 is in this clone"; then
-		report ok
+	if grep -qF "tag v3.1.0 is in this clone" <<<"$out"; then
+		report ok "an existing local release tag is reported as present"
 	else
 		report no "an existing local release tag is reported as present" "it was not" "$out"
 	fi
 
 	# (b) The state the line EXISTS for: no such tag anywhere. Only this one may say UNRELEASED.
 	out=$(cd "$d2" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-	if printf '%s' "$out" | grep -qF "NO tag v3.1.0 exists on origin — UNRELEASED"; then
-		report ok
+	if grep -qF "NO tag v3.1.0 exists on origin — UNRELEASED" <<<"$out"; then
+		report ok "a version with no tag on origin is reported as unreleased"
 	else
 		report no "a version with no tag on origin is reported as unreleased" "it was not" "$out"
 	fi
@@ -918,9 +1123,9 @@ else
 	# unreleased made the line cry wolf on every session in the repo that ships it. It must
 	# name the tag as existing and must NOT say UNRELEASED.
 	out=$(cd "$d3" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-	if printf '%s' "$out" | grep -qF "tag v3.1.0 exists on origin" &&
-		! printf '%s' "$out" | grep -qF "UNRELEASED"; then
-		report ok
+	if grep -qF "tag v3.1.0 exists on origin"  <<<"$out"&&
+		! grep -qF "UNRELEASED" <<<"$out"; then
+		report ok "a tag on origin but not in the clone is reported as existing, not as unreleased"
 	else
 		report no "a tag on origin but not in the clone is reported as existing, not as unreleased" \
 			"it was not, or it cried unreleased" "$out"
@@ -929,9 +1134,9 @@ else
 	# (d) Cannot ask is not an answer. A repo with no origin at all must say so and must make no
 	# claim in either direction — the failure being refused is "unreachable" rendering as "absent".
 	out=$(cd "$d4" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-	if printf '%s' "$out" | grep -qF "not be reached to check" &&
-		! printf '%s' "$out" | grep -qF "UNRELEASED"; then
-		report ok
+	if grep -qF "not be reached to check"  <<<"$out"&&
+		! grep -qF "UNRELEASED" <<<"$out"; then
+		report ok "an unreachable origin is reported as unreachable, with no tag claim"
 	else
 		report no "an unreachable origin is reported as unreachable, with no tag claim" \
 			"it claimed something anyway" "$out"
@@ -945,9 +1150,9 @@ d=$(mk ss_release_empty_version)
 : >"$d/VERSION"
 set_release_keys "$d" VERSION v
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "no version on its first line" &&
-	! printf '%s' "$out" | grep -qF "UNRELEASED"; then
-	report ok
+if grep -qF "no version on its first line"  <<<"$out"&&
+	! grep -qF "UNRELEASED" <<<"$out"; then
+	report ok "an empty VERSION_FILE is reported and no tag claim is made"
 else
 	report no "an empty VERSION_FILE is reported and no tag claim is made" "it claimed one anyway" "$out"
 fi
@@ -958,8 +1163,8 @@ d=$(mk ss_release_half_configured)
 printf '3.1.0\n' >"$d/VERSION"
 printf 'VERSION_FILE=VERSION\n' >>"$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "needs BOTH VERSION_FILE and RELEASE_TAG_PREFIX"; then
-	report ok
+if grep -qF "needs BOTH VERSION_FILE and RELEASE_TAG_PREFIX" <<<"$out"; then
+	report ok "setting one release key and not the other is reported"
 else
 	report no "setting one release key and not the other is reported" "it was silent" "$out"
 fi
@@ -968,8 +1173,8 @@ fi
 d=$(mk ss_release_dir_version)
 set_release_keys "$d" docs v
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "is a directory, not a file"; then
-	report ok
+if grep -qF "is a directory, not a file" <<<"$out"; then
+	report ok "a VERSION_FILE that is a directory says so"
 else
 	report no "a VERSION_FILE that is a directory says so" "it reported something else" "$out"
 fi
@@ -984,9 +1189,9 @@ fi
 # a repo that declares neither list gets no inventory rather than an empty one.
 d=$(mk ss_inventory_off)
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if ! printf '%s' "$out" | grep -qE '^· (tools|adapters):' &&
-	printf '%s' "$out" | grep -qF "AMH session start"; then
-	report ok
+if ! grep -qE '^· (tools|adapters):' <<<"$out" &&
+	grep -qF "AMH session start" <<<"$out"; then
+	report ok "unset inventory keys print no inventory and do not kill the banner"
 else
 	report no "unset inventory keys print no inventory and do not kill the banner" "a line appeared or the banner died" "$out"
 fi
@@ -997,9 +1202,9 @@ fi
 d=$(mk ss_inventory_tool_present)
 printf "REQUIRED_TOOLS='sh'\n" >>"$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qxF "· tools: sh observed" &&
-	! printf '%s' "$out" | grep -qE '· tools:.*/'; then
-	report ok
+if grep -qxF "· tools: sh observed"  <<<"$out"&&
+	! grep -qE '· tools:.*/' <<<"$out"; then
+	report ok "a present tool is observed, by name only"
 else
 	report no "a present tool is observed, by name only" "state wrong or a path leaked" "$out"
 fi
@@ -1010,8 +1215,8 @@ fi
 d=$(mk ss_inventory_tool_absent)
 printf "REQUIRED_TOOLS='amh-no-such-tool-xyz'\n" >>"$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qxF "· tools: amh-no-such-tool-xyz unavailable"; then
-	report ok
+if grep -qxF "· tools: amh-no-such-tool-xyz unavailable" <<<"$out"; then
+	report ok "an absent tool is unavailable"
 else
 	report no "an absent tool is unavailable" "state wrong" "$out"
 fi
@@ -1027,8 +1232,8 @@ fi
 d=$(mk ss_inventory_tool_is_a_shell_function)
 printf "REQUIRED_TOOLS='say'\n" >>"$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qxF "· tools: say unavailable"; then
-	report ok
+if grep -qxF "· tools: say unavailable" <<<"$out"; then
+	report ok "a shell function is unavailable, never observed"
 else
 	report no "a shell function is unavailable, never observed" "the probe resolved a non-PATH name" "$out"
 fi
@@ -1039,9 +1244,9 @@ fi
 d=$(mk ss_inventory_blank_value)
 printf "REQUIRED_TOOLS='   '\nADAPTER_FILES='   '\n" >>"$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if ! printf '%s' "$out" | grep -qE '^· (tools|adapters):' &&
-	! printf '%s' "$out" | grep -qF "never observed firing"; then
-	report ok
+if ! grep -qE '^· (tools|adapters):' <<<"$out" &&
+	! grep -qF "never observed firing" <<<"$out"; then
+	report ok "a whitespace-only list prints no header and no gloss"
 else
 	report no "a whitespace-only list prints no header and no gloss" "an empty inventory was printed" "$out"
 fi
@@ -1051,9 +1256,9 @@ fi
 d=$(mk ss_inventory_glob)
 printf "REQUIRED_TOOLS='*'\n" >>"$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "· tools: * unavailable" &&
-	! printf '%s' "$out" | grep -qF "amh.conf unavailable"; then
-	report ok
+if grep -qF "· tools: * unavailable"  <<<"$out"&&
+	! grep -qF "amh.conf unavailable" <<<"$out"; then
+	report ok "a glob in REQUIRED_TOOLS is not expanded against the tree"
 else
 	report no "a glob in REQUIRED_TOOLS is not expanded against the tree" "it globbed" "$out"
 fi
@@ -1066,9 +1271,9 @@ mkdir -p "$d/.agent-a"
 printf '{}\n' >"$d/.agent-a/settings.json"
 printf "ADAPTER_FILES='.agent-a/settings.json'\n" >>"$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qxF "· adapters: .agent-a/settings.json configured" &&
-	! printf '%s' "$out" | grep -qE '^· adapters:.*observed'; then
-	report ok
+if grep -qxF "· adapters: .agent-a/settings.json configured"  <<<"$out"&&
+	! grep -qE '^· adapters:.*observed' <<<"$out"; then
+	report ok "a present adapter is configured, never observed"
 else
 	report no "a present adapter is configured, never observed" "state wrong" "$out"
 fi
@@ -1080,9 +1285,9 @@ fi
 d=$(mk ss_inventory_adapter_absent)
 printf "ADAPTER_FILES='.agent-a/settings.json'\n" >>"$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qxF "· adapters: .agent-a/settings.json unknown" &&
-	! printf '%s' "$out" | grep -qE '^· adapters:.*unavailable'; then
-	report ok
+if grep -qxF "· adapters: .agent-a/settings.json unknown"  <<<"$out"&&
+	! grep -qE '^· adapters:.*unavailable' <<<"$out"; then
+	report ok "an absent adapter is unknown, never unavailable"
 else
 	report no "an absent adapter is unknown, never unavailable" "state wrong" "$out"
 fi
@@ -1092,9 +1297,9 @@ fi
 d=$(mk ss_inventory_gloss)
 printf "ADAPTER_FILES='.agent-b/config.toml'\n" >>"$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "never observed firing" &&
-	printf '%s' "$out" | grep -qF "Nothing reads these states."; then
-	report ok
+if grep -qF "never observed firing"  <<<"$out"&&
+	grep -qF "Nothing reads these states." <<<"$out"; then
+	report ok "the adapter states ship with their gloss"
 else
 	report no "the adapter states ship with their gloss" "the gloss is missing" "$out"
 fi
@@ -1103,9 +1308,9 @@ fi
 d=$(mk ss_inventory_independent)
 printf "REQUIRED_TOOLS='sh'\n" >>"$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qE '^· tools:' &&
-	! printf '%s' "$out" | grep -qE '^· adapters:'; then
-	report ok
+if grep -qE '^· tools:'  <<<"$out"&&
+	! grep -qE '^· adapters:' <<<"$out"; then
+	report ok "REQUIRED_TOOLS and ADAPTER_FILES are independent"
 else
 	report no "REQUIRED_TOOLS and ADAPTER_FILES are independent" "one switched on the other" "$out"
 fi
@@ -1116,8 +1321,8 @@ d=$(mk ss_release_multiline_version)
 printf '3.1.0\nnotes about the release\n' >"$d/VERSION"
 set_release_keys "$d" VERSION v
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "says 3.1.0" && ! printf '%s' "$out" | grep -qF "notes"; then
-	report ok
+if grep -qF "says 3.1.0"  <<<"$out"&& ! grep -qF "notes" <<<"$out"; then
+	report ok "only the first line of VERSION_FILE is read"
 else
 	report no "only the first line of VERSION_FILE is read" "the rest leaked into the version" "$out"
 fi
@@ -1128,10 +1333,10 @@ fi
 d=$(mk ss_release_off)
 printf '3.1.0\n' >"$d/VERSION"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qiF "release:"; then
+if grep -qiF "release:" <<<"$out"; then
 	report no "the release line stays off when the keys are unset" "it printed anyway" "$out"
 else
-	report ok
+	report ok "the release line stays off when the keys are unset"
 fi
 
 # Misconfiguration is loud and makes no claim about the tag either way. The failure mode being
@@ -1140,9 +1345,9 @@ fi
 d=$(mk ss_release_no_version_file)
 set_release_keys "$d" harness/VERSION v
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "does not exist — release line SKIPPED" &&
-	! printf '%s' "$out" | grep -qF "in this clone"; then
-	report ok
+if grep -qF "does not exist — release line SKIPPED"  <<<"$out"&&
+	! grep -qF "in this clone" <<<"$out"; then
+	report ok "a VERSION_FILE that does not exist is reported and no tag claim is made"
 else
 	report no "a VERSION_FILE that does not exist is reported and no tag claim is made" \
 		"it claimed something anyway" "$out"
@@ -1164,19 +1369,33 @@ rm -f "$d/scripts/redact.sh"
 expect_fail "a missing redact.sh fails rather than skips" "$d" "IS this repo's secret scan"
 
 # --- rail self-tests (the rung that catches the above)
+# The unmodified copied rails really run once before any mutation cases. This is the suite's
+# coverage boundary: ordinary fixtures may skip the repeated work only because this assertion
+# proves that the actual dispatcher and actual command-guard self-test ran successfully.
+d=$(mk_unmodified rail_baseline)
+expect_runner_saying "unmodified copied rails run their real self-tests once" run_rails "$d" 0 \
+	"   ok    scripts/command-guard.sh"
+
 # Mutation: a rail whose self-test fails must turn the ladder red. Without this the
 # whole section could print nothing and no fixture would notice.
-d=$(mk rail_regressed)
+d=$(mk_unmodified rail_regressed)
 # Mutate the fixture matrix itself, not the tail of the file: a function appended
 # after the dispatcher is defined too late to ever run, which is a mutation that
 # proves nothing.
 sed -i 's/^\tst_allowed .cat README.md./\tst_allowed "cat .env"/' "$d/scripts/command-guard.sh"
-expect_fail "a regressed rail self-test fails the ladder" "$d" "self-test failed"
+expect_runner_saying "a regressed rail self-test fails the ladder" run_rails "$d" 1 \
+	"self-test failed"
 
-d=$(mk rail_noexec)
+d=$(mk_unmodified rail_noexec)
 sed -i 's/^\tst_allowed .cat README.md./\tst_allowed "cat .env"/' "$d/scripts/command-guard.sh"
 chmod -x "$d/scripts/command-guard.sh"
-expect_fail "a non-executable rail is still self-tested" "$d" "self-test failed"
+expect_runner_saying "a non-executable rail is still self-tested" run_rails "$d" 1 \
+	"self-test failed"
+
+d=$(mk_unmodified rail_missing)
+rm -f "$d/scripts/command-guard.sh"
+expect_runner_saying "a missing rail script loudly says that nothing self-tested it" run_rails "$d" 0 \
+	"   skip  scripts/command-guard.sh is not a readable file — nothing self-tested it"
 
 # --- shipped-script integrity
 # The manifest is the only thing in an adopter's tree that can tell an upgraded script from
@@ -1186,14 +1405,14 @@ expect_fail "a non-executable rail is still self-tested" "$d" "self-test failed"
 if [ -z "$HASHER" ]; then
 	printf '  SKIP 10 shipped-integrity case(s): no sha256sum or shasum on this machine, so no fixture manifest could be built\n' >&2
 else
-	d=$(mk integrity_ok)
+	d=$(mk_integrity integrity_ok)
 	expect_pass_saying "an untouched tree matches the manifest and says how many it checked" "$d" \
 		"   ok    4 shipped script(s) match the published hashes"
 
 	# The whole point of the rung: a local edit to a shipped script. session-start.sh is the
 	# subject because nothing else in this suite executes it during a `--guards-only` run, so
 	# the only rung that can react is the one under test.
-	d=$(mk integrity_edited)
+	d=$(mk_integrity integrity_edited)
 	printf '\n# a local edit to a shipped script\n' >>"$d/scripts/session-start.sh"
 	expect_fail "an edited shipped script fails against the published hash" "$d" \
 		"does not match the hash the harness published for it"
@@ -1204,20 +1423,20 @@ else
 	# asserts that: deleting the manifest is also the documented way to live with a deliberate
 	# local patch, so it is the one off-switch an adopter reaches on purpose, and `skip` is
 	# counted by nothing and vanishes from the summary line.
-	d=$(mk integrity_absent)
+	d=$(mk_integrity integrity_absent)
 	rm -f "$d/scripts/MANIFEST.sha256"
 	expect_warn "an absent manifest warns that the rung checked nothing" "$d" \
 		"   WARN  scripts/MANIFEST.sha256 is absent"
 
 	# A manifest that outlived the script it names. Same signature as a deleted rung, which is
 	# why it is a failure and not a skip.
-	d=$(mk integrity_script_gone)
+	d=$(mk_integrity integrity_script_gone)
 	rm -f "$d/scripts/session-start.sh"
 	expect_fail "a manifest entry with no file behind it fails" "$d" \
 		"which is not in this tree"
 
 	# A manifest this cannot parse verifies nothing, so it must not be read past in silence.
-	d=$(mk integrity_malformed)
+	d=$(mk_integrity integrity_malformed)
 	printf 'not-a-hash scripts/ladder.sh\n' >>"$d/scripts/MANIFEST.sha256"
 	expect_fail "a malformed manifest line fails rather than being skipped over" "$d" \
 		"is not a sha256 entry naming a shipped script"
@@ -1226,7 +1445,7 @@ else
 	# comment parses cleanly, checks nothing, and would otherwise print `ok 0 shipped
 	# script(s)`. A green earned by an empty manifest is the one verdict this rung may never
 	# give.
-	d=$(mk integrity_empty)
+	d=$(mk_integrity integrity_empty)
 	printf '# nothing but a comment\n' >"$d/scripts/MANIFEST.sha256"
 	expect_fail "a manifest listing no scripts fails instead of passing vacuously" "$d" \
 		"lists no scripts"
@@ -1235,7 +1454,7 @@ else
 	# that excuses the file deciding whether anything else is excused. Refused, or every other
 	# verdict this rung gives is worth nothing — and this fixture is what stops a later
 	# simplification from dropping the self-check as redundant.
-	d=$(mk integrity_self_excused)
+	d=$(mk_integrity integrity_self_excused)
 	grep -v ' scripts/ladder\.sh$' "$d/scripts/MANIFEST.sha256" >"$d/m" &&
 		mv "$d/m" "$d/scripts/MANIFEST.sha256"
 	printf '\n# a rung I quietly deleted\n' >>"$d/scripts/ladder.sh"
@@ -1246,7 +1465,7 @@ else
 	# be removed, and the only signal is the count. The assertion is on the count, because a
 	# count nobody reads is not a signal — and if this rung ever grows a way to refuse this
 	# case, this fixture is what will notice.
-	d=$(mk integrity_one_excused)
+	d=$(mk_integrity integrity_one_excused)
 	grep -v ' scripts/session-start\.sh$' "$d/scripts/MANIFEST.sha256" >"$d/m" &&
 		mv "$d/m" "$d/scripts/MANIFEST.sha256"
 	printf '\n# a local edit nobody will hear about\n' >>"$d/scripts/session-start.sh"
@@ -1257,7 +1476,7 @@ else
 	# will hash any path it is handed and then describe /etc/hostname as a shipped script the
 	# harness will restore — a true hash comparison wrapped in a false account of what was
 	# checked.
-	d=$(mk integrity_stray_path)
+	d=$(mk_integrity integrity_stray_path)
 	printf '%s  ../outside.sh\n' "$(fixture_sha256 "$d/scripts/ladder.sh")" \
 		>>"$d/scripts/MANIFEST.sha256"
 	expect_fail "a manifest entry pointing outside scripts/ is refused, not hashed" "$d" \
@@ -1268,7 +1487,7 @@ else
 	# skipping, and it must stay non-fatal. The PATH is CONSTRUCTED from the tools the ladder
 	# needs rather than filtered, because subtracting the directory holding sha256sum deletes
 	# /usr/bin on most machines and every rung then dies at exit 127.
-	d=$(mk integrity_no_hasher)
+	d=$(mk_integrity integrity_no_hasher)
 	SHIM="$WORK/nohash_path"
 	mkdir -p "$SHIM"
 	for t in bash sh env git grep sed awk sort uniq comm xargs cmp diff mktemp wc tr head cut find basename dirname cat rm mv cp chmod ls; do
@@ -1282,8 +1501,8 @@ else
 		rc=$?
 		if [ "$rc" -ne 0 ]; then
 			report no "no hashing tool is not fatal" "expected exit 0, got $rc" "$out"
-		elif printf '%s' "$out" | grep -qF "   WARN  neither sha256sum nor shasum is on PATH"; then
-			report ok
+		elif grep -qF "   WARN  neither sha256sum nor shasum is on PATH" <<<"$out"; then
+			report ok "no hashing tool is not fatal"
 		else
 			report no "no hashing tool warns that the rung checked nothing" "no such warning" "$out"
 		fi
@@ -1298,8 +1517,8 @@ fi
 d=$(mk ss_merge_mode_train)
 sed -i 's/^MERGE_MODE=.*/MERGE_MODE=branch-train/' "$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "merge mode: branch-train — main's history is squashed"; then
-	report ok
+if grep -qF "merge mode: branch-train — main's history is squashed" <<<"$out"; then
+	report ok "a branch-train repo is told its default branch's log is not its past"
 else
 	report no "a branch-train repo is told its default branch's log is not its past" "no line" "$out"
 fi
@@ -1308,10 +1527,10 @@ fi
 # default branch's history IS the record, so the line would be a lie.
 d=$(mk ss_merge_mode_per_change)
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
-if printf '%s' "$out" | grep -qF "branch-train"; then
+if grep -qF "branch-train" <<<"$out"; then
 	report no "a branch-per-change repo is not told its history is squashed" "it said so anyway" "$out"
 else
-	report ok
+	report ok "a branch-per-change repo is not told its history is squashed"
 fi
 
 # An amh.conf with no MERGE_MODE line at all. `amh.conf.example` ships the key, so this is not
@@ -1322,9 +1541,9 @@ d=$(mk ss_merge_mode_unset)
 grep -v '^MERGE_MODE=' "$d/amh.conf" >"$d/t" && mv "$d/t" "$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
 rc=$?
-if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF "AMH session start" &&
-	! printf '%s' "$out" | grep -qF "branch-train"; then
-	report ok
+if [ "$rc" -eq 0 ] && grep -qF "AMH session start"  <<<"$out"&&
+	! grep -qF "branch-train" <<<"$out"; then
+	report ok "a conf with no MERGE_MODE key still boots"
 else
 	report no "a conf with no MERGE_MODE key still boots" "rc=$rc" "$out"
 fi
@@ -1499,9 +1718,12 @@ expect_warn "with no upstream ref the guard says it checked NOTHING" "$d" \
 d=$(mk advisory_rules)
 sed -i "s|^RULE_FILES=''|RULE_FILES='amh.conf'|" "$d/amh.conf"
 printf '\n# an uncommitted legislation edit\n' >>"$d/amh.conf"
+started=$SECONDS
 out=$(run_local "$d")
-if printf '%s' "$out" | grep -qF "touches legislation"; then
-	report ok
+elapsed=$((SECONDS - started))
+FIXTURE_ELAPSED_SECONDS=$elapsed
+if grep -qF "touches legislation" <<<"$out"; then
+	report ok "an uncommitted legislation edit warns"
 else
 	report no "an uncommitted legislation edit warns" "no rule-review warning" "$out"
 fi
@@ -1511,9 +1733,12 @@ fi
 d=$(mk advisory_plan_lifecycle)
 mkdir -p "$d/docs/plans"
 printf '# completed plan\n' >"$d/docs/plans/completed.md"
+started=$SECONDS
 out=$(run_local "$d")
-if printf '%s' "$out" | grep -qF "Move a completed plan worth retaining whole to docs/history/ when that archive tier exists; otherwise delete it"; then
-	report ok
+elapsed=$((SECONDS - started))
+FIXTURE_ELAPSED_SECONDS=$elapsed
+if grep -qF "Move a completed plan worth retaining whole to docs/history/ when that archive tier exists; otherwise delete it" <<<"$out"; then
+	report ok "an orphaned plan is coached toward archive-or-delete"
 else
 	report no "an orphaned plan is coached toward archive-or-delete" "no archive-or-delete warning" "$out"
 fi
@@ -1521,11 +1746,14 @@ fi
 d=$(mk advisory_ci)
 sed -i "s|^RULE_FILES=''|RULE_FILES='amh.conf'|" "$d/amh.conf"
 printf '\n# an uncommitted legislation edit\n' >>"$d/amh.conf"
+started=$SECONDS
 out=$(run "$d")
-if printf '%s' "$out" | grep -qF "Local advisories"; then
+elapsed=$((SECONDS - started))
+FIXTURE_ELAPSED_SECONDS=$elapsed
+if grep -qF "Local advisories" <<<"$out"; then
 	report no "advisories stay out of CI" "the advisory section ran under CI=1" "$out"
 else
-	report ok
+	report ok "advisories stay out of CI"
 fi
 
 # --- the verdict's subject: which commit, and whether the tree IS that commit
@@ -1651,4 +1879,5 @@ expect_verdict "the full green verdict names its subject" run_full "$d" 0 \
 
 # =============================================================================
 printf '\n%d passed, %d failed\n' "$PASSED" "$FAILED"
+print_timing_summary
 [ "$FAILED" -eq 0 ]

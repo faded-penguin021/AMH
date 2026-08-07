@@ -24,10 +24,17 @@
 > **Search before appending.** Grep BOTH volumes for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes D-NNN") and the old row gets a correction pointer, never deletion.
+> **Keep new rows concise and at or below `LEDGER_ROW_CHAR_CAP`.** Capture the durable lesson,
+> not the whole debugging narrative; put larger narratives in `docs/history/` and link them
+> from the `docs/STATE.md` changelog.
 >
 > **File cap & rollover.** This file holds at most **800 lines** (the cap bounds LINES, not
 > rows — it is read cost that is being bounded, and the number stays in lockstep with
-> `LEDGER_LINE_CAP` in `amh.conf`). The final row may finish past the cap, but no row may
+> `LEDGER_LINE_CAP` in `amh.conf`). For new rows, the configured character cap is **2,000
+> byte-counted characters**; the guard counts bytes under `LC_ALL=C` for a locale-stable
+> result, so ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded
+> bytes. Rows already committed when checked are historical and exempt. The final row may
+> finish past the file cap, but no row may
 > ever *start* past it: when this file stands over the cap, create LEDGER_B.md (this file's
 > name with a _B suffix) with the same header discipline, numbering from **DB-001**. It is
 > named without backticks on purpose — a name in backticks is a citation, and the path-refs

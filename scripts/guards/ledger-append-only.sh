@@ -3,12 +3,21 @@
 #
 # Baseline is HEAD, deliberately: rows created in the current uncommitted unit are draft
 # material until commit, but any row already committed at HEAD must remain present and
-# byte-identical except for a strict standalone supersession pointer.
+# byte-identical except for the two sanctioned metadata additions: adding `[cited]` to
+# the row header and appending a strict standalone supersession pointer. Rows absent from
+# HEAD are new rows and are length-checked before commit. The configured cap is named
+# LEDGER_ROW_CHAR_CAP for the human rule, but the implementation deliberately counts
+# bytes under LC_ALL=C: that is locale-stable across POSIX shells and matches the
+# harness's existing byte-oriented size checks. ASCII text therefore counts as one byte per
+# character; non-ASCII UTF-8 counts by encoded bytes, not Unicode scalar values. See DB-012.
 
 set -uo pipefail
 
 LEDGER_DIR=docs
 LEDGER_BASENAME=LEDGER
+LEDGER_ROW_CHAR_CAP=0
+# shellcheck source=/dev/null
+[ -f amh.conf ] && . ./amh.conf
 SUPERSEDED_RE='^[[:space:]]*Superseded by D[A-Z]*-[0-9]+[.]$'
 
 fail() { printf '%s\n' "$*"; exit 1; }
@@ -103,20 +112,54 @@ extract_rows() { # extract_rows <tree-dir> <rows-dir>
 	done
 }
 
-allowed_superseded_only() { # allowed_superseded_only <base-row> <current-row>
-	local base=$1 current=$2 trimmed
-	# The only permitted edit to an existing row is appending one standalone strict sentence.
+
+validate_row_cap() { # validate_row_cap <row-file> <id>
+	local row=$1 id=$2 count
+	case ${LEDGER_ROW_CHAR_CAP:-0} in
+		''|*[!0-9]*) fail "ledger append-only: LEDGER_ROW_CHAR_CAP must be a non-negative integer, got '${LEDGER_ROW_CHAR_CAP:-}'" ;;
+	esac
+	[ "${LEDGER_ROW_CHAR_CAP:-0}" -gt 0 ] || return 0
+	# Locale-stable character policy: count bytes with LC_ALL=C. For this Markdown ledger's
+	# normal ASCII prose that is one byte per character; UTF-8 non-ASCII text is charged by
+	# encoded bytes so the same row has the same verdict on every host locale.
+	count=$(LC_ALL=C wc -c <"$row") || exit 1
+	count=${count//[[:space:]]/}
+	if [ "$count" -gt "$LEDGER_ROW_CHAR_CAP" ]; then
+		fail "ledger append-only: $id is a new ledger row with $count byte-counted character(s), over LEDGER_ROW_CHAR_CAP=$LEDGER_ROW_CHAR_CAP — keep the durable lesson concise; historical committed rows and sanctioned metadata-only additions are exempt"
+	fi
+}
+
+allowed_metadata_only() { # allowed_metadata_only <base-row> <current-row>
+	local base=$1 current=$2 trimmed without_pointer base_cited=0
+	# Normalize only the two sanctioned, additive metadata transitions before comparing:
+	# an uncited header may gain `[cited]`, and one strict supersession sentence may be
+	# appended. Removing `[cited]`, changing prose, or altering an existing pointer remains
+	# a rewrite because normalization is deliberately one-way from current back to HEAD.
 	trimmed=$(mktemp "$TMPDIR/ledger-row.XXXXXX") || exit 1
+	cp "$current" "$trimmed" || { rm -f "$trimmed"; return 1; }
+	LC_ALL=C sed -n '1{/^- D[A-Z]*-[0-9][0-9]* \[cited\]: /q0};q1' "$base" && base_cited=1
+	if [ "$base_cited" -eq 0 ]; then
+		LC_ALL=C sed '1s/^\(- D[A-Z]*-[0-9][0-9]*\) \[cited\]: /\1: /' "$trimmed" >"$trimmed.normalized" || exit 1
+		mv "$trimmed.normalized" "$trimmed" || exit 1
+	fi
+	if cmp -s "$base" "$trimmed"; then
+		rm -f "$trimmed"
+		return 0
+	fi
+	# A baseline that already ends in a pointer cannot gain a second one. The comparison
+	# above still permits that row to gain `[cited]` while preserving its committed pointer.
+	LC_ALL=C tail -n 1 "$base" | LC_ALL=C grep -Eq "$SUPERSEDED_RE" && { rm -f "$trimmed"; return 1; }
+	without_pointer=$(mktemp "$TMPDIR/ledger-row.XXXXXX") || exit 1
 	awk -v re="$SUPERSEDED_RE" '
 		{ lines[NR] = $0 }
 		END {
 			if (NR == 0 || lines[NR] !~ re) exit 1
 			for (i = 1; i < NR; i++) print lines[i]
 		}
-	' "$current" >"$trimmed" || { rm -f "$trimmed"; return 1; }
-	cmp -s "$base" "$trimmed"
+	' "$trimmed" >"$without_pointer" || { rm -f "$trimmed" "$without_pointer"; return 1; }
+	cmp -s "$base" "$without_pointer"
 	local rc=$?
-	rm -f "$trimmed"
+	rm -f "$trimmed" "$without_pointer"
 	return "$rc"
 }
 
@@ -150,9 +193,18 @@ for base_row in "$TMPDIR"/head-rows/D*-*; do
 	if [ ! -f "$current_row" ]; then
 		fail "ledger append-only: $id existed at HEAD but is missing from the working tree"
 	fi
-	if ! cmp -s "$base_row" "$current_row" && ! allowed_superseded_only "$base_row" "$current_row"; then
-		fail "ledger append-only: $id existed at HEAD and was edited; only appending 'Superseded by D-NNN.' as a standalone final line is allowed"
+	if ! cmp -s "$base_row" "$current_row" && ! allowed_metadata_only "$base_row" "$current_row"; then
+		fail "ledger append-only: $id existed at HEAD and was edited; only adding '[cited]' to its header and/or appending 'Superseded by D-NNN.' as a standalone final line is allowed"
 	fi
 done
 
-printf 'checked %d committed ledger row(s) against HEAD' "$checked"
+new_checked=0
+for current_row in "$TMPDIR"/work-rows/D*-*; do
+	[ -e "$current_row" ] || continue
+	id=${current_row##*/}
+	[ -f "$TMPDIR/head-rows/$id" ] && continue
+	new_checked=$((new_checked + 1))
+	validate_row_cap "$current_row" "$id"
+done
+
+printf 'checked %d committed ledger row(s) and %d new ledger row(s) against HEAD' "$checked" "$new_checked"

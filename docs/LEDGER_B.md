@@ -25,10 +25,17 @@
 > **Search before appending.** Grep ALL volumes for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes DA-NNN") and the old row gets a correction pointer, never deletion.
+> **Keep new rows concise and at or below `LEDGER_ROW_CHAR_CAP`.** Capture the durable lesson,
+> not the whole debugging narrative; put larger narratives in `docs/history/` and link them
+> from the `docs/STATE.md` changelog.
 >
 > **File cap & rollover.** This file holds at most **800 lines** (the cap bounds LINES, not
 > rows — it is read cost that is being bounded, and the number stays in lockstep with
-> `LEDGER_LINE_CAP` in `amh.conf`). The final row may finish past the cap, but no row may
+> `LEDGER_LINE_CAP` in `amh.conf`). For new rows, the configured character cap is **2,000
+> byte-counted characters**; the guard counts bytes under `LC_ALL=C` for a locale-stable
+> result, so ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded
+> bytes. Rows already committed when checked are historical and exempt. The final row may
+> finish past the file cap, but no row may
 > ever *start* past it: when this file stands over the cap, create LEDGER_C.md (this file's
 > name with a _C suffix) with the same header discipline, numbering from **DC-001**. It is
 > named without backticks on purpose — a name in backticks is a citation, and the path-refs
@@ -462,3 +469,63 @@
   which session discipline 1 forbids without qualification (D-009). It was rationalised in
   flight as experiment specimens rather than units of work; the rule carries no such exemption,
   and the section was read afterwards rather than before. Runs 1 and 6 were sequential.
+
+- DB-010: **The interpreter `.env` hole earned a one-time speed bump, not a false promise of
+  parsing every interpreter.** The command guard still cannot understand `python3 -c
+  "open('.env')"` as a file read after the speed bump is spent; enumerating interpreters would
+  only move the miss to a different spelling inside the interpreter program. The useful owner
+  intervention is therefore a session-local advisory block on the first command text that names
+  `.env`: it stops the likely mistake, explains that credential files can leak through values,
+  hashes, lengths, copies and interpreter reads, and tells the agent to rerun only if the warning
+  is inapplicable or false positive. `session-start.sh` rearms the state by deleting the
+  repository's advisory marker, and the command-guard self-test uses an explicit temporary marker
+  so verification cannot spend the live session's warning. Subsequent attempts fall through to the
+  existing precise rails, so `cat .env` remains blocked by the real reader rail while a
+  prose/template false positive does not brick the session.
+
+- DB-011: **The long quiet ladder run was fixture cost, not an observed process leak.** During
+  the 4.1.0 advisory work, `scripts/ladder.sh` appeared stuck while it was inside
+  `scripts/test-ladder-guards.sh`; process inspection showed the suite repeatedly running
+  `scripts/ladder.sh --guards-only`, whose rail rung runs `scripts/command-guard.sh --self-test`.
+  A standalone command-guard self-test took about nine seconds in this container, and the shipped
+  fixture suite invokes guard-only ladders across many temporary repos, producing long stretches
+  with no terminal output before eventually reporting `133 passed, 0 failed`. No surviving guard
+  or ladder processes remained after completion. This is a performance/observability cost rather
+  than a correctness failure; do not add cleanup machinery without evidence of orphaned processes
+  or stale state, because killing by name would risk deleting the command under verification.
+  Prefer a future progress note or fixture-suite timing work if the silence becomes a repeated
+  operational problem.
+
+- DB-012 [cited]: **New ledger length enforcement belongs at append time, not as a history
+  rewrite.** The incident behind this row is the owner request to prevent future ledger rows
+  from becoming retrieval-hostile without compressing or renumbering the append-only record.
+  The guard therefore compares the live ledger chain against `HEAD` as DB-008 established,
+  preserves the byte-identical historical-row rule and its strict final `Superseded by
+  D[A-Z]*-NNN.` exception, and checks only rows absent from `HEAD`. The cap is configured as
+  `LEDGER_ROW_CHAR_CAP`; despite the human word "character", the script deliberately counts
+  bytes under `LC_ALL=C`, because that verdict is stable across locales and matches the
+  harness's existing byte-size diagnostics. For ordinary ASCII ledger prose that is one byte
+  per character; non-ASCII UTF-8 pays by encoded bytes. The tradeoff is conservative but
+  reviewable: future authors can always shorten a draft row before commit, while committed
+  historical verbosity remains exempt instead of forcing forbidden ledger surgery.
+
+- DB-013: **Append-only means immutable prose, not frozen machine-checked metadata.** The first
+  row-length implementation inherited DB-008's supersession exception but overlooked the other
+  sanctioned transition in the ledger preamble: citation changes require an existing row to gain
+  `[cited]`. The append-only guard now normalizes only additive metadata before comparing with
+  `HEAD`: it may remove one newly appended strict `Superseded by D[A-Z]*-NNN.` line and may remove
+  one newly added `[cited]` header marker for comparison. This one-way normalization allows either
+  addition or both together, while marker removal, pointer replacement, and prose edits still
+  fail. Because the row id already exists at `HEAD`, neither metadata addition reclassifies the
+  historical row as new or subjects it retroactively to `LEDGER_ROW_CHAR_CAP`.
+
+- DB-014: **A broad destructive-command rail should be a category-scoped speed bump, not a
+  permanent deny.** Recursive forced removal is sometimes necessary, but an accidental run can
+  erase the guard fixtures, source files, or untracked evidence needed to understand the work.
+  The command guard therefore recognizes leading `rm` invocations combining recursive and force
+  options and leading `git clean` invocations combining force and directory options, using the
+  same heredoc, segment, and word parsing that keeps command-shaped prose out of other rails. It
+  blocks the category's first attempt with safer alternatives and lets an intentional rerun reach
+  the precise rails. Category-specific state also prevents acknowledging the `.env` advisory from
+  silently acknowledging destructive deletion, while one shared mechanism prevents each new
+  advisory from inventing its own session-state implementation.

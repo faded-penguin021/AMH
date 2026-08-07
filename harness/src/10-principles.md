@@ -253,6 +253,14 @@ The reason is fed back to the agent, which self-corrects in one step instead of 
 prefix-matched denial. (A deterministic rule enforced by a hook needs no prose repetition *for
 that agent* — keep the prose anyway; it binds hook-less agents.)
 
+Use runtime diagnostics to restate the small set of behavioural rules whose failure is both
+likely and expensive: a block or warning should name the violated rule, why the tempting action
+is dangerous, and the safe next move. This is not motivational prose bolted onto a gate; it is
+a correctness mechanism for untrustworthy agents with lossy attention, and it earns its keep
+under P0 when it prevents repeated owner correction without claiming coverage the guard does
+not have. Keep the set narrow, incident-earned and artifact-triggered, because restating every
+rule makes none salient.
+
 Hard-won pattern rules for such a guard: judge only each simple-command segment's LEADING
 command, so quoted text that merely *contains* a forbidden command (commit messages, doc
 heredocs, the guard's own CLI) never trips it — both false-positive classes here surface live on

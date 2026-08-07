@@ -45,6 +45,18 @@ ADAPTER_FILES=''
 
 say() { printf '%s\n' "$*"; }
 
+
+reset_dotenv_advisory() {
+	local slug uid state
+	slug=${ROOT//\//_}
+	slug=${slug// /_}
+	uid=${UID:-unknown}
+	state=/tmp/amh-command-guard-dotenv-advisory-$uid-$slug
+	rm -f -- "$state" 2>/dev/null || true
+}
+
+reset_dotenv_advisory
+
 say "── AMH session start ─────────────────────────────────────────"
 
 # 1. Toolchain bootstrap — remote/ephemeral containers only, gated on an explicit
