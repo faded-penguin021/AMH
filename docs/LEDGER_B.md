@@ -617,3 +617,18 @@
   full account. Two residues worth knowing rather than hiding: the row is still physically in
   `LEDGER.md`, and code citing DB-015 must keep citing it, because dropping the citation would
   strand its `[cited]` marker and removing that marker is itself a rewrite the guard rejects.
+
+- DB-021: **Three nits in the shipped-citation and warn-channel work, accepted with reasons so
+  they are not re-derived.** An external fresh-context review (Codex, 2026-08-09) found no
+  critical or major defect in the branch and raised three minor observations; all three were
+  read, judged and left alone. (a) `shipped-citations.sh` scopes by a hand-maintained list of
+  installation-source globs, so a future `amh-init.sh` destination under `scripts/` or
+  `.github/` is covered only if someone extends the list. Deriving it by parsing install calls
+  is more fragile than the list it would replace; the obligation is stated at the list. Reopen
+  if a destination is ever missed in practice. (b) The fixture-suite exclusion matches on
+  basename, so a second shipped artifact named `test-ladder-guards.sh` would inherit it —
+  which would be its own problem; path-matching is two lines and costs a rule-review pass for
+  no present defect. (c) The ladder splits a multi-line warning with separate `head` and `tail`
+  pipelines rather than parameter expansion: heavier by two processes, correct for ordinary
+  diagnostics and the multiline fixture. Each is a cost accepted against a real alternative,
+  not an oversight; new evidence means an actual miss, not a re-reading of these trade-offs.

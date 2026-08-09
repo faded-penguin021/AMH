@@ -83,6 +83,13 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-09 — **An external review found no critical or major defect; its three nits are
+  recorded as accepted.** A fresh-context Codex pass over the branch confirmed the warn-marker
+  contract, the advisory rearm, the shipped-citation scope and the race-free ledger chain. The
+  hand-maintained scope list, the basename-keyed exclusion and the `head`/`tail` warning split
+  were each judged and left alone with the reason stated, so the trade-offs are not re-derived.
+  **DB-021** is the record.
+
 - 2026-08-09 — **A misfiled ledger row is repaired by supersession, and the volume warn was
   made race-free.** DB-015 sat in `docs/LEDGER.md` under a `DB-` prefix; relocating it would be
   a rewrite of an append-only volume, so it gained a strict supersession pointer and **DB-020**
