@@ -72,9 +72,12 @@
 > not evading a warning. The reasoning prose stays and the row is named in a form the guard
 > does not read (`AMH ledger row DBNNN`). That carve-out is no longer prose you have to
 > remember:
-> `scripts/guards/shipped-citations.sh` fails on a real id in any shipped script except the
-> fixture suite, whose ids are fixture material and are excluded from every adopter's
-> citation scan by the shipped `CITATION_EXCLUDE`. Anywhere else, the sentence above binds.
+> `scripts/guards/shipped-citations.sh` fails on a real id in anything this repository installs
+> into an adopter's citation-scan paths — the shipped scripts, the seed scripts and the CI
+> workflow, whatever the file extension. The one exception is the shipped fixture suite, whose
+> ids are fixture material; the `CITATION_EXCLUDE` default in `harness/templates/amh.conf.example`
+> keeps that file out of the scan of any adopter whose own `amh.conf` carries the key, and an
+> adopter whose config predates it does not get the exclusion. Anywhere else, the sentence above binds.
 
 - DB-001: **The ladder now names its subject — which commit, and whether the tree it just
   verified IS that commit.** This is the whole surviving deliverable of RFC2 (**DA-025**),
@@ -583,3 +586,21 @@
   excluding the fixture suite for the same reason the shipped `CITATION_EXCLUDE` does — its
   ids are fixture material that resolves against a ledger it synthesizes itself. It carries an
   explicit scanned-nothing failure: a moved directory is indistinguishable from a clean sweep.
+  Superseded by DB-019.
+
+- DB-019 [cited]: **Scope a shipped-artifact guard by DESTINATION, not by directory or extension —
+  and corrects DB-018, which this row supersedes.** DB-018's guard scanned
+  `harness/templates/scripts/*.sh` while calling that "any shipped script". `amh-init.sh` also
+  installs the seed scripts into the adopter's `scripts/` and the shipped CI workflow into their
+  `.github/`, both inside the default `CITATION_SCAN_PATHS`, and `MANIFEST.sha256` is not a
+  `.sh` at all: a citation in any of them passed the guard and turned a fresh adopter's first
+  ladder run red — the precise failure the guard was written to stop, reproduced end to end by
+  the review pass. `copy-drift.sh` had already learned this over the same directory. Three
+  further corrections to DB-018: the guard now inspects `grep`'s exit status, because trouble
+  read as "no match" is a hollow scan reporting a clean sweep; a token matching the citation
+  pattern but naming no row of ours gets the recorded remedy (rename, or a `CITATION_EXCLUDE`
+  entry — never a wider pattern) instead of nonsense advice to write it hyphen-free; and the
+  exclusion holds only for an adopter whose `amh.conf` carries `CITATION_EXCLUDE`, since the
+  shipped ladder's own default is empty and the key is installed `keep`. DB-018's citation of
+  D-023 for the incident bar was wrong: D-023 is the row that DISCOVERED this defect class,
+  and the bar is stated in the runbook's guard playbook.

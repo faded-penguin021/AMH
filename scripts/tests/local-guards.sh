@@ -231,39 +231,82 @@ expect pass "ledger-append-only: cited and supersession edits in a closed volume
 	ledger-append-only.sh
 
 # --- shipped-citations --------------------------------------------------------
-# A real ledger citation in a shipped rail is green everywhere in THIS repo — the row exists,
-# the citation rung asks for its [cited] marker, and the marker gets added — while shipping an
-# adopter a promise their ledger cannot keep. That is the whole reason this guard exists, and
-# the reason no other rung can stand in for it.
+# A real ledger citation in something we ship is green everywhere in THIS repo — the row
+# exists, the citation rung asks for its [cited] marker, and the marker gets added — while
+# handing an adopter a promise their ledger cannot keep. That is the whole reason this guard
+# exists, and the reason no other rung can stand in for it.
 d=$(snapshot shipped_citations_real_citation)
-printf '# see DB-016 for why\n' >>"$d/harness/templates/scripts/ladder.sh"
+printf '# see D-020 for why\n' >>"$d/harness/templates/scripts/ladder.sh"
 expect fail "shipped-citations: a real citation in a shipped rail fails" "$d" \
-	shipped-citations.sh "cites DB-016"
+	shipped-citations.sh "cites D-020"
 
-# Multi-letter volumes must be caught here too, or an id the ladder's citation rung would
+# Multi-letter volumes must be caught here too, or an id the adopter's citation rung would
 # resolve slips through the guard that is supposed to stop it leaving the repo.
 d=$(snapshot shipped_citations_multiletter)
-printf '# see DAA-001 for why\n' >>"$d/harness/templates/scripts/command-guard.sh"
+printf '# see DA-001 for why\n' >>"$d/harness/templates/scripts/command-guard.sh"
 expect fail "shipped-citations: a multi-letter citation is caught too" "$d" \
-	shipped-citations.sh "cites DAA-001"
+	shipped-citations.sh "cites DA-001"
+
+# Scope is by DESTINATION, not by extension or by one directory. All three of these land in a
+# path the adopter's citation scan reads by default, and the first version of this guard saw
+# only the first: a citation in the other two turned a fresh adopter's very first ladder run
+# red while every rung here stayed green.
+d=$(snapshot shipped_citations_seed_script)
+printf '# see D-020 for why\n' >>"$d/harness/templates/seed/scripts/verify.sh"
+expect fail "shipped-citations: a seed script installed into scripts/ is in scope" "$d" \
+	shipped-citations.sh "cites D-020"
+
+d=$(snapshot shipped_citations_ci_workflow)
+printf '# see D-020 for why\n' >>"$d/harness/templates/configs/ci.yml"
+expect fail "shipped-citations: the CI workflow installed into .github/ is in scope" "$d" \
+	shipped-citations.sh "cites D-020"
+
+d=$(snapshot shipped_citations_non_sh)
+printf '# see D-020 for why\n' >>"$d/harness/templates/scripts/MANIFEST.sha256"
+expect fail "shipped-citations: a shipped file that is not a *.sh is in scope" "$d" \
+	shipped-citations.sh "cites D-020"
+
+# A token that matches the citation pattern but names no row of ours is a different defect
+# with a different fix. Telling its author to write it hyphen-free would be nonsense; the
+# recorded remedy is a rename or a CITATION_EXCLUDE entry, never a wider pattern.
+d=$(snapshot shipped_citations_collision)
+printf '# a DEBUG-2 token, not a citation\n' >>"$d/harness/templates/scripts/ladder.sh"
+expect fail "shipped-citations: a non-ledger token gets the rename-or-exclude remedy" "$d" \
+	shipped-citations.sh "rename the token or add a CITATION_EXCLUDE entry"
 
 # The unread form is the documented fix, so it must actually pass — a guard that rejected the
 # alternative it recommends would leave no legal way to reference the reasoning at all.
 d=$(snapshot shipped_citations_unread_form)
-printf '# see AMH ledger row DB016 for why\n' >>"$d/harness/templates/scripts/ladder.sh"
+printf '# see AMH ledger row D020 for why\n' >>"$d/harness/templates/scripts/ladder.sh"
 expect pass "shipped-citations: the hyphen-free form is accepted" "$d" shipped-citations.sh
 
-# The shipped fixture suite is exempt on purpose: its ids are fixture material and the shipped
-# CITATION_EXCLUDE keeps that file out of every adopter's citation scan.
+# The shipped fixture suite is exempt on purpose: its ids are fixture material and the
+# CITATION_EXCLUDE default in the shipped amh.conf.example keeps that file out of the citation
+# scan of any adopter whose config carries the key.
 d=$(snapshot shipped_citations_fixture_suite_exempt)
-printf '# see D-020 for why\n' >>"$d/harness/templates/scripts/test-ladder-guards.sh"
+printf '# see DA-001 for why\n' >>"$d/harness/templates/scripts/test-ladder-guards.sh"
 expect pass "shipped-citations: the fixture suite's own ids are exempt" "$d" shipped-citations.sh
 
-# Scanning nothing is a failure, not a sweep: a moved directory looks identical to a clean one.
+# An entry the glob matched but nothing can read is named, never skipped: the totals below
+# make an affirmative claim about what was checked, and a dropped file makes that claim false.
+d=$(snapshot shipped_citations_unreadable)
+ln -s /nonexistent "$d/harness/templates/scripts/dangling.sh"
+expect fail "shipped-citations: an unreadable shipped file is named, not dropped" "$d" \
+	shipped-citations.sh "could not check it"
+
+# Scanning nothing is a failure, not a sweep — and the two empty states have different fixes,
+# so they say different things.
 d=$(snapshot shipped_citations_scanned_nothing)
-rm -rf "$d/harness/templates/scripts"
-expect fail "shipped-citations: finding no shipped scripts fails rather than passing" "$d" \
-	shipped-citations.sh "checked NOTHING"
+rm -rf "$d/harness/templates/scripts" "$d/harness/templates/seed/scripts" \
+	"$d/harness/templates/configs/ci.yml"
+expect fail "shipped-citations: matching no shipped file fails rather than passing" "$d" \
+	shipped-citations.sh "matched no file"
+
+d=$(snapshot shipped_citations_all_excluded)
+rm -rf "$d/harness/templates/seed/scripts" "$d/harness/templates/configs/ci.yml"
+find "$d/harness/templates/scripts" -type f ! -name test-ladder-guards.sh -delete
+expect fail "shipped-citations: an entirely excluded shipped set fails rather than passing" "$d" \
+	shipped-citations.sh "were excluded or unreadable"
 
 # --- config-schema ------------------------------------------------------------
 d=$(snapshot config_schema_missing)

@@ -53,9 +53,12 @@
 > promise, not evading a warning. The reasoning prose stays and the row is named in a form
 > the guard does not read (`AMH ledger row DNNN`). That carve-out is no longer prose you
 > have to remember:
-> `scripts/guards/shipped-citations.sh` fails on a real id in any shipped script except the
-> fixture suite, whose ids are fixture material and are excluded from every adopter's
-> citation scan by the shipped `CITATION_EXCLUDE`. Anywhere else, the sentence above binds.
+> `scripts/guards/shipped-citations.sh` fails on a real id in anything this repository installs
+> into an adopter's citation-scan paths — the shipped scripts, the seed scripts and the CI
+> workflow, whatever the file extension. The one exception is the shipped fixture suite, whose
+> ids are fixture material; the `CITATION_EXCLUDE` default in `harness/templates/amh.conf.example`
+> keeps that file out of the scan of any adopter whose own `amh.conf` carries the key, and an
+> adopter whose config predates it does not get the exclusion. Anywhere else, the sentence above binds.
 
 - D-001 [cited]: **This repository is both the harness's source of truth and its reference
   instance.** The distributed product lives under `harness/`; the repo's own instance is

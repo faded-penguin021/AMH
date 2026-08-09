@@ -49,14 +49,6 @@ binding ledger preambles, runbook guidance, and guard diagnostics, but the execu
 for this session prohibited spawning a fresh-context reviewer and no clean reviewer CLI was
 available. The commit is parked for owner review under the rule-review protocol.
 
-**OPEN — the `shipped-citations.sh` unit is pushed UNREVIEWED** on branch
-`claude/session-start-advisory-rearm-f5ncyg`. Its rule-review pass is scheduled rather than
-skipped: the owner hit a session limit, so the pass runs later in this same session and this
-item is deleted when it reports and its findings are applied. If the session dies first, the
-unit needs a first pass before merge.
-Check: `git log --oneline -1` — if the newest commit is the follow-up applying review findings,
-the pass happened.
-
 **OPEN — `DB-015` is filed in the wrong volume.** The row sits at the end of `docs/LEDGER.md`,
 but `LEDGER_B.md`'s preamble says a `DB-` id resolves there, so the citation in this file's
 Changelog dangles by the ledger's own rule. Moving an append-only row is forbidden, so the fix
@@ -98,12 +90,14 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-08-09 — **Shipped scripts may no longer carry real ledger citations, and a guard says
-  so.** `scripts/guards/shipped-citations.sh` fails on a hyphenated row id in any shipped
-  script bar the fixture suite; the unread `AMH ledger row DBNNN` form is the fix, and the
-  three ledger preambles now name the guard instead of asking you to remember the rule. The
-  owner overrode the incident bar because this defect is green here and red in an adopter's
-  tree. The Unreleased section cuts as **MINOR** (owner, 2026-08-09). **DB-018** is the record.
+- 2026-08-09 — **Nothing shipped into an adopter's scan paths may carry a real ledger
+  citation, and a guard says so.** `scripts/guards/shipped-citations.sh` fails on a hyphenated
+  row id in the shipped scripts, the seed scripts and the CI workflow alike — scope is by
+  destination, which the review pass proved the first draft got wrong — bar the fixture suite;
+  the unread `AMH ledger row DBNNN` form is the fix, and the three ledger preambles name the
+  guard instead of asking you to remember the rule. The owner overrode the incident bar because
+  this defect is green here and red in an adopter's tree. The Unreleased section cuts as
+  **MINOR** (owner, 2026-08-09). **DB-018** and **DB-019** are the record.
 
 - 2026-08-09 — **Repo-local guards gained a warn verdict, and the ledger uses it.** Exit 2 with
   a leading `WARN ` marker warns without turning the ladder red; an unmarked exit 2 stays a

@@ -88,9 +88,10 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
   fail, and the fix is always in the same direction (D-002).
 - **Obligations:** the script must stay repo-agnostic. Needing a repo-specific branch means
   an extension point is missing — add the extension point instead (D-003). **Never cite a
-  ledger row by its real id in a shipped script** — our rows cannot exist in an adopter's
-  ledger, so name it `AMH ledger row DBNNN` without the hyphen; `shipped-citations.sh` fails
-  on the hyphenated form. New behaviour
+  ledger row by its real id in anything shipped** — not the rails, not the seed scripts, not
+  the CI workflow — because our rows cannot exist in an adopter's ledger; name it `AMH ledger
+  row DBNNN` without the hyphen. `shipped-citations.sh` fails on the hyphenated form, scoped by
+  where a file is installed rather than by its extension. New behaviour
   lands with its fixture in the same change. **Run `scripts/build-manifest.sh` in the same
   change**: the shipped scripts' hashes ship with them, and `manifest-drift.sh` fails on a
   manifest that describes bytes nobody has. **Rule-review protocol applies** (guard
@@ -113,7 +114,7 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
   captures) begins `WARN ` warns without turning the run red, any other non-zero fails. The
   warn line is the guard's first line; later lines are indented under it. That contract is the
   ladder's — a workflow invoking a guard directly, as the release job does, sees any non-zero
-  as a failure with its fixture in `scripts/tests/local-guards.sh`. A guard
+  as a failure. Its fixture goes in `scripts/tests/local-guards.sh`. A guard
   every adopter needs goes in the shipped `harness/templates/scripts/ladder.sh` with its
   fixture in `harness/templates/scripts/test-ladder-guards.sh`, both then copied into
   `scripts/`. Do not cross the streams: a repo-local fixture in the shipped suite breaks

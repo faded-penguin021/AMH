@@ -745,9 +745,13 @@ LEDGER_ROW_CHAR_CAP=2000
 # IDs without citing them), and not the guard fixtures (which carry synthetic IDs).
 CITATION_SCAN_PATHS='{{CITATION_SCAN_PATHS}}'
 # Only the guard fixtures, which carry synthetic `D-NNN` IDs by design — they are the
-# material the citation guard is tested against. The shipped scripts need no exclusion:
-# they refer to the harness's own ledger rows in a form the guard does not read as a
-# citation, so everything left in scope is something you wrote.
+# material the citation guard is tested against. Nothing else the harness ships needs an
+# exclusion: everything it installs into these paths refers to the harness's own ledger rows
+# in a form the citation scan does not read, and a guard in the harness's own repository
+# fails if that ever stops being true. So everything left in scope is something you wrote.
+#
+# If you drop this key, the shipped fixture suite's synthetic IDs come into scope and your
+# ladder will report them as unresolved citations in a file you are told never to edit.
 CITATION_EXCLUDE='scripts/test-ladder-guards.sh scripts/tests'
 
 # --- Commit hygiene ---------------------------------------------------------
