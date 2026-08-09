@@ -44,11 +44,6 @@ sentence, or both. Rows absent from `HEAD` are draft material until commit. **DB
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
 
-**OPEN — review the ledger-row documentation unit on branch `work`.** The unit changes
-binding ledger preambles, runbook guidance, and guard diagnostics, but the execution policy
-for this session prohibited spawning a fresh-context reviewer and no clean reviewer CLI was
-available. The commit is parked for owner review under the rule-review protocol.
-
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
 4.1.0 are cut and 4.1.0 is published, and `main`'s protection is repointed at `ladder`.
 
@@ -82,6 +77,12 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-09 — **The parked ledger-row documentation unit is retired on the owner's call.**
+  The unit was held for a fresh-context pass a past session could not spawn. The owner accepted
+  the external Codex review as settling it (2026-08-09), so the Owner-queue item is closed. The
+  branch it named is not on origin, so nothing here can verify what was reviewed — recorded as
+  the owner's decision, which is what closes it.
 
 - 2026-08-09 — **An external review found no critical or major defect; its three nits are
   recorded as accepted.** A fresh-context Codex pass over the branch confirmed the warn-marker
