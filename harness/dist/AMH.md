@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 4.1.0.** Repos that adopt it record the version they took
+**Harness version 4.2.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -745,9 +745,13 @@ LEDGER_ROW_CHAR_CAP=2000
 # IDs without citing them), and not the guard fixtures (which carry synthetic IDs).
 CITATION_SCAN_PATHS='{{CITATION_SCAN_PATHS}}'
 # Only the guard fixtures, which carry synthetic `D-NNN` IDs by design — they are the
-# material the citation guard is tested against. The shipped scripts need no exclusion:
-# they refer to the harness's own ledger rows in a form the guard does not read as a
-# citation, so everything left in scope is something you wrote.
+# material the citation guard is tested against. Nothing else the harness ships needs an
+# exclusion: everything it installs into these paths refers to the harness's own ledger rows
+# in a form the citation scan does not read, and a guard in the harness's own repository
+# fails if that ever stops being true. So everything left in scope is something you wrote.
+#
+# If you drop this key, the shipped fixture suite's synthetic IDs come into scope and your
+# ladder will report them as unresolved citations in a file you are told never to edit.
 CITATION_EXCLUDE='scripts/test-ladder-guards.sh scripts/tests'
 
 # --- Commit hygiene ---------------------------------------------------------
@@ -1275,7 +1279,16 @@ The guards it ships with:
 - **Repo-local guards** — `scripts/guards/*.sh`, the extension point that keeps this script
   repo-agnostic. Domain rules live there: a store changelog length cap (mind the unit — a
   "500 character" limit is codepoints, and `wc -c` overcounts multibyte text), a
-  version-monotonicity check, a falsifiable doc-fact tripwire (P20).
+  version-monotonicity check, a falsifiable doc-fact tripwire (P20). Three verdicts are
+  available: exit 0 passes, exit 2 whose output BEGINS with `WARN ` warns — counted in the
+  ladder's warning total, green either way — and any other non-zero fails. Reach for the
+  warning when the rule is usually right but a legitimate exception may exist that nobody has
+  enumerated yet; failing closed on one of those teaches the adopter to delete the guard
+  rather than read it. The marker is required because a bare exit 2 is ambiguous — bash exits 2
+  on a syntax error, `grep` and `diff` on trouble — and a guard that stopped parsing must not
+  report as a mild opinion. Two boundaries worth knowing: the marker is matched against the
+  guard's merged stdout and stderr, and the three-verdict contract belongs to the ladder, so a
+  CI step calling a guard directly still reads any non-zero as failure.
 - **Local-only advisories (WARN, skipped in CI)** — a checkpoint tripwire (code changed versus
   the default branch but the state file is not in the diff, so the changelog line is probably
   missing); a stale-branch tripwire classified mechanically with the P13 test-merge; a

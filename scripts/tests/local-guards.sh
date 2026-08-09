@@ -40,7 +40,16 @@ snapshot() { # snapshot <name> -> prints the path
 	printf '%s' "$d"
 }
 
-expect() { # expect <pass|fail> <name> <dir> <guard> [message-substring]
+# Three verdicts, matching the ladder's repo-local contract: pass is exit 0, warn is exit 2
+# whose output BEGINS with `WARN ` (anything else at exit 2 is a broken guard, which the
+# ladder reports as a failure and so does this helper), and fail is any other non-zero exit.
+# `fail` deliberately does not accept a marked warning: the ladder stays green on one, so a
+# fixture that took it for a failure would assert the opposite of what an adopter sees.
+is_marked_warn() { # is_marked_warn <rc> <output>
+	[ "$1" -eq 2 ] && [ "$2" != "${2#WARN }" ]
+}
+
+expect() { # expect <pass|fail|warn> <name> <dir> <guard> [message-substring]
 	local want=$1 name=$2 dir=$3 guard=$4 want_msg=${5:-}
 	local out rc
 	# shellcheck disable=SC2086  # $guard may carry arguments, e.g. "x.sh --tag v1"
@@ -49,9 +58,12 @@ expect() { # expect <pass|fail> <name> <dir> <guard> [message-substring]
 	if [ "$want" = pass ] && [ "$rc" -ne 0 ]; then
 		FAILED=$((FAILED + 1))
 		printf '  FAIL %s — expected pass, got %d\n%s\n' "$name" "$rc" "$out" >&2
-	elif [ "$want" = fail ] && [ "$rc" -eq 0 ]; then
+	elif [ "$want" = warn ] && ! is_marked_warn "$rc" "$out"; then
 		FAILED=$((FAILED + 1))
-		printf '  FAIL %s — expected failure, guard passed\n%s\n' "$name" "$out" >&2
+		printf '  FAIL %s — expected a WARN-marked exit 2, got %d\n%s\n' "$name" "$rc" "$out" >&2
+	elif [ "$want" = fail ] && { [ "$rc" -eq 0 ] || is_marked_warn "$rc" "$out"; }; then
+		FAILED=$((FAILED + 1))
+		printf '  FAIL %s — expected failure, guard did not fail (exit %d)\n%s\n' "$name" "$rc" "$out" >&2
 	elif [ -n "$want_msg" ] && ! printf '%s' "$out" | grep -qF "$want_msg"; then
 		FAILED=$((FAILED + 1))
 		printf '  FAIL %s — verdict right but message never mentioned %s\n%s\n' "$name" "$want_msg" "$out" >&2
@@ -73,6 +85,7 @@ expect pass "adapter-set: clean tree" "$base" adapter-set.sh
 expect pass "doc-navigation: clean tree" "$base" doc-navigation.sh
 expect pass "config-schema: clean tree" "$base" config-schema.sh
 expect pass "ledger-append-only: clean tree" "$base" ledger-append-only.sh
+expect pass "shipped-citations: clean tree" "$base" shipped-citations.sh
 
 
 # --- ledger-append-only -------------------------------------------------------
@@ -178,6 +191,122 @@ sed -i 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=10/' "$d/amh.conf"
 sed '0,/^- D-004: /s//- D-004 [cited]: /' \
 	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
 expect pass "ledger-append-only: sanctioned cited metadata ignores the new-row cap" "$d" ledger-append-only.sh
+
+# A new row filed outside the live volume: warn, never fail. DB-015 reached the default
+# branch this way, and its citation dangles by the prefix rule while grep still finds it.
+d=$(snapshot ledger_append_only_new_row_wrong_volume)
+cat >>"$d/docs/LEDGER.md" <<'ROW'
+- D-999: **New row in a closed volume.** It resolves nowhere its prefix promises.
+ROW
+expect warn "ledger-append-only: a new row outside the live volume warns" "$d" \
+	ledger-append-only.sh "live volume is docs/LEDGER_B.md"
+
+# ...and the live volume itself is silent, or the warning would fire on every ordinary
+# append and be worth nothing inside a month.
+d=$(snapshot ledger_append_only_new_row_live_volume)
+cat >>"$d/docs/LEDGER_B.md" <<'ROW'
+- DB-999: **New row in the live volume.** Exactly where it belongs.
+ROW
+expect pass "ledger-append-only: a new row in the live volume is silent" "$d" ledger-append-only.sh
+
+# The other half of the DB-015 class, and the half DB-015 itself is: the row sits in the live
+# volume, so the check above is silent, but its prefix names a different file — which is where
+# a reader following the preamble's rule will look for it, and not find it.
+d=$(snapshot ledger_append_only_new_row_wrong_prefix)
+cat >>"$d/docs/LEDGER_B.md" <<'ROW'
+- D-999: **Live volume, wrong prefix.** A D- id does not resolve in volume B.
+ROW
+expect warn "ledger-append-only: a new row whose prefix names another volume warns" "$d" \
+	ledger-append-only.sh "its prefix names docs/LEDGER.md"
+
+# The metadata transitions the owner asked to keep working: an existing row in a CLOSED
+# volume may still gain `[cited]` and a supersession pointer without tripping the warning,
+# because neither makes it a new row.
+d=$(snapshot ledger_append_only_closed_volume_metadata)
+sed '0,/^- D-004: /s//- D-004 [cited]: /' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+awk '/^- D-002 / && !done { print "  Superseded by DB-014."; done = 1 } { print }' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect pass "ledger-append-only: cited and supersession edits in a closed volume stay silent" "$d" \
+	ledger-append-only.sh
+
+# --- shipped-citations --------------------------------------------------------
+# A real ledger citation in something we ship is green everywhere in THIS repo — the row
+# exists, the citation rung asks for its [cited] marker, and the marker gets added — while
+# handing an adopter a promise their ledger cannot keep. That is the whole reason this guard
+# exists, and the reason no other rung can stand in for it.
+d=$(snapshot shipped_citations_real_citation)
+printf '# see D-020 for why\n' >>"$d/harness/templates/scripts/ladder.sh"
+expect fail "shipped-citations: a real citation in a shipped rail fails" "$d" \
+	shipped-citations.sh "cites D-020"
+
+# Multi-letter volumes must be caught here too, or an id the adopter's citation rung would
+# resolve slips through the guard that is supposed to stop it leaving the repo.
+d=$(snapshot shipped_citations_multiletter)
+printf '# see DA-001 for why\n' >>"$d/harness/templates/scripts/command-guard.sh"
+expect fail "shipped-citations: a multi-letter citation is caught too" "$d" \
+	shipped-citations.sh "cites DA-001"
+
+# Scope is by DESTINATION, not by extension or by one directory. All three of these land in a
+# path the adopter's citation scan reads by default, and the first version of this guard saw
+# only the first: a citation in the other two turned a fresh adopter's very first ladder run
+# red while every rung here stayed green.
+d=$(snapshot shipped_citations_seed_script)
+printf '# see D-020 for why\n' >>"$d/harness/templates/seed/scripts/verify.sh"
+expect fail "shipped-citations: a seed script installed into scripts/ is in scope" "$d" \
+	shipped-citations.sh "cites D-020"
+
+d=$(snapshot shipped_citations_ci_workflow)
+printf '# see D-020 for why\n' >>"$d/harness/templates/configs/ci.yml"
+expect fail "shipped-citations: the CI workflow installed into .github/ is in scope" "$d" \
+	shipped-citations.sh "cites D-020"
+
+d=$(snapshot shipped_citations_non_sh)
+printf '# see D-020 for why\n' >>"$d/harness/templates/scripts/MANIFEST.sha256"
+expect fail "shipped-citations: a shipped file that is not a *.sh is in scope" "$d" \
+	shipped-citations.sh "cites D-020"
+
+# A token that matches the citation pattern but names no row of ours is a different defect
+# with a different fix. Telling its author to write it hyphen-free would be nonsense; the
+# recorded remedy is a rename or a CITATION_EXCLUDE entry, never a wider pattern.
+d=$(snapshot shipped_citations_collision)
+printf '# a DEBUG-2 token, not a citation\n' >>"$d/harness/templates/scripts/ladder.sh"
+expect fail "shipped-citations: a non-ledger token gets the rename-or-exclude remedy" "$d" \
+	shipped-citations.sh "rename the token or add a CITATION_EXCLUDE entry"
+
+# The unread form is the documented fix, so it must actually pass — a guard that rejected the
+# alternative it recommends would leave no legal way to reference the reasoning at all.
+d=$(snapshot shipped_citations_unread_form)
+printf '# see AMH ledger row D020 for why\n' >>"$d/harness/templates/scripts/ladder.sh"
+expect pass "shipped-citations: the hyphen-free form is accepted" "$d" shipped-citations.sh
+
+# The shipped fixture suite is exempt on purpose: its ids are fixture material and the
+# CITATION_EXCLUDE default in the shipped amh.conf.example keeps that file out of the citation
+# scan of any adopter whose config carries the key.
+d=$(snapshot shipped_citations_fixture_suite_exempt)
+printf '# see DA-001 for why\n' >>"$d/harness/templates/scripts/test-ladder-guards.sh"
+expect pass "shipped-citations: the fixture suite's own ids are exempt" "$d" shipped-citations.sh
+
+# An entry the glob matched but nothing can read is named, never skipped: the totals below
+# make an affirmative claim about what was checked, and a dropped file makes that claim false.
+d=$(snapshot shipped_citations_unreadable)
+ln -s /nonexistent "$d/harness/templates/scripts/dangling.sh"
+expect fail "shipped-citations: an unreadable shipped file is named, not dropped" "$d" \
+	shipped-citations.sh "could not check it"
+
+# Scanning nothing is a failure, not a sweep — and the two empty states have different fixes,
+# so they say different things.
+d=$(snapshot shipped_citations_scanned_nothing)
+rm -rf "$d/harness/templates/scripts" "$d/harness/templates/seed/scripts" \
+	"$d/harness/templates/configs/ci.yml"
+expect fail "shipped-citations: matching no shipped file fails rather than passing" "$d" \
+	shipped-citations.sh "matched no file"
+
+d=$(snapshot shipped_citations_all_excluded)
+rm -rf "$d/harness/templates/seed/scripts" "$d/harness/templates/configs/ci.yml"
+find "$d/harness/templates/scripts" -type f ! -name test-ladder-guards.sh -delete
+expect fail "shipped-citations: an entirely excluded shipped set fails rather than passing" "$d" \
+	shipped-citations.sh "were excluded or unreadable"
 
 # --- config-schema ------------------------------------------------------------
 d=$(snapshot config_schema_missing)

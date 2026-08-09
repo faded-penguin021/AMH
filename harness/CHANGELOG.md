@@ -11,6 +11,33 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 4.2.0 — 2026-08-09
+
+- **Repo-local guards can warn.** `scripts/guards/*.sh` had two verdicts; there are now three.
+  Exit 0 passes, exit 2 whose output begins `WARN ` warns — it lands in the ladder's warning
+  count and verdict line without turning the run red — and any other non-zero still fails. The
+  marker is required because bash exits 2 on a syntax error, so a guard that stopped parsing
+  is still reported as broken rather than as a mild opinion. Reach for the warning when a rule
+  is usually right but may have a legitimate exception nobody has enumerated: failing closed on
+  one of those teaches people to delete the guard instead of reading it.
+
+- **The session bootstrap rearms every one-time advisory, not just `.env`.** 4.1.0 shipped a
+  shared advisory mechanism with two categories but a rearm written for one: the
+  destructive-command advisory stayed spent for the lifetime of a long-running container
+  instead of for one session. `scripts/session-start.sh` now clears every advisory state file
+  belonging to the repository, and forces globbing on for that expansion so a `set -f` or
+  `GLOBIGNORE` in your `amh.conf` cannot switch the rearm off in silence. The advisory texts
+  are unchanged: only the `.env` one states the session scope in words.
+
+### Upgrading
+
+1. Copy the shipped scripts. The advisory texts are unchanged.
+2. **Check whether any repo-local guard of yours already exits 2**, and if so whether its first
+   line of output begins `WARN `. Reclassification is mechanical — exit code plus output
+   prefix, never intent — so such a guard stops failing your ladder and starts warning on it.
+   `grep -rn 'exit 2' scripts/guards/` finds them; nothing else in this release can change a
+   verdict you have today.
+
 ## 4.1.0 — 2026-08-05
 
 - **Destructive filesystem commands get a one-time advisory.** Recursive forced removal and

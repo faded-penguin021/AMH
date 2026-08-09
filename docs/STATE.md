@@ -17,19 +17,20 @@ The AMH meta-repository: both the **source of truth** for the Agentic Maintenanc
 reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
 **reference instance**, running byte-identical copies of the scripts it ships. The product is
 `harness/` (prose source, templates, generated bundle); this repo's instance is `AGENTS.md` +
-`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 4.1.0** — see `harness/VERSION`,
+`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 4.2.0** — see `harness/VERSION`,
 the copy that counts.
 
 ## Current state
 
-**U6 has landed: committed ledger rows are protected by a repo-local append-only guard.** The
-guard compares the working tree to `HEAD`, so rows that predate the active unit must remain
-present and byte-identical except for sanctioned additive metadata: adding `[cited]` to the
-header and/or appending one strict standalone `Superseded by D[A-Z]*-NNN.` sentence. Rows first
-created in the uncommitted unit remain draft material until commit. **DB-008** records the rule
-and its tradeoff. The owner has tagged
-AMH 4.0.0; the current working release line is AMH 4.1.0 for the one-time `.env`
-advisory and runtime-restatement principle.
+AMH 4.1.0 is tagged and published on origin. This branch's work is classified **4.2.0**
+(MINOR, owner) and the version now says so in all five hand-maintained copies; the tag is the
+owner's step and is queued.
+
+Committed ledger rows are append-only under a repo-local guard that compares the working tree
+to `HEAD`: a row predating the active unit must stay byte-identical except for two sanctioned
+additions — `[cited]` in its header, one strict standalone `Superseded by D[A-Z]*-NNN.`
+sentence, or both. Rows absent from `HEAD` are draft material until commit. **DB-008** and
+**DB-013** are the record.
 
 ## Owner queue
 
@@ -43,17 +44,13 @@ advisory and runtime-restatement principle.
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
 
-**OPEN — publish AMH 4.1.0.** Version files and changelog now name 4.1.0, but tagging
-and publishing are owner steps. Create and push `amh-v4.1.0` after merge. No check: only the
-owner may tag/publish.
-
-**OPEN — review the ledger-row documentation unit on branch `work`.** The unit changes
-binding ledger preambles, runbook guidance, and guard diagnostics, but the execution policy
-for this session prohibited spawning a fresh-context reviewer and no clean reviewer CLI was
-available. The commit is parked for owner review under the rule-review protocol.
+**OPEN — tag and publish AMH 4.2.0.** `harness/VERSION`, the changelog's top entry,
+`AGENTS.md`, this file, `amh.conf` and the README Quick Start all say 4.2.0; the bundle and the
+manifest are rebuilt. Create and push `amh-v4.2.0` after merge. No check: only the owner may
+tag or publish.
 
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
-4.0.0 are cut by owner report, and `main`'s protection is repointed at `ladder`.
+4.1.0 are cut and 4.1.0 is published, and `main`'s protection is repointed at `ladder`.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -83,86 +80,70 @@ re-litigate from.
 
 ## Changelog
 
-- 2026-08-07 — **Fixture timing and reduced-cost progress reporting were reconciled after
-  their merge.** The timing self-test once again supplies the progress reporter's required
-  fixture name; every assertion now records a coarse elapsed value centrally, every passing
-  progress line prints it, and runner-specific plus optimized-baseline invocations are timed.
-
-- 2026-08-06 — **Repeated fixture-only rail and manifest work was removed without removing coverage.** Ordinary synthesized repositories now print explicit skips for the two unrelated expensive rungs, while dedicated cases run the unmodified rail self-tests, all required rail regressions, and the complete integrity matrix. **DB-015** records the coverage boundary.
-- 2026-08-06 — **The shipped guard fixture suite now reports passing progress.** Each passing
-  fixture writes a deterministic numbered `ok` line with its name to stderr while retaining the
-  terse final totals and detailed failure diagnostics.
-
-- 2026-08-06 — **One-time advisories became reusable and now cover destructive commands.**
-  The command guard uses category-scoped state for both `.env` mentions and destructive
-  filesystem operations. Recursive forced `rm` and forced directory `git clean` commands pause
-  once, recommend safer handling, then reach the normal rails when rerun; shell-aware parsing
-  excludes quoted prose. **DB-014** is the record.
-
-- 2026-08-06 — **Ledger row-length guidance brought into prose/guard lockstep.** Ledger
-  preambles and runbook Record steps now require concise durable lessons and route larger
-  narratives through `docs/history/` plus STATE changelog pointers; guard and fixture wording
-  now names the same byte-counted cap and historical/metadata exemption model. **DB-012** is
-  the existing record for the mechanism.
-
-- 2026-08-05 — **New ledger rows gained a per-row byte-counted character cap.** The repo-local append-only guard now checks rows absent from `HEAD` across the live ledger chain, while committed historical rows and strict supersession pointers remain exempt. `LEDGER_ROW_CHAR_CAP` is set in both the reference config and shipped example; the ledger preambles state the future-row rule. **DB-012** is the record.
-
-- 2026-08-05 — **Long ladder runtime triaged.** The apparent hang during verification was the
-  shipped guard fixture suite repeatedly invoking guard-only ladders and command-guard
-  self-tests; no surviving processes were observed after completion. **DB-011** is the record.
-
-- 2026-08-05 — **4.1.0 selected after 4.0.0 tag.** The `.env` advisory and
-  runtime-restatement principle are additive for adopters, so the next harness version is
-  MINOR: 4.1.0. The owner reported 4.0.0 tagged, so that Owner-queue item is retired.
-
-- 2026-08-05 — **One-time `.env` advisory added.** The command guard now blocks the first command text in a session that mentions `.env`, explains why credential-file access is dangerous, and tells the agent to rerun only if the warning is inapplicable; later attempts fall through to the existing precise rails. P13 now names narrow, incident-earned runtime restatement as the design rule behind that diagnostic. **DB-010** is the record.
-
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-08-06 — **Ledger append-only enforcement now preserves both sanctioned metadata transitions.**
-  An existing row may gain `[cited]`, a strict supersession pointer, or both without becoming a
-  newly length-capped row; removal and prose rewrites still fail. **DB-013** is the record.
+- 2026-08-09 — **The release line moved to 4.2.0.** 4.1.0 was already tagged and published
+  while the tree still claimed it, so the Unreleased section became `4.2.0 — 2026-08-09` and all
+  five lockstep copies moved with it; the bundle and manifest were rebuilt. MINOR, per the
+  owner's classification. Tagging stays an owner step and is queued.
 
-- 2026-08-05 — **Conformance lab release claim narrowed.** `conformance/README.md` now states
-  the post-criterion-2 bound as one model, one fixture and six owner-accepted runs, with the
-  DB-009(d) A5/A6 residues named, and says explicitly that this is not a conformance claim.
-- 2026-08-05 — **Ladder-through-tail warning added.** The command guard now allows but warns on
-  direct `scripts/ladder.sh | tail ...` verification attempts, because that shape can hide the
-  ladder's exit status.
+- 2026-08-09 — **The parked ledger-row documentation unit is retired on the owner's call.**
+  The unit was held for a fresh-context pass a past session could not spawn. The owner accepted
+  the external Codex review as settling it (2026-08-09), so the Owner-queue item is closed. The
+  branch it named is not on origin, so nothing here can verify what was reviewed — recorded as
+  the owner's decision, which is what closes it.
 
-- 2026-08-05 — **RFC3 criterion 2 closed by owner decision.** The owner accepted the six
-  agent-backed scenario-02 runs as satisfying it, over the two residues **DB-009**(d) names —
-  a container rather than a disposable remote, and verdicts relayed by the launching process.
-  The queue item is retired; what the lab may now claim replaces it as the open question.
+- 2026-08-09 — **An external review found no critical or major defect; its three nits are
+  recorded as accepted.** A fresh-context Codex pass over the branch confirmed the warn-marker
+  contract, the advisory rearm, the shipped-citation scope and the race-free ledger chain. The
+  hand-maintained scope list, the basename-keyed exclusion and the `head`/`tail` warning split
+  were each judged and left alone with the reason stated, so the trade-offs are not re-derived.
+  **DB-021** is the record.
 
-- 2026-08-05 — **Scenario 02 run through six agent-backed subjects; the finding is the
-  evaluator's own, and no behaviour shipped.** A5 held 6/6 — the DA-003 class the scenario exists
-  to catch was not reproduced once — while A6 broke 5/6 on the control row, every time inside a
-  sentence excluding it. A task-text fix was tried, failed its first verification run by making
-  the answer worse, and was reverted unshipped. The cause is polarity-blindness in
-  `ids_named_in`, which over-fires A6 and under-fires A5 alike; it is now DECLARED in the
-  evaluator rather than patched, because separating an asserted citation from a disclaimed one is
-  the manufactured oracle P19 refuses. **DB-009** is the record.
+- 2026-08-09 — **A misfiled ledger row is repaired by supersession, and the volume warn was
+  made race-free.** DB-015 sat in `docs/LEDGER.md` under a `DB-` prefix; relocating it would be
+  a rewrite of an append-only volume, so it gained a strict supersession pointer and **DB-020**
+  carries the lesson from the live volume. Separately, CI caught the append-only guard emitting
+  a broken-pipe line to stderr ahead of its own `WARN ` marker — a race that passed locally —
+  so the volume chain is now read once into an array. **DB-020** is the record.
 
-- 2026-08-04 — **Release classification set to AMH 4.0.0.** Owner answered the version fork as
-  MAJOR; the changelog's Unreleased section became 4.0.0, lockstep version copies moved, and
-  the Quick Start now pins `amh-v4.0.0`. Tagging/publishing remain owner work.
+- 2026-08-09 — **Nothing shipped into an adopter's scan paths may carry a real ledger
+  citation, and a guard says so.** `scripts/guards/shipped-citations.sh` fails on a hyphenated
+  row id in the shipped scripts, the seed scripts and the CI workflow alike — scope is by
+  destination, which the review pass proved the first draft got wrong — bar the fixture suite;
+  the unread `AMH ledger row DBNNN` form is the fix, and the three ledger preambles name the
+  guard instead of asking you to remember the rule. The owner overrode the incident bar because
+  this defect is green here and red in an adopter's tree. The Unreleased section cuts as
+  **MINOR** (owner, 2026-08-09). **DB-018** and **DB-019** are the record.
 
-- 2026-08-04 — **U6: committed ledger rows are append-only under a local guard.** Added
-  `scripts/guards/ledger-append-only.sh` plus fixtures covering deletion, arbitrary rewrite,
-  strict supersession and new-row draft freedom. The guard compares against `HEAD`, fails if a
-  pre-existing row id disappears or changes, and permits only a standalone final `Superseded by
-  D[A-Z]*-NNN.` sentence on an existing row; rows absent from `HEAD` stay editable until commit.
-  **DB-008** is the record.
+- 2026-08-09 — **Repo-local guards gained a warn verdict, and the ledger uses it.** Exit 2 with
+  a leading `WARN ` marker warns without turning the ladder red; an unmarked exit 2 stays a
+  failure, because a bare exit 2 is ambiguous. The append-only guard now warns when a new row
+  is filed outside the live volume or in a volume its id prefix does not name — the DB-015
+  shape is the second half — while `[cited]` and supersession edits stay silent. Warn rather than fail is the owner's call, on the
+  grounds that a legitimate reason to append elsewhere may exist unenumerated. **DB-017** is
+  the record.
 
-- 2026-08-04 — **U5: the ledger volume scheme no longer ends at Z, and volumes became a
-  chain.** Unbounded whole-word row pattern; the live volume walked from the base file by the
-  same carry rule that names the next one, so a file the walk cannot reach is not a volume;
-  rows read from that chain, so the cap rung and the citation guard cannot disagree about what
-  a volume is; unreachable volume-shaped files warned, a missing base volume failed. Fifteen
-  new fixtures, thirteen of which fail against the pre-change script. The blocking pass found two defects inside the fix and its own comment reintroduced
-  a third; **DB-007** is the record.
+- 2026-08-09 — **The session bootstrap rearms every one-time advisory, not just `.env`.** The
+  reset named one category literally, so the destructive-command advisory stayed spent for a
+  container's lifetime instead of a session; it now clears every advisory state file for the
+  repository, with the category as the only globbed element, and forces globbing on so an
+  adopter's `set -f` cannot silence it. Two shipped fixtures cover it, each failing against the
+  script it was written against. AMH 4.1.0 was confirmed tagged and published on origin,
+  retiring that queue item. **DB-016** is the record.
+
+- 2026-08-04/2026-08-07 — **The 4.1.0 line and the ledger/fixture-suite work, folded.** The
+  command guard gained one-time advisories on a shared, category-scoped mechanism — `.env`
+  mentions, then destructive `rm -rf` and `git clean -fd` — plus a `ladder | tail` warning, and
+  4.1.0 was classified MINOR with its version copies moved. The ledger became a chain of
+  volumes with no Z ceiling, then gained append-only enforcement over committed rows, a
+  byte-counted per-row cap, and preambles and Record steps in lockstep with both. The shipped
+  fixture suite gained per-fixture progress and timing lines and stopped paying repeatedly for
+  rungs fixtured elsewhere, without losing coverage. The conformance lab's release claim was
+  narrowed to one model, one fixture and six owner-accepted runs, explicitly not a conformance
+  claim; RFC3's criterion 2 closed on that evidence, the residues named.
+  **DB-007**…**DB-015** are the record.
 
 - 2026-08-03/2026-08-04 — **Three owner-supplied RFCs, adjudicated and integrated, folded.**
   Entered as DATA under P18 and judged claim by claim rather than obeyed, under an incident-bar

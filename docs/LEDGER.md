@@ -51,7 +51,14 @@
 > SHIPPED script is not a citation at all in the tree that receives it — those rows are
 > ours and can never exist in an adopter's ledger — so removing one is correcting a false
 > promise, not evading a warning. The reasoning prose stays and the row is named in a form
-> the guard does not read (`AMH ledger row DNNN`). Anywhere else, the sentence above binds.
+> the guard does not read (`AMH ledger row DNNN`). That carve-out is no longer prose you
+> have to remember:
+> `scripts/guards/shipped-citations.sh` fails on a real id in anything this repository installs
+> into an adopter's citation-scan paths — the shipped scripts, the seed scripts and the CI
+> workflow, whatever the file extension. The one exception is the shipped fixture suite, whose
+> ids are fixture material; the `CITATION_EXCLUDE` default in `harness/templates/amh.conf.example`
+> keeps that file out of the scan of any adopter whose own `amh.conf` carries the key, and an
+> adopter whose config predates it does not get the exclusion. Anywhere else, the sentence above binds.
 
 - D-001 [cited]: **This repository is both the harness's source of truth and its reference
   instance.** The distributed product lives under `harness/`; the repo's own instance is
@@ -842,7 +849,7 @@
   pre-existing, outside this unit — renaming a verdict string across shipped prose is its own
   change with its own pass.
 
-- DB-015: **Fixture-only rung skips reduce repetition, not production coverage.** DB-011 found
+- DB-015 [cited]: **Fixture-only rung skips reduce repetition, not production coverage.** DB-011 found
   that ordinary synthesized repositories repeatedly paid for the same command-guard self-test;
   subsequent timing isolated repeated manifest construction and verification as another large
   cost. The suite now patches only each ordinary disposable fixture's copied ladder so those two
@@ -852,3 +859,4 @@
   exercise every manifest verdict. The shipped ladder exposes no skip flag or configuration
   switch. This batches identical coverage at the fixture boundary without accepting an
   attestation or weakening either production rail.
+  Superseded by DB-020.

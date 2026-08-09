@@ -70,7 +70,14 @@
 > SHIPPED script is not a citation at all in the tree that receives it — those rows are ours
 > and can never exist in an adopter's ledger — so removing one is correcting a false promise,
 > not evading a warning. The reasoning prose stays and the row is named in a form the guard
-> does not read (`AMH ledger row DBNNN`). Anywhere else, the sentence above binds.
+> does not read (`AMH ledger row DBNNN`). That carve-out is no longer prose you have to
+> remember:
+> `scripts/guards/shipped-citations.sh` fails on a real id in anything this repository installs
+> into an adopter's citation-scan paths — the shipped scripts, the seed scripts and the CI
+> workflow, whatever the file extension. The one exception is the shipped fixture suite, whose
+> ids are fixture material; the `CITATION_EXCLUDE` default in `harness/templates/amh.conf.example`
+> keeps that file out of the scan of any adopter whose own `amh.conf` carries the key, and an
+> adopter whose config predates it does not get the exclusion. Anywhere else, the sentence above binds.
 
 - DB-001: **The ladder now names its subject — which commit, and whether the tree it just
   verified IS that commit.** This is the whole surviving deliverable of RFC2 (**DA-025**),
@@ -529,3 +536,99 @@
   the precise rails. Category-specific state also prevents acknowledging the `.env` advisory from
   silently acknowledging destructive deletion, while one shared mechanism prevents each new
   advisory from inventing its own session-state implementation.
+
+- DB-016: **A shared one-time-advisory mechanism needs a shared rearm, or the bootstrap keeps
+  the session-local promise for one category only.** DB-014 made the command guard's advisory
+  state category-scoped, but `scripts/session-start.sh` still deleted a single literal
+  `dotenv` state path, so the destructive-command advisory was spent for a container's whole
+  lifetime rather than one session — silently, because a spent advisory looks exactly like a
+  command that was never destructive. The bootstrap now erases every advisory state file for
+  the repository with the CATEGORY as the only globbed element and the uid and path slug
+  quoted, so a repository path containing a glob character cannot widen the pattern; the
+  category slot itself is a greedy `*`, bounded by not crossing `/`, so its widest reach is
+  another repository's file of the same shape under /tmp. A literal list of categories was
+  rejected: it reproduces this defect one category later. The failure direction is deliberate
+  — erasing one file too many rearms an advisory early, which costs one extra explained block,
+  while erasing one too few silently removes a rail. For the same reason the function forces
+  globbing on for its own expansion: amh.conf is sourced before it runs and is the adopter's
+  file forever, so a `set -f` or `GLOBIGNORE` there would leave the pattern unexpanded and
+  `rm -f` would swallow the literal — the rail off, in silence, from a key nobody connects to
+  it. Only the `.env` diagnostic states the session scope in words; the destructive one leaves
+  it implicit, which is why the defect was invisible from the diagnostics alone.
+
+- DB-017: **A rail whose rule has unenumerated legitimate exceptions warns; it does not fail
+  closed.** DB-015 was appended to `docs/LEDGER.md` while the live volume was `LEDGER_B.md`,
+  so its citation dangles by the prefix rule the preambles state and resolves fine to grep —
+  which is why several sessions passed over it. The append-only guard now flags a new row
+  filed outside the live volume, and the owner chose a warning over a failure on the explicit
+  grounds that there may be a genuine reason to append elsewhere that nobody has thought of
+  yet (2026-08-09). Do not "tighten" it to a failure without that reason being enumerated and
+  refuted: a rail that fails closed on a legitimate case is one an adopter switches off rather
+  than reads. It checks BOTH halves of the class, because the first draft checked only the
+  obvious one and would have stayed silent on DB-015 itself: a new row must sit in the live
+  volume, AND its id prefix must name the volume holding it — a `D-` row in the live
+  `LEDGER_B.md` dangles for a reader following the prefix rule while the live-volume test
+  passes. Carrying it needed a third verdict for repo-local guards, which were pass/fail:
+  exit 2 whose output begins `WARN `. The marker is load-bearing because bash exits 2 on a
+  syntax error, so an unmarked exit 2 stays a failure — a guard that cannot parse must not
+  report as a mild opinion. The append-only rules themselves stay hard failures: this warning
+  is about where a new row was filed, not whether history was rewritten.
+
+- DB-018 [cited]: **A rule whose violation is invisible here and expensive elsewhere earns a
+  guard before it has an incident.** The ledger preambles' carve-out — a shipped script names
+  a row as `AMH ledger row DBNNN`, never `DB-016`, because our rows cannot exist in an
+  adopter's ledger — was prose only. The incident bar (**D-010**, **D-023**) would normally
+  hold a guard back until a violation actually happened, and the owner overrode it here on the
+  ground the bar does not cover: this violation is green in every rung of THIS repository (the
+  row exists, the citation rung asks for `[cited]`, the marker gets added) and turns an
+  adopter's ladder red on a file they are told never to edit. Waiting for the incident means
+  waiting for someone else's. `scripts/guards/shipped-citations.sh` scans the shipped scripts,
+  excluding the fixture suite for the same reason the shipped `CITATION_EXCLUDE` does — its
+  ids are fixture material that resolves against a ledger it synthesizes itself. It carries an
+  explicit scanned-nothing failure: a moved directory is indistinguishable from a clean sweep.
+  Superseded by DB-019.
+
+- DB-019 [cited]: **Scope a shipped-artifact guard by DESTINATION, not by directory or extension —
+  and corrects DB-018, which this row supersedes.** DB-018's guard scanned
+  `harness/templates/scripts/*.sh` while calling that "any shipped script". `amh-init.sh` also
+  installs the seed scripts into the adopter's `scripts/` and the shipped CI workflow into their
+  `.github/`, both inside the default `CITATION_SCAN_PATHS`, and `MANIFEST.sha256` is not a
+  `.sh` at all: a citation in any of them passed the guard and turned a fresh adopter's first
+  ladder run red — the precise failure the guard was written to stop, reproduced end to end by
+  the review pass. `copy-drift.sh` had already learned this over the same directory. Three
+  further corrections to DB-018: the guard now inspects `grep`'s exit status, because trouble
+  read as "no match" is a hollow scan reporting a clean sweep; a token matching the citation
+  pattern but naming no row of ours gets the recorded remedy (rename, or a `CITATION_EXCLUDE`
+  entry — never a wider pattern) instead of nonsense advice to write it hyphen-free; and the
+  exclusion holds only for an adopter whose `amh.conf` carries `CITATION_EXCLUDE`, since the
+  shipped ladder's own default is empty and the key is installed `keep`. DB-018's citation of
+  D-023 for the incident bar was wrong: D-023 is the row that DISCOVERED this defect class,
+  and the bar is stated in the runbook's guard playbook.
+
+- DB-020 [cited]: **A row filed in the wrong volume is repaired by supersession, not relocation
+  — DB-015's own case.** DB-015 was appended to `docs/LEDGER.md` while `LEDGER_B.md` was the
+  live volume, so a reader following the preamble's prefix rule looks in volume B and does not
+  find it. The obvious fix, moving the row, is the one thing forbidden: removing it from the
+  file it is in is a rewrite of an append-only volume, and the constitution reserves that to an
+  owner-directed process. What the ledger already provides is the repair used here — the
+  original keeps its text and gains a strict `Superseded by` pointer, and this row carries the
+  lesson forward from the right volume. Its content: fixture-only rung skips reduce repetition,
+  not production coverage, and the shipped ladder exposes no skip flag; read DB-015 for the
+  full account. Two residues worth knowing rather than hiding: the row is still physically in
+  `LEDGER.md`, and code citing DB-015 must keep citing it, because dropping the citation would
+  strand its `[cited]` marker and removing that marker is itself a rewrite the guard rejects.
+
+- DB-021: **Three nits in the shipped-citation and warn-channel work, accepted with reasons so
+  they are not re-derived.** An external fresh-context review (Codex, 2026-08-09) found no
+  critical or major defect in the branch and raised three minor observations; all three were
+  read, judged and left alone. (a) `shipped-citations.sh` scopes by a hand-maintained list of
+  installation-source globs, so a future `amh-init.sh` destination under `scripts/` or
+  `.github/` is covered only if someone extends the list. Deriving it by parsing install calls
+  is more fragile than the list it would replace; the obligation is stated at the list. Reopen
+  if a destination is ever missed in practice. (b) The fixture-suite exclusion matches on
+  basename, so a second shipped artifact named `test-ladder-guards.sh` would inherit it —
+  which would be its own problem; path-matching is two lines and costs a rule-review pass for
+  no present defect. (c) The ladder splits a multi-line warning with separate `head` and `tail`
+  pipelines rather than parameter expansion: heavier by two processes, correct for ordinary
+  diagnostics and the multiline fixture. Each is a cost accepted against a real alternative,
+  not an oversight; new evidence means an actual miss, not a re-reading of these trade-offs.
