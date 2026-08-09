@@ -70,7 +70,11 @@
 > SHIPPED script is not a citation at all in the tree that receives it — those rows are ours
 > and can never exist in an adopter's ledger — so removing one is correcting a false promise,
 > not evading a warning. The reasoning prose stays and the row is named in a form the guard
-> does not read (`AMH ledger row DBNNN`). Anywhere else, the sentence above binds.
+> does not read (`AMH ledger row DBNNN`). That carve-out is no longer prose you have to
+> remember:
+> `scripts/guards/shipped-citations.sh` fails on a real id in any shipped script except the
+> fixture suite, whose ids are fixture material and are excluded from every adopter's
+> citation scan by the shipped `CITATION_EXCLUDE`. Anywhere else, the sentence above binds.
 
 - DB-001: **The ladder now names its subject — which commit, and whether the tree it just
   verified IS that commit.** This is the whole surviving deliverable of RFC2 (**DA-025**),
@@ -566,3 +570,16 @@
   syntax error, so an unmarked exit 2 stays a failure — a guard that cannot parse must not
   report as a mild opinion. The append-only rules themselves stay hard failures: this warning
   is about where a new row was filed, not whether history was rewritten.
+
+- DB-018 [cited]: **A rule whose violation is invisible here and expensive elsewhere earns a
+  guard before it has an incident.** The ledger preambles' carve-out — a shipped script names
+  a row as `AMH ledger row DBNNN`, never `DB-016`, because our rows cannot exist in an
+  adopter's ledger — was prose only. The incident bar (**D-010**, **D-023**) would normally
+  hold a guard back until a violation actually happened, and the owner overrode it here on the
+  ground the bar does not cover: this violation is green in every rung of THIS repository (the
+  row exists, the citation rung asks for `[cited]`, the marker gets added) and turns an
+  adopter's ladder red on a file they are told never to edit. Waiting for the incident means
+  waiting for someone else's. `scripts/guards/shipped-citations.sh` scans the shipped scripts,
+  excluding the fixture suite for the same reason the shipped `CITATION_EXCLUDE` does — its
+  ids are fixture material that resolves against a ledger it synthesizes itself. It carries an
+  explicit scanned-nothing failure: a moved directory is indistinguishable from a clean sweep.

@@ -11,7 +11,7 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
-## Unreleased
+## Unreleased — MINOR when cut
 
 - **Repo-local guards can warn.** `scripts/guards/*.sh` had two verdicts; there are now three.
   Exit 0 passes, exit 2 whose output begins `WARN ` warns — it lands in the ladder's warning

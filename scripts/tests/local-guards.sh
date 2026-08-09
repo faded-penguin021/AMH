@@ -85,6 +85,7 @@ expect pass "adapter-set: clean tree" "$base" adapter-set.sh
 expect pass "doc-navigation: clean tree" "$base" doc-navigation.sh
 expect pass "config-schema: clean tree" "$base" config-schema.sh
 expect pass "ledger-append-only: clean tree" "$base" ledger-append-only.sh
+expect pass "shipped-citations: clean tree" "$base" shipped-citations.sh
 
 
 # --- ledger-append-only -------------------------------------------------------
@@ -228,6 +229,41 @@ awk '/^- D-002 / && !done { print "  Superseded by DB-014."; done = 1 } { print 
 	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
 expect pass "ledger-append-only: cited and supersession edits in a closed volume stay silent" "$d" \
 	ledger-append-only.sh
+
+# --- shipped-citations --------------------------------------------------------
+# A real ledger citation in a shipped rail is green everywhere in THIS repo — the row exists,
+# the citation rung asks for its [cited] marker, and the marker gets added — while shipping an
+# adopter a promise their ledger cannot keep. That is the whole reason this guard exists, and
+# the reason no other rung can stand in for it.
+d=$(snapshot shipped_citations_real_citation)
+printf '# see DB-016 for why\n' >>"$d/harness/templates/scripts/ladder.sh"
+expect fail "shipped-citations: a real citation in a shipped rail fails" "$d" \
+	shipped-citations.sh "cites DB-016"
+
+# Multi-letter volumes must be caught here too, or an id the ladder's citation rung would
+# resolve slips through the guard that is supposed to stop it leaving the repo.
+d=$(snapshot shipped_citations_multiletter)
+printf '# see DAA-001 for why\n' >>"$d/harness/templates/scripts/command-guard.sh"
+expect fail "shipped-citations: a multi-letter citation is caught too" "$d" \
+	shipped-citations.sh "cites DAA-001"
+
+# The unread form is the documented fix, so it must actually pass — a guard that rejected the
+# alternative it recommends would leave no legal way to reference the reasoning at all.
+d=$(snapshot shipped_citations_unread_form)
+printf '# see AMH ledger row DB016 for why\n' >>"$d/harness/templates/scripts/ladder.sh"
+expect pass "shipped-citations: the hyphen-free form is accepted" "$d" shipped-citations.sh
+
+# The shipped fixture suite is exempt on purpose: its ids are fixture material and the shipped
+# CITATION_EXCLUDE keeps that file out of every adopter's citation scan.
+d=$(snapshot shipped_citations_fixture_suite_exempt)
+printf '# see D-020 for why\n' >>"$d/harness/templates/scripts/test-ladder-guards.sh"
+expect pass "shipped-citations: the fixture suite's own ids are exempt" "$d" shipped-citations.sh
+
+# Scanning nothing is a failure, not a sweep: a moved directory looks identical to a clean one.
+d=$(snapshot shipped_citations_scanned_nothing)
+rm -rf "$d/harness/templates/scripts"
+expect fail "shipped-citations: finding no shipped scripts fails rather than passing" "$d" \
+	shipped-citations.sh "checked NOTHING"
 
 # --- config-schema ------------------------------------------------------------
 d=$(snapshot config_schema_missing)

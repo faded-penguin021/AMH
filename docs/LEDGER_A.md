@@ -53,7 +53,11 @@
 > SHIPPED script is not a citation at all in the tree that receives it — those rows are ours
 > and can never exist in an adopter's ledger — so removing one is correcting a false promise,
 > not evading a warning. The reasoning prose stays and the row is named in a form the guard
-> does not read (`AMH ledger row DANNN`). Anywhere else, the sentence above binds.
+> does not read (`AMH ledger row DANNN`). That carve-out is no longer prose you have to
+> remember:
+> `scripts/guards/shipped-citations.sh` fails on a real id in any shipped script except the
+> fixture suite, whose ids are fixture material and are excluded from every adopter's
+> citation scan by the shipped `CITATION_EXCLUDE`. Anywhere else, the sentence above binds.
 
 - DA-001: **Adoption architecture — the verdicts on the instantiation RFC, and why three of its
   four proposals were already built or refused.** An external RFC (peer LLM, relayed by the

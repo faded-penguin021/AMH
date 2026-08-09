@@ -87,7 +87,10 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
   copy it into `scripts/`. Never edit `scripts/<name>.sh` directly; `copy-drift.sh` will
   fail, and the fix is always in the same direction (D-002).
 - **Obligations:** the script must stay repo-agnostic. Needing a repo-specific branch means
-  an extension point is missing — add the extension point instead (D-003). New behaviour
+  an extension point is missing — add the extension point instead (D-003). **Never cite a
+  ledger row by its real id in a shipped script** — our rows cannot exist in an adopter's
+  ledger, so name it `AMH ledger row DBNNN` without the hyphen; `shipped-citations.sh` fails
+  on the hyphenated form. New behaviour
   lands with its fixture in the same change. **Run `scripts/build-manifest.sh` in the same
   change**: the shipped scripts' hashes ship with them, and `manifest-drift.sh` fails on a
   manifest that describes bytes nobody has. **Rule-review protocol applies** (guard
