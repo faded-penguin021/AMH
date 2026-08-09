@@ -11,6 +11,37 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 5.0.0 — 2026-08-09
+
+- **The default `LEDGER_ROW_CHAR_CAP` drops from 2000 to 800.** The cap exists to keep a
+  ledger row a durable lesson rather than a debugging narrative, and 2000 was not applying
+  that pressure: of the six rows this repository has written since the guard landed, the
+  longest is 1657 bytes, so the cap never once bound. 800 is deliberately below all six — the
+  median is 1377 — because the intent is that a row should be about half the length these
+  are, not that the longest tail should be trimmed. Expect it to bite immediately; that is
+  the point, and it is why this is a MAJOR.
+
+  The guard logic is unchanged. Only the shipped default and this repository's configured
+  value move, and rows already committed at `HEAD` remain exempt, so no history is rewritten
+  or retroactively failed.
+
+### Upgrading
+
+1. Copy the shipped scripts.
+2. **You inherit the new default only if your `amh.conf` omits `LEDGER_ROW_CHAR_CAP`.**
+   `scripts/ladder.sh` assigns its built-in defaults first and sources `amh.conf` afterwards,
+   so a key you set wins and your `amh.conf` is never overwritten. If you omit the key, want
+   the old behaviour, and do not want to think about it again, set `LEDGER_ROW_CHAR_CAP=2000`
+   explicitly — that is the whole of the MAJOR for you.
+3. **Check your ledger preamble.** If it states the cap as a number in prose, that number is
+   now wrong; nothing checks preamble text against `amh.conf`, so an agent reading it will
+   write rows the ladder then rejects. This repository states it in three volume preambles and
+   updated all three.
+4. Nothing already committed changes verdict. The first row you write after upgrading is the
+   one that will feel it.
+5. New adopters: `harness/templates/amh.conf.example` now ships 800 explicitly, so a fresh
+   `amh.conf` carries the value rather than inheriting it.
+
 ## 4.2.0 — 2026-08-09
 
 - **Repo-local guards can warn.** `scripts/guards/*.sh` had two verdicts; there are now three.

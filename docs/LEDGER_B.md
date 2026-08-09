@@ -31,7 +31,7 @@
 >
 > **File cap & rollover.** This file holds at most **800 lines** (the cap bounds LINES, not
 > rows — it is read cost that is being bounded, and the number stays in lockstep with
-> `LEDGER_LINE_CAP` in `amh.conf`). For new rows, the configured character cap is **2,000
+> `LEDGER_LINE_CAP` in `amh.conf`). For new rows, the configured character cap is **800
 > byte-counted characters**; the guard counts bytes under `LC_ALL=C` for a locale-stable
 > result, so ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded
 > bytes. Rows already committed when checked are historical and exempt. The final row may
@@ -632,3 +632,13 @@
   pipelines rather than parameter expansion: heavier by two processes, correct for ordinary
   diagnostics and the multiline fixture. Each is a cost accepted against a real alternative,
   not an oversight; new evidence means an actual miss, not a re-reading of these trade-offs.
+
+- DB-022: A cap chosen without measuring the population it bounds is a number, not a limit.
+  `LEDGER_ROW_CHAR_CAP` stood at 2000 while the six rows written under it ran 1132–1657
+  bytes, so it never once bound. Worse, the unit's first draft justified the new 800 as
+  "above the median, below the four longest" — false in both halves, and it reached the owner
+  as a recommendation before the arithmetic was checked. Measure the distribution FIRST and
+  quote it, because a threshold's justification is the only part a later reader can audit.
+  Two traps: `grep 2000` misses prose written **2,000**, which left three volume preambles
+  contradicting the guard; and lowering a default is MAJOR, since an adopter omitting the key
+  inherits a stricter guard and a legal row starts failing.

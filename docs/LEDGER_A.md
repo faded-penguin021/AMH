@@ -30,7 +30,7 @@
 >
 > **File cap & rollover.** This file holds at most **800 lines** (the cap bounds LINES, not
 > rows — it is read cost that is being bounded, and the number stays in lockstep with
-> `LEDGER_LINE_CAP` in `amh.conf`). For new rows, the configured character cap is **2,000
+> `LEDGER_LINE_CAP` in `amh.conf`). For new rows, the configured character cap is **800
 > byte-counted characters**; the guard counts bytes under `LC_ALL=C` for a locale-stable
 > result, so ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded
 > bytes. Rows already committed when checked are historical and exempt. The final row may
