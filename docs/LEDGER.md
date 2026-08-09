@@ -859,3 +859,4 @@
   exercise every manifest verdict. The shipped ladder exposes no skip flag or configuration
   switch. This batches identical coverage at the fixture boundary without accepting an
   attestation or weakening either production rail.
+  Superseded by DB-020.

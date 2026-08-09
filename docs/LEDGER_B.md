@@ -604,3 +604,16 @@
   shipped ladder's own default is empty and the key is installed `keep`. DB-018's citation of
   D-023 for the incident bar was wrong: D-023 is the row that DISCOVERED this defect class,
   and the bar is stated in the runbook's guard playbook.
+
+- DB-020 [cited]: **A row filed in the wrong volume is repaired by supersession, not relocation
+  — DB-015's own case.** DB-015 was appended to `docs/LEDGER.md` while `LEDGER_B.md` was the
+  live volume, so a reader following the preamble's prefix rule looks in volume B and does not
+  find it. The obvious fix, moving the row, is the one thing forbidden: removing it from the
+  file it is in is a rewrite of an append-only volume, and the constitution reserves that to an
+  owner-directed process. What the ledger already provides is the repair used here — the
+  original keeps its text and gains a strict `Superseded by` pointer, and this row carries the
+  lesson forward from the right volume. Its content: fixture-only rung skips reduce repetition,
+  not production coverage, and the shipped ladder exposes no skip flag; read DB-015 for the
+  full account. Two residues worth knowing rather than hiding: the row is still physically in
+  `LEDGER.md`, and code citing DB-015 must keep citing it, because dropping the citation would
+  strand its `[cited]` marker and removing that marker is itself a rewrite the guard rejects.

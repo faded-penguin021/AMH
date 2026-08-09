@@ -85,11 +85,24 @@ volume_named_by_prefix() { # volume_named_by_prefix <id>; DB-NNN -> docs/LEDGER_
 	ledger_path "$suffix"
 }
 
+# The chain, read ONCE into an array. Reading it per lookup through a process substitution and
+# returning early on the first match closes the pipe while the producer is still writing, and
+# the producer then prints `printf: write error: Broken pipe` to stderr. That output arrives
+# BEFORE this guard's own first line, so a warning stops beginning with its `WARN ` marker and
+# the ladder reads a correctly-detected condition as a broken guard. It is a race — small
+# writes usually complete first — so it passed locally and failed in CI, which is the only
+# reason it was seen at all. An array cannot half-produce.
+CHAIN=()
+load_chain() {
+	local path
+	while IFS= read -r path; do CHAIN+=("$path"); done < <(worktree_chain_paths)
+}
+
 volume_holding() { # volume_holding <id>; prints the first chain volume whose text carries the row
 	local id=$1 path
-	while IFS= read -r path; do
+	for path in "${CHAIN[@]}"; do
 		LC_ALL=C grep -Eq "^- $id( \[cited\])?: " "$path" && { printf '%s' "$path"; return 0; }
-	done < <(worktree_chain_paths)
+	done
 	return 1
 }
 
@@ -227,7 +240,9 @@ for base_row in "$TMPDIR"/head-rows/D*-*; do
 	fi
 done
 
-live_volume=$(worktree_chain_paths | tail -n 1)
+load_chain
+[ "${#CHAIN[@]}" -gt 0 ] || fail 'ledger append-only: the ledger chain is empty — nothing to check'
+live_volume=${CHAIN[${#CHAIN[@]} - 1]}
 
 new_checked=0
 misfiled=''
@@ -237,7 +252,8 @@ for current_row in "$TMPDIR"/work-rows/D*-*; do
 	[ -f "$TMPDIR/head-rows/$id" ] && continue
 	new_checked=$((new_checked + 1))
 	validate_row_cap "$current_row" "$id"
-	# Two independent ways a new row can be filed wrong, and DB-015 is the second one, not
+	# Two independent ways a new row can be filed wrong, and DB-015 (superseded by DB-020, which
+	# records how a misfiled row is repaired) is the second one, not
 	# the first — a fact worth stating because checking only the obvious half would leave the
 	# motivating incident uncovered while the prose claimed otherwise:
 	#

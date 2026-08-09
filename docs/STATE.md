@@ -49,13 +49,6 @@ binding ledger preambles, runbook guidance, and guard diagnostics, but the execu
 for this session prohibited spawning a fresh-context reviewer and no clean reviewer CLI was
 available. The commit is parked for owner review under the rule-review protocol.
 
-**OPEN — `DB-015` is filed in the wrong volume.** The row sits at the end of `docs/LEDGER.md`,
-but `LEDGER_B.md`'s preamble says a `DB-` id resolves there, so the citation in this file's
-Changelog dangles by the ledger's own rule. Moving an append-only row is forbidden, so the fix
-is the owner's: relocate, or correct the preamble. Predates this branch, and the guard added
-in **DB-017** cannot see it — the row is committed, so it is not a new row.
-Check: `grep -c '^- DB-015' docs/LEDGER.md` prints 1 while the row is misfiled.
-
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
 4.1.0 are cut and 4.1.0 is published, and `main`'s protection is repointed at `ladder`.
 
@@ -89,6 +82,13 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-09 — **A misfiled ledger row is repaired by supersession, and the volume warn was
+  made race-free.** DB-015 sat in `docs/LEDGER.md` under a `DB-` prefix; relocating it would be
+  a rewrite of an append-only volume, so it gained a strict supersession pointer and **DB-020**
+  carries the lesson from the live volume. Separately, CI caught the append-only guard emitting
+  a broken-pipe line to stderr ahead of its own `WARN ` marker — a race that passed locally —
+  so the volume chain is now read once into an array. **DB-020** is the record.
 
 - 2026-08-09 — **Nothing shipped into an adopter's scan paths may carry a real ledger
   citation, and a guard says so.** `scripts/guards/shipped-citations.sh` fails on a hyphenated
