@@ -842,7 +842,7 @@
   pre-existing, outside this unit — renaming a verdict string across shipped prose is its own
   change with its own pass.
 
-- DB-015: **Fixture-only rung skips reduce repetition, not production coverage.** DB-011 found
+- DB-015 [cited]: **Fixture-only rung skips reduce repetition, not production coverage.** DB-011 found
   that ordinary synthesized repositories repeatedly paid for the same command-guard self-test;
   subsequent timing isolated repeated manifest construction and verification as another large
   cost. The suite now patches only each ordinary disposable fixture's copied ladder so those two

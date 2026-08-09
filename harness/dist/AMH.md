@@ -1275,7 +1275,16 @@ The guards it ships with:
 - **Repo-local guards** — `scripts/guards/*.sh`, the extension point that keeps this script
   repo-agnostic. Domain rules live there: a store changelog length cap (mind the unit — a
   "500 character" limit is codepoints, and `wc -c` overcounts multibyte text), a
-  version-monotonicity check, a falsifiable doc-fact tripwire (P20).
+  version-monotonicity check, a falsifiable doc-fact tripwire (P20). Three verdicts are
+  available: exit 0 passes, exit 2 whose output BEGINS with `WARN ` warns — counted in the
+  ladder's warning total, green either way — and any other non-zero fails. Reach for the
+  warning when the rule is usually right but a legitimate exception may exist that nobody has
+  enumerated yet; failing closed on one of those teaches the adopter to delete the guard
+  rather than read it. The marker is required because a bare exit 2 is ambiguous — bash exits 2
+  on a syntax error, `grep` and `diff` on trouble — and a guard that stopped parsing must not
+  report as a mild opinion. Two boundaries worth knowing: the marker is matched against the
+  guard's merged stdout and stderr, and the three-verdict contract belongs to the ladder, so a
+  CI step calling a guard directly still reads any non-zero as failure.
 - **Local-only advisories (WARN, skipped in CI)** — a checkpoint tripwire (code changed versus
   the default branch but the state file is not in the diff, so the changelog line is probably
   missing); a stale-branch tripwire classified mechanically with the P13 test-merge; a

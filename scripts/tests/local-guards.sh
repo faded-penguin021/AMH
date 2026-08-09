@@ -40,7 +40,16 @@ snapshot() { # snapshot <name> -> prints the path
 	printf '%s' "$d"
 }
 
-expect() { # expect <pass|fail> <name> <dir> <guard> [message-substring]
+# Three verdicts, matching the ladder's repo-local contract: pass is exit 0, warn is exit 2
+# whose output BEGINS with `WARN ` (anything else at exit 2 is a broken guard, which the
+# ladder reports as a failure and so does this helper), and fail is any other non-zero exit.
+# `fail` deliberately does not accept a marked warning: the ladder stays green on one, so a
+# fixture that took it for a failure would assert the opposite of what an adopter sees.
+is_marked_warn() { # is_marked_warn <rc> <output>
+	[ "$1" -eq 2 ] && [ "$2" != "${2#WARN }" ]
+}
+
+expect() { # expect <pass|fail|warn> <name> <dir> <guard> [message-substring]
 	local want=$1 name=$2 dir=$3 guard=$4 want_msg=${5:-}
 	local out rc
 	# shellcheck disable=SC2086  # $guard may carry arguments, e.g. "x.sh --tag v1"
@@ -49,9 +58,12 @@ expect() { # expect <pass|fail> <name> <dir> <guard> [message-substring]
 	if [ "$want" = pass ] && [ "$rc" -ne 0 ]; then
 		FAILED=$((FAILED + 1))
 		printf '  FAIL %s — expected pass, got %d\n%s\n' "$name" "$rc" "$out" >&2
-	elif [ "$want" = fail ] && [ "$rc" -eq 0 ]; then
+	elif [ "$want" = warn ] && ! is_marked_warn "$rc" "$out"; then
 		FAILED=$((FAILED + 1))
-		printf '  FAIL %s — expected failure, guard passed\n%s\n' "$name" "$out" >&2
+		printf '  FAIL %s — expected a WARN-marked exit 2, got %d\n%s\n' "$name" "$rc" "$out" >&2
+	elif [ "$want" = fail ] && { [ "$rc" -eq 0 ] || is_marked_warn "$rc" "$out"; }; then
+		FAILED=$((FAILED + 1))
+		printf '  FAIL %s — expected failure, guard did not fail (exit %d)\n%s\n' "$name" "$rc" "$out" >&2
 	elif [ -n "$want_msg" ] && ! printf '%s' "$out" | grep -qF "$want_msg"; then
 		FAILED=$((FAILED + 1))
 		printf '  FAIL %s — verdict right but message never mentioned %s\n%s\n' "$name" "$want_msg" "$out" >&2
@@ -178,6 +190,44 @@ sed -i 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=10/' "$d/amh.conf"
 sed '0,/^- D-004: /s//- D-004 [cited]: /' \
 	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
 expect pass "ledger-append-only: sanctioned cited metadata ignores the new-row cap" "$d" ledger-append-only.sh
+
+# A new row filed outside the live volume: warn, never fail. DB-015 reached the default
+# branch this way, and its citation dangles by the prefix rule while grep still finds it.
+d=$(snapshot ledger_append_only_new_row_wrong_volume)
+cat >>"$d/docs/LEDGER.md" <<'ROW'
+- D-999: **New row in a closed volume.** It resolves nowhere its prefix promises.
+ROW
+expect warn "ledger-append-only: a new row outside the live volume warns" "$d" \
+	ledger-append-only.sh "live volume is docs/LEDGER_B.md"
+
+# ...and the live volume itself is silent, or the warning would fire on every ordinary
+# append and be worth nothing inside a month.
+d=$(snapshot ledger_append_only_new_row_live_volume)
+cat >>"$d/docs/LEDGER_B.md" <<'ROW'
+- DB-999: **New row in the live volume.** Exactly where it belongs.
+ROW
+expect pass "ledger-append-only: a new row in the live volume is silent" "$d" ledger-append-only.sh
+
+# The other half of the DB-015 class, and the half DB-015 itself is: the row sits in the live
+# volume, so the check above is silent, but its prefix names a different file — which is where
+# a reader following the preamble's rule will look for it, and not find it.
+d=$(snapshot ledger_append_only_new_row_wrong_prefix)
+cat >>"$d/docs/LEDGER_B.md" <<'ROW'
+- D-999: **Live volume, wrong prefix.** A D- id does not resolve in volume B.
+ROW
+expect warn "ledger-append-only: a new row whose prefix names another volume warns" "$d" \
+	ledger-append-only.sh "its prefix names docs/LEDGER.md"
+
+# The metadata transitions the owner asked to keep working: an existing row in a CLOSED
+# volume may still gain `[cited]` and a supersession pointer without tripping the warning,
+# because neither makes it a new row.
+d=$(snapshot ledger_append_only_closed_volume_metadata)
+sed '0,/^- D-004: /s//- D-004 [cited]: /' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+awk '/^- D-002 / && !done { print "  Superseded by DB-014."; done = 1 } { print }' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect pass "ledger-append-only: cited and supersession edits in a closed volume stay silent" "$d" \
+	ledger-append-only.sh
 
 # --- config-schema ------------------------------------------------------------
 d=$(snapshot config_schema_missing)

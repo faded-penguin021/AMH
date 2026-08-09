@@ -49,10 +49,19 @@ binding ledger preambles, runbook guidance, and guard diagnostics, but the execu
 for this session prohibited spawning a fresh-context reviewer and no clean reviewer CLI was
 available. The commit is parked for owner review under the rule-review protocol.
 
+**OPEN — is the repo-local warn channel MINOR or MAJOR?** Additive on its face, so MINOR. But
+reclassification is mechanical: an adopter whose existing guard exits 2 and whose first output
+line begins `WARN ` sees that guard stop failing their ladder, with no action on their part —
+a gate weakening, which is the MAJOR row's description. Recommendation: MINOR with the
+Upgrading step that tells adopters to grep for it, which is what the changelog now carries.
+Check: `grep -rn 'exit 2' scripts/guards/` — in THIS repo only the new `warn_exit` matches, so
+nothing here changes verdict; the question is about adopters, which no command settles.
+
 **OPEN — `DB-015` is filed in the wrong volume.** The row sits at the end of `docs/LEDGER.md`,
 but `LEDGER_B.md`'s preamble says a `DB-` id resolves there, so the citation in this file's
 Changelog dangles by the ledger's own rule. Moving an append-only row is forbidden, so the fix
-is the owner's: relocate, or correct the preamble. Predates this branch.
+is the owner's: relocate, or correct the preamble. Predates this branch, and the guard added
+in **DB-017** cannot see it — the row is committed, so it is not a new row.
 Check: `grep -c '^- DB-015' docs/LEDGER.md` prints 1 while the row is misfiled.
 
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
@@ -88,6 +97,14 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-09 — **Repo-local guards gained a warn verdict, and the ledger uses it.** Exit 2 with
+  a leading `WARN ` marker warns without turning the ladder red; an unmarked exit 2 stays a
+  failure, because a bare exit 2 is ambiguous. The append-only guard now warns when a new row
+  is filed outside the live volume or in a volume its id prefix does not name — the DB-015
+  shape is the second half — while `[cited]` and supersession edits stay silent. Warn rather than fail is the owner's call, on the
+  grounds that a legitimate reason to append elsewhere may exist unenumerated. **DB-017** is
+  the record.
 
 - 2026-08-09 — **The session bootstrap rearms every one-time advisory, not just `.env`.** The
   reset named one category literally, so the destructive-command advisory stayed spent for a

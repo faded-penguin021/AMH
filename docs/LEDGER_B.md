@@ -548,3 +548,21 @@
   `rm -f` would swallow the literal — the rail off, in silence, from a key nobody connects to
   it. Only the `.env` diagnostic states the session scope in words; the destructive one leaves
   it implicit, which is why the defect was invisible from the diagnostics alone.
+
+- DB-017: **A rail whose rule has unenumerated legitimate exceptions warns; it does not fail
+  closed.** DB-015 was appended to `docs/LEDGER.md` while the live volume was `LEDGER_B.md`,
+  so its citation dangles by the prefix rule the preambles state and resolves fine to grep —
+  which is why several sessions passed over it. The append-only guard now flags a new row
+  filed outside the live volume, and the owner chose a warning over a failure on the explicit
+  grounds that there may be a genuine reason to append elsewhere that nobody has thought of
+  yet (2026-08-09). Do not "tighten" it to a failure without that reason being enumerated and
+  refuted: a rail that fails closed on a legitimate case is one an adopter switches off rather
+  than reads. It checks BOTH halves of the class, because the first draft checked only the
+  obvious one and would have stayed silent on DB-015 itself: a new row must sit in the live
+  volume, AND its id prefix must name the volume holding it — a `D-` row in the live
+  `LEDGER_B.md` dangles for a reader following the prefix rule while the live-volume test
+  passes. Carrying it needed a third verdict for repo-local guards, which were pass/fail:
+  exit 2 whose output begins `WARN `. The marker is load-bearing because bash exits 2 on a
+  syntax error, so an unmarked exit 2 stays a failure — a guard that cannot parse must not
+  report as a mild opinion. The append-only rules themselves stay hard failures: this warning
+  is about where a new row was filed, not whether history was rewritten.

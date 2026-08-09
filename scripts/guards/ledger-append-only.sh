@@ -22,6 +22,10 @@ SUPERSEDED_RE='^[[:space:]]*Superseded by D[A-Z]*-[0-9]+[.]$'
 
 fail() { printf '%s\n' "$*"; exit 1; }
 
+# The ladder's repo-local warn channel: exit 2 with `WARN ` as the first thing printed.
+# One line, because the ladder prints it as the warn text verbatim.
+warn_exit() { printf 'WARN %s\n' "$*"; exit 2; }
+
 next_suffix() { # next_suffix <suffix>; empty input means A
 	local s=${1:-} i c prefix last n
 	if [ -z "$s" ]; then
@@ -62,6 +66,31 @@ materialize_head_chain() { # materialize_head_chain <out-dir>
 		next=$(next_suffix "$suffix")
 		suffix=$next
 	done
+}
+
+worktree_chain_paths() { # prints each worktree volume path, in chain order, live volume last
+	local suffix='' path
+	while :; do
+		path=$(ledger_path "$suffix")
+		[ -f "$path" ] || break
+		printf '%s\n' "$path"
+		suffix=$(next_suffix "$suffix")
+	done
+}
+
+volume_named_by_prefix() { # volume_named_by_prefix <id>; DB-NNN -> docs/LEDGER_B.md, D-NNN -> docs/LEDGER.md
+	local id=$1 suffix
+	suffix=${id%%-*}   # D, DA, DB…
+	suffix=${suffix#D} # '', A, B…
+	ledger_path "$suffix"
+}
+
+volume_holding() { # volume_holding <id>; prints the first chain volume whose text carries the row
+	local id=$1 path
+	while IFS= read -r path; do
+		LC_ALL=C grep -Eq "^- $id( \[cited\])?: " "$path" && { printf '%s' "$path"; return 0; }
+	done < <(worktree_chain_paths)
+	return 1
 }
 
 copy_worktree_chain() { # copy_worktree_chain <out-dir>
@@ -198,13 +227,51 @@ for base_row in "$TMPDIR"/head-rows/D*-*; do
 	fi
 done
 
+live_volume=$(worktree_chain_paths | tail -n 1)
+
 new_checked=0
+misfiled=''
 for current_row in "$TMPDIR"/work-rows/D*-*; do
 	[ -e "$current_row" ] || continue
 	id=${current_row##*/}
 	[ -f "$TMPDIR/head-rows/$id" ] && continue
 	new_checked=$((new_checked + 1))
 	validate_row_cap "$current_row" "$id"
+	# Two independent ways a new row can be filed wrong, and DB-015 is the second one, not
+	# the first — a fact worth stating because checking only the obvious half would leave the
+	# motivating incident uncovered while the prose claimed otherwise:
+	#
+	#   (a) it is not in the LIVE volume — the last one the chain walk reaches. New rows go
+	#       at the end of the chain; a row appended to a closed volume is easy to miss because
+	#       grep still finds it and every rung stays green.
+	#   (b) its ID PREFIX names a different volume than the file it sits in. `DB-` resolves in
+	#       LEDGER_B.md by the preambles' own rule, so a `D-` row in LEDGER_B.md dangles for a
+	#       reader following that rule even though the file is the live one — and (a) alone is
+	#       silent about it.
+	#
+	# Reported together because the fix is the same move and a session that hears one and not
+	# the other will make the second mistake correcting the first.
+	if ! home=$(volume_holding "$id"); then
+		# Not reachable while the row extractor and this locator share a header pattern; if
+		# they ever diverge, say so rather than skipping a row in silence — a `continue` here
+		# would make the check hollow exactly when it stopped working.
+		fail "ledger append-only: $id was extracted as a row but no volume in the chain carries its header — the extractor and the volume locator have diverged"
+	fi
+	expected=$(volume_named_by_prefix "$id")
+	if [ "$home" != "$live_volume" ]; then
+		misfiled="$misfiled $id(in $home, live volume is $live_volume)"
+	elif [ "$home" != "$expected" ]; then
+		misfiled="$misfiled $id(in $home, its prefix names $expected)"
+	fi
 done
+
+# WARN, deliberately, and NOT a failure a later session should "tighten". There may be a
+# genuine reason to append outside the live volume that nobody has enumerated yet (owner,
+# 2026-08-09), and a rail that fails closed on an unenumerated legitimate case is one an
+# adopter switches off rather than reads. The append-only rules above stay hard failures:
+# this one is about WHERE a new row was filed, not whether history was rewritten.
+if [ -n "$misfiled" ]; then
+	warn_exit "ledger append-only: new row(s) filed where a reader following the ledger's own rules will not look —${misfiled}. New rows belong at the end of the live volume, and a D<prefix>-NNN id resolves in the volume its prefix names. Move the row, or say in the commit why this one belongs where it is. Adding [cited] or a supersession pointer to an existing row anywhere in the chain is unaffected. Checked $checked committed and $new_checked new row(s) against HEAD."
+fi
 
 printf 'checked %d committed ledger row(s) and %d new ledger row(s) against HEAD' "$checked" "$new_checked"
