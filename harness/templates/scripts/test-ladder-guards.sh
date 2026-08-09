@@ -1024,6 +1024,48 @@ else
 	report no "session-start rearms the one-time .env advisory" "rc=$rc" "$out"
 fi
 
+# Every category of one-time advisory rearms, not just the one the reset was written for.
+# The destructive-command advisory makes the same session-local promise as the `.env` one,
+# and for as long as the bootstrap named a single category literally it kept that promise
+# only for `.env`: a container's first `rm -rf` spent the advisory for every later session.
+d=$(mk ss_rearms_destructive_advisory)
+out=$(cd "$d" && scripts/command-guard.sh --command 'rm -rf tmp/build' 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && grep -qF "This destructive filesystem command" <<<"$out"; then
+	report ok "the first destructive command gets the advisory"
+else
+	report no "the first destructive command gets the advisory" "rc=$rc" "$out"
+fi
+if (cd "$d" && scripts/command-guard.sh --command 'rm -rf tmp/build' >/dev/null 2>&1); then
+	report ok "the second destructive command reaches normal rails"
+else
+	report no "the second destructive command reaches normal rails" "it was still blocked"
+fi
+(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh >/dev/null 2>&1)
+out=$(cd "$d" && scripts/command-guard.sh --command 'rm -rf tmp/build' 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && grep -qF "This destructive filesystem command" <<<"$out"; then
+	report ok "session-start rearms the one-time destructive advisory"
+else
+	report no "session-start rearms the one-time destructive advisory" "rc=$rc" "$out"
+fi
+
+# The rearm expands a pattern, and amh.conf is sourced before it runs — so an adopter's
+# `set -f` (or a GLOBIGNORE covering /tmp) would leave the pattern unexpanded and `rm -f`
+# would swallow the literal without a word. A rail switched off in silence by a config key
+# nobody connected to it is the same class of defect as the single-category reset itself.
+d=$(mk ss_rearms_advisory_under_noglob)
+printf 'set -f\n' >>"$d/amh.conf"
+(cd "$d" && scripts/command-guard.sh --command 'rm -rf tmp/build' >/dev/null 2>&1)
+(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh >/dev/null 2>&1)
+out=$(cd "$d" && scripts/command-guard.sh --command 'rm -rf tmp/build' 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && grep -qF "This destructive filesystem command" <<<"$out"; then
+	report ok "the rearm survives a noglob amh.conf"
+else
+	report no "the rearm survives a noglob amh.conf" "rc=$rc" "$out"
+fi
+
 # --- the protocol pointer names only documents that exist
 # Not every install profile ships a runbook — the smallest one, which is the default,
 # deliberately does not. The banner used to name docs/RUNBOOK.md unconditionally, so the

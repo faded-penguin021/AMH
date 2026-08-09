@@ -11,6 +11,20 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## Unreleased
+
+- **The session bootstrap rearms every one-time advisory, not just `.env`.** 4.1.0 shipped a
+  shared advisory mechanism with two categories but a rearm written for one: the
+  destructive-command advisory stayed spent for the lifetime of a long-running container
+  instead of for one session. `scripts/session-start.sh` now clears every advisory state file
+  belonging to the repository, and forces globbing on for that expansion so a `set -f` or
+  `GLOBIGNORE` in your `amh.conf` cannot switch the rearm off in silence. The advisory texts
+  are unchanged: only the `.env` one states the session scope in words.
+
+### Upgrading
+
+1. Copy the shipped scripts. Nothing else changes; the advisories themselves are unchanged.
+
 ## 4.1.0 — 2026-08-05
 
 - **Destructive filesystem commands get a one-time advisory.** Recursive forced removal and

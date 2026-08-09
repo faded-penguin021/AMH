@@ -529,3 +529,22 @@
   the precise rails. Category-specific state also prevents acknowledging the `.env` advisory from
   silently acknowledging destructive deletion, while one shared mechanism prevents each new
   advisory from inventing its own session-state implementation.
+
+- DB-016: **A shared one-time-advisory mechanism needs a shared rearm, or the bootstrap keeps
+  the session-local promise for one category only.** DB-014 made the command guard's advisory
+  state category-scoped, but `scripts/session-start.sh` still deleted a single literal
+  `dotenv` state path, so the destructive-command advisory was spent for a container's whole
+  lifetime rather than one session — silently, because a spent advisory looks exactly like a
+  command that was never destructive. The bootstrap now erases every advisory state file for
+  the repository with the CATEGORY as the only globbed element and the uid and path slug
+  quoted, so a repository path containing a glob character cannot widen the pattern; the
+  category slot itself is a greedy `*`, bounded by not crossing `/`, so its widest reach is
+  another repository's file of the same shape under /tmp. A literal list of categories was
+  rejected: it reproduces this defect one category later. The failure direction is deliberate
+  — erasing one file too many rearms an advisory early, which costs one extra explained block,
+  while erasing one too few silently removes a rail. For the same reason the function forces
+  globbing on for its own expansion: amh.conf is sourced before it runs and is the adopter's
+  file forever, so a `set -f` or `GLOBIGNORE` there would leave the pattern unexpanded and
+  `rm -f` would swallow the literal — the rail off, in silence, from a key nobody connects to
+  it. Only the `.env` diagnostic states the session scope in words; the destructive one leaves
+  it implicit, which is why the defect was invisible from the diagnostics alone.
