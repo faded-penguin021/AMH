@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 4.2.0.** Repos that adopt it record the version they took
+**Harness version 5.0.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -739,7 +739,9 @@ LEDGER_LINE_CAP={{LINE_CAP}}
 # New rows appended to any live ledger volume are capped by bytes under LC_ALL=C
 # (ASCII/UTF-8 text therefore counts one byte per ASCII character). Historical rows
 # already committed at HEAD are exempt so append-only history is never rewritten.
-LEDGER_ROW_CHAR_CAP=2000
+# Not the same unit as LEDGER_LINE_CAP above, which counts lines in a whole volume;
+# equal numbers here are a coincidence, not a lockstep.
+LEDGER_ROW_CHAR_CAP=800
 
 # Where citations are scanned for: code and workflows only — NOT docs (prose mentions
 # IDs without citing them), and not the guard fixtures (which carry synthetic IDs).

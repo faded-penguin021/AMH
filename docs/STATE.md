@@ -17,14 +17,14 @@ The AMH meta-repository: both the **source of truth** for the Agentic Maintenanc
 reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
 **reference instance**, running byte-identical copies of the scripts it ships. The product is
 `harness/` (prose source, templates, generated bundle); this repo's instance is `AGENTS.md` +
-`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 4.2.0** — see `harness/VERSION`,
+`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 5.0.0** — see `harness/VERSION`,
 the copy that counts.
 
 ## Current state
 
-AMH 4.1.0 is tagged and published on origin. This branch's work is classified **4.2.0**
-(MINOR, owner) and the version now says so in all five hand-maintained copies; the tag is the
-owner's step and is queued.
+AMH 4.2.0 is tagged and published on origin (`amh-v4.2.0` at `aa952ae`, confirmed by
+`git ls-remote`). This branch's work is classified **5.0.0** (MAJOR, owner) and the version
+now says so in all five hand-maintained copies; the tag is the owner's step and is queued.
 
 Committed ledger rows are append-only under a repo-local guard that compares the working tree
 to `HEAD`: a row predating the active unit must stay byte-identical except for two sanctioned
@@ -44,10 +44,11 @@ sentence, or both. Rows absent from `HEAD` are draft material until commit. **DB
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
 
-**OPEN — tag and publish AMH 4.2.0.** `harness/VERSION`, the changelog's top entry,
-`AGENTS.md`, this file, `amh.conf` and the README Quick Start all say 4.2.0; the bundle and the
-manifest are rebuilt. Create and push `amh-v4.2.0` after merge. No check: only the owner may
+**OPEN — tag and publish AMH 5.0.0.** `harness/VERSION`, the changelog's top entry,
+`AGENTS.md`, this file, `amh.conf` and the README Quick Start all say 5.0.0; the bundle and the
+manifest are rebuilt. Create and push `amh-v5.0.0` after merge. No check: only the owner may
 tag or publish.
+Check the copies with: `grep -rn '5\.0\.0' harness/VERSION AGENTS.md docs/STATE.md amh.conf README.md`
 
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
 4.1.0 are cut and 4.1.0 is published, and `main`'s protection is repointed at `ladder`.
@@ -82,6 +83,14 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-09 — **`LEDGER_ROW_CHAR_CAP` drops 2000 → 800, cut as MAJOR 5.0.0.** The cap had
+  never bound: the six rows written since the guard landed run 1132–1657 bytes. 800 is below
+  all six by intent, not above the median — the first draft of this unit claimed the latter
+  and was wrong, which is the lesson. The owner reaffirmed 800 against corrected arithmetic
+  and overrode an initial PATCH call to MAJOR, because an adopter omitting the key inherits a
+  stricter guard and a legal row becomes a failing one. Three volume preambles stated
+  **2,000** in prose and were missed by a `2000` grep. **DB-022** is the record.
 
 - 2026-08-09 — **The release line moved to 4.2.0.** 4.1.0 was already tagged and published
   while the tree still claimed it, so the Unreleased section became `4.2.0 — 2026-08-09` and all
