@@ -11,6 +11,39 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 5.2.0 — 2026-08-10
+
+- **The seed `docs/STATE.md` length-guard preamble now says what the ladder does NOT check.**
+  The preamble enumerated the machine-checked properties and stopped there, so a reader who
+  finished it had an accurate list of what is enforced and no statement anywhere that the list
+  was complete. Everything after it — grow freely to the soft cap, no trimming below that line,
+  fold whole stages rather than shaving clauses — reads in the same voice and is prose only. The
+  gap is not hypothetical: an adopting instance ran a voluntary deep compression on a STATE file
+  that was *already under* the soft cap, got a plain `ok` size line, and reported the landing
+  check as holed. It is not holed. The landing check is only ever reached by a file that started
+  above the cap, which is deliberate and is what keeps an ordinary edit — deleting one resolved
+  Owner-queue item — from being failed as an unfinished compression pass. But that half of the
+  size guard is then silent, and silence in a tool that speaks on every other rung reads as
+  approval. The preamble now closes its enumeration explicitly — and the enumeration itself
+  gained the repeated-heading and non-empty-body checks it had been missing — names the sub-cap
+  case, and says why reaching for a threshold to cover it is the wrong repair. The closure is
+  written as a claim about two named functions in `scripts/ladder.sh` rather than a timeless
+  "and nothing else", because the script upgrades independently of a seed the adopter owns. No
+  guard, threshold, fixture or exit code changed.
+
+### Upgrading
+
+1. Copy the shipped scripts. No shipped script changed in this entry, so this is a no-op unless
+   you are also crossing an earlier version.
+2. **Seed prose, hand-applied and recommended.** If your `docs/STATE.md` length-guard preamble
+   lists what the ladder machine-checks, check the list is complete — repeated headings and
+   non-empty section bodies are easy to omit — then add the paragraph closing it and the one
+   saying the landing check never runs below the soft cap. Copy the wording from
+   `harness/templates/seed/docs/STATE.md`. Worth doing even though nothing breaks without it:
+   what it prevents is an agent treating a green ladder as a verdict on an edit the ladder never
+   examined.
+3. Nothing here changes a verdict. A tree that was green stays green.
+
 ## 5.1.0 — 2026-08-10
 
 - **Seed prose names configuration thresholds by key instead of restating them as numbers.**
