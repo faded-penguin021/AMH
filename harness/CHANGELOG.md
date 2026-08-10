@@ -11,7 +11,7 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
-## Unreleased
+## 5.1.0 — 2026-08-10
 
 - **Seed prose names configuration thresholds by key instead of restating them as numbers.**
   The seed `docs/STATE.md` preamble carried `{{WARN_KB}}` / `{{COMPRESS_TO_KB}}` /

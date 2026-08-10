@@ -24,14 +24,14 @@ The AMH meta-repository: both the **source of truth** for the Agentic Maintenanc
 reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
 **reference instance**, running byte-identical copies of the scripts it ships. The product is
 `harness/` (prose source, templates, generated bundle); this repo's instance is `AGENTS.md` +
-`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 5.0.0** — see `harness/VERSION`,
+`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 5.1.0** — see `harness/VERSION`,
 the copy that counts.
 
 ## Current state
 
 AMH 5.0.0 is tagged and published on origin (`amh-v5.0.0` at `1427669`, confirmed by
-`git ls-remote --tags`), which is this branch's merge base. All five hand-maintained version
-copies say 5.0.0. Work since the tag sits in the changelog's Unreleased section, unclassified.
+`git ls-remote --tags`), which is this branch's merge base. This branch's work is classified
+**5.1.0** (MINOR, owner) and all five hand-maintained copies say so; the tag is queued.
 
 Committed ledger rows are append-only under a repo-local guard that compares the working tree
 to `HEAD`: a row predating the active unit must stay byte-identical except for two sanctioned
@@ -51,12 +51,10 @@ sentence, or both. Rows absent from `HEAD` are draft material until commit. **DB
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
 
-**OPEN — classify the Unreleased changelog section.** No guard, threshold or exit code moved
-and nothing an adopter relied on was deleted, which rules out MAJOR. It adds a binding rule to
-the seed constitution and seed runbook that adopters hand-apply, which is `CONTRIBUTING.md`'s
-MINOR row ("additive… templates they may take or leave"); read as pure clarification it is a
-PATCH. Recommend **MINOR**. Owner's call (discipline 7). No check: only the owner classifies.
-Check the section exists with: `sed -n '/^## Unreleased/,/^## 5/p' harness/CHANGELOG.md`
+**OPEN — tag and publish AMH 5.1.0.** `harness/VERSION`, the changelog's top entry, `AGENTS.md`,
+this file, `amh.conf` and the README Quick Start all say 5.1.0; the bundle and the manifest are
+rebuilt. Create and push `amh-v5.1.0` after merge. No check: only the owner may tag or publish.
+Check the copies with: `grep -rn '5\.1\.0' harness/VERSION AGENTS.md docs/STATE.md amh.conf README.md`
 
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
 5.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
@@ -92,6 +90,10 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-10 — **The release line moved to 5.1.0.** The owner classified the entry below MINOR
+  — it adds a seed rule adopters hand-apply, `CONTRIBUTING.md`'s MINOR row. All five lockstep
+  copies moved; the bundle and manifest were rebuilt. Tagging is queued.
 
 - 2026-08-10 — **Prose stops restating configured numbers, and the seeds gain the
   coverage-before-absence rule.** The STATE band, three volume preambles and four seed
