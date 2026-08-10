@@ -19,8 +19,18 @@ Long-term memory: numbered deviations and discoveries live in `docs/LEDGER.md` �
 **permanent, append-only registry** (code cites bare `D-NN`; code-cited rows carry a
 `[cited]` marker that you write and the ladder verifies in both directions — nothing syncs
 it for you; never compress or delete entries; append the next number in
-the live ledger file — each file caps at {{LINE_CAP}} lines: the final row may overflow the
+the live ledger file — each file caps at `LEDGER_LINE_CAP` lines from `amh.conf`, a number
+this prose deliberately does not copy: the final row may overflow the
 cap, the next row opens the next file, `D-… → DA-…` (`_A.md`) `→ DB-…`).
+
+> **Establish coverage before you report an absence.** "It does not exist" and "it never
+> happened" are claims about your search until you can say what you searched and that it could
+> have contained the thing. Before reporting one, name the artifact you looked in and why it
+> would hold the answer. The recurring trap is local git state: where branches are squash-merged
+> an entire train of sessions arrives as ONE commit and every intermediate state is destroyed on
+> purpose, so `git log` cannot answer a question about this repository's past — the ledger and
+> the `docs/STATE.md` changelog are the record. Nothing enforces this; no pre-execution check
+> can see a belief formed after a command returns.
 
 ## Maintenance protocol (every session)
 

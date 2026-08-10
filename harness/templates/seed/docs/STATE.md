@@ -6,20 +6,25 @@ but capacity-bounded — the cap is what forces compaction, and compaction is wh
 session's first read cheap.
 -->
 
-> **Length guard (read before editing — hysteresis).** Grow freely to **{{WARN_KB}} KB**; no
-> trimming below that line. When the guard warns, run ONE deep compression pass to
-> **≤ {{COMPRESS_TO_KB}} KB** — never trim to just under the threshold (micro-trims re-arm the
-> warning a session later; the wide band IS the debounce, statelessly). That number is a
-> **ceiling, not a target**: aim comfortably below it. If the pass lands short, fold MORE
-> completed stages — do not micro-trim toward the floor; that is the same reflex the band
-> exists to break, reappearing one threshold lower. Fail above
-> **{{HARD_KB}} KB**. Compression means: collapse each completed work stage into one Changelog
+> **Length guard (read before editing — hysteresis).** The three thresholds are
+> `STATE_WARN_KB`, `STATE_COMPRESS_TO_KB` and `STATE_HARD_KB` in `amh.conf`. They are named
+> here and deliberately **not** restated as numbers: nothing checks this prose against the
+> config, so a number copied into it drifts silently the first time a threshold moves. Read
+> them from `amh.conf` when you need them — `scripts/ladder.sh` names the soft and hard caps
+> when it passes and the compression floor only when it warns or fails, so the floor is the
+> one value a healthy tree never prints. Grow freely to the soft cap; no trimming below that
+> line. When the guard warns, run ONE deep compression
+> pass landing at or below the compression floor — never trim to just under the soft cap
+> (micro-trims re-arm the warning a session later; the wide band IS the debounce, statelessly).
+> The floor is a **ceiling, not a target**: aim comfortably below it. If the pass lands short,
+> fold MORE completed stages — do not micro-trim toward the floor; that is the same reflex the
+> band exists to break, reappearing one threshold lower. Fail above the hard cap.
+> Compression means: collapse each completed work stage into one Changelog
 > line, fold changelog clusters, move any durable gotcha into the append-only ledger, delete
 > narrative prose. **Project**, **Current state** and **Owner queue** must always survive
 > compression (Owner-queue items are the owner's to close — compress their prose, never drop
 > an open item). `scripts/ladder.sh` machine-checks the band, the required sections, and that
-> a compression pass actually lands on the {{COMPRESS_TO_KB}} KB floor rather than just
-> clearing the warning. Above the cap it distinguishes a compression pass from an ordinary
+> a compression pass actually lands on the floor rather than just clearing the warning. Above the cap it distinguishes a compression pass from an ordinary
 > edit by how much the file shrank — `STATE_EDIT_DELTA_BYTES` in `amh.conf` is the line
 > between them — so fixing a typo up here does not oblige you to compress the whole file or
 > revert the fix.

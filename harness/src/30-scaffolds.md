@@ -22,6 +22,26 @@ inside the debounce band instead of reaching the compression floor. Pick numbers
 warn − compress-to spans many sessions of growth and hard − warn leaves one long session of
 margin — 9 / 14 / 16 KB is a working example.
 
+In the *rule* prose that explains these thresholds, name the `amh.conf` keys rather than
+restating their values. Nothing checks such a number, and a guard for it would have to lift a
+value out of a sentence — P20 points doc-fact guards at code-against-a-constant instead, and
+the one prose-reading exception this harness ships (`version-lockstep.sh`) works only because
+the sentence it reads has a fixed shape. So the copy and the config drift the moment a value
+moves, and the reader who trusts the stale one is misled by the document meant to orient them.
+The harness lowered `LEDGER_ROW_CHAR_CAP` in 5.0.0 and left three volume preambles stating the
+old value, missed because they spelled it `2,000` while the search was for `2000`. An agent
+does not need the number from the prose: `scripts/ladder.sh` reports each threshold it is
+judging against, from the config. Check that claim before you make it, though — a rung that
+prints a value only when it fails leaves that one to be read from `amh.conf`, which is exactly
+the case for the compression floor above.
+
+Four kinds of restatement stay legitimate, and saying so keeps the rule from being read as a
+ban on ever writing a number: a **worked example** for an adopter choosing values (the previous
+paragraph is one), a **historical statement** of what a threshold was at some past moment, a
+**script default** sitting beside the code that uses it, and a **self-contained fixture** with
+no `amh.conf` to be authoritative. What the rule forbids is a live rule-statement asserting a
+value it is not the source of.
+
 Say in the file itself that the compression floor is a **ceiling, not a target**. Every phrasing
 of the rule is naturally read as "land at the floor", and an agent that reads it that way will
 shave words one at a time until the guard goes quiet — the micro-trim reflex the band exists to

@@ -83,6 +83,16 @@ cut (version invariants; the owner does the tagging), etc.}}
 8. **Verification disclosure.** Every commit body states what was actually verified (which
    ladder rungs and tests ran) and names what could NOT be verified locally. Disclosure of
    real actions, addressed to a human — never something a gate consumes.
+9. **Establish coverage before reporting an absence.** Before you report that something does
+   not exist or never happened, establish that the command you ran could have seen it, and say
+   which artifact you searched. A local artifact was read and the answer reported as a property
+   of the repository is the shape to watch for. The standing trap is git: where branches are
+   squash-merged, a whole train of sessions arrives as ONE commit and the intermediate states
+   are destroyed by design, so `git log`, `git show`, `blame` and `tag` cannot answer questions
+   about this repository's past — the ledger and the STATE changelog are the only surviving
+   record. This is prose-only and must stay so: the defect is the generalisation drawn from a
+   command's output, and no pre-execution rail can see a belief formed after the command
+   returned.
 
 ## Adversarial review protocol (MANDATORY for {{UNTESTED_GLUE_AREAS}} diffs)
 

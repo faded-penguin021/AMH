@@ -27,12 +27,13 @@
 > not the whole debugging narrative; put larger narratives in `docs/history/` and link them
 > from the `docs/STATE.md` changelog.
 >
-> **File cap & rollover.** This file holds at most **800 lines** (the cap bounds LINES, not
-> rows — it is read cost that is being bounded, and the number stays in lockstep with
-> `LEDGER_LINE_CAP` in `amh.conf`). For new rows, the configured character cap is **800
-> byte-counted characters**; the guard counts bytes under `LC_ALL=C` for a locale-stable
-> result, so ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded
-> bytes. Rows already committed when checked are historical and exempt. The final row may
+> **File cap & rollover.** This file holds at most `LEDGER_LINE_CAP` lines from `amh.conf` (the
+> cap bounds LINES, not rows — it is read cost that is being bounded). New rows are capped by
+> `LEDGER_ROW_CHAR_CAP`; the guard counts bytes under `LC_ALL=C` for a locale-stable result, so
+> ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes.
+> Neither value is restated here as a number, and neither should be: nothing checks preamble prose
+> against `amh.conf`, and the 5.0.0 cap change left three volume preambles contradicting the
+> guard (**DB-022**). The ladder prints both live values in its verdicts. Rows already committed when checked are historical and exempt. The final row may
 > finish past the file cap, but no row may
 > ever *start* past it: when the file stands over the cap, create LEDGER_A.md (this file's
 > name with an _A suffix) with this same header discipline, numbering from **DA-001** (then
