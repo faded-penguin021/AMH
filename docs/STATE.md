@@ -4,8 +4,10 @@
 > `STATE_COMPRESS_TO_KB` and `STATE_HARD_KB` in `amh.conf`, and they are deliberately **not**
 > restated here as numbers: nothing checks this prose against the config, so a restated number
 > is a drift class no guard here covers (**DB-022**). Read them from `amh.conf` when you need
-> them. The ladder's cap rung names the soft and hard caps when it passes and the compression
-> floor when it warns or fails — so the floor is the one value a healthy tree never prints.
+> them. The ladder's size rung prints whichever of them a verdict needs — the floor on its warn
+> and fail lines, and again on the `ok` confirming a completed landing, so a green run can name
+> all three. Those are derived from `amh.conf`, not copied from it (the landing line is in bytes,
+> the key in KB), so a printed number is the guard's arithmetic, not a fourth copy (**DB-025**).
 > Grow freely to the soft cap; over it, ONE deep pass landing at or below the compression
 > floor — a ceiling, not a target; anywhere below is fine, a comfortable margin under it is
 > fine, and you do not keep shaving once under (owner, 2026-07-27). Fail above the hard cap.
@@ -24,17 +26,18 @@ The AMH meta-repository: both the **source of truth** for the Agentic Maintenanc
 reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
 **reference instance**, running byte-identical copies of the scripts it ships. The product is
 `harness/` (prose source, templates, generated bundle); this repo's instance is `AGENTS.md` +
-`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 5.2.0** — see `harness/VERSION`,
+`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 5.2.1** — see `harness/VERSION`,
 the copy that counts.
 
 ## Current state
 
-AMH 5.1.0 is tagged and published on origin (confirmed this session by `git ls-remote --tags`,
-which closed the queue item asking for it rather than restating it). This branch's work is
-classified **5.2.0** (MINOR, owner) and all five hand-maintained copies say so; the tag is
-queued. The agent self-classified PATCH, the rule-review pass argued MINOR on the 5.1.0
-precedent — an Upgrading section that asks an adopter to copy new seed wording is the additive
-shape, whatever the prose does — and the owner confirmed MINOR on 2026-08-10.
+AMH 5.2.0 is tagged and published on origin at `7a7c81e` (confirmed by `git ls-remote --tags`,
+which closed the queue item asking for it rather than restating it — the DA-011 shape, twice
+running). This branch's work is classified **5.2.1** (PATCH, agent) and all five hand-maintained
+copies say so; the tag is queued. The classification is queued for the owner too, because the
+5.2.0 precedent cuts the other way: the owner called that one MINOR since its Upgrading section
+asked adopters to copy new seed wording. This one asks them to correct wording they already
+have, and nothing they do today becomes wrong — the PATCH row of the table.
 
 Committed ledger rows are append-only, enforced against `HEAD` by a repo-local guard: two
 metadata additions are sanctioned, everything else must stay byte-identical, and rows absent
@@ -52,11 +55,19 @@ from `HEAD` are draft material until commit. **DB-008** and **DB-013** are the r
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
 
-**OPEN — tag and publish AMH 5.2.0.** `harness/VERSION`, the changelog's top entry, `AGENTS.md`,
-this file, `amh.conf` and the README Quick Start all say 5.2.0; the bundle and the manifest are
-rebuilt (the manifest's version header moved, no script hash did). Create and push `amh-v5.2.0`
+**OPEN — tag and publish AMH 5.2.1.** `harness/VERSION`, the changelog's top entry, `AGENTS.md`,
+this file, `amh.conf` and the README Quick Start all say 5.2.1; the bundle and the manifest are
+rebuilt (the manifest's version header moved, no script hash did). Create and push `amh-v5.2.1`
 after merge. No check: only the owner may tag or publish.
-Check the copies with: `grep -rn '5\.2\.0' harness/VERSION AGENTS.md docs/STATE.md amh.conf README.md`
+Check the copies with: `grep -rn '5\.2\.1' harness/VERSION AGENTS.md docs/STATE.md amh.conf README.md`
+
+**OPEN — confirm the 5.2.1 classification (PATCH).** A correction to false seed prose: the
+Upgrading note asks adopters to fix a sentence they copied, not to adopt anything new, and no
+rule, guard or threshold moved. The tension is with 5.2.0, which the owner called MINOR on the
+reasoning that an Upgrading section asking for new seed wording is additive whatever the prose
+does; read literally that reasoning makes this MINOR too. Agent shipped PATCH and says so here
+rather than guessing quietly. No check: the number is a promise to adopters, and only the owner
+makes it.
 
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
 5.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
@@ -92,6 +103,19 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-10 — **The seed STATE preamble said a passing ladder never prints the compression
+  floor; it does.** 5.1.0's "read the thresholds from `amh.conf`" paragraph closed on an
+  inference about the ladder's output, and the inference was false: `guard_state_size`'s landing
+  branch names the floor on the `ok` line confirming a completed landing, and the shipped
+  `state_landing_good` fixture makes a fully green run print it. Reproduced before repairing,
+  not argued from the source. The claim had spread to all three prose copies — the seed adopters
+  copy, this file's preamble, and **DB-023**, whose parenthetical carried it into the ledger; the
+  row keeps its text and its still-valid rule, gains a supersession pointer, and **DB-025**
+  carries both forward corrected. Prose about a guard's OUTPUT turns out to be the same drift
+  class DB-022/DB-023 recorded about its THRESHOLDS, which neither row saw. Shipped as 5.2.1
+  (PATCH, queued for owner confirmation); no guard, threshold, fixture or exit code changed.
+  `amh-v5.2.0` was found already published by testing the queue item rather than restating it.
 
 - 2026-08-10 — **The seed STATE preamble now states the end of what is machine-checked.** It
   listed the ladder's checks and never said the list was complete, so the prose after it — grow

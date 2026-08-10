@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 5.2.0.** Repos that adopt it record the version they took
+**Harness version 5.2.1.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -865,9 +865,14 @@ session's first read cheap.
 > `STATE_WARN_KB`, `STATE_COMPRESS_TO_KB` and `STATE_HARD_KB` in `amh.conf`. They are named
 > here and deliberately **not** restated as numbers: nothing checks this prose against the
 > config, so a number copied into it drifts silently the first time a threshold moves. Read
-> them from `amh.conf` when you need them — `scripts/ladder.sh` names the soft and hard caps
-> when it passes and the compression floor only when it warns or fails, so the floor is the
-> one value a healthy tree never prints. Grow freely to the soft cap; no trimming below that
+> them from `amh.conf` when you need them. `scripts/ladder.sh` reads them from there too — or
+> falls back to its own defaults for a key you leave out — and prints whichever ones a verdict
+> needs: the caps on its size line, the floor on that same line when it warns or fails, and
+> again on the `ok` confirming a completed landing. A green run can name all three. Those
+> numbers are DERIVED from your config rather than copied out of it — the landing line reports
+> bytes where the key is in KB — so read one as the guard's arithmetic, never as a value to
+> copy back into prose.
+> Grow freely to the soft cap; no trimming below that
 > line. When the guard warns, run ONE deep compression
 > pass landing at or below the compression floor — never trim to just under the soft cap
 > (micro-trims re-arm the warning a session later; the wide band IS the debounce, statelessly).

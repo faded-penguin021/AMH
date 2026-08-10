@@ -11,6 +11,37 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 5.2.1 — 2026-08-10
+
+- **The seed `docs/STATE.md` length-guard preamble described the ladder's output wrongly, and
+  the sentence is corrected.** 5.1.0 stopped the preamble restating configured numbers and told
+  the reader to get them from `amh.conf` — right, and it added one inference too many: the
+  ladder "names the soft and hard caps when it passes and the compression floor only when it
+  warns or fails, so the floor is the one value a healthy tree never prints." The floor is not.
+  `guard_state_size`'s landing branch prints it on the `ok` line that confirms a completed
+  compression landing (`crossed below the soft cap and landed at N bytes, at or under the
+  M-byte floor`), so a run in which every rung is green prints the floor — the shipped fixture
+  `state_landing_good` builds exactly that case. The claim was wrong in the direction that
+  matters: an agent that believes a green ladder never names the floor, and then sees it named,
+  has been handed a reason to doubt a passing run or to go looking for a defect that is not
+  there. The preamble now says which numbers the ladder prints and that they are derived from
+  the config rather than copied out of it — the landing line reports bytes where the key is in
+  KB — and drops the inference. Nothing else in the paragraph changes: the rule against
+  restating thresholds as numbers stands, and it is the reason the sentence existed. No guard,
+  threshold, fixture, template mechanism or exit code changed — this is prose only.
+
+### Upgrading
+
+1. Copy the shipped scripts. No shipped script changed in this entry, so this is a no-op unless
+   you are also crossing an earlier version.
+2. **Seed prose, hand-applied, recommended.** If you adopted at 5.1.0 or 5.2.0 you copied the
+   sentence above into your own `docs/STATE.md` length-guard preamble. Search it for "never
+   prints" — or for any claim that a passing ladder does not name the compression floor — and
+   replace it with the corrected wording in `harness/templates/seed/docs/STATE.md`. Nothing you
+   do today becomes wrong if you skip this; what you lose by skipping it is the ability to read
+   your own guard's output at face value.
+3. Nothing else. No configuration key, threshold or script behaviour moved.
+
 ## 5.2.0 — 2026-08-10
 
 - **The seed `docs/STATE.md` length-guard preamble now says what the ladder does NOT check.**
