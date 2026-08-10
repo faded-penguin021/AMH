@@ -143,8 +143,11 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
 - **Read first:** `harness/templates/seed/` and `harness/PLACEHOLDERS.md`.
 - **Touch:** the seed file; `harness/PLACEHOLDERS.md` if placeholders changed; the changelog.
 - **Obligations:** seeds are *starting points*, not upgradeable artifacts — an adopter owns
-  their copy and will never re-sync it. So a seed change reaches existing adopters only
-  through `docs/UPGRADING.md`; say there what they must apply by hand. Every `{{PLACEHOLDER}}`
+  their copy and will never re-sync it. So a seed change reaches existing adopters only as a
+  hand-applied note: write it in the **Upgrading** subsection of this version's
+  `harness/CHANGELOG.md` entry, naming the seed file to copy the wording from.
+  `docs/UPGRADING.md` is the version-agnostic procedure and routes adopters to those entries —
+  it does not carry per-version notes, so it usually needs no edit. Every `{{PLACEHOLDER}}`
   must be documented, or the placeholder-integrity guard fails.
 - **Acceptance:** ladder green.
 - **Record:** STATE changelog line; CHANGELOG entry under the next version.

@@ -24,14 +24,17 @@ The AMH meta-repository: both the **source of truth** for the Agentic Maintenanc
 reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
 **reference instance**, running byte-identical copies of the scripts it ships. The product is
 `harness/` (prose source, templates, generated bundle); this repo's instance is `AGENTS.md` +
-`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 5.1.0** — see `harness/VERSION`,
+`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 5.2.0** — see `harness/VERSION`,
 the copy that counts.
 
 ## Current state
 
-AMH 5.0.0 is tagged and published on origin (`amh-v5.0.0` at `1427669`, confirmed by
-`git ls-remote --tags`), which is this branch's merge base. This branch's work is classified
-**5.1.0** (MINOR, owner) and all five hand-maintained copies say so; the tag is queued.
+AMH 5.1.0 is tagged and published on origin (confirmed this session by `git ls-remote --tags`,
+which closed the queue item asking for it rather than restating it). This branch's work is
+classified **5.2.0** (MINOR, owner) and all five hand-maintained copies say so; the tag is
+queued. The agent self-classified PATCH, the rule-review pass argued MINOR on the 5.1.0
+precedent — an Upgrading section that asks an adopter to copy new seed wording is the additive
+shape, whatever the prose does — and the owner confirmed MINOR on 2026-08-10.
 
 Committed ledger rows are append-only, enforced against `HEAD` by a repo-local guard: two
 metadata additions are sanctioned, everything else must stay byte-identical, and rows absent
@@ -49,10 +52,11 @@ from `HEAD` are draft material until commit. **DB-008** and **DB-013** are the r
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
 
-**OPEN — tag and publish AMH 5.1.0.** `harness/VERSION`, the changelog's top entry, `AGENTS.md`,
-this file, `amh.conf` and the README Quick Start all say 5.1.0; the bundle and the manifest are
-rebuilt. Create and push `amh-v5.1.0` after merge. No check: only the owner may tag or publish.
-Check the copies with: `grep -rn '5\.1\.0' harness/VERSION AGENTS.md docs/STATE.md amh.conf README.md`
+**OPEN — tag and publish AMH 5.2.0.** `harness/VERSION`, the changelog's top entry, `AGENTS.md`,
+this file, `amh.conf` and the README Quick Start all say 5.2.0; the bundle and the manifest are
+rebuilt (the manifest's version header moved, no script hash did). Create and push `amh-v5.2.0`
+after merge. No check: only the owner may tag or publish.
+Check the copies with: `grep -rn '5\.2\.0' harness/VERSION AGENTS.md docs/STATE.md amh.conf README.md`
 
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
 5.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
@@ -88,6 +92,21 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-10 — **The seed STATE preamble now states the end of what is machine-checked.** It
+  listed the ladder's checks and never said the list was complete, so the prose after it — grow
+  to the soft cap, no trimming below that line — read as enforced. An adopting instance deep-
+  compressed a STATE file already under the cap, got a plain `ok`, and reported the landing
+  check as holed; it is not, and the report was answered rather than acted on as a bug. The
+  landing check's sub-cap silence is the absence of a check, and the preamble now says so and
+  says why reaching for a threshold to cover it is the wrong repair — that shape fails a session
+  for deleting one closed queue item. Same class as the coverage-before-absence entry below: a
+  lesson this repo held and adopters never received. The review pass caught the first draft
+  shipping the *inverse* defect — "below the soft cap it checks nothing at all", false because
+  `guard_state_structure` runs at every size, in an entry whose whole subject is prose
+  overstating enforcement; the closure is now scoped to two named functions rather than timeless.
+  No guard, threshold, fixture or exit code changed; 5.2.0 (MINOR). `amh-v5.1.0` was confirmed
+  already published by testing the queue item, the DA-011 shape again.
 
 - 2026-08-10 — **The 5.1.0 line: prose stops restating configured numbers, and the seeds gain
   the coverage-before-absence rule.** The STATE band, three volume preambles and four seed

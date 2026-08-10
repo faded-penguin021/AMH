@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 5.1.0.** Repos that adopt it record the version they took
+**Harness version 5.2.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -878,11 +878,32 @@ session's first read cheap.
 > line, fold changelog clusters, move any durable gotcha into the append-only ledger, delete
 > narrative prose. **Project**, **Current state** and **Owner queue** must always survive
 > compression (Owner-queue items are the owner's to close — compress their prose, never drop
-> an open item). `scripts/ladder.sh` machine-checks the band, the required sections, and that
+> an open item). `scripts/ladder.sh` machine-checks the band, the required sections and that each
+> has a non-empty body, that no level-2 heading appears twice, that the Owner-queue heading is
+> still there (a warning, not a failure — the section is the owner's), and that
 > a compression pass actually lands on the floor rather than just clearing the warning. Above the cap it distinguishes a compression pass from an ordinary
 > edit by how much the file shrank — `STATE_EDIT_DELTA_BYTES` in `amh.conf` is the line
 > between them — so fixing a typo up here does not oblige you to compress the whole file or
 > revert the fix.
+> **And that list is the whole of it** — sizes, sections and their bodies, repeated headings, the
+> Owner-queue heading, the landing check. It is a claim about `guard_state_size` and
+> `guard_state_structure` in
+> `scripts/ladder.sh`, a file that upgrades independently of this one, so treat those two
+> functions as the authority: if a later harness version adds a rung, this sentence is what goes
+> stale, and nothing checks it against the script. Everything else here — what to fold, what to
+> move to the ledger, and whether to compress at all — is prose you are asked to keep, and no
+> guard will catch you breaking it.
+>
+> One consequence is worth stating outright, because the guard's silence is easy to misread as
+> approval: **the landing check never runs below the soft cap.** It is reached only by a file
+> that started above it, so a compression pass on a file that was already under the cap draws a
+> plain size line and nothing more. (The structure checks above still run, at every size — it is
+> only the size guard's landing half that goes quiet.) That silence is the absence of a check,
+> not a verdict that the edit was right: a deep compression nothing required is exactly the case
+> the paragraph above forbids and the size guard cannot see. Do not reach for a threshold to
+> cover it. It is the SHRINK that is measured, never the band, and a check that treats any large
+> shrink as a compression pass fails a session for deleting one resolved Owner-queue item from a
+> healthy file — leaving padding the file back as the only way to pass.
 
 ## Project
 
