@@ -503,8 +503,18 @@ Long-term memory: numbered deviations and discoveries live in `docs/LEDGER.md` �
 **permanent, append-only registry** (code cites bare `D-NN`; code-cited rows carry a
 `[cited]` marker that you write and the ladder verifies in both directions — nothing syncs
 it for you; never compress or delete entries; append the next number in
-the live ledger file — each file caps at {{LINE_CAP}} lines: the final row may overflow the
+the live ledger file — each file caps at `LEDGER_LINE_CAP` lines from `amh.conf`, a number
+this prose deliberately does not copy: the final row may overflow the
 cap, the next row opens the next file, `D-… → DA-…` (`_A.md`) `→ DB-…`).
+
+> **Establish coverage before you report an absence.** "It does not exist" and "it never
+> happened" are claims about your search until you can say what you searched and that it could
+> have contained the thing. Before reporting one, name the artifact you looked in and why it
+> would hold the answer. The recurring trap is local git state: where branches are squash-merged
+> an entire train of sessions arrives as ONE commit and every intermediate state is destroyed on
+> purpose, so `git log` cannot answer a question about this repository's past — the ledger and
+> the `docs/STATE.md` changelog are the record. Nothing enforces this; no pre-execution check
+> can see a belief formed after a command returns.
 
 ## Maintenance protocol (every session)
 
@@ -805,6 +815,26 @@ inside the debounce band instead of reaching the compression floor. Pick numbers
 warn − compress-to spans many sessions of growth and hard − warn leaves one long session of
 margin — 9 / 14 / 16 KB is a working example.
 
+In the *rule* prose that explains these thresholds, name the `amh.conf` keys rather than
+restating their values. Nothing checks such a number, and a guard for it would have to lift a
+value out of a sentence — P20 points doc-fact guards at code-against-a-constant instead, and
+the one prose-reading exception this harness ships (`version-lockstep.sh`) works only because
+the sentence it reads has a fixed shape. So the copy and the config drift the moment a value
+moves, and the reader who trusts the stale one is misled by the document meant to orient them.
+The harness lowered `LEDGER_ROW_CHAR_CAP` in 5.0.0 and left three volume preambles stating the
+old value, missed because they spelled it `2,000` while the search was for `2000`. An agent
+does not need the number from the prose: `scripts/ladder.sh` reports each threshold it is
+judging against, from the config. Check that claim before you make it, though — a rung that
+prints a value only when it fails leaves that one to be read from `amh.conf`, which is exactly
+the case for the compression floor above.
+
+Four kinds of restatement stay legitimate, and saying so keeps the rule from being read as a
+ban on ever writing a number: a **worked example** for an adopter choosing values (the previous
+paragraph is one), a **historical statement** of what a threshold was at some past moment, a
+**script default** sitting beside the code that uses it, and a **self-contained fixture** with
+no `amh.conf` to be authoritative. What the rule forbids is a live rule-statement asserting a
+value it is not the source of.
+
 Say in the file itself that the compression floor is a **ceiling, not a target**. Every phrasing
 of the rule is naturally read as "land at the floor", and an agent that reads it that way will
 shave words one at a time until the guard goes quiet — the micro-trim reflex the band exists to
@@ -831,20 +861,25 @@ but capacity-bounded — the cap is what forces compaction, and compaction is wh
 session's first read cheap.
 -->
 
-> **Length guard (read before editing — hysteresis).** Grow freely to **{{WARN_KB}} KB**; no
-> trimming below that line. When the guard warns, run ONE deep compression pass to
-> **≤ {{COMPRESS_TO_KB}} KB** — never trim to just under the threshold (micro-trims re-arm the
-> warning a session later; the wide band IS the debounce, statelessly). That number is a
-> **ceiling, not a target**: aim comfortably below it. If the pass lands short, fold MORE
-> completed stages — do not micro-trim toward the floor; that is the same reflex the band
-> exists to break, reappearing one threshold lower. Fail above
-> **{{HARD_KB}} KB**. Compression means: collapse each completed work stage into one Changelog
+> **Length guard (read before editing — hysteresis).** The three thresholds are
+> `STATE_WARN_KB`, `STATE_COMPRESS_TO_KB` and `STATE_HARD_KB` in `amh.conf`. They are named
+> here and deliberately **not** restated as numbers: nothing checks this prose against the
+> config, so a number copied into it drifts silently the first time a threshold moves. Read
+> them from `amh.conf` when you need them — `scripts/ladder.sh` names the soft and hard caps
+> when it passes and the compression floor only when it warns or fails, so the floor is the
+> one value a healthy tree never prints. Grow freely to the soft cap; no trimming below that
+> line. When the guard warns, run ONE deep compression
+> pass landing at or below the compression floor — never trim to just under the soft cap
+> (micro-trims re-arm the warning a session later; the wide band IS the debounce, statelessly).
+> The floor is a **ceiling, not a target**: aim comfortably below it. If the pass lands short,
+> fold MORE completed stages — do not micro-trim toward the floor; that is the same reflex the
+> band exists to break, reappearing one threshold lower. Fail above the hard cap.
+> Compression means: collapse each completed work stage into one Changelog
 > line, fold changelog clusters, move any durable gotcha into the append-only ledger, delete
 > narrative prose. **Project**, **Current state** and **Owner queue** must always survive
 > compression (Owner-queue items are the owner's to close — compress their prose, never drop
 > an open item). `scripts/ladder.sh` machine-checks the band, the required sections, and that
-> a compression pass actually lands on the {{COMPRESS_TO_KB}} KB floor rather than just
-> clearing the warning. Above the cap it distinguishes a compression pass from an ordinary
+> a compression pass actually lands on the floor rather than just clearing the warning. Above the cap it distinguishes a compression pass from an ordinary
 > edit by how much the file shrank — `STATE_EDIT_DELTA_BYTES` in `amh.conf` is the line
 > between them — so fixing a typo up here does not oblige you to compress the whole file or
 > revert the fix.
@@ -989,6 +1024,16 @@ cut (version invariants; the owner does the tagging), etc.}}
 8. **Verification disclosure.** Every commit body states what was actually verified (which
    ladder rungs and tests ran) and names what could NOT be verified locally. Disclosure of
    real actions, addressed to a human — never something a gate consumes.
+9. **Establish coverage before reporting an absence.** Before you report that something does
+   not exist or never happened, establish that the command you ran could have seen it, and say
+   which artifact you searched. A local artifact was read and the answer reported as a property
+   of the repository is the shape to watch for. The standing trap is git: where branches are
+   squash-merged, a whole train of sessions arrives as ONE commit and the intermediate states
+   are destroyed by design, so `git log`, `git show`, `blame` and `tag` cannot answer questions
+   about this repository's past — the ledger and the STATE changelog are the only surviving
+   record. This is prose-only and must stay so: the defect is the generalisation drawn from a
+   command's output, and no pre-execution rail can see a belief formed after the command
+   returned.
 
 ## Adversarial review protocol (MANDATORY for {{UNTESTED_GLUE_AREAS}} diffs)
 
@@ -1135,10 +1180,12 @@ shipped bug teaches session N+9's review pass.
 > not the whole debugging narrative; put larger narratives in `docs/history/` and link them
 > from the `docs/STATE.md` changelog.
 >
-> **File cap & rollover.** This file holds at most **{{LINE_CAP}}** lines (the cap bounds
-> LINES, not rows — rows vary in length, and it is read and context cost that is being
-> bounded; keep the number in lockstep with `LEDGER_LINE_CAP` in `amh.conf`). New rows must
-> stay at or below the configured `LEDGER_ROW_CHAR_CAP`, counted as bytes under `LC_ALL=C`;
+> **File cap & rollover.** This file holds at most `LEDGER_LINE_CAP` lines from `amh.conf` (the
+> cap bounds LINES, not rows — rows vary in length, and it is read and context cost that is
+> being bounded). Neither this cap nor the row cap below is restated here as a number, and
+> neither should be: nothing checks preamble prose against `amh.conf`, so a copied number goes
+> stale the first time a cap moves, and the ladder prints both live values in its verdicts.
+> New rows must stay at or below `LEDGER_ROW_CHAR_CAP`, counted as bytes under `LC_ALL=C`;
 > ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. Rows
 > already committed when checked are historical and exempt. The final row may finish past the
 > file cap, but no row may ever *start* past it: when the file stands over the

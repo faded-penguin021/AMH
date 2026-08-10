@@ -29,10 +29,12 @@ shipped bug teaches session N+9's review pass.
 > not the whole debugging narrative; put larger narratives in `docs/history/` and link them
 > from the `docs/STATE.md` changelog.
 >
-> **File cap & rollover.** This file holds at most **{{LINE_CAP}}** lines (the cap bounds
-> LINES, not rows — rows vary in length, and it is read and context cost that is being
-> bounded; keep the number in lockstep with `LEDGER_LINE_CAP` in `amh.conf`). New rows must
-> stay at or below the configured `LEDGER_ROW_CHAR_CAP`, counted as bytes under `LC_ALL=C`;
+> **File cap & rollover.** This file holds at most `LEDGER_LINE_CAP` lines from `amh.conf` (the
+> cap bounds LINES, not rows — rows vary in length, and it is read and context cost that is
+> being bounded). Neither this cap nor the row cap below is restated here as a number, and
+> neither should be: nothing checks preamble prose against `amh.conf`, so a copied number goes
+> stale the first time a cap moves, and the ladder prints both live values in its verdicts.
+> New rows must stay at or below `LEDGER_ROW_CHAR_CAP`, counted as bytes under `LC_ALL=C`;
 > ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. Rows
 > already committed when checked are historical and exempt. The final row may finish past the
 > file cap, but no row may ever *start* past it: when the file stands over the

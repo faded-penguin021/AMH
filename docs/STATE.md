@@ -1,9 +1,16 @@
 # STATE — project state & session memory
 
-> **Length guard (hysteresis).** Grow freely to **14 KB**; over it, ONE deep pass landing at
-> **≤ 9 KB** — a ceiling, not a target; anywhere below is fine, 7–8 KB is comfortable, and you do
-> not keep shaving once under (owner, 2026-07-27). Fail above **16 KB**. **Compress by folding
-> whole completed stages into Changelog pointer lines and moving durable lessons to the ledger** —
+> **Length guard (hysteresis).** The three thresholds are `STATE_WARN_KB`,
+> `STATE_COMPRESS_TO_KB` and `STATE_HARD_KB` in `amh.conf`, and they are deliberately **not**
+> restated here as numbers: nothing checks this prose against the config, so a restated number
+> is a drift class no guard here covers (**DB-022**). Read them from `amh.conf` when you need
+> them. The ladder's cap rung names the soft and hard caps when it passes and the compression
+> floor when it warns or fails — so the floor is the one value a healthy tree never prints.
+> Grow freely to the soft cap; over it, ONE deep pass landing at or below the compression
+> floor — a ceiling, not a target; anywhere below is fine, a comfortable margin under it is
+> fine, and you do not keep shaving once under (owner, 2026-07-27). Fail above the hard cap.
+> **Compress by folding whole completed stages into Changelog pointer lines and moving durable
+> lessons to the ledger** —
 > never by shaving clauses until the guard goes quiet, and never by cutting text into another
 > file. If the first pass lands short, fold MORE stages: micro-trimming toward the floor is the
 > same reflex the band exists to break, one threshold lower. A typo fix above the cap is allowed
@@ -22,9 +29,9 @@ the copy that counts.
 
 ## Current state
 
-AMH 4.2.0 is tagged and published on origin (`amh-v4.2.0` at `aa952ae`, confirmed by
-`git ls-remote`). This branch's work is classified **5.0.0** (MAJOR, owner) and the version
-now says so in all five hand-maintained copies; the tag is the owner's step and is queued.
+AMH 5.0.0 is tagged and published on origin (`amh-v5.0.0` at `1427669`, confirmed by
+`git ls-remote --tags`), which is this branch's merge base. All five hand-maintained version
+copies say 5.0.0. Work since the tag sits in the changelog's Unreleased section, unclassified.
 
 Committed ledger rows are append-only under a repo-local guard that compares the working tree
 to `HEAD`: a row predating the active unit must stay byte-identical except for two sanctioned
@@ -44,14 +51,15 @@ sentence, or both. Rows absent from `HEAD` are draft material until commit. **DB
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
 
-**OPEN — tag and publish AMH 5.0.0.** `harness/VERSION`, the changelog's top entry,
-`AGENTS.md`, this file, `amh.conf` and the README Quick Start all say 5.0.0; the bundle and the
-manifest are rebuilt. Create and push `amh-v5.0.0` after merge. No check: only the owner may
-tag or publish.
-Check the copies with: `grep -rn '5\.0\.0' harness/VERSION AGENTS.md docs/STATE.md amh.conf README.md`
+**OPEN — classify the Unreleased changelog section.** No guard, threshold or exit code moved
+and nothing an adopter relied on was deleted, which rules out MAJOR. It adds a binding rule to
+the seed constitution and seed runbook that adopters hand-apply, which is `CONTRIBUTING.md`'s
+MINOR row ("additive… templates they may take or leave"); read as pure clarification it is a
+PATCH. Recommend **MINOR**. Owner's call (discipline 7). No check: only the owner classifies.
+Check the section exists with: `sed -n '/^## Unreleased/,/^## 5/p' harness/CHANGELOG.md`
 
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
-4.1.0 are cut and 4.1.0 is published, and `main`'s protection is repointed at `ladder`.
+5.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -78,11 +86,26 @@ re-litigate from.
   Five of RFC3's seven scenarios, per-scenario YAML, an oracle directory and in-tree reports —
   **DA-026**, and the five failed provenance three DIFFERENT ways that the row must be read to
   see. Each of the three carries an argument this line deliberately does not reproduce.
+- **The 2026-08-10 review's two refusals** — **DB-024**.
 
 ## Changelog
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-10 — **Prose stops restating configured numbers, and the seeds gain the
+  coverage-before-absence rule.** The STATE band, three volume preambles and four seed
+  placeholders each copied a number only `amh.conf` is authoritative for — the drift class
+  5.0.0 demonstrated, and the one P20 forbids guarding. Prose now names the key; the banner
+  and the ladder's verdicts carry the live value where it prints one. Separately, the DA-003
+  lesson had reached adopters nowhere and is now in both seeds. From an external review entered
+  as DATA; two of its four proposals were taken and two refused. **DB-023** and **DB-024** are
+  the record.
+
+- 2026-08-10 — **`amh-v5.0.0` is tagged and published on origin**, at `1427669`, closing that
+  Owner-queue item. Found by testing the item rather than restating it — the session banner had
+  said so at startup, and the first draft of this unit carried the item forward anyway, which
+  is the DA-011 shape it was shipping a rule about.
 
 - 2026-08-09 — **`LEDGER_ROW_CHAR_CAP` drops 2000 → 800, cut as MAJOR 5.0.0.** The cap had
   never bound: the six rows written since the guard landed run 1132–1657 bytes. 800 is below

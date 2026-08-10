@@ -255,6 +255,19 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
 8. **Verification disclosure.** Every commit body states which ladder rungs actually ran and
    names what could NOT be verified locally. Disclosure of real actions, addressed to a human
    — never something a gate consumes (D-014).
+9. **Establish coverage before reporting an absence.** Before you report that something does
+   not exist or never happened, establish that the command you ran could have seen it, and say
+   which artifact you searched. The tell is available before the claim: a local artifact was
+   read and its answer reported as a property of the repository. `MERGE_MODE=branch-train` plus
+   squash-merge means a whole train arrives as ONE commit and the branches are pruned, so
+   `git log`, `git show`, `blame` and `tag` cannot answer a question about this repository's
+   past — the ledger and the STATE changelog are the only surviving record (**DA-002**,
+   **DA-003**). A pre-execution rail on `git log` was considered and declined: the defect is
+   the generalisation drawn from the output, which no such rail can see. What was accepted
+   instead is a line in the session banner — but that line reaches you only if your harness
+   ran `scripts/session-start.sh`, and one of the two first-class adapters has no
+   session-start hook to run it. So this is prose-only and binds you whether or not anything
+   printed it.
 
 ## Adversarial review protocol (MANDATORY for diffs the fixtures cannot see)
 

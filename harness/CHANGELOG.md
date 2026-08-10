@@ -11,6 +11,39 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## Unreleased
+
+- **Seed prose names configuration thresholds by key instead of restating them as numbers.**
+  The seed `docs/STATE.md` preamble carried `{{WARN_KB}}` / `{{COMPRESS_TO_KB}}` /
+  `{{HARD_KB}}` and the seed `docs/LEDGER.md` and `AGENTS.md` carried `{{LINE_CAP}}`. Each was
+  substituted once at init and then sat in the adopter's prose with nothing binding it to
+  `amh.conf` — the drift class 5.0.0 demonstrated, where three volume preambles kept stating a
+  cap the guard had stopped honouring. The prose now names `STATE_WARN_KB`,
+  `STATE_COMPRESS_TO_KB`, `STATE_HARD_KB`, `LEDGER_LINE_CAP` and `LEDGER_ROW_CHAR_CAP` and says
+  why it does not repeat their values. No guard, threshold or exit code changed; the four
+  placeholders are still used by `amh.conf.example` and still documented.
+
+- **The seed constitution and seed runbook gained the coverage-before-absence rule.** Before
+  reporting that something does not exist or never happened, establish that the command you ran
+  could have seen it. It is the failure class this project has recorded most often, and none of
+  what it had — ledger rows, a conformance fixture, a line in the session banner — was
+  something an adopting repository receives. Prose-only, and stated as prose-only: the defect
+  is the generalisation drawn from a command's output, which no pre-execution rail can observe.
+
+### Upgrading
+
+1. Copy the shipped scripts. No shipped script changed in this entry, so this is a no-op unless
+   you are also crossing an earlier version.
+2. **Seed prose, hand-applied and optional.** If your `docs/STATE.md` or ledger preambles state
+   a cap as a number, replace the number with the `amh.conf` key that holds it. Nothing checks
+   preamble prose against your config, which is the whole reason: the number can only ever be
+   right by someone remembering to edit it. Your existing numbers keep working until a
+   threshold moves.
+3. **Seed prose, hand-applied and recommended.** Add the coverage-before-absence rule to your
+   constitution and to your runbook's session discipline. Copy the wording from
+   `harness/templates/seed/AGENTS.md` and `harness/templates/seed/docs/RUNBOOK.md`.
+4. Nothing here changes a verdict. A tree that was green stays green.
+
 ## 5.0.0 — 2026-08-09
 
 - **The default `LEDGER_ROW_CHAR_CAP` drops from 2000 to 800.** The cap exists to keep a

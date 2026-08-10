@@ -1,7 +1,8 @@
 # DEVIATIONS & DISCOVERIES LEDGER — volume A (DA-001…)
 
 > **Append-only registry — NEVER archived, compressed or truncated.** This is volume A,
-> opened when `docs/LEDGER.md` reached its 800-line cap at row D-035. Rows in the previous
+> opened when `docs/LEDGER.md` reached its line cap (800 at the time) at row D-035. Rows in
+> the previous
 > volume are never moved or renumbered, and a citation's prefix names its file: `D-NNN`
 > resolves in `docs/LEDGER.md`, `DA-NNN` here. Code and docs cite entries as bare IDs and
 > those citations must always resolve; no entry is ever deleted or summarised away. Note the
@@ -28,12 +29,13 @@
 > not the whole debugging narrative; put larger narratives in `docs/history/` and link them
 > from the `docs/STATE.md` changelog.
 >
-> **File cap & rollover.** This file holds at most **800 lines** (the cap bounds LINES, not
-> rows — it is read cost that is being bounded, and the number stays in lockstep with
-> `LEDGER_LINE_CAP` in `amh.conf`). For new rows, the configured character cap is **800
-> byte-counted characters**; the guard counts bytes under `LC_ALL=C` for a locale-stable
-> result, so ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded
-> bytes. Rows already committed when checked are historical and exempt. The final row may
+> **File cap & rollover.** This file holds at most `LEDGER_LINE_CAP` lines from `amh.conf` (the
+> cap bounds LINES, not rows — it is read cost that is being bounded). New rows are capped by
+> `LEDGER_ROW_CHAR_CAP`; the guard counts bytes under `LC_ALL=C` for a locale-stable result, so
+> ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. Neither
+> value is restated here as a number, and neither should be: nothing checks preamble prose
+> against `amh.conf`, and the 5.0.0 cap change left three volume preambles contradicting the
+> guard (**DB-022**). The ladder prints both live values in its verdicts. Rows already committed when checked are historical and exempt. The final row may
 > finish past the file cap, but no row may
 > ever *start* past it: when this file stands over the cap, create LEDGER_B.md (this file's
 > name with a _B suffix) with the same header discipline, numbering from **DB-001**. It is
