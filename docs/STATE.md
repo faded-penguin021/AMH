@@ -31,11 +31,10 @@ the copy that counts.
 
 AMH 5.1.0 is tagged and published on origin (confirmed this session by `git ls-remote --tags`,
 which closed the queue item asking for it rather than restating it). This branch's work is
-classified **5.2.0** (MINOR, agent) and all five hand-maintained copies say so; the tag is
-queued. The call was not routed, because the rule routes an ambiguous *major-vs-minor* and MAJOR
-is plainly out. It was self-classified PATCH first; the rule-review pass argued MINOR on the
-5.1.0 precedent — an Upgrading section that asks an adopter to copy new seed wording is the
-additive shape, whatever the prose does — and that reading was taken.
+classified **5.2.0** (MINOR, owner) and all five hand-maintained copies say so; the tag is
+queued. The agent self-classified PATCH, the rule-review pass argued MINOR on the 5.1.0
+precedent — an Upgrading section that asks an adopter to copy new seed wording is the additive
+shape, whatever the prose does — and the owner confirmed MINOR on 2026-08-10.
 
 Committed ledger rows are append-only, enforced against `HEAD` by a repo-local guard: two
 metadata additions are sanctioned, everything else must stay byte-identical, and rows absent
@@ -58,12 +57,6 @@ this file, `amh.conf` and the README Quick Start all say 5.2.0; the bundle and t
 rebuilt (the manifest's version header moved, no script hash did). Create and push `amh-v5.2.0`
 after merge. No check: only the owner may tag or publish.
 Check the copies with: `grep -rn '5\.2\.0' harness/VERSION AGENTS.md docs/STATE.md amh.conf README.md`
-
-**OPEN — confirm the 5.2.0 MINOR classification, or reclassify.** An agent made this call rather
-than routing it, since the rule routes only an ambiguous major-vs-minor and MAJOR is out; the
-reasoning and the PATCH-then-MINOR revision are in **Current state**. Flagged because it is the
-one number an adopter is asked to trust without reading the diff. No check: a judgement, not an
-observable.
 
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
 5.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
