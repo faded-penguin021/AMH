@@ -652,6 +652,7 @@
   verdicts — except the STATE compression floor, which a passing run never prints; read that
   one from the config. **A fact restated where only one copy is authoritative is a drift class,
   and the fix is subtraction, not machinery.**
+  Superseded by DB-025.
 - DB-024: **Two refusals from the external review of 2026-08-10, recorded so P10 does not have
   to re-argue them.** (a) *An enforcement-layer column on the README mechanism table.* Refused
   as an honesty regression in table form: the layer is per-RULE, not per-MECHANISM — "rails"
@@ -660,3 +661,12 @@
   secret-hygiene section already models the per-rule form. (b) *A third conformance scenario,
   and broadening the lab to more models.* Not refused on merit — the incident bar wants a third
   recorded failure class, and running subjects is an owner-launched step (C14), not an agent's.
+
+- DB-025: **Prose about a guard's OUTPUT drifts exactly like prose about its thresholds — and
+  corrects DB-023, which this row supersedes.** DB-023's rule stands whole. Its closing clause
+  broke it: it called the floor the one value a healthy tree never prints. False —
+  `guard_state_size`'s landing branch names the floor on the `ok` confirming a completed
+  landing, and `state_landing_good` makes a fully green ladder do it. **The first repair then
+  reproduced the class it was closing**, calling that number the config value "quoted" when the
+  line emits bytes and the key is KB. Read the branch that emits the line, and prefer a claim
+  about DERIVATION to one about equality; a remembered verdict is not one.
