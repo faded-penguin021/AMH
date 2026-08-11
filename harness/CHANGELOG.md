@@ -69,9 +69,23 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   paragraph shorter is precisely the move the paragraph forbids for the file below it. The
   review pass is why that last sentence is true rather than merely intended: a first cut of this
   repository's own copy took out the two clauses release **5.2.1** existed to add — which numbers
-  the size rung prints, and that they are derived rather than copied — and they are restored, so
+  the size rung prints, and why a printed one is never a value to copy back — and they are
+  restored, so
   the saving there is a much smaller 10%. No threshold, guard, fixture or exit code changed;
   `guard_state_size` and `guard_state_structure` are untouched.
+- **And the description of the ladder's output left working memory entirely.** Compressing that
+  preamble hit a floor the review made visible: a quarter of this repository's copy and an eighth
+  of the seed's was never a rule, but an account of which thresholds `guard_state_size` prints
+  and why a printed number must never be quoted back into prose — the subject of release 5.2.1,
+  and the part that must not be shortened. Relocating it is not compression: `docs/STATE.md`'s
+  preamble forbids cutting text into another file, and now carries the exception in writing.
+  Owner call: it belongs under `docs/RUNBOOK.md` → **Acceptance ladder**, which no byte cap
+  governs. The seed and this instance both move it there and leave a pointer where it stood, so
+  the rules stay in the file the guard measures and the description stops competing with an
+  adopter's actual session memory. Measured across both units, the seed's preamble is 20% smaller
+  than it was at 5.2.1 (4084 → 3271 bytes) and this repository's 16% (1699 → 1420) — less than a
+  first pass appeared to buy, because what looked compressible was mostly the part that had to be
+  preserved verbatim or moved intact. Still no threshold, guard, fixture or exit code changed.
 - **Accepted, and fixtured so it is a decision rather than a surprise:** a one-word grep
   PATTERN is indistinguishable from a path once quotes are stripped, so `grep -rn "id_rsa"
   docs/` is blocked — exactly as `grep -rn ".env" docs/` has always been. The fix would be a
@@ -94,10 +108,13 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
    entries from `harness/templates/configs/claude-settings.json` and
    `harness/templates/configs/codex-amh.rules`. Skipping this leaves the pre-execution guard
    working and the static net one layer thinner.
-5. **Seed prose, hand-applied, optional.** `docs/STATE.md`'s length-guard preamble is shorter
-   and says the same things — no rule, threshold or guard behaviour changed, so copying the new
-   wording from `harness/templates/seed/docs/STATE.md` buys back bytes in your working-memory
-   budget and nothing else, and skipping it costs nothing.
+5. **Seed prose, hand-applied, optional — two files that move together.** `docs/STATE.md`'s
+   length-guard preamble is ~20% shorter, and the paragraph describing what the size rung prints
+   now lives in `docs/RUNBOOK.md` under **Acceptance ladder**. No rule, threshold or guard
+   behaviour changed. If you take it, take both halves: copy the new preamble from
+   `harness/templates/seed/docs/STATE.md` and the new paragraph from
+   `harness/templates/seed/docs/RUNBOOK.md`, or you will delete a description you have nowhere
+   else. Skipping the pair entirely costs nothing.
 
 ## 5.2.1 — 2026-08-10
 

@@ -9,12 +9,10 @@ session's first read cheap.
 > **Length guard (read before editing — hysteresis).** The thresholds `STATE_WARN_KB`,
 > `STATE_COMPRESS_TO_KB` and `STATE_HARD_KB` live in `amh.conf`, named here and deliberately
 > **not** restated as numbers: nothing checks this prose against the config, so a copied number
-> drifts silently the first time a threshold moves. `scripts/ladder.sh` reads them from there too
-> — or falls back to its own defaults for a key you leave out — and prints whichever a verdict
-> needs: the caps on its size line, the floor when it warns, fails, or confirms a completed
-> landing. Those are DERIVED from your config, not copied out of it (the landing line reports
-> bytes where the key is in KB), so read one as the guard's arithmetic, never as a value to copy
-> back into prose.
+> drifts silently the first time a threshold moves. Which of them `scripts/ladder.sh` prints, and
+> why a number it printed is never a value to copy back into prose, are in `docs/RUNBOOK.md` →
+> **Acceptance ladder** — a description of the guard's output, deliberately kept out of the one
+> file the guard measures.
 >
 > Grow freely to the soft cap; no trimming below that line. When the guard warns, run ONE deep
 > compression pass landing at or below the compression floor — never trim to just under the soft

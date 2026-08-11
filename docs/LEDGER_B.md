@@ -700,3 +700,12 @@
   numbers are the guard's arithmetic" an unscoped claim the rung's own `${STATE_WARN_KB} KB`
   interpolation falsifies. The mandatory pass caught it; restoring cost most of the saving. Fold
   what repeats; a sentence naming a guard's OUTPUT is not repetition.
+
+- DB-029: **A description of a guard's output is not working memory — do not charge it to a byte
+  cap.** Compressing the length-guard preamble hit a floor: a quarter of this instance's copy and
+  an eighth of the seed's was not a rule but an account of what `guard_state_size` prints (DB-025,
+  the subject of release 5.2.1). Owner, 2026-08-11: move it to `docs/RUNBOOK.md` -> Acceptance
+  ladder, which no cap governs, over the argument for leaving it -- it is read when the guard
+  fires, and STATE is read in full at session start. The pointer left behind is prose only. A
+  relocation is not a compression, so the preamble's "never cut text into another file" now
+  carries the exception in writing. Shape: ask which of a bounded file's bytes the bound is for.

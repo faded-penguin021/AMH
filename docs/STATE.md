@@ -3,15 +3,16 @@
 > **Length guard (hysteresis).** The thresholds `STATE_WARN_KB`, `STATE_COMPRESS_TO_KB` and
 > `STATE_HARD_KB` live in `amh.conf`, deliberately **not** restated here as numbers: nothing
 > checks this prose against the config, so a restated number is a drift class no guard here
-> covers (**DB-022**). The size rung prints whichever of them a verdict needs — the floor on its warn and fail lines, and again on the `ok` confirming a
-> completed landing, so a green run can name all three. Those are derived from `amh.conf`, not
-> copied from it (the landing line is in bytes, the key in KB), so a printed number is the
-> guard's arithmetic, not a fourth copy (**DB-025**).
+> covers (**DB-022**). Which of them the size rung prints, and why a number it printed is never a
+> copy to quote back, are in `docs/RUNBOOK.md` → **Acceptance ladder** — a description of the
+> guard's output, kept out of the file the guard measures (**DB-025**).
 > Grow freely to the soft cap; over it, ONE deep pass landing at or below the
 > compression floor — a ceiling, not a target: anywhere below is fine, and you do not keep
 > shaving once under (owner, 2026-07-27). Fail above the hard cap. **Compress by folding whole
 > completed stages into Changelog pointer lines and moving durable lessons to the ledger** —
-> never by shaving clauses until the guard goes quiet, never by cutting text into another file.
+> never by shaving clauses until the guard goes quiet, and never by cutting text into another
+> file: moving a passage OUT is not compression and is the owner's call — granted once, for the
+> guard-output description now in the runbook (owner, 2026-08-11).
 > Land short and you fold MORE stages: micro-trimming toward the floor is the same reflex the
 > band exists to break, one threshold lower. A typo fix above the cap is allowed and still owes
 > the pass (**D-027**). The ladder checks sizes, structure and repeated headings (**D-034**) and
@@ -57,15 +58,6 @@ rebuilt (`command-guard.sh`'s hash moved, and the manifest's version header with
 push `amh-v6.0.0` after merge. No check: only the owner may tag or publish.
 Check the copies with: `grep -rn '6\.0\.0' harness/VERSION AGENTS.md docs/STATE.md amh.conf README.md`
 
-**OPEN [2026-08-11] — should the preamble's description of the ladder's OUTPUT move to
-`docs/RUNBOOK.md` → Acceptance ladder?** Compressing this file's preamble ran into a floor: about
-two-fifths of it is not a rule but a description of what `guard_state_size` prints and why (**DB-025**,
-release 5.2.1), and cutting that is what the review caught. It could live in the runbook, which no
-cap governs, leaving the rules here — saving ~450 bytes of working memory permanently and
-splitting one paragraph across two files. Recommendation: leave it, because the description is
-read at the moment the guard fires, which is here. Moving legislation between files is the
-owner's call either way. No check: this is a judgement, not an observable.
-
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
 5.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
 
@@ -102,6 +94,15 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-11 — **The ladder's output description moved out of working memory into the runbook.**
+  Owner call on the fork the unit below raised: the preamble's account of which thresholds the
+  size rung prints, and why a printed number is not a copy, is a description of a guard rather
+  than working memory, so it is charged to no byte cap now — it sits under `docs/RUNBOOK.md` →
+  Acceptance ladder in both this instance and the seed, with a prose-only pointer where it stood.
+  A relocation is not a compression, so the preamble carries the exception in writing. Measured
+  across both units, and only part of it earned by compressing: this preamble is 16% smaller than
+  at 5.2.1 (1699 → 1420 bytes) and the seed's 20% (4084 → 3271). **DB-029** is the record.
 
 - 2026-08-11 — **The length-guard preamble is compressed, here and in the seed.** From an owner
   observation: a preamble inside a capacity-bounded file spends the budget it rations, and at the

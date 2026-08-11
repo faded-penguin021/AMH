@@ -873,12 +873,10 @@ session's first read cheap.
 > **Length guard (read before editing — hysteresis).** The thresholds `STATE_WARN_KB`,
 > `STATE_COMPRESS_TO_KB` and `STATE_HARD_KB` live in `amh.conf`, named here and deliberately
 > **not** restated as numbers: nothing checks this prose against the config, so a copied number
-> drifts silently the first time a threshold moves. `scripts/ladder.sh` reads them from there too
-> — or falls back to its own defaults for a key you leave out — and prints whichever a verdict
-> needs: the caps on its size line, the floor when it warns, fails, or confirms a completed
-> landing. Those are DERIVED from your config, not copied out of it (the landing line reports
-> bytes where the key is in KB), so read one as the guard's arithmetic, never as a value to copy
-> back into prose.
+> drifts silently the first time a threshold moves. Which of them `scripts/ladder.sh` prints, and
+> why a number it printed is never a value to copy back into prose, are in `docs/RUNBOOK.md` →
+> **Acceptance ladder** — a description of the guard's output, deliberately kept out of the one
+> file the guard measures.
 >
 > Grow freely to the soft cap; no trimming below that line. When the guard warns, run ONE deep
 > compression pass landing at or below the compression floor — never trim to just under the soft
@@ -1152,6 +1150,20 @@ Containment outranks the checkpoint invariant.
 invocation. CI's verification step invokes THIS script, so there is no hand-maintained
 lockstep between what the agent runs and what CI runs. `--guards-only` covers docs-only
 changes in seconds.
+
+**What the working-memory size rung prints.** It reads `STATE_WARN_KB`, `STATE_COMPRESS_TO_KB`
+and `STATE_HARD_KB` from `amh.conf` — falling back to its own defaults for a key you leave out —
+and names whichever a verdict needs: the caps on its size line, the floor when it warns over the
+cap, when it fails, and again on the `ok` confirming a completed compression landing. A fully
+green run can therefore name all three, and seeing the floor in one is not a sign of trouble.
+Every one of those prints your configured value **verbatim**; only the landing lines add
+arithmetic, reporting the floor in bytes where the key is in KB. Which is precisely why a printed
+number is never a value to copy back into prose: quoting one makes a further copy of a config key,
+and nothing checks a copy against the config. This paragraph lives here rather than in
+`docs/STATE.md`'s length-guard preamble, which carries the RULES: a description of a guard's
+output is not working memory and should not be charged to that file's byte cap. It describes the
+three size verdicts and the landing `ok`, not the rung's other lines; read `guard_state_size` when
+it and this disagree.
 
 ## When CI fails (workflow vs code)
 
