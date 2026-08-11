@@ -13,8 +13,18 @@ prefix_rule(pattern = ["source", [".env", "./.env"]], decision = "forbidden", ju
 prefix_rule(pattern = [".", [".env", "./.env"]], decision = "forbidden", justification = "AMH forbids loading secret-bearing .env files.")
 prefix_rule(pattern = [["cat", "head", "tail", "less", "more", "strings", "grep", "wc", "sha256sum", "md5sum"], [".env", "./.env", "/proc/self/environ"]], decision = "forbidden", justification = "AMH forbids reading secret-bearing .env files and process environments.")
 
-# Codex prefix policy has no path-glob operand, so nested .env paths and arbitrary
-# /proc/<pid>/environ paths cannot be expressed here. scripts/command-guard.sh covers
+# Private key material by its conventional filename. The `.pub` half is deliberately absent:
+# the public key is meant to be read.
+prefix_rule(pattern = [["cat", "head", "tail", "less", "more", "strings", "grep", "wc", "base64", "sha256sum", "md5sum"], ["id_rsa", "./id_rsa", "id_dsa", "./id_dsa", "id_ecdsa", "./id_ecdsa", "id_ed25519", "./id_ed25519"]], decision = "forbidden", justification = "AMH forbids reading private key material; check the file's presence or read the .pub half.")
+
+# `.pem` and `.key` are NOT denied here, and that is a decision rather than an omission: both
+# are container extensions rather than secret markers, and a certificate or CA bundle bearing
+# one is public. scripts/command-guard.sh gives them a one-time advisory instead.
+
+# Codex prefix policy has no path-glob operand, so nested .env paths, arbitrary
+# /proc/<pid>/environ paths, and keys under a directory — `~/.ssh/id_rsa`, which is where they
+# actually live — cannot be expressed here. The rule above reaches the bare and `./` spellings
+# only, and that is most of what it can promise. scripts/command-guard.sh covers
 # its enumerated reader forms; AGENTS.md remains binding beyond both mechanical rails.
 
 # Git publication rails. The instructive command guard covers more spellings

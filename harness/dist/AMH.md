@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 5.2.1.** Repos that adopt it record the version they took
+**Harness version 6.0.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -380,9 +380,10 @@ tokens, proxy auth, deploy keys — even when the codebase ships none. Never dum
 dumps); never print a credential's value, prefix, suffix, length or hash. Enumerate the dump
 *shapes*, not one command: a shell builtin dumps the environment without going near `env`
 (`set`, `export -p`, `declare -x`), a file reader reaches a live process's copy of it
-(`/proc/<pid>/environ`), and the commonest leak of all is an agent echoing one variable to
-look at it (`echo $GITHUB_TOKEN`). A rail that blocks `env` and stops there is a rail with
-three doors beside it. Report only fixed-key
+(`/proc/<pid>/environ`), a private key on disk is a credential that any reader prints in full
+(`id_rsa`), and the commonest leak of all is an agent echoing one variable to look at it
+(`echo $GITHUB_TOKEN`). A rail that blocks `env` and stops there is a rail with four doors
+beside it. Report only fixed-key
 presence ("`DATABASE_URL` is set") and bounded counts, and redact subprocess, exception and API
 output before reasoning over it. If a diagnostic cannot be done through a redacted path, stop
 and request a narrower evidence contract via the Owner queue (P8 applied to secrets) — never
@@ -1458,7 +1459,11 @@ rather than the command.
 - **Deny (hard rails):** `git push --force` in all spellings; any push targeting the default
   branch directly; environment and secret dumps in the spellings a deny rule can express —
   `env`, `printenv`, the builtin dump forms (`set`, `export -p`, `declare -x`), reads of
-  `.env`-style files and of `/proc/<pid>/environ`. Deny rules match command *strings*
+  `.env`-style files and of `/proc/<pid>/environ`, and reads of private keys under their
+  conventional names (`id_rsa` and its siblings — never the `.pub` half, which is meant to be
+  read). Stop at names with no benign population: `.pem` and `.key` are container extensions
+  rather than secret markers, so a rule denying them denies reading a public certificate, and
+  a rail that blocks ordinary work gets switched off rather than narrowed. Deny rules match command *strings*
   (exactly or by prefix, depending on the agent), so they reach what you can enumerate and
   nothing else: a variable expansion inside `echo`, or a `<` redirection, is invisible to
   them. That residue is the pre-execution guard's job, below. Two cautions from live use:
@@ -1544,7 +1549,19 @@ A worked adapter, for Claude Code:
       "Read(.env)",
       "Read(.env.*)",
       "Read(**/.env)",
-      "Read(**/.env.*)"
+      "Read(**/.env.*)",
+      "Read(id_rsa)",
+      "Read(**/id_rsa)",
+      "Read(id_dsa)",
+      "Read(**/id_dsa)",
+      "Read(id_ecdsa)",
+      "Read(**/id_ecdsa)",
+      "Read(id_ecdsa_sk)",
+      "Read(**/id_ecdsa_sk)",
+      "Read(id_ed25519)",
+      "Read(**/id_ed25519)",
+      "Read(id_ed25519_sk)",
+      "Read(**/id_ed25519_sk)"
     ]
   },
   "hooks": {
@@ -1600,8 +1617,18 @@ prefix_rule(pattern = ["source", [".env", "./.env"]], decision = "forbidden", ju
 prefix_rule(pattern = [".", [".env", "./.env"]], decision = "forbidden", justification = "AMH forbids loading secret-bearing .env files.")
 prefix_rule(pattern = [["cat", "head", "tail", "less", "more", "strings", "grep", "wc", "sha256sum", "md5sum"], [".env", "./.env", "/proc/self/environ"]], decision = "forbidden", justification = "AMH forbids reading secret-bearing .env files and process environments.")
 
-# Codex prefix policy has no path-glob operand, so nested .env paths and arbitrary
-# /proc/<pid>/environ paths cannot be expressed here. scripts/command-guard.sh covers
+# Private key material by its conventional filename. The `.pub` half is deliberately absent:
+# the public key is meant to be read.
+prefix_rule(pattern = [["cat", "head", "tail", "less", "more", "strings", "grep", "wc", "base64", "sha256sum", "md5sum"], ["id_rsa", "./id_rsa", "id_dsa", "./id_dsa", "id_ecdsa", "./id_ecdsa", "id_ed25519", "./id_ed25519"]], decision = "forbidden", justification = "AMH forbids reading private key material; check the file's presence or read the .pub half.")
+
+# `.pem` and `.key` are NOT denied here, and that is a decision rather than an omission: both
+# are container extensions rather than secret markers, and a certificate or CA bundle bearing
+# one is public. scripts/command-guard.sh gives them a one-time advisory instead.
+
+# Codex prefix policy has no path-glob operand, so nested .env paths, arbitrary
+# /proc/<pid>/environ paths, and keys under a directory — `~/.ssh/id_rsa`, which is where they
+# actually live — cannot be expressed here. The rule above reaches the bare and `./` spellings
+# only, and that is most of what it can promise. scripts/command-guard.sh covers
 # its enumerated reader forms; AGENTS.md remains binding beyond both mechanical rails.
 
 # Git publication rails. The instructive command guard covers more spellings

@@ -11,6 +11,60 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 6.0.0 — 2026-08-11
+
+- **The secret-file rails covered `.env` and stopped there; they now reach private keys, and
+  `.pem`/`.key` get a speed bump rather than a block.** The question that started it was
+  whether `.pem`, `.key` and `id_rsa` belonged in the safeguard. They do not belong in the
+  same tier, and the reason is what the guard was already built on: a block reason must be
+  true of the file it names. `id_rsa` and its siblings (`id_dsa`, `id_ecdsa`, `id_ed25519`,
+  the `_sk` variants) have an empty benign population — nothing else is called that — so they
+  join `.env` and `/proc/<pid>/environ` in the block tier, across every path that reaches a
+  file: the reader list, `<` redirection, and `cp`/`mv`/`install`/`dd` sources. The `.pub` half
+  is excluded by construction rather than by a carve-out — the list matches exact literals, so
+  the public key falls through — because blocking `cat id_rsa.pub` would give a credential
+  reason to a command that exposes nothing. `.pem` and `.key` are
+  container extensions rather than secret markers — `fullchain.pem` and a CA bundle are public
+  by design — so they get the one-time advisory that `.env` already had: blocked once with an
+  explanation, allowed on the rerun. Its pattern requires the extension to end the word, since
+  `Object.keys(x)` and `jq '.keys[]'` are ordinary program text. That excludes the plural only:
+  a singular `jq -r '.key'` still spends the bump, which is fixtured as a decision rather than
+  left to be discovered, and costs one rerun because this tier denies nothing.
+- **What earned the change beyond the question.** `redact.sh`'s `private_key_block` class
+  matches the `-----BEGIN … PRIVATE KEY-----` header **line**, and the substitution is
+  line-oriented, so the base64 body prints in the clear. For key material the read-side rail is
+  not one of three layers — it is the only mechanical one, which is the opposite of the
+  situation for tokens, where the prefix classes catch a great deal of what leaks. The redactor
+  is unchanged here: a multi-line class is a different unit with its own false-positive
+  surface.
+- **Adapters moved with the guard.** The Claude deny rails gain `Read()` entries for the six
+  key stems (bare and nested), and the Codex rules gain a reader prefix rule for the four
+  common ones — the spellings each layer can actually express, with the `.pub` half absent
+  from both on purpose. Neither layer denies `.pem` or `.key`, and the rules file says so in a
+  comment, because a silent omission and a decision look identical six months later.
+- **Accepted, and fixtured so it is a decision rather than a surprise:** a one-word grep
+  PATTERN is indistinguishable from a path once quotes are stripped, so `grep -rn "id_rsa"
+  docs/` is blocked — exactly as `grep -rn ".env" docs/` has always been. The fix would be a
+  change to `split_words` covering both names at once, not a carve-out for this one.
+
+### Upgrading
+
+1. **Copy the shipped scripts.** `scripts/command-guard.sh` changed; nothing else did. The
+   manifest ships beside them.
+2. **Expect three new blocks.** Reading, redirecting from, or copying a file named `id_rsa`,
+   `id_dsa`, `id_ecdsa`, `id_ecdsa_sk`, `id_ed25519` or `id_ed25519_sk` is now denied outright.
+   If a session task legitimately needs one — a deploy step, an SSH fixture — point the tool at
+   the path instead of reading the file, use the `.pub` half, or take it to the Owner queue as
+   a narrower evidence contract. This is the MAJOR: a command that worked yesterday stops.
+3. **Expect one new speed bump.** The first command in a session naming a `.pem` or `.key` file
+   is blocked once with an explanation and allowed on the rerun, the same shape `.env` has had
+   since 4.1.0. Nothing is permanently denied.
+4. **Adapter rails, hand-applied.** If you run the Claude or Codex adapter, copy the new deny
+   entries from `harness/templates/configs/claude-settings.json` and
+   `harness/templates/configs/codex-amh.rules`. Skipping this leaves the pre-execution guard
+   working and the static net one layer thinner.
+5. **Seed prose:** no seed file changed.
+
 ## 5.2.1 — 2026-08-10
 
 - **The seed `docs/STATE.md` length-guard preamble described the ladder's output wrongly, and

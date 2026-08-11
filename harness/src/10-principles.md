@@ -346,9 +346,10 @@ tokens, proxy auth, deploy keys — even when the codebase ships none. Never dum
 dumps); never print a credential's value, prefix, suffix, length or hash. Enumerate the dump
 *shapes*, not one command: a shell builtin dumps the environment without going near `env`
 (`set`, `export -p`, `declare -x`), a file reader reaches a live process's copy of it
-(`/proc/<pid>/environ`), and the commonest leak of all is an agent echoing one variable to
-look at it (`echo $GITHUB_TOKEN`). A rail that blocks `env` and stops there is a rail with
-three doors beside it. Report only fixed-key
+(`/proc/<pid>/environ`), a private key on disk is a credential that any reader prints in full
+(`id_rsa`), and the commonest leak of all is an agent echoing one variable to look at it
+(`echo $GITHUB_TOKEN`). A rail that blocks `env` and stops there is a rail with four doors
+beside it. Report only fixed-key
 presence ("`DATABASE_URL` is set") and bounded counts, and redact subprocess, exception and API
 output before reasoning over it. If a diagnostic cannot be done through a redacted path, stop
 and request a narrower evidence contract via the Owner queue (P8 applied to secrets) — never

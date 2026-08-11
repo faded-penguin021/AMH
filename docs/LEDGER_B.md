@@ -670,3 +670,13 @@
   reproduced the class it was closing**, calling that number the config value "quoted" when the
   line emits bytes and the key is KB. Read the branch that emits the line, and prefer a claim
   about DERIVATION to one about equality; a remembered verdict is not one.
+
+- DB-026: **Tier a secret-file rail by whether its block reason is true of the file it names.**
+  Asked whether `.pem`, `.key` and `id_rsa` belonged in the safeguard, the answer split by
+  population, not risk: `id_rsa` and kin have no benign namesake, so they block, and `.pub`
+  clears by construction — the list is exact literals, so an arm for it is dead code asserting a
+  mechanism. `.pem`/`.key` are containers whose commonest bearer is a public certificate, so
+  they get the one-time advisory. Two findings under it: `private_key_block` matches the BEGIN
+  **line** and substitutes per line, so a key body prints and the read rail is the ONLY
+  mechanical layer for keys; and a glob excluding `Object.keys` still fires on a singular
+  `.key`, which no pattern separates from a field.

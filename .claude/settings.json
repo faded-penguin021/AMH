@@ -49,7 +49,19 @@
       "Read(.env)",
       "Read(.env.*)",
       "Read(**/.env)",
-      "Read(**/.env.*)"
+      "Read(**/.env.*)",
+      "Read(id_rsa)",
+      "Read(**/id_rsa)",
+      "Read(id_dsa)",
+      "Read(**/id_dsa)",
+      "Read(id_ecdsa)",
+      "Read(**/id_ecdsa)",
+      "Read(id_ecdsa_sk)",
+      "Read(**/id_ecdsa_sk)",
+      "Read(id_ed25519)",
+      "Read(**/id_ed25519)",
+      "Read(id_ed25519_sk)",
+      "Read(**/id_ed25519_sk)"
     ]
   },
   "hooks": {
