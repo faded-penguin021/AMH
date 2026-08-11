@@ -1,24 +1,22 @@
 # STATE — project state & session memory
 
-> **Length guard (hysteresis).** The three thresholds are `STATE_WARN_KB`,
-> `STATE_COMPRESS_TO_KB` and `STATE_HARD_KB` in `amh.conf`, and they are deliberately **not**
-> restated here as numbers: nothing checks this prose against the config, so a restated number
-> is a drift class no guard here covers (**DB-022**). Read them from `amh.conf` when you need
-> them. The ladder's size rung prints whichever of them a verdict needs — the floor on its warn
-> and fail lines, and again on the `ok` confirming a completed landing, so a green run can name
-> all three. Those are derived from `amh.conf`, not copied from it (the landing line is in bytes,
-> the key in KB), so a printed number is the guard's arithmetic, not a fourth copy (**DB-025**).
-> Grow freely to the soft cap; over it, ONE deep pass landing at or below the compression
-> floor — a ceiling, not a target; anywhere below is fine, a comfortable margin under it is
-> fine, and you do not keep shaving once under (owner, 2026-07-27). Fail above the hard cap.
-> **Compress by folding whole completed stages into Changelog pointer lines and moving durable
-> lessons to the ledger** —
-> never by shaving clauses until the guard goes quiet, and never by cutting text into another
-> file. If the first pass lands short, fold MORE stages: micro-trimming toward the floor is the
-> same reflex the band exists to break, one threshold lower. A typo fix above the cap is allowed
-> and still owes the pass (**D-027**). The ladder checks sizes, structure and repeated headings
-> (**D-034**) and nothing else — it will not judge whether what survived is any good, and it will
-> not stop you dropping an open owner-queue item. Never drop one.
+> **Length guard (hysteresis).** The thresholds `STATE_WARN_KB`, `STATE_COMPRESS_TO_KB` and
+> `STATE_HARD_KB` live in `amh.conf`, deliberately **not** restated here as numbers: nothing
+> checks this prose against the config, so a restated number is a drift class no guard here
+> covers (**DB-022**). The size rung prints whichever of them a verdict needs — the floor on its warn and fail lines, and again on the `ok` confirming a
+> completed landing, so a green run can name all three. Those are derived from `amh.conf`, not
+> copied from it (the landing line is in bytes, the key in KB), so a printed number is the
+> guard's arithmetic, not a fourth copy (**DB-025**).
+> Grow freely to the soft cap; over it, ONE deep pass landing at or below the
+> compression floor — a ceiling, not a target: anywhere below is fine, and you do not keep
+> shaving once under (owner, 2026-07-27). Fail above the hard cap. **Compress by folding whole
+> completed stages into Changelog pointer lines and moving durable lessons to the ledger** —
+> never by shaving clauses until the guard goes quiet, never by cutting text into another file.
+> Land short and you fold MORE stages: micro-trimming toward the floor is the same reflex the
+> band exists to break, one threshold lower. A typo fix above the cap is allowed and still owes
+> the pass (**D-027**). The ladder checks sizes, structure and repeated headings (**D-034**) and
+> nothing else — not whether what survived is any good, and not whether you dropped an open
+> owner-queue item. Never drop one.
 
 ## Project
 
@@ -59,6 +57,15 @@ rebuilt (`command-guard.sh`'s hash moved, and the manifest's version header with
 push `amh-v6.0.0` after merge. No check: only the owner may tag or publish.
 Check the copies with: `grep -rn '6\.0\.0' harness/VERSION AGENTS.md docs/STATE.md amh.conf README.md`
 
+**OPEN [2026-08-11] — should the preamble's description of the ladder's OUTPUT move to
+`docs/RUNBOOK.md` → Acceptance ladder?** Compressing this file's preamble ran into a floor: about
+two-fifths of it is not a rule but a description of what `guard_state_size` prints and why (**DB-025**,
+release 5.2.1), and cutting that is what the review caught. It could live in the runbook, which no
+cap governs, leaving the rules here — saving ~450 bytes of working memory permanently and
+splitting one paragraph across two files. Recommendation: leave it, because the description is
+read at the moment the guard fires, which is here. Moving legislation between files is the
+owner's call either way. No check: this is a judgement, not an observable.
+
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
 5.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
 
@@ -95,6 +102,14 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-11 — **The length-guard preamble is compressed, here and in the seed.** From an owner
+  observation: a preamble inside a capacity-bounded file spends the budget it rations, and at the
+  floor this one was a fifth of it. The seed's copy is ~15% shorter and this one ~10%, all of it
+  restatement; no threshold, guard, fixture or exit code moved. The rule-review pass earned the
+  difference between those two numbers — the first cut of this copy dropped the two clauses
+  5.2.1 was cut to ADD, and they are restored. Folded into the unreleased 6.0.0. **DB-028** is
+  the record.
 
 - 2026-08-11 — **The redactor became a real second layer for key material.** Owner call on the
   finding the unit below surfaced: `private_key_block` matched the header line, so the filter

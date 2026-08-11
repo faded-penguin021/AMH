@@ -59,6 +59,19 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   stems (bare and `./`) — the spellings each layer can actually express, with the `.pub` half absent
   from both on purpose. Neither layer denies `.pem` or `.key`, and the rules file says so in a
   comment, because a silent omission and a decision look identical six months later.
+- **The length-guard preamble is compressed, in the seed and in this repository's own state
+  file.** That preamble is legislation living inside working memory, so its bytes are charged to
+  the very budget it rations: at the compression floor it was spending a fifth of the file on
+  rules about how to spend the file. About 15% of the seed's copy is gone, all of it
+  restatement — the same idea said twice, or a justification the cited row already carries — so
+  each rule, citation and caveat survives exactly once. No rule was dropped: every clause up
+  there was bought by an incident with a ledger row behind it, and shaving one to make the
+  paragraph shorter is precisely the move the paragraph forbids for the file below it. The
+  review pass is why that last sentence is true rather than merely intended: a first cut of this
+  repository's own copy took out the two clauses release **5.2.1** existed to add — which numbers
+  the size rung prints, and that they are derived rather than copied — and they are restored, so
+  the saving there is a much smaller 10%. No threshold, guard, fixture or exit code changed;
+  `guard_state_size` and `guard_state_structure` are untouched.
 - **Accepted, and fixtured so it is a decision rather than a surprise:** a one-word grep
   PATTERN is indistinguishable from a path once quotes are stripped, so `grep -rn "id_rsa"
   docs/` is blocked — exactly as `grep -rn ".env" docs/` has always been. The fix would be a
@@ -81,7 +94,10 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
    entries from `harness/templates/configs/claude-settings.json` and
    `harness/templates/configs/codex-amh.rules`. Skipping this leaves the pre-execution guard
    working and the static net one layer thinner.
-5. **Seed prose:** no seed file changed.
+5. **Seed prose, hand-applied, optional.** `docs/STATE.md`'s length-guard preamble is shorter
+   and says the same things — no rule, threshold or guard behaviour changed, so copying the new
+   wording from `harness/templates/seed/docs/STATE.md` buys back bytes in your working-memory
+   budget and nothing else, and skipping it costs nothing.
 
 ## 5.2.1 — 2026-08-10
 

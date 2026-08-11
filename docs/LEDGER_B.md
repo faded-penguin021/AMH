@@ -691,3 +691,12 @@
   fixture could not fail — its oracle reused that 32. Owner, 2026-08-11: the 6.0.0
   MAJOR stands, and **a guard never opens a file** — content-aware detection is refused, so
   extension tiering is the answer for `.pem`/`.key`.
+
+- DB-028: **Compressing prose that DESCRIBES a mechanism deletes what made it auditable.** A
+  length-guard preamble is legislation inside working memory, spending at the floor a fifth of
+  the budget it rations; the seed's came down ~15% on restatement alone. The repo copy's first
+  pass cut further and lost two clauses release 5.2.1 was cut to ADD — which numbers the size
+  rung prints, and that they are DERIVED (landing line in bytes, key in KB) — leaving "printed
+  numbers are the guard's arithmetic" an unscoped claim the rung's own `${STATE_WARN_KB} KB`
+  interpolation falsifies. The mandatory pass caught it; restoring cost most of the saving. Fold
+  what repeats; a sentence naming a guard's OUTPUT is not repetition.

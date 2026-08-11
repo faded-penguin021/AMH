@@ -870,54 +870,46 @@ but capacity-bounded — the cap is what forces compaction, and compaction is wh
 session's first read cheap.
 -->
 
-> **Length guard (read before editing — hysteresis).** The three thresholds are
-> `STATE_WARN_KB`, `STATE_COMPRESS_TO_KB` and `STATE_HARD_KB` in `amh.conf`. They are named
-> here and deliberately **not** restated as numbers: nothing checks this prose against the
-> config, so a number copied into it drifts silently the first time a threshold moves. Read
-> them from `amh.conf` when you need them. `scripts/ladder.sh` reads them from there too — or
-> falls back to its own defaults for a key you leave out — and prints whichever ones a verdict
-> needs: the caps on its size line, the floor on that same line when it warns or fails, and
-> again on the `ok` confirming a completed landing. A green run can name all three. Those
-> numbers are DERIVED from your config rather than copied out of it — the landing line reports
-> bytes where the key is in KB — so read one as the guard's arithmetic, never as a value to
-> copy back into prose.
-> Grow freely to the soft cap; no trimming below that
-> line. When the guard warns, run ONE deep compression
-> pass landing at or below the compression floor — never trim to just under the soft cap
-> (micro-trims re-arm the warning a session later; the wide band IS the debounce, statelessly).
-> The floor is a **ceiling, not a target**: aim comfortably below it. If the pass lands short,
-> fold MORE completed stages — do not micro-trim toward the floor; that is the same reflex the
-> band exists to break, reappearing one threshold lower. Fail above the hard cap.
-> Compression means: collapse each completed work stage into one Changelog
-> line, fold changelog clusters, move any durable gotcha into the append-only ledger, delete
-> narrative prose. **Project**, **Current state** and **Owner queue** must always survive
-> compression (Owner-queue items are the owner's to close — compress their prose, never drop
-> an open item). `scripts/ladder.sh` machine-checks the band, the required sections and that each
-> has a non-empty body, that no level-2 heading appears twice, that the Owner-queue heading is
-> still there (a warning, not a failure — the section is the owner's), and that
-> a compression pass actually lands on the floor rather than just clearing the warning. Above the cap it distinguishes a compression pass from an ordinary
-> edit by how much the file shrank — `STATE_EDIT_DELTA_BYTES` in `amh.conf` is the line
-> between them — so fixing a typo up here does not oblige you to compress the whole file or
-> revert the fix.
-> **And that list is the whole of it** — sizes, sections and their bodies, repeated headings, the
-> Owner-queue heading, the landing check. It is a claim about `guard_state_size` and
-> `guard_state_structure` in
-> `scripts/ladder.sh`, a file that upgrades independently of this one, so treat those two
-> functions as the authority: if a later harness version adds a rung, this sentence is what goes
-> stale, and nothing checks it against the script. Everything else here — what to fold, what to
-> move to the ledger, and whether to compress at all — is prose you are asked to keep, and no
-> guard will catch you breaking it.
+> **Length guard (read before editing — hysteresis).** The thresholds `STATE_WARN_KB`,
+> `STATE_COMPRESS_TO_KB` and `STATE_HARD_KB` live in `amh.conf`, named here and deliberately
+> **not** restated as numbers: nothing checks this prose against the config, so a copied number
+> drifts silently the first time a threshold moves. `scripts/ladder.sh` reads them from there too
+> — or falls back to its own defaults for a key you leave out — and prints whichever a verdict
+> needs: the caps on its size line, the floor when it warns, fails, or confirms a completed
+> landing. Those are DERIVED from your config, not copied out of it (the landing line reports
+> bytes where the key is in KB), so read one as the guard's arithmetic, never as a value to copy
+> back into prose.
 >
-> One consequence is worth stating outright, because the guard's silence is easy to misread as
-> approval: **the landing check never runs below the soft cap.** It is reached only by a file
-> that started above it, so a compression pass on a file that was already under the cap draws a
-> plain size line and nothing more. (The structure checks above still run, at every size — it is
-> only the size guard's landing half that goes quiet.) That silence is the absence of a check,
-> not a verdict that the edit was right: a deep compression nothing required is exactly the case
-> the paragraph above forbids and the size guard cannot see. Do not reach for a threshold to
-> cover it. It is the SHRINK that is measured, never the band, and a check that treats any large
-> shrink as a compression pass fails a session for deleting one resolved Owner-queue item from a
-> healthy file — leaving padding the file back as the only way to pass.
+> Grow freely to the soft cap; no trimming below that line. When the guard warns, run ONE deep
+> compression pass landing at or below the compression floor — never trim to just under the soft
+> cap, because micro-trims re-arm the warning a session later and the wide band IS the debounce,
+> statelessly. The floor is a **ceiling, not a target**: aim comfortably below it, and if the
+> pass lands short, fold MORE completed stages rather than micro-trimming toward the floor — the
+> same reflex the band exists to break, one threshold lower. Fail above the hard cap. Compressing
+> means collapsing each completed work stage into one Changelog line, folding changelog clusters,
+> moving durable gotchas into the append-only ledger and deleting narrative prose. **Project**,
+> **Current state** and **Owner queue** must always survive it: compress an Owner-queue item's
+> prose, never drop an open one — closing them is the owner's call.
+>
+> `scripts/ladder.sh` machine-checks the band, the required sections and their non-empty bodies,
+> that no level-2 heading appears twice, that the Owner-queue heading is still there (a warning,
+> not a failure — the section is the owner's), and that a compression pass lands on the floor
+> rather than just clearing the warning; above the cap it tells a pass from an ordinary edit by
+> how much the file shrank (`STATE_EDIT_DELTA_BYTES`), so fixing a typo up here obliges you
+> neither to compress the file nor to revert. **And that list is the whole of it** — a claim
+> about `guard_state_size` and `guard_state_structure` in `scripts/ladder.sh`, a file that
+> upgrades independently of this one, so those two functions are the authority and this sentence
+> is what goes stale when a version adds a rung, with nothing checking it against the script. Everything else here — what to fold, what to move to the ledger, whether
+> to compress at all — is prose no guard will catch you breaking.
+>
+> One consequence, since silence reads as approval: **the landing check never runs below the soft
+> cap** — only a file that started above it reaches that check, though the structure checks run
+> at every size. So a deep pass on a file already under the cap draws a plain size line and
+> nothing more: the absence of a check, not a verdict that the edit was right, and exactly the
+> pass the paragraph above forbids. Do not reach for a threshold to cover it. It is the SHRINK
+> that is measured, never the band, and a check treating any large shrink as a compression pass
+> fails a session for deleting one resolved Owner-queue item from a healthy file — leaving
+> padding the file back as the only way to pass.
 
 ## Project
 
