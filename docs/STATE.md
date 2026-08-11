@@ -109,6 +109,8 @@ rows — this section is a pointer index, not a narrative.
   Claude adapter and release prose named all six OpenSSH private-key stems, but the Codex rule
   stopped at four even though its prefix syntax can express `id_ecdsa_sk` and `id_ed25519_sk`
   exactly as well. The two bare and two `./` spellings now complete that adapter's promised set.
+  CI then caught the generated bundle still carrying the four-stem template; rebuilt it from
+  source rather than hand-editing it, restoring `dist-drift.sh` coverage.
 
 - 2026-08-11 — **The secret-file rails reach private keys; `.pem`/`.key` get an advisory, not a
   block.** From an owner question about `.pem`, `.key` and `id_rsa`. `id_rsa` and its siblings
