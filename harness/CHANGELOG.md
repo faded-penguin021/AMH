@@ -55,8 +55,8 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   redacted, and a key embedded in a JSON or logfmt line is not reached at all, because its body
   shares a line with other text.
 - **Adapters moved with the guard.** The Claude deny rails gain `Read()` entries for the six
-  key stems (bare and nested), and the Codex rules gain a reader prefix rule for the four
-  common ones — the spellings each layer can actually express, with the `.pub` half absent
+  key stems (bare and nested), and the Codex rules gain a reader prefix rule for the same six
+  stems (bare and `./`) — the spellings each layer can actually express, with the `.pub` half absent
   from both on purpose. Neither layer denies `.pem` or `.key`, and the rules file says so in a
   comment, because a silent omission and a decision look identical six months later.
 - **Accepted, and fixtured so it is a decision rather than a surprise:** a one-word grep
