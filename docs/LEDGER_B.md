@@ -680,3 +680,14 @@
   **line** and substitutes per line, so a key body prints and the read rail is the ONLY
   mechanical layer for keys; and a glob excluding `Object.keys` still fires on a singular
   `.key`, which no pattern separates from a field.
+  Superseded by DB-027.
+
+- DB-027: **A redaction marker over a live value is worse than no class at all — and an oracle
+  written in the number under test tests nothing.** `private_key_block` matched the header LINE,
+  so the filter printed the marker and then the whole body. The block stage that fixes it is
+  anchored between the markers, so a manifest hash is not body, and matches only wholly base64
+  lines, so an unterminated header cannot eat prose. Its first floor was 32 characters,
+  from a comment nobody measured: real RSA tails run 20-28, so every key leaked one, and the
+  fixture could not fail — its oracle reused that 32. Owner, 2026-08-11: the 6.0.0
+  MAJOR stands, and **a guard never opens a file** — content-aware detection is refused, so
+  extension tiering is the answer for `.pem`/`.key`.

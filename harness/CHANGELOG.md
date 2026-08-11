@@ -34,9 +34,26 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   matches the `-----BEGIN … PRIVATE KEY-----` header **line**, and the substitution is
   line-oriented, so the base64 body prints in the clear. For key material the read-side rail is
   not one of three layers — it is the only mechanical one, which is the opposite of the
-  situation for tokens, where the prefix classes catch a great deal of what leaks. The redactor
-  is unchanged here: a multi-line class is a different unit with its own false-positive
-  surface.
+  situation for tokens, where the prefix classes catch a great deal of what leaks. That is what
+  earned the block tier for `id_rsa`, and it is why the next bullet exists: the finding was
+  shipped as a known gap and closed in the following unit rather than left as a comment.
+- **And the redactor became a real second layer for key material.** The finding above was left
+  standing for one commit and then fixed on the owner's call: `private_key_block` is a per-line
+  class, and a private key's value is the base64 body under the header, so the filter printed
+  `[REDACTED:private_key_block]` and then the whole key. A `private_key_body` stage now runs
+  before the token substitutions, anchored as a range between the `BEGIN` and `END` markers, and
+  inside that range it replaces lines that are wholly base64 — any length, optional padding,
+  nothing else on the line. Both bounds are load-bearing and both are fixtured: without the
+  anchor a 64-character manifest hash redacts, and without the shape restriction an unterminated
+  header swallows every line after it, which is what a truncated log and a repository full of
+  prose about key handling both look like. There is deliberately no LENGTH floor. The first
+  version had one, at 32 characters, justified by a comment nobody checked against a key: real
+  RSA-2048 bodies end in a 20- to 28-character line, so every key would have printed its tail
+  under a marker saying it had been handled. Inside the anchor there is no benign base64
+  population to protect, so the floor bought nothing and cost the tail. Two residues are named
+  and fixtured rather than implied away: after an unmatched header a lone alphanumeric word is
+  redacted, and a key embedded in a JSON or logfmt line is not reached at all, because its body
+  shares a line with other text.
 - **Adapters moved with the guard.** The Claude deny rails gain `Read()` entries for the six
   key stems (bare and nested), and the Codex rules gain a reader prefix rule for the four
   common ones — the spellings each layer can actually express, with the `.pub` half absent
@@ -49,8 +66,9 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
 
 ### Upgrading
 
-1. **Copy the shipped scripts.** `scripts/command-guard.sh` changed; nothing else did. The
-   manifest ships beside them.
+1. **Copy the shipped scripts.** `scripts/command-guard.sh` and `scripts/redact.sh` changed. The
+   manifest ships beside them. If you pipe tool output through the filter, expect a new
+   `private_key_body` marker in it; `redact.sh --classes` now names that class.
 2. **Expect three new blocks.** Reading, redirecting from, or copying a file named `id_rsa`,
    `id_dsa`, `id_ecdsa`, `id_ecdsa_sk`, `id_ed25519` or `id_ed25519_sk` is now denied outright.
    If a session task legitimately needs one — a deploy step, an SSH fixture — point the tool at

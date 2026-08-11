@@ -34,9 +34,9 @@ the copy that counts.
 AMH 5.2.1 is tagged and published on origin at `48e0946` (confirmed by `git ls-remote --tags`,
 which closed both of its queue items rather than restating them — the DA-011 shape, three times
 running). This branch's work is classified **6.0.0** (MAJOR, agent) and all five hand-maintained
-copies say so; the tag is queued. MAJOR is the table read literally: reading a file named
-`id_rsa` worked yesterday and is denied today — the "something they are doing now becomes wrong"
-row, and the DB-022 precedent for a stricter shipped default.
+copies say so; the tag is queued. The owner confirmed MAJOR (2026-08-11) and refused
+content-aware secret detection in the same breath: a guard never opens a file, so extension
+tiering is the whole answer for `.pem`/`.key` (**DB-027**).
 
 Committed ledger rows are append-only, enforced against `HEAD` by a repo-local guard whose
 sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**.
@@ -58,18 +58,6 @@ this file, `amh.conf` and the README Quick Start all say 6.0.0; the bundle and t
 rebuilt (`command-guard.sh`'s hash moved, and the manifest's version header with it). Create and
 push `amh-v6.0.0` after merge. No check: only the owner may tag or publish.
 Check the copies with: `grep -rn '6\.0\.0' harness/VERSION AGENTS.md docs/STATE.md amh.conf README.md`
-
-**OPEN — confirm the 6.0.0 classification (MAJOR).** A shipped rail got stricter: reading,
-redirecting from or copying `id_rsa` and its siblings is denied where it was allowed, so a
-command an adopter runs today stops working — the MAJOR row read literally, and the DB-022
-precedent for a stricter default. The counter-argument is that no adopter's *repository* becomes
-non-conforming, the sense in which most of this repo's MAJORs were earned. Agent shipped MAJOR
-and says so rather than guessing quietly. No check: the number is a promise to adopters, and
-only the owner makes it.
-
-**OPEN — should a guard ever open a file?** `.pem`/`.key` sit on the advisory tier because the
-extension cannot tell a private key from a certificate; reading the first line could, but no rail
-here opens files today. A scope question, not a defect: recorded, not proposed. No check.
 
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
 5.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
@@ -99,11 +87,23 @@ re-litigate from.
   which also scopes what a record may still be. Five of RFC3's seven scenarios, per-scenario YAML, an oracle directory and in-tree
   reports — **DA-026**, whose five failed provenance three DIFFERENT ways.
 - **The 2026-08-10 review's two refusals** — **DB-024**.
+- **A guard that opens files to classify them** (owner, 2026-08-11). Reading a `.pem`'s first
+  line would separate a private key from a certificate, and it is refused: no rail here opens a
+  file, and the advisory tier is the answer instead — **DB-027**.
 
 ## Changelog
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-11 — **The redactor became a real second layer for key material.** Owner call on the
+  finding the unit below surfaced: `private_key_block` matched the header line, so the filter
+  printed a marker and then the whole key. A `private_key_body` range stage now redacts the body,
+  anchored between the markers and matching wholly-base64 lines — without the anchor a manifest
+  hash redacts, without the shape bound an unterminated header eats the log, and both are
+  fixtured. The review caught the first floor: 32 characters, above the 20-28 real RSA tails, in
+  a fixture whose oracle reused that same 32. Folded into the unreleased 6.0.0 rather than bumped again. The owner also confirmed
+  MAJOR and refused content-aware detection outright. **DB-027** is the record.
 
 - 2026-08-11 — **The secret-file rails reach private keys; `.pem`/`.key` get an advisory, not a
   block.** From an owner question about `.pem`, `.key` and `id_rsa`. `id_rsa` and its siblings

@@ -395,6 +395,14 @@ stays prose. Add a third, mechanical layer where the harness allows it: a `scrip
 filter (stdin → stdout, known token shapes → `[REDACTED:<class>]` — most anchored on a
 prefix, a few on context such as an `Authorization` header or a URL's userinfo; never
 generic entropy matching, which mangles build output) that adapters pipe tool and terminal output
+through. One shape there is not a token and needs saying: a private key's value is the base64
+BODY under its header, so a per-line class matching `-----BEGIN … PRIVATE KEY-----` redacts the
+label and prints the key. Handle a key printed as a BLOCK — anchored between its markers,
+matching only wholly-base64 lines — and say plainly what that does not reach: a key embedded in
+a JSON or logfmt line shares that line with other text and stays in the clear. An unanchored
+body pattern eats hashes and manifests; a length floor on the body leaks the short last line
+that every real key ends with. A marker over a live value is worse than no class at all, because
+it reads as handled. Adapters pipe this output
 through BEFORE the context window sees it, via an output-filter hook if the agent has one. Be
 honest per adapter about capability: an agent without output rewriting keeps prose plus deny
 rails only, and the filter stays available for manual piping. The regex layer catches known

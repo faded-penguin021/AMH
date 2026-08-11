@@ -380,7 +380,7 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		;;
 	keymaterial)
 		# shellcheck disable=SC2016 # the backticked file names are markdown, not substitutions.
-		KEYMATERIAL_ADVISORY_REASON='This command names a `.pem` or `.key` file. Those extensions are container formats, not proof of a secret — a certificate or CA bundle is public — but they are also where private keys live, and a private key body survives the output filter, whose `private_key_block` class matches the `-----BEGIN … PRIVATE KEY-----` line and not the base64 after it. The command guard is stopping this once so you can check which kind of file this is: prefer the public half (`.pub`, the certificate) or a presence-only check. If the file is public, or this is prose or a path that never gets read, run the same command again; this one-time advisory will not rearm during this session.'
+		KEYMATERIAL_ADVISORY_REASON='This command names a `.pem` or `.key` file. Those extensions are container formats, not proof of a secret — a certificate or CA bundle is public — but they are also where private keys live, and this rail is what decides whether you look at one. The output filter redacts a key block header and body where it is actually piped; it cannot help with output that never goes through it. The command guard is stopping this once so you can check which kind of file this is: prefer the public half (`.pub`, the certificate) or a presence-only check. If the file is public, or this is prose or a path that never gets read, run the same command again; this one-time advisory will not rearm during this session.'
 		ADVISORY_REASON=$KEYMATERIAL_ADVISORY_REASON
 		;;
 	destructive)
@@ -652,7 +652,7 @@ reads_env_operand() {
 			return 1
 		fi
 		if names_private_key_file "$UNQUOTED"; then
-			BLOCK_REASON="Reading \`$UNQUOTED\` prints private key material (AMH P17), and the output filter is not a backstop for it: \`redact.sh\` matches the \`-----BEGIN … PRIVATE KEY-----\` header line, never the key body. Check that the file exists (\`[ -f $UNQUOTED ] && echo present\`) or read the public half (\`$UNQUOTED.pub\`), or ask the owner for a narrower evidence contract via the Owner queue."
+			BLOCK_REASON="Reading \`$UNQUOTED\` prints private key material (AMH P17). \`redact.sh\` redacts a key block header and body, but only where output is actually piped through it — nothing here guarantees that. Check that the file exists (\`[ -f $UNQUOTED ] && echo present\`) or read the public half (\`$UNQUOTED.pub\`), or ask the owner for a narrower evidence contract via the Owner queue."
 			return 1
 		fi
 	done
