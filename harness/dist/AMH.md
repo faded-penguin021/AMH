@@ -1627,7 +1627,7 @@ prefix_rule(pattern = [["cat", "head", "tail", "less", "more", "strings", "grep"
 
 # Private key material by its conventional filename. The `.pub` half is deliberately absent:
 # the public key is meant to be read.
-prefix_rule(pattern = [["cat", "head", "tail", "less", "more", "strings", "grep", "wc", "base64", "sha256sum", "md5sum"], ["id_rsa", "./id_rsa", "id_dsa", "./id_dsa", "id_ecdsa", "./id_ecdsa", "id_ed25519", "./id_ed25519"]], decision = "forbidden", justification = "AMH forbids reading private key material; check the file's presence or read the .pub half.")
+prefix_rule(pattern = [["cat", "head", "tail", "less", "more", "strings", "grep", "wc", "base64", "sha256sum", "md5sum"], ["id_rsa", "./id_rsa", "id_dsa", "./id_dsa", "id_ecdsa", "./id_ecdsa", "id_ecdsa_sk", "./id_ecdsa_sk", "id_ed25519", "./id_ed25519", "id_ed25519_sk", "./id_ed25519_sk"]], decision = "forbidden", justification = "AMH forbids reading private key material; check the file's presence or read the .pub half.")
 
 # `.pem` and `.key` are NOT denied here, and that is a decision rather than an omission: both
 # are container extensions rather than secret markers, and a certificate or CA bundle bearing
