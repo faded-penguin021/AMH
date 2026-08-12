@@ -346,9 +346,10 @@ tokens, proxy auth, deploy keys — even when the codebase ships none. Never dum
 dumps); never print a credential's value, prefix, suffix, length or hash. Enumerate the dump
 *shapes*, not one command: a shell builtin dumps the environment without going near `env`
 (`set`, `export -p`, `declare -x`), a file reader reaches a live process's copy of it
-(`/proc/<pid>/environ`), and the commonest leak of all is an agent echoing one variable to
-look at it (`echo $GITHUB_TOKEN`). A rail that blocks `env` and stops there is a rail with
-three doors beside it. Report only fixed-key
+(`/proc/<pid>/environ`), a private key on disk is a credential that any reader prints in full
+(`id_rsa`), and the commonest leak of all is an agent echoing one variable to look at it
+(`echo $GITHUB_TOKEN`). A rail that blocks `env` and stops there is a rail with four doors
+beside it. Report only fixed-key
 presence ("`DATABASE_URL` is set") and bounded counts, and redact subprocess, exception and API
 output before reasoning over it. If a diagnostic cannot be done through a redacted path, stop
 and request a narrower evidence contract via the Owner queue (P8 applied to secrets) — never
@@ -360,6 +361,14 @@ stays prose. Add a third, mechanical layer where the harness allows it: a `scrip
 filter (stdin → stdout, known token shapes → `[REDACTED:<class>]` — most anchored on a
 prefix, a few on context such as an `Authorization` header or a URL's userinfo; never
 generic entropy matching, which mangles build output) that adapters pipe tool and terminal output
+through. One shape there is not a token and needs saying: a private key's value is the base64
+BODY under its header, so a per-line class matching `-----BEGIN … PRIVATE KEY-----` redacts the
+label and prints the key. Handle a key printed as a BLOCK — anchored between its markers,
+matching only wholly-base64 lines — and say plainly what that does not reach: a key embedded in
+a JSON or logfmt line shares that line with other text and stays in the clear. An unanchored
+body pattern eats hashes and manifests; a length floor on the body leaks the short last line
+that every real key ends with. A marker over a live value is worse than no class at all, because
+it reads as handled. Adapters pipe this output
 through BEFORE the context window sees it, via an output-filter hook if the agent has one. Be
 honest per adapter about capability: an agent without output rewriting keeps prose plus deny
 rails only, and the filter stays available for manual piping. The regex layer catches known

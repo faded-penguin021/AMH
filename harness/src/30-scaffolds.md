@@ -242,7 +242,11 @@ rather than the command.
 - **Deny (hard rails):** `git push --force` in all spellings; any push targeting the default
   branch directly; environment and secret dumps in the spellings a deny rule can express —
   `env`, `printenv`, the builtin dump forms (`set`, `export -p`, `declare -x`), reads of
-  `.env`-style files and of `/proc/<pid>/environ`. Deny rules match command *strings*
+  `.env`-style files and of `/proc/<pid>/environ`, and reads of private keys under their
+  conventional names (`id_rsa` and its siblings — never the `.pub` half, which is meant to be
+  read). Stop at names with no benign population: `.pem` and `.key` are container extensions
+  rather than secret markers, so a rule denying them denies reading a public certificate, and
+  a rail that blocks ordinary work gets switched off rather than narrowed. Deny rules match command *strings*
   (exactly or by prefix, depending on the agent), so they reach what you can enumerate and
   nothing else: a variable expansion inside `echo`, or a `<` redirection, is invisible to
   them. That residue is the pre-execution guard's job, below. Two cautions from live use:

@@ -185,6 +185,20 @@ invocation. CI's verification step invokes THIS script, so there is no hand-main
 lockstep between what the agent runs and what CI runs. `--guards-only` covers docs-only
 changes in seconds.
 
+**What the working-memory size rung prints.** It reads `STATE_WARN_KB`, `STATE_COMPRESS_TO_KB`
+and `STATE_HARD_KB` from `amh.conf` — falling back to its own defaults for a key you leave out —
+and names whichever a verdict needs: the caps on its size line, the floor when it warns over the
+cap, when it fails, and again on the `ok` confirming a completed compression landing. A fully
+green run can therefore name all three, and seeing the floor in one is not a sign of trouble.
+Every one of those prints your configured value **verbatim**; only the landing lines add
+arithmetic, reporting the floor in bytes where the key is in KB. Which is precisely why a printed
+number is never a value to copy back into prose: quoting one makes a further copy of a config key,
+and nothing checks a copy against the config. This paragraph lives here rather than in
+`docs/STATE.md`'s length-guard preamble, which carries the RULES: a description of a guard's
+output is not working memory and should not be charged to that file's byte cap. It describes the
+three size verdicts and the landing `ok`, not the rung's other lines; read `guard_state_size` when
+it and this disagree.
+
 ## When CI fails (workflow vs code)
 
 The local ladder and CI run the same script, so CI-red with local-green means environment, not

@@ -460,6 +460,21 @@ Containment outranks the checkpoint invariant.
 CI invokes this exact script, so there is no hand-maintained lockstep between what the agent
 runs and what CI runs. `--guards-only` covers docs-only changes in seconds.
 
+**What the working-memory size rung prints.** It names whichever of `STATE_WARN_KB`,
+`STATE_COMPRESS_TO_KB` and `STATE_HARD_KB` a verdict needs: the soft and hard caps on its
+plain `ok`, the floor on its over-cap warn and on its fail lines, and the floor again on the `ok`
+confirming a completed compression landing. So a fully green run can name all three, and seeing
+the floor in one is not a reason to doubt it — that inference is what release 5.2.1 was cut to
+delete. Every one of those prints the configured value **verbatim**; only the landing lines add
+arithmetic, reporting the floor in bytes where the key is in KB. Which is precisely why a printed
+number is never a value to copy into prose: quoting one back makes a fourth copy of a config key,
+the drift class **DB-022** names and no guard here catches (**DB-025**). This paragraph lives here
+rather than in `docs/STATE.md`'s length-guard preamble, which carries the RULES, because a
+description of a guard's output is not working memory and should not be charged to a byte cap
+(owner, 2026-08-11). It describes four branches of `guard_state_size` — the three size verdicts
+and the landing `ok` — and not the rung's other lines; read the function when it and this
+disagree.
+
 ## When CI fails (workflow vs code)
 
 Local and CI run the same script, so CI-red with local-green means environment, not code.

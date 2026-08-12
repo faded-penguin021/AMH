@@ -11,6 +11,145 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 6.0.0 — 2026-08-11
+
+- **The secret-file rails covered `.env` and stopped there; they now reach private keys, and
+  `.pem`/`.key` get a speed bump rather than a block.** The question that started it was
+  whether `.pem`, `.key` and `id_rsa` belonged in the safeguard. They do not belong in the
+  same tier, and the reason is what the guard was already built on: a block reason must be
+  true of the file it names. `id_rsa` and its siblings (`id_dsa`, `id_ecdsa`, `id_ed25519`,
+  the `_sk` variants) have an empty benign population — nothing else is called that — so they
+  join `.env` and `/proc/<pid>/environ` in the block tier, across every path that reaches a
+  file: the reader list, `<` redirection, and `cp`/`mv`/`install`/`dd` sources. The `.pub` half
+  is excluded by construction rather than by a carve-out — the list matches exact literals, so
+  the public key falls through — because blocking `cat id_rsa.pub` would give a credential
+  reason to a command that exposes nothing. `.pem` and `.key` are
+  container extensions rather than secret markers — `fullchain.pem` and a CA bundle are public
+  by design — so they get the one-time advisory that `.env` already had: blocked once with an
+  explanation, allowed on the rerun. Its pattern requires the extension to end the word, since
+  `Object.keys(x)` and `jq '.keys[]'` are ordinary program text. That excludes the plural only:
+  a singular `jq -r '.key'` still spends the bump, which is fixtured as a decision rather than
+  left to be discovered, and costs one rerun because this tier denies nothing.
+- **What earned the change beyond the question.** `redact.sh`'s `private_key_block` class
+  matches the `-----BEGIN … PRIVATE KEY-----` header **line**, and the substitution is
+  line-oriented, so the base64 body prints in the clear. For key material the read-side rail is
+  not one of three layers — it is the only mechanical one, which is the opposite of the
+  situation for tokens, where the prefix classes catch a great deal of what leaks. That is what
+  earned the block tier for `id_rsa`, and it is why the next bullet exists: the finding was
+  shipped as a known gap and closed in the following unit rather than left as a comment.
+- **And the redactor became a real second layer for key material.** The finding above was left
+  standing for one commit and then fixed on the owner's call: `private_key_block` is a per-line
+  class, and a private key's value is the base64 body under the header, so the filter printed
+  `[REDACTED:private_key_block]` and then the whole key. A `private_key_body` stage now runs
+  before the token substitutions, anchored as a range between the `BEGIN` and `END` markers, and
+  inside that range it replaces lines that are wholly base64 — any length, optional padding,
+  nothing else on the line. Both bounds are load-bearing and both are fixtured: without the
+  anchor a 64-character manifest hash redacts, and without the shape restriction an unterminated
+  header swallows every line after it, which is what a truncated log and a repository full of
+  prose about key handling both look like. There is deliberately no LENGTH floor. The first
+  version had one, at 32 characters, justified by a comment nobody checked against a key: real
+  RSA-2048 bodies end in a 20- to 28-character line, so every key would have printed its tail
+  under a marker saying it had been handled. Inside the anchor there is no benign base64
+  population to protect, so the floor bought nothing and cost the tail. Two residues are named
+  and fixtured rather than implied away: after an unmatched header a lone alphanumeric word is
+  redacted, and a key embedded in a JSON or logfmt line is not reached at all, because its body
+  shares a line with other text.
+- **Adapters moved with the guard.** The Claude deny rails gain `Read()` entries for the six
+  key stems (bare and nested), and the Codex rules gain a reader prefix rule for the same six
+  stems (bare and `./`) — the spellings each layer can actually express, with the `.pub` half absent
+  from both on purpose. Neither layer denies `.pem` or `.key`, and the rules file says so in a
+  comment, because a silent omission and a decision look identical six months later.
+- **The length-guard preamble is compressed, in the seed and in this repository's own state
+  file.** That preamble is legislation living inside working memory, so its bytes are charged to
+  the very budget it rations: at the compression floor it was spending a fifth of the file on
+  rules about how to spend the file. About 15% of the seed's copy is gone, all of it
+  restatement — the same idea said twice, or a justification the cited row already carries — so
+  each rule, citation and caveat survives exactly once. No rule was dropped: every clause up
+  there was bought by an incident with a ledger row behind it, and shaving one to make the
+  paragraph shorter is precisely the move the paragraph forbids for the file below it. The
+  review pass is why that last sentence is true rather than merely intended: a first cut of this
+  repository's own copy took out the two clauses release **5.2.1** existed to add — which numbers
+  the size rung prints, and why a printed one is never a value to copy back — and they are
+  restored, so
+  the saving there is a much smaller 10%. No threshold, guard, fixture or exit code changed;
+  `guard_state_size` and `guard_state_structure` are untouched.
+- **And the description of the ladder's output left working memory entirely.** Compressing that
+  preamble hit a floor the review made visible: a quarter of this repository's copy and an eighth
+  of the seed's was never a rule, but an account of which thresholds `guard_state_size` prints
+  and why a printed number must never be quoted back into prose — the subject of release 5.2.1,
+  and the part that must not be shortened. Relocating it is not compression: `docs/STATE.md`'s
+  preamble forbids cutting text into another file, and now carries the exception in writing.
+  Owner call: it belongs under `docs/RUNBOOK.md` → **Acceptance ladder**, which no byte cap
+  governs. The seed and this instance both move it there and leave a pointer where it stood, so
+  the rules stay in the file the guard measures and the description stops competing with an
+  adopter's actual session memory. Measured across both units, the seed's preamble is 20% smaller
+  than it was at 5.2.1 (4084 → 3271 bytes) and this repository's 16% (1699 → 1420) — less than a
+  first pass appeared to buy, because what looked compressible was mostly the part that had to be
+  preserved verbatim or moved intact. Still no threshold, guard, fixture or exit code changed.
+- **The destructive-command advisory rearms per TARGET, not per category.** A downstream
+  session was blocked on `rm -rf "$S/base"`, renamed the target so the `rm` was not needed, and
+  described it accurately: "I routed around the trigger to save a turn." Three defects behind
+  that, all now fixed. (a) The state was one marker file per category, so the first `rm -rf` of
+  a session — typically a scratch directory — spent the rail for every later deletion on any
+  path. The file now holds one signature per operand set AS WRITTEN — the command text, not a
+  resolved path, which the advisory now states outright rather than leaving a reader to assume
+  the guard expands anything: rerunning the SAME deletion proceeds,
+  which is what "rerun to proceed" has always meant, and a deletion aimed somewhere new is
+  advised on its own. The `dotenv` and `keymaterial` rearms are untouched; this rail diverges
+  because for a deletion the target IS the risk. (b) The advisory never named the failure mode
+  it exists for. It now detects an operand that begins with a plain variable reference and
+  contains a `/` — `rm -rf "$S/base"` is `rm -rf /base` when `S` is empty — and asks for the
+  non-empty check, saying why the guard cannot make it (it sees the command before the shell
+  expands it). Command substitutions, defaulted expansions like `${S:-/tmp}` and the always-set
+  `HOME`/`PWD`/`TMPDIR`/`ROOT` are excluded: none has the empty case, and a rail that fires its
+  loudest paragraph on the commonest safe spelling is one an agent learns to skim. Those, and a
+  variable anywhere else in a path, get the weaker form of the same request. (c) The old text
+  suggested "moving the path set to a temporary directory", which is the sidestep that was
+  taken. It is gone, and the advisory now says outright that renaming or relocating the target
+  to avoid the deletion is not compliance, nor is rerunning without having looked. Advisory
+  prose is the entire intervention on this rail — nothing downstream consumes it — so the
+  clauses are pinned by fixtures in BOTH directions: what the advisory must say, and what it must
+  not claim. Each new behaviour was checked against a mutant that removes it, including the
+  parser rewrite and the signature's quoting; operands are `%q`-quoted and prefixed with the
+  command kind, so `rm -rf "a b"` and `rm -rf a b` are different deletions and `git clean -fdx`
+  cannot be cleared by an `rm` whose operand spells a sentinel.
+- **Accepted, and fixtured so it is a decision rather than a surprise:** a one-word grep
+  PATTERN is indistinguishable from a path once quotes are stripped, so `grep -rn "id_rsa"
+  docs/` is blocked — exactly as `grep -rn ".env" docs/` has always been. The fix would be a
+  change to `split_words` covering both names at once, not a carve-out for this one.
+
+### Upgrading
+
+1. **Copy the shipped scripts.** `scripts/command-guard.sh` and `scripts/redact.sh` changed. The
+   manifest ships beside them. If you pipe tool output through the filter, expect a new
+   `private_key_body` marker in it; `redact.sh --classes` now names that class.
+2. **Expect three new blocks.** Reading, redirecting from, or copying a file named `id_rsa`,
+   `id_dsa`, `id_ecdsa`, `id_ecdsa_sk`, `id_ed25519` or `id_ed25519_sk` is now denied outright.
+   If a session task legitimately needs one — a deploy step, an SSH fixture — point the tool at
+   the path instead of reading the file, use the `.pub` half, or take it to the Owner queue as
+   a narrower evidence contract. This is the MAJOR: a command that worked yesterday stops.
+3. **Expect one new speed bump.** The first command in a session naming a `.pem` or `.key` file
+   is blocked once with an explanation and allowed on the rerun, the same shape `.env` has had
+   since 4.1.0. Nothing is permanently denied.
+4. **Adapter rails, hand-applied.** If you run the Claude or Codex adapter, copy the new deny
+   entries from `harness/templates/configs/claude-settings.json` and
+   `harness/templates/configs/codex-amh.rules`. Skipping this leaves the pre-execution guard
+   working and the static net one layer thinner.
+5. **Seed prose, hand-applied, optional — two files that move together.** `docs/STATE.md`'s
+   length-guard preamble is ~20% shorter, and the paragraph describing what the size rung prints
+   now lives in `docs/RUNBOOK.md` under **Acceptance ladder**. No rule, threshold or guard
+   behaviour changed. If you take it, take both halves: copy the new preamble from
+   `harness/templates/seed/docs/STATE.md` and the new paragraph from
+   `harness/templates/seed/docs/RUNBOOK.md`, or you will delete a description you have nowhere
+   else. Skipping the pair entirely costs nothing.
+6. **Expect the `rm -rf` speed bump more than once per session.** It used to fire on the first
+   destructive command and stay quiet afterwards; it now fires once per distinct target set.
+   Rerunning the same command still proceeds immediately, so no command is newly denied — but a
+   session that deletes several different path sets will see several advisories. That is the
+   point of the change, not a regression. `DESTRUCTIVE_ADVISORY_STATE` still overrides the state
+   path; its contents are now one signature per line rather than an empty marker, so a stale
+   file from an older version simply advises once more per target.
+
 ## 5.2.1 — 2026-08-10
 
 - **The seed `docs/STATE.md` length-guard preamble described the ladder's output wrongly, and

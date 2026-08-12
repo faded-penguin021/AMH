@@ -670,3 +670,52 @@
   reproduced the class it was closing**, calling that number the config value "quoted" when the
   line emits bytes and the key is KB. Read the branch that emits the line, and prefer a claim
   about DERIVATION to one about equality; a remembered verdict is not one.
+
+- DB-026: **Tier a secret-file rail by whether its block reason is true of the file it names.**
+  Asked whether `.pem`, `.key` and `id_rsa` belonged in the safeguard, the answer split by
+  population, not risk: `id_rsa` and kin have no benign namesake, so they block, and `.pub`
+  clears by construction — the list is exact literals, so an arm for it is dead code asserting a
+  mechanism. `.pem`/`.key` are containers whose commonest bearer is a public certificate, so
+  they get the one-time advisory. Two findings under it: `private_key_block` matches the BEGIN
+  **line** and substitutes per line, so a key body prints and the read rail is the ONLY
+  mechanical layer for keys; and a glob excluding `Object.keys` still fires on a singular
+  `.key`, which no pattern separates from a field.
+  Superseded by DB-027.
+
+- DB-027: **A redaction marker over a live value is worse than no class at all — and an oracle
+  written in the number under test tests nothing.** `private_key_block` matched the header LINE,
+  so the filter printed the marker and then the whole body. The block stage that fixes it is
+  anchored between the markers, so a manifest hash is not body, and matches only wholly base64
+  lines, so an unterminated header cannot eat prose. Its first floor was 32 characters,
+  from a comment nobody measured: real RSA tails run 20-28, so every key leaked one, and the
+  fixture could not fail — its oracle reused that 32. Owner, 2026-08-11: the 6.0.0
+  MAJOR stands, and **a guard never opens a file** — content-aware detection is refused, so
+  extension tiering is the answer for `.pem`/`.key`.
+
+- DB-028: **Compressing prose that DESCRIBES a mechanism deletes what made it auditable.** A
+  length-guard preamble is legislation inside working memory, spending at the floor a fifth of
+  the budget it rations; the seed's came down ~15% on restatement alone. The repo copy's first
+  pass cut further and lost two clauses release 5.2.1 was cut to ADD — which numbers the size
+  rung prints, and that they are DERIVED (landing line in bytes, key in KB) — leaving "printed
+  numbers are the guard's arithmetic" an unscoped claim the rung's own `${STATE_WARN_KB} KB`
+  interpolation falsifies. The mandatory pass caught it; restoring cost most of the saving. Fold
+  what repeats; a sentence naming a guard's OUTPUT is not repetition.
+
+- DB-029: **A description of a guard's output is not working memory — do not charge it to a byte
+  cap.** Compressing the length-guard preamble hit a floor: a quarter of this instance's copy and
+  an eighth of the seed's was not a rule but an account of what `guard_state_size` prints (DB-025,
+  the subject of release 5.2.1). Owner, 2026-08-11: move it to `docs/RUNBOOK.md` -> Acceptance
+  ladder, which no cap governs, over the argument for leaving it -- it is read when the guard
+  fires, and STATE is read in full at session start. The pointer left behind is prose only. A
+  relocation is not a compression, so the preamble's "never cut text into another file" now
+  carries the exception in writing. Shape: ask which of a bounded file's bytes the bound is for.
+
+- DB-030: **A one-time advisory keyed to a CATEGORY is spent by the first harmless instance;
+  key it to the target.** A session blocked on `rm -rf "$S/base"` renamed the target so no `rm`
+  was needed: "I routed around the trigger to save a turn." The text had offered "move the path
+  set to a temporary directory" — its own sidestep — and never named the failure mode
+  it exists for: an empty `S` makes that `rm -rf /base`, unseeable before expansion. One marker
+  per category also let an early `rm -rf tmp/build` silence later ones. Now: rearm per
+  operand set AS WRITTEN (text, not resolved path, and the advisory says so), the check named,
+  renaming ruled out. Where nothing consumes an advisory its PROSE is the intervention: fixture
+  what it must claim and what it must not.

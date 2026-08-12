@@ -24,10 +24,20 @@
 # is the index, and it is deliberately exhaustive about the categories rather than about
 # every spelling inside them:
 #
+#   * SECRET-FILE NAMES ARE A LIST TOO. The block tier fires on `.env` and its path forms,
+#     `/proc/*/environ`, and the OpenSSH private keys `id_rsa`, `id_dsa`, `id_ecdsa`,
+#     `id_ed25519` and the `_sk` variants — nothing else. A key stored under any other name
+#     (`deploy_key`, `id_rsa.bak`, `~/.ssh/work`) is not recognised, and neither are the
+#     other private-key containers (`.p12`, `.pfx`, `.jks`, `.keystore`): they carry no
+#     name convention this scanner could read. `.pem` and `.key` are handled one tier down,
+#     as a one-time advisory rather than a block, because both are CONTAINER extensions
+#     rather than secret markers — `fullchain.pem`, `cert.pem` and a CA bundle are public
+#     by design, and a block reason claiming they expose credential values would be false
+#     about the commonest file bearing the extension.
 #   * INTERPRETERS. The secret-file scanners recognise a file read through an enumerated
 #     list of reader commands (`cat`, `grep`, `awk`, `wc`, `md5sum` and about thirty more)
-#     or a `<` redirection. A one-time `.env` advisory now blocks the first command text
-#     that names the path, but after that speed bump the list is still a list, not a
+#     or a `<` redirection. One-time advisories now block the first command text that names
+#     `.env`, `.pem` or `.key`, but after that speed bump the list is still a list, not a
 #     category: `python3 -c "open('.env')"`, `perl -e`, `node -e`, `ruby -e` and every
 #     other interpreter NOT on it reach the file unjudged. This remains the widest hole
 #     and it is structural —
@@ -272,10 +282,47 @@ BLOCK_REASON=''
 WARN_REASON=''
 ADVISORY_REASON=''
 DOTENV_ADVISORY_REASON=''
+KEYMATERIAL_ADVISORY_REASON=''
 
 is_env_template() { # .env.example and friends carry no secrets
 	case $1 in
 	*.env.example | *.env.sample | *.env.template | *.env.dist) return 0 ;;
+	*) return 1 ;;
+	esac
+}
+
+# True if a path names OpenSSH private key material by its conventional filename. This is
+# the only key-file shape narrow enough to block outright: nothing benign is called
+# `id_rsa`, so the false-positive population is empty, which is exactly what `.pem` and
+# `.key` cannot say for themselves (see the header's secret-file-names block — they get the
+# one-time advisory instead).
+#
+# The public half is meant to be read, copied and pasted into `authorized_keys`, and blocking
+# `cat id_rsa.pub` would give a credential reason to a command that exposes nothing — the
+# false-reason class this guard's write-destination split exists to avoid. There is NO `.pub`
+# arm here, and the absence is the design: the list matches exact literals, so `id_rsa.pub`
+# falls through to `return 1` by construction. An explicit arm would be dead code, and a
+# comment calling it load-bearing would be this guard's own bug class — a stated mechanism the
+# code does not have. Note the contrast with `is_env_template`, whose carve-out IS load-bearing
+# because `names_env_file` matches `.env.*` by glob and would otherwise swallow the template.
+#
+# The three `.pub` fixtures are not ceremony: they fail the moment anyone widens this list to a
+# glob (`id_rsa*`), which is the only way the public half can start blocking.
+#
+# Accepted misses, in the fail-open direction and deliberately not patched with a
+# heuristic: any renamed or suffixed key (`id_rsa.bak`, `id_rsa_old`, `deploy_key`,
+# `~/.ssh/work`). A suffix wildcard would swallow `id_rsa.pub.bak` and every documentation
+# fixture in the same move, and no wildcard reaches a key called something else at all.
+#
+# Inherited false positive, stated because it is new surface even though the mechanism is
+# old: a one-word grep PATTERN is indistinguishable from a path once quotes are stripped, so
+# `grep -rn "id_rsa" docs/` is blocked. `.env` has behaved that way since the operand scan
+# shipped; the fix would be a change to `split_words` for both names at once, not a carve-out
+# here.
+names_private_key_file() {
+	local base=${1##*/}
+	case $base in
+	id_rsa | id_dsa | id_ecdsa | id_ecdsa_sk | id_ed25519 | id_ed25519_sk) return 0 ;;
 	*) return 1 ;;
 	esac
 }
@@ -293,6 +340,7 @@ advisory_state_file() { # advisory_state_file <name>
 	local name=$1 slug uid
 	case $name in
 	dotenv) [ -n "${DOTENV_ADVISORY_STATE+x}" ] && { printf '%s' "$DOTENV_ADVISORY_STATE"; return 0; } ;;
+	keymaterial) [ -n "${KEYMATERIAL_ADVISORY_STATE+x}" ] && { printf '%s' "$KEYMATERIAL_ADVISORY_STATE"; return 0; } ;;
 	destructive) [ -n "${DESTRUCTIVE_ADVISORY_STATE+x}" ] && { printf '%s' "$DESTRUCTIVE_ADVISORY_STATE"; return 0; } ;;
 	*) return 1 ;;
 	esac
@@ -303,24 +351,75 @@ advisory_state_file() { # advisory_state_file <name>
 }
 
 needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
-	local name=$1 cmd=$2 state
+	local name=$1 cmd=$2 state sig
 	case $name in
 	dotenv) case $cmd in *.env*) ;; *) return 1 ;; esac ;;
+	# `.pem` and `.key` must be followed by a non-alphanumeric character or end the word.
+	# That excludes the PLURAL only — `Object.keys(x)`, `jq '.keys[]'`, `data.keys()` — and
+	# the honest statement of what remains is that the singular still fires: `jq -r '.key'`
+	# and `obj.key` are ordinary program text and get the advisory, fixtured below so it is a
+	# recorded decision. No pattern separates a `.key` FILE from a `.key` FIELD, and this tier
+	# is one rerun rather than a denial, which is what makes the residue affordable. The
+	# plural is worth excluding on its own: it is the commoner shape by far in real code.
+	keymaterial) case $cmd in
+	*.pem | *.pem[!A-Za-z0-9]* | *.key | *.key[!A-Za-z0-9]*) ;;
+	*) return 1 ;;
+	esac ;;
 	destructive) is_destructive_command "$cmd" || return 1 ;;
 	*) return 1 ;;
 	esac
 	state=$(advisory_state_file "$name")
 	[ -n "$state" ] || return 1
-	[ -e "$state" ] && return 1
-	: >"$state" 2>/dev/null || return 1
+	if [ "$name" = destructive ]; then
+		# Rearm per TARGET SET, not per category — the one place this rail's state
+		# deliberately diverges from the other two.
+		#
+		# A single marker file means the first `rm -rf` in a session disarms the rail for
+		# every later one. `rm -rf tmp/build` at minute two then buys silence for
+		# `rm -rf "$S/base"` at minute forty, on a different path, with a different risk.
+		# Nobody has to LEARN to step around a rail that is already spent; it just is. So
+		# a repeat of the same deletion passes (which is what "rerun to proceed" means and
+		# what the fixtures pin), and a deletion aimed somewhere new gets its own turn.
+		sig=$(destructive_signature)
+		if [ -e "$state" ] && LC_ALL=C grep -qxF -- "$sig" "$state" 2>/dev/null; then
+			return 1
+		fi
+		# If `grep` is unavailable the test above fails and the advisory re-fires — the
+		# right direction — at the cost of a duplicate line per attempt. Bounded by the
+		# session, and the bootstrap deletes the file; not worth a second mechanism.
+		printf '%s\n' "$sig" >>"$state" 2>/dev/null || return 1
+	else
+		[ -e "$state" ] && return 1
+		: >"$state" 2>/dev/null || return 1
+	fi
 	case $name in
 	dotenv)
 		# shellcheck disable=SC2016 # the presence-check example must print literally.
 		ADVISORY_REASON='This command mentions `.env`. Those files commonly contain live credentials, and even lengths, hashes, excerpts, copies or interpreter reads can disclose or spread secrets. The command guard is stopping this once so you can reconsider: prefer presence-only checks (for example, `[ -n "${MY_KEY:-}" ] && echo set`) or let the tool that needs credentials read them directly. If this warning is not applicable, or this is a false positive such as prose or a template-safe operation, run the same command again; this one-time advisory will not rearm during this session.'
 		DOTENV_ADVISORY_REASON=$ADVISORY_REASON
 		;;
+	keymaterial)
+		# shellcheck disable=SC2016 # the backticked file names are markdown, not substitutions.
+		KEYMATERIAL_ADVISORY_REASON='This command names a `.pem` or `.key` file. Those extensions are container formats, not proof of a secret — a certificate or CA bundle is public — but they are also where private keys live, and this rail is what decides whether you look at one. The output filter redacts a key block header and body where it is actually piped; it cannot help with output that never goes through it. The command guard is stopping this once so you can check which kind of file this is: prefer the public half (`.pub`, the certificate) or a presence-only check. If the file is public, or this is prose or a path that never gets read, run the same command again; this one-time advisory will not rearm during this session.'
+		ADVISORY_REASON=$KEYMATERIAL_ADVISORY_REASON
+		;;
 	destructive)
-		ADVISORY_REASON='This destructive filesystem command may delete guard fixtures, source files, or untracked evidence. Prefer targeted removal, moving the path set to a temporary directory, or confirming the complete path set before deletion. The command guard is stopping this once so you can reconsider; rerun the command to proceed if the deletion is intentional.'
+		# The old text suggested "moving the path set to a temporary directory" as an
+		# alternative, and a downstream session took exactly that: it renamed the target so
+		# the `rm` was not needed, called the rail satisfied, and made no safety check at
+		# all — "I routed around the trigger to save a turn." An advisory that names a
+		# sidestep gets the sidestep. This one asks for the check instead, and says what
+		# the check is (owner, 2026-08-12).
+		# shellcheck disable=SC2016 # the examples must print literally, unexpanded.
+		ADVISORY_REASON='This destructive filesystem command may delete guard fixtures, source files, or untracked evidence. The command guard is stopping this ONCE, for this target, so you can spend one turn on the check rather than the deletion.'
+		if [ "$DESTRUCTIVE_ROOTISH" -eq 1 ]; then
+			# shellcheck disable=SC2016 # the examples must print literally, unexpanded.
+			ADVISORY_REASON="$ADVISORY_REASON"' A path here BEGINS with a variable and contains a `/`, which is the failure mode this rail is shaped for: if that variable is empty the command addresses an absolute path instead. `rm -rf "$S/base"` with an unset `S` is `rm -rf /base`. Verify it is non-empty before you rerun — `printf %s=[%s] S "$S"` — and verify it separately from the deletion, because the guard sees the command before the shell expands it and cannot do this for you.'
+		elif [ "$DESTRUCTIVE_UNEXPANDED" -eq 1 ]; then
+			ADVISORY_REASON="$ADVISORY_REASON"' A path here still contains a variable. The guard sees the command before the shell expands it, so what actually gets deleted is only knowable on your side: print the expansion before you rerun.'
+		fi
+		# shellcheck disable=SC2016 # the example must print literally, unexpanded.
+		ADVISORY_REASON="$ADVISORY_REASON"' Then rerun the same command to proceed if the deletion is intentional. Two things that are NOT compliance: renaming or relocating the target so the deletion is no longer needed, and rerunning without having looked — both leave the rail spent and the check unmade. Deciding not to delete is a fine answer; arriving at it to avoid the prompt is not. Rerunning clears this advisory for this command TEXT only, and a deletion aimed somewhere else gets its own. Note the limit of that: the guard keys on the operands AS WRITTEN, so clearing `rm -rf "$S/base"` clears it for every later value of `S` — the rerun is your check, not the guard'"'"'s.'
 		;;
 	esac
 	return 0
@@ -587,6 +686,10 @@ reads_env_operand() {
 			BLOCK_REASON="Reading \`$UNQUOTED\` exposes credential values (AMH P17). Check key presence instead, or ask the owner for a narrower evidence contract via the Owner queue."
 			return 1
 		fi
+		if names_private_key_file "$UNQUOTED"; then
+			BLOCK_REASON="Reading \`$UNQUOTED\` prints private key material (AMH P17). \`redact.sh\` redacts a key block header and body, but only where output is actually piped through it — nothing here guarantees that. Check that the file exists (\`[ -f $UNQUOTED ] && echo present\`) or read the public half (\`$UNQUOTED.pub\`), or ask the owner for a narrower evidence contract via the Owner queue."
+			return 1
+		fi
 	done
 	return 0
 }
@@ -604,6 +707,10 @@ copies_env_operand() {
 			BLOCK_REASON="\`$cmd\` copies \`$UNQUOTED\` — credential values — to another path, where no rail here can see what reads them next (AMH P17). Leave the file where it is; if a tool needs the values, let it read the file itself, or ask the owner for a narrower evidence contract via the Owner queue."
 			return 1
 		fi
+		if names_private_key_file "$UNQUOTED"; then
+			BLOCK_REASON="\`$cmd\` copies \`$UNQUOTED\` — private key material — to another path, where no rail here can see what reads them next (AMH P17). Leave the key where it is; if a tool needs it, point the tool at this path, or ask the owner for a narrower evidence contract via the Owner queue."
+			return 1
+		fi
 	done
 	return 0
 }
@@ -619,6 +726,10 @@ check_segment() {
 	while IFS= read -r -d '' target; do
 		if names_env_file "$target"; then
 			BLOCK_REASON="Redirecting from \`$target\` feeds credential values into the command (AMH P17). Check key presence instead, or ask the owner for a narrower evidence contract via the Owner queue."
+			return 1
+		fi
+		if names_private_key_file "$target"; then
+			BLOCK_REASON="Redirecting from \`$target\` feeds private key material into the command (AMH P17). Check that the file exists, or read the public half (\`$target.pub\`), or ask the owner for a narrower evidence contract via the Owner queue."
 			return 1
 		fi
 	done < <(redirect_targets "$raw")
@@ -862,9 +973,75 @@ leading_command() {
 	printf '%s' "${words[$i]##*/}"
 }
 
+# Record what a confirmed destructive segment is aimed AT. The target is the whole risk
+# here — unlike the dotenv and key-material rails, where every hit means the same thing
+# ("you are about to read a secret"), two `rm -rf` commands in one session can be a
+# scratch directory and a source tree. So the operands are collected, and two properties
+# of the command TEXT that no amount of good intent substitutes for:
+#
+#   DESTRUCTIVE_UNEXPANDED — an operand still contains a `$`. The guard sees the command
+#     before the shell expands it, so it cannot know what the variable holds; the agent
+#     can, and the check costs one `printf`.
+#   DESTRUCTIVE_ROOTISH — an operand begins with a plain VARIABLE reference and contains a
+#     `/`. This is the shape that turns into an absolute path when the variable is empty:
+#     `rm -rf "$S/base"` with an unset `S` is `rm -rf /base`. It is the failure mode this
+#     rail exists for, and it is the one the advisory used not to mention.
+#
+# "Plain variable reference" is doing real work in that sentence, because this branch emits
+# the strongest paragraph the advisory has and an alarm that cries wolf is one an agent
+# learns to skim. Three exclusions, each because the empty-expansion failure mode is
+# genuinely absent, not merely unlikely:
+#
+#   `$(pwd)/x`, `$((n))/x`  — a substitution is not a variable; there is nothing to check
+#                             for emptiness, and telling the agent to check one is a false
+#                             instruction from a rail whose whole value is being believed.
+#   `${S:-/tmp}/x`          — a defaulted or alternate expansion cannot yield the empty
+#                             string by the route this warns about.
+#   `$HOME/x`, `$PWD/x`     — always-set shell variables. These are the commonest safe
+#     `$TMPDIR/x`, `$ROOT/x`  spelling of a scratch path by a wide margin.
+#
+# All three still set DESTRUCTIVE_UNEXPANDED, so they get the weaker "print the expansion"
+# text. The exclusion narrows which paragraph fires, never whether the advisory fires.
+record_destructive_targets() { # record_destructive_targets <kind> <operand>...
+	local kind=$1 w bare name entry
+	shift
+	for w in "$@"; do
+		case $w in *'$'*) DESTRUCTIVE_UNEXPANDED=1 ;; esac
+		# `${S}/base` and `$S/base` are the same question; `$(cmd)/base` is not a
+		# variable at all, and a `$` followed by anything else names nothing.
+		bare=''
+		# shellcheck disable=SC2016 # these patterns are literal `$` in command TEXT.
+		case $w in
+		'$('*) ;;
+		'${'*) bare=${w#??} ;;
+		'$'[A-Za-z_]*) bare=${w#?} ;;
+		esac
+		[ -n "$bare" ] || continue
+		name=${bare%%[!A-Za-z0-9_]*}
+		# The character terminating the name decides whether a default can rescue it.
+		case ${bare#"$name"} in [:=?+-]*) continue ;; esac
+		case $name in HOME | PWD | TMPDIR | ROOT) continue ;; esac
+		# Only the spellings that carry a path separator can become an absolute path.
+		case $bare in *'/'*) DESTRUCTIVE_ROOTISH=1 ;; esac
+	done
+	# One entry per destructive SEGMENT, and the entry names the command kind as well as
+	# the operands. Without the kind, `git clean -fdx` and a literal `rm -rf '<work tree>'`
+	# were the same signature — a sentinel an operand can spell is not a sentinel. Operands
+	# are `%q`-quoted before they are joined, so a space or a newline inside one target can
+	# no longer read as the boundary between two: `rm -rf "a b"` and `rm -rf a b` are
+	# different deletions and must not clear each other.
+	if [ "$#" -eq 0 ]; then
+		entry=$kind
+	else
+		entry="$kind $(printf '%q\n' "$@" | LC_ALL=C sort | tr '\n' ' ')"
+	fi
+	DESTRUCTIVE_TARGETS+=("$entry")
+}
+
 is_destructive_segment() {
 	local raw=$1 w cmd recursive=1 force=1 descend=1 i=0
 	local words=()
+	local operands=() end_of_options=1
 	while IFS= read -r -d '' w; do words+=("$w"); done < <(split_words "$raw")
 	# Find the same leading command that leading_command reports, without treating
 	# later quoted prose or operands as commands.
@@ -887,18 +1064,24 @@ is_destructive_segment() {
 	case $cmd in
 	rm)
 		for w in "${words[@]:i}"; do
+			if [ "$end_of_options" -eq 0 ]; then
+				operands+=("$w")
+				continue
+			fi
 			case $w in
 			--recursive) recursive=0 ;;
 			--force) force=0 ;;
-			--) break ;;
-			[^-]*) ;;
+			# Everything after `--` is a path, including one that looks like a flag.
+			--) end_of_options=0 ;;
+			[^-]*) operands+=("$w") ;;
 			-*)
 				case ${w#-} in *[rR]*) recursive=0 ;; esac
 				case ${w#-} in *f*) force=0 ;; esac
 				;;
 			esac
 			done
-		[ "$recursive" -eq 0 ] && [ "$force" -eq 0 ]
+		[ "$recursive" -eq 0 ] && [ "$force" -eq 0 ] || return 1
+		record_destructive_targets rm ${operands[@]+"${operands[@]}"}
 		;;
 	git)
 		# Skip git's global options, then require the clean subcommand and short
@@ -910,11 +1093,15 @@ is_destructive_segment() {
 		[ "$i" -lt "${#words[@]}" ] && [ "${words[$i]}" = clean ] || return 1
 		i=$((i + 1))
 		for w in "${words[@]:i}"; do
+			if [ "$end_of_options" -eq 0 ]; then
+				operands+=("$w")
+				continue
+			fi
 			case $w in
 			-n | --dry-run) return 1 ;;
 			--force) force=0 ;;
-			--) break ;;
-			[^-]*) ;;
+			--) end_of_options=0 ;;
+			[^-]*) operands+=("$w") ;;
 			--*) ;;
 			-*)
 				case ${w#-} in *n*) return 1 ;; esac
@@ -923,20 +1110,45 @@ is_destructive_segment() {
 				;;
 			esac
 			done
-		[ "$force" -eq 0 ] && [ "$descend" -eq 0 ]
+		[ "$force" -eq 0 ] && [ "$descend" -eq 0 ] || return 1
+		# `git clean -fdx` names no pathspec and means "the whole work tree". The kind
+		# prefix is what keeps that distinct from a pathspec-scoped clean and from an
+		# operand-less `rm`, so no spellable sentinel is needed.
+		record_destructive_targets git-clean ${operands[@]+"${operands[@]}"}
 		;;
 	*) return 1 ;;
 	esac
 }
 
 is_destructive_command() {
-	local cmd=$1 seg
+	local cmd=$1 seg found=1
+	DESTRUCTIVE_TARGETS=()
+	DESTRUCTIVE_UNEXPANDED=0
+	DESTRUCTIVE_ROOTISH=0
 	cmd=$(strip_heredocs "$cmd")
+	# Every destructive segment is scanned, not just the first. A command that deletes two
+	# path sets is two decisions, and the advisory should be able to name both — stopping
+	# at the first match is how the dangerous half of `rm -rf tmp/x && rm -rf "$S/base"`
+	# would inherit the safe half's verdict.
 	while IFS= read -r -d '' seg; do
 		[ -n "${seg// /}" ] || continue
-		is_destructive_segment "$seg" && return 0
+		is_destructive_segment "$seg" && found=0
 	done < <(split_segments "$cmd")
-	return 1
+	return "$found"
+}
+
+# The signature a repeated attempt must match to be let through. It is the target set, not
+# the category: see the rearm note in `needs_one_time_advisory`.
+destructive_signature() {
+	# Entries are built by record_destructive_targets and contain no newline: the kind is a
+	# literal and every operand went through `%q`, which renders a newline as `$'\n'`. So
+	# joining lines here cannot flatten two entries into one, and the state file's
+	# one-signature-per-line format holds without a second round of escaping.
+	if [ "${#DESTRUCTIVE_TARGETS[@]}" -eq 0 ]; then
+		printf '%s' '<nothing recorded>'
+		return
+	fi
+	printf '%s' "$(printf '%s\n' "${DESTRUCTIVE_TARGETS[@]}" | LC_ALL=C sort | tr '\n' '|')"
 }
 
 warn_ladder_tail() {
@@ -968,7 +1180,12 @@ check_command() {
 	WARN_REASON=''
 	ADVISORY_REASON=''
 	DOTENV_ADVISORY_REASON=''
+	KEYMATERIAL_ADVISORY_REASON=''
 	if needs_one_time_advisory dotenv "$cmd"; then
+		BLOCK_REASON=$ADVISORY_REASON
+		return 1
+	fi
+	if needs_one_time_advisory keymaterial "$cmd"; then
 		BLOCK_REASON=$ADVISORY_REASON
 		return 1
 	fi
@@ -1055,6 +1272,36 @@ st_dotenv_advisory_once() {
 	fi
 }
 
+# The `.pem`/`.key` advisory needs BOTH directions fixtured, and each needs a state file of
+# its own that has never fired. The negative direction is the load-bearing one: `Object.keys`
+# is ordinary program text, and with a spent state file every fixture for it passes whatever
+# the pattern says, which is exactly the fixture-that-cannot-fail shape.
+st_keymaterial_advisory() { # st_keymaterial_advisory <expect: fires|silent> <command>
+	local expect=$1 cmd=$2 state old_set old_state
+	old_set=${KEYMATERIAL_ADVISORY_STATE+x}
+	old_state=${KEYMATERIAL_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-keymaterial-advisory-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	KEYMATERIAL_ADVISORY_STATE=$state
+	if [ "$expect" = fires ]; then
+		if check_command "$cmd"; then
+			printf 'SELF-TEST FAIL: should have had one-time key-material advisory: %s\n' "$cmd" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+		elif [ -z "$KEYMATERIAL_ADVISORY_REASON" ]; then
+			printf 'SELF-TEST FAIL: key-material advisory did not explain itself in its own voice: %s\n' "$cmd" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+		elif ! check_command "$cmd"; then
+			printf 'SELF-TEST FAIL: second key-material attempt should have reached normal rails: %s\n   reason given: %s\n' "$cmd" "$BLOCK_REASON" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+		fi
+	elif ! check_command "$cmd"; then
+		printf 'SELF-TEST FAIL: should NOT have had a key-material advisory: %s\n   reason given: %s\n' "$cmd" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then KEYMATERIAL_ADVISORY_STATE=$old_state; else unset KEYMATERIAL_ADVISORY_STATE; fi
+}
+
 st_destructive_advisory_once() {
 	local state old_set old_state
 	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
@@ -1071,6 +1318,81 @@ st_destructive_advisory_once() {
 	elif ! check_command "$1"; then
 		printf 'SELF-TEST FAIL: second destructive attempt should have reached normal rails: %s\n   reason given: %s\n' "$1" "$BLOCK_REASON" >&2
 		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
+}
+
+# The rearm fixture, and the load-bearing one for this rail: ONE state file across both
+# commands, so it fails if a spent advisory covers a deletion aimed somewhere new. Without
+# it, "fires once per target" is a claim in a comment.
+st_destructive_rearms_per_target() { # st_destructive_rearms_per_target <first> <second>
+	local first=$1 second=$2 state old_set old_state
+	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
+	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-rearm-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	DESTRUCTIVE_ADVISORY_STATE=$state
+	if check_command "$first"; then
+		printf 'SELF-TEST FAIL: first deletion should have been advised: %s\n' "$first" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif ! check_command "$first"; then
+		printf 'SELF-TEST FAIL: rerunning the SAME deletion should proceed: %s\n   reason given: %s\n' "$first" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif check_command "$second"; then
+		printf 'SELF-TEST FAIL: a deletion aimed at a NEW target must be advised even after an earlier one was cleared: %s (after %s)\n' "$second" "$first" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
+}
+
+# The advisory's TEXT is the whole intervention for this rail — nothing downstream consumes
+# it, so a silently emptied sentence would cost nothing mechanically and everything in
+# practice. Pin the clause that names the failure mode.
+st_destructive_reason_names() { # st_destructive_reason_names <substring> <command>
+	local want=$1 cmd=$2 state old_set old_state
+	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
+	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-reason-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	DESTRUCTIVE_ADVISORY_STATE=$state
+	if check_command "$cmd"; then
+		printf 'SELF-TEST FAIL: should have been advised: %s\n' "$cmd" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	else
+		case $ADVISORY_REASON in
+		*"$want"*) ;;
+		*)
+			printf 'SELF-TEST FAIL: destructive advisory did not mention %s: %s\n   reason given: %s\n' "$want" "$cmd" "$ADVISORY_REASON" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+			;;
+		esac
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
+}
+
+# The negative direction for the strongest paragraph. Without it, widening the ROOTISH test
+# to anything starting with `$` passes every fixture while telling an agent to check a
+# variable that does not exist — a rail is not allowed to be confidently wrong.
+st_destructive_reason_lacks() { # st_destructive_reason_lacks <substring> <command>
+	local unwanted=$1 cmd=$2 state old_set old_state
+	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
+	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-lacks-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	DESTRUCTIVE_ADVISORY_STATE=$state
+	if check_command "$cmd"; then
+		printf 'SELF-TEST FAIL: should have been advised: %s\n' "$cmd" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	else
+		case $ADVISORY_REASON in
+		*"$unwanted"*)
+			printf 'SELF-TEST FAIL: destructive advisory should NOT have claimed %s: %s\n   reason given: %s\n' "$unwanted" "$cmd" "$ADVISORY_REASON" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+			;;
+		esac
 	fi
 	rm -f -- "$state"
 	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
@@ -1093,9 +1415,24 @@ self_test() {
 	local old_dotenv_advisory_state_set=${DOTENV_ADVISORY_STATE+x}
 	local old_dotenv_advisory_state=${DOTENV_ADVISORY_STATE:-}
 	local self_dotenv_advisory_state
+	# PRE-SPENT, for the reason spelled out at the key-material block below. It was NOT, and
+	# `st_blocked 'cat .env'` was the fixture that showed the cost: it is the first
+	# `.env`-bearing case in the matrix, so it blocked on the advisory and passed even with
+	# `names_env_file` neutered — a fixture for the oldest secret-file rail in the script that
+	# could not fail. Neutering that predicate now fails it along with 27 others.
 	self_dotenv_advisory_state=$(mktemp "${TMPDIR:-/tmp}/amh-dotenv-advisory-self-test.XXXXXX") || exit 1
-	rm -f -- "$self_dotenv_advisory_state"
 	DOTENV_ADVISORY_STATE=$self_dotenv_advisory_state
+	# PRE-SPENT, unlike the two below, and the difference is deliberate. The advisory fires on
+	# any command text naming `.pem` or `.key`, so an unspent state here would make the FIRST
+	# such fixture — blocked or allowed — return the advisory instead of the verdict under
+	# test, and every fixture after it would be testing a rail the advisory had already
+	# short-circuited. `st_keymaterial_advisory` brings its own unspent file for the two
+	# fixtures that are about the advisory itself.
+	local old_keymaterial_advisory_state_set=${KEYMATERIAL_ADVISORY_STATE+x}
+	local old_keymaterial_advisory_state=${KEYMATERIAL_ADVISORY_STATE:-}
+	local self_keymaterial_advisory_state
+	self_keymaterial_advisory_state=$(mktemp "${TMPDIR:-/tmp}/amh-keymaterial-advisory-self-test.XXXXXX") || exit 1
+	KEYMATERIAL_ADVISORY_STATE=$self_keymaterial_advisory_state
 	local old_destructive_advisory_state_set=${DESTRUCTIVE_ADVISORY_STATE+x}
 	local old_destructive_advisory_state=${DESTRUCTIVE_ADVISORY_STATE:-}
 	local self_destructive_advisory_state
@@ -1197,7 +1534,32 @@ printenv'
 	st_blocked 'dd if=.env of=/tmp/e'
 	st_blocked 'sed -n "/KEY/p" .env'
 	st_blocked 'sort .env'
+	# Private key material by its conventional filename, through each of the tiers that
+	# reach a file: the reader list, a redirection, and a copy.
+	st_blocked 'cat ~/.ssh/id_rsa'
+	st_blocked 'cat id_ed25519'
+	st_blocked 'head -1 /home/dev/.ssh/id_ecdsa'
+	st_blocked 'base64 id_rsa'
+	st_blocked 'md5sum ~/.ssh/id_ed25519_sk'
+	st_blocked 'sudo cat id_rsa'
+	st_blocked 'tr -d "\n" < id_rsa'
+	st_blocked 'python3 app.py < id_rsa'
+	st_blocked 'cp ~/.ssh/id_rsa /tmp/k'
+	st_blocked 'cp -t /tmp id_rsa'
+	st_blocked 'dd if=id_rsa of=/tmp/k'
 	st_dotenv_advisory_once 'python3 -c "open('"'"'.env'"'"')"'
+	# `.pem`/`.key` get the advisory tier, not the block tier: the extension is a container,
+	# not a secret marker. Both directions, each on its own unspent state file.
+	st_keymaterial_advisory fires 'openssl rsa -in server.key -noout -text'
+	st_keymaterial_advisory fires 'cat client.pem'
+	st_keymaterial_advisory fires 'python3 -c "open(\"server.key\").read()"'
+	# ...and the residue, stated rather than implied: the exclusion is the PLURAL, so an
+	# ordinary singular field access still spends the bump. One rerun, by design.
+	st_keymaterial_advisory fires 'jq -r ".key" data.json'
+	# ...and the word that made a bare-substring match unaffordable.
+	st_keymaterial_advisory silent 'node -e "Object.keys(x)"'
+	st_keymaterial_advisory silent 'jq ".keys[]" data.json'
+	st_keymaterial_advisory silent 'python3 -c "print(cfg.keys())"'
 	st_destructive_advisory_once 'rm -rf tmp/build'
 	rm -f -- "$self_destructive_advisory_state"
 	st_destructive_advisory_once 'rm -fr tmp/build'
@@ -1211,6 +1573,42 @@ printenv'
 	st_destructive_advisory_once 'git clean -fdx'
 	rm -f -- "$self_destructive_advisory_state"
 	st_destructive_advisory_once 'git clean -df'
+	rm -f -- "$self_destructive_advisory_state"
+	# `--` ends the options: the path after it is an operand even when it looks like a flag.
+	st_destructive_advisory_once 'rm -rf -- -weird-name'
+
+	# The downstream incident, in three fixtures. A spent advisory must NOT cover a new
+	# target; the same target twice must still proceed; and the advisory must name the
+	# empty-variable failure mode rather than a way around itself.
+	st_destructive_rearms_per_target 'rm -rf tmp/build' 'rm -rf "$S/base"'
+	st_destructive_rearms_per_target 'git clean -fdx' 'rm -rf src'
+	st_destructive_reason_names 'is empty the command addresses an absolute path' 'rm -rf "$S/base"'
+	st_destructive_reason_names 'print the expansion before you rerun' 'rm -rf tmp/$BUILD'
+	st_destructive_reason_names 'renaming or relocating the target' 'rm -rf tmp/build'
+
+	# The parser rewrite: `--` stopped the scan before, so the operands after it were never
+	# recorded and every post-`--` deletion shared one signature. Advised-then-allowed alone
+	# cannot see that; only a rearm across two different post-`--` paths can.
+	st_destructive_rearms_per_target 'rm -rf -- a' 'rm -rf -- b'
+	st_destructive_rearms_per_target 'git clean -fd -- a' 'git clean -fd -- b'
+	# Scanning every segment rather than stopping at the first destructive one. With the
+	# short-circuit restored, the second command inherits the first's cleared verdict and
+	# `rm -rf /etc` runs unadvised.
+	st_destructive_rearms_per_target 'rm -rf tmp/x' 'rm -rf tmp/x && rm -rf /etc'
+	# The kind prefix. Without it an operand-less `rm` and a pathspec-less `git clean`
+	# collapse into one signature, and a spellable sentinel could be typed by hand.
+	st_destructive_rearms_per_target 'rm -rf' 'git clean -fdx'
+	st_destructive_rearms_per_target 'git clean -fdx' 'rm -rf "<work tree>"'
+	# Quoting the operands before joining them. `a b` as one target and as two are
+	# different deletions; a flattened signature let either clear the other.
+	st_destructive_rearms_per_target 'rm -rf a b' 'rm -rf "a b"'
+
+	# A substitution is not a variable, and an always-set variable has no empty case. Both
+	# still get the advisory — just not the paragraph that names a check they cannot make.
+	st_destructive_reason_lacks 'BEGINS with a variable' 'rm -rf "$(pwd)/x"'
+	st_destructive_reason_lacks 'BEGINS with a variable' 'rm -rf "$HOME/.cache/x"'
+	st_destructive_reason_lacks 'BEGINS with a variable' 'rm -rf "${S:-/tmp}/x"'
+	st_destructive_reason_names 'print the expansion before you rerun' 'rm -rf "$HOME/.cache/x"'
 
 	# --- must allow: the known false-positive classes.
 	# Quoted text naming a forbidden command is DATA, not a command.
@@ -1265,6 +1663,23 @@ printenv'
 	st_allowed "echo 'Set \$GITHUB_TOKEN in your environment before running gh'"
 	st_allowed "printf 'export \$NPM_TOKEN first\n'"
 	st_allowed 'echo "remember to set \$GITHUB_TOKEN"'
+	# The public half of a key pair is meant to be read, and the extension decides — the
+	# stem is `id_rsa` in every one of these.
+	st_allowed 'cat ~/.ssh/id_rsa.pub'
+	st_allowed 'ssh-keygen -lf id_ed25519.pub'
+	st_allowed 'cat id_rsa-cert.pub'
+	# A file whose name merely contains the stem is not the key, and prose about one is prose.
+	st_allowed 'cat id_rsa_fixture_notes.md'
+	st_allowed 'git commit -m "block cat id_rsa at the rail"'
+	# Inherited false positive, fixtured so it is a decision rather than a surprise: a
+	# one-word search PATTERN is indistinguishable from a path after quote stripping, so
+	# grepping the tree for the literal stem is blocked — exactly as `grep -rn ".env" docs/`
+	# has always been.
+	st_blocked 'grep -rn "id_rsa" docs/'
+	# `.pem`/`.key` after the one-time advisory is spent: the container extension alone is
+	# not evidence, and the commonest file bearing it is a public certificate.
+	st_allowed 'cat fullchain.pem'
+	st_allowed 'openssl x509 -in cert.pem -noout -subject'
 	# Names that merely CONTAIN a secret word: a path, an identifier, a monkey.
 	st_allowed 'echo "$SSH_KEY_PATH"'
 	st_allowed 'echo "$AWS_ACCESS_KEY_ID"'
@@ -1340,6 +1755,12 @@ git push --force origin main
 	st_allowed ''
 	st_allowed '   '
 
+	rm -f -- "$self_keymaterial_advisory_state"
+	if [ -n "$old_keymaterial_advisory_state_set" ]; then
+		KEYMATERIAL_ADVISORY_STATE=$old_keymaterial_advisory_state
+	else
+		unset KEYMATERIAL_ADVISORY_STATE
+	fi
 	rm -f -- "$self_dotenv_advisory_state"
 	if [ -n "$old_dotenv_advisory_state_set" ]; then
 		DOTENV_ADVISORY_STATE=$old_dotenv_advisory_state
