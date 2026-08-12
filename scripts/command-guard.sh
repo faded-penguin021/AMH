@@ -351,7 +351,7 @@ advisory_state_file() { # advisory_state_file <name>
 }
 
 needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
-	local name=$1 cmd=$2 state
+	local name=$1 cmd=$2 state sig
 	case $name in
 	dotenv) case $cmd in *.env*) ;; *) return 1 ;; esac ;;
 	# `.pem` and `.key` must be followed by a non-alphanumeric character or end the word.
@@ -370,8 +370,28 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 	esac
 	state=$(advisory_state_file "$name")
 	[ -n "$state" ] || return 1
-	[ -e "$state" ] && return 1
-	: >"$state" 2>/dev/null || return 1
+	if [ "$name" = destructive ]; then
+		# Rearm per TARGET SET, not per category — the one place this rail's state
+		# deliberately diverges from the other two.
+		#
+		# A single marker file means the first `rm -rf` in a session disarms the rail for
+		# every later one. `rm -rf tmp/build` at minute two then buys silence for
+		# `rm -rf "$S/base"` at minute forty, on a different path, with a different risk.
+		# Nobody has to LEARN to step around a rail that is already spent; it just is. So
+		# a repeat of the same deletion passes (which is what "rerun to proceed" means and
+		# what the fixtures pin), and a deletion aimed somewhere new gets its own turn.
+		sig=$(destructive_signature)
+		if [ -e "$state" ] && LC_ALL=C grep -qxF -- "$sig" "$state" 2>/dev/null; then
+			return 1
+		fi
+		# If `grep` is unavailable the test above fails and the advisory re-fires — the
+		# right direction — at the cost of a duplicate line per attempt. Bounded by the
+		# session, and the bootstrap deletes the file; not worth a second mechanism.
+		printf '%s\n' "$sig" >>"$state" 2>/dev/null || return 1
+	else
+		[ -e "$state" ] && return 1
+		: >"$state" 2>/dev/null || return 1
+	fi
 	case $name in
 	dotenv)
 		# shellcheck disable=SC2016 # the presence-check example must print literally.
@@ -384,7 +404,22 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		ADVISORY_REASON=$KEYMATERIAL_ADVISORY_REASON
 		;;
 	destructive)
-		ADVISORY_REASON='This destructive filesystem command may delete guard fixtures, source files, or untracked evidence. Prefer targeted removal, moving the path set to a temporary directory, or confirming the complete path set before deletion. The command guard is stopping this once so you can reconsider; rerun the command to proceed if the deletion is intentional.'
+		# The old text suggested "moving the path set to a temporary directory" as an
+		# alternative, and a downstream session took exactly that: it renamed the target so
+		# the `rm` was not needed, called the rail satisfied, and made no safety check at
+		# all — "I routed around the trigger to save a turn." An advisory that names a
+		# sidestep gets the sidestep. This one asks for the check instead, and says what
+		# the check is (owner, 2026-08-12).
+		# shellcheck disable=SC2016 # the examples must print literally, unexpanded.
+		ADVISORY_REASON='This destructive filesystem command may delete guard fixtures, source files, or untracked evidence. The command guard is stopping this ONCE, for this target, so you can spend one turn on the check rather than the deletion.'
+		if [ "$DESTRUCTIVE_ROOTISH" -eq 1 ]; then
+			# shellcheck disable=SC2016 # the examples must print literally, unexpanded.
+			ADVISORY_REASON="$ADVISORY_REASON"' A path here BEGINS with a variable and contains a `/`, which is the failure mode this rail is shaped for: if that variable is empty the command addresses an absolute path instead. `rm -rf "$S/base"` with an unset `S` is `rm -rf /base`. Verify it is non-empty before you rerun — `printf %s=[%s] S "$S"` — and verify it separately from the deletion, because the guard sees the command before the shell expands it and cannot do this for you.'
+		elif [ "$DESTRUCTIVE_UNEXPANDED" -eq 1 ]; then
+			ADVISORY_REASON="$ADVISORY_REASON"' A path here still contains a variable. The guard sees the command before the shell expands it, so what actually gets deleted is only knowable on your side: print the expansion before you rerun.'
+		fi
+		# shellcheck disable=SC2016 # the example must print literally, unexpanded.
+		ADVISORY_REASON="$ADVISORY_REASON"' Then rerun the same command to proceed if the deletion is intentional. Two things that are NOT compliance: renaming or relocating the target so the deletion is no longer needed, and rerunning without having looked — both leave the rail spent and the check unmade. Deciding not to delete is a fine answer; arriving at it to avoid the prompt is not. Rerunning clears this advisory for this command TEXT only, and a deletion aimed somewhere else gets its own. Note the limit of that: the guard keys on the operands AS WRITTEN, so clearing `rm -rf "$S/base"` clears it for every later value of `S` — the rerun is your check, not the guard'"'"'s.'
 		;;
 	esac
 	return 0
@@ -938,9 +973,75 @@ leading_command() {
 	printf '%s' "${words[$i]##*/}"
 }
 
+# Record what a confirmed destructive segment is aimed AT. The target is the whole risk
+# here — unlike the dotenv and key-material rails, where every hit means the same thing
+# ("you are about to read a secret"), two `rm -rf` commands in one session can be a
+# scratch directory and a source tree. So the operands are collected, and two properties
+# of the command TEXT that no amount of good intent substitutes for:
+#
+#   DESTRUCTIVE_UNEXPANDED — an operand still contains a `$`. The guard sees the command
+#     before the shell expands it, so it cannot know what the variable holds; the agent
+#     can, and the check costs one `printf`.
+#   DESTRUCTIVE_ROOTISH — an operand begins with a plain VARIABLE reference and contains a
+#     `/`. This is the shape that turns into an absolute path when the variable is empty:
+#     `rm -rf "$S/base"` with an unset `S` is `rm -rf /base`. It is the failure mode this
+#     rail exists for, and it is the one the advisory used not to mention.
+#
+# "Plain variable reference" is doing real work in that sentence, because this branch emits
+# the strongest paragraph the advisory has and an alarm that cries wolf is one an agent
+# learns to skim. Three exclusions, each because the empty-expansion failure mode is
+# genuinely absent, not merely unlikely:
+#
+#   `$(pwd)/x`, `$((n))/x`  — a substitution is not a variable; there is nothing to check
+#                             for emptiness, and telling the agent to check one is a false
+#                             instruction from a rail whose whole value is being believed.
+#   `${S:-/tmp}/x`          — a defaulted or alternate expansion cannot yield the empty
+#                             string by the route this warns about.
+#   `$HOME/x`, `$PWD/x`     — always-set shell variables. These are the commonest safe
+#     `$TMPDIR/x`, `$ROOT/x`  spelling of a scratch path by a wide margin.
+#
+# All three still set DESTRUCTIVE_UNEXPANDED, so they get the weaker "print the expansion"
+# text. The exclusion narrows which paragraph fires, never whether the advisory fires.
+record_destructive_targets() { # record_destructive_targets <kind> <operand>...
+	local kind=$1 w bare name entry
+	shift
+	for w in "$@"; do
+		case $w in *'$'*) DESTRUCTIVE_UNEXPANDED=1 ;; esac
+		# `${S}/base` and `$S/base` are the same question; `$(cmd)/base` is not a
+		# variable at all, and a `$` followed by anything else names nothing.
+		bare=''
+		# shellcheck disable=SC2016 # these patterns are literal `$` in command TEXT.
+		case $w in
+		'$('*) ;;
+		'${'*) bare=${w#??} ;;
+		'$'[A-Za-z_]*) bare=${w#?} ;;
+		esac
+		[ -n "$bare" ] || continue
+		name=${bare%%[!A-Za-z0-9_]*}
+		# The character terminating the name decides whether a default can rescue it.
+		case ${bare#"$name"} in [:=?+-]*) continue ;; esac
+		case $name in HOME | PWD | TMPDIR | ROOT) continue ;; esac
+		# Only the spellings that carry a path separator can become an absolute path.
+		case $bare in *'/'*) DESTRUCTIVE_ROOTISH=1 ;; esac
+	done
+	# One entry per destructive SEGMENT, and the entry names the command kind as well as
+	# the operands. Without the kind, `git clean -fdx` and a literal `rm -rf '<work tree>'`
+	# were the same signature — a sentinel an operand can spell is not a sentinel. Operands
+	# are `%q`-quoted before they are joined, so a space or a newline inside one target can
+	# no longer read as the boundary between two: `rm -rf "a b"` and `rm -rf a b` are
+	# different deletions and must not clear each other.
+	if [ "$#" -eq 0 ]; then
+		entry=$kind
+	else
+		entry="$kind $(printf '%q\n' "$@" | LC_ALL=C sort | tr '\n' ' ')"
+	fi
+	DESTRUCTIVE_TARGETS+=("$entry")
+}
+
 is_destructive_segment() {
 	local raw=$1 w cmd recursive=1 force=1 descend=1 i=0
 	local words=()
+	local operands=() end_of_options=1
 	while IFS= read -r -d '' w; do words+=("$w"); done < <(split_words "$raw")
 	# Find the same leading command that leading_command reports, without treating
 	# later quoted prose or operands as commands.
@@ -963,18 +1064,24 @@ is_destructive_segment() {
 	case $cmd in
 	rm)
 		for w in "${words[@]:i}"; do
+			if [ "$end_of_options" -eq 0 ]; then
+				operands+=("$w")
+				continue
+			fi
 			case $w in
 			--recursive) recursive=0 ;;
 			--force) force=0 ;;
-			--) break ;;
-			[^-]*) ;;
+			# Everything after `--` is a path, including one that looks like a flag.
+			--) end_of_options=0 ;;
+			[^-]*) operands+=("$w") ;;
 			-*)
 				case ${w#-} in *[rR]*) recursive=0 ;; esac
 				case ${w#-} in *f*) force=0 ;; esac
 				;;
 			esac
 			done
-		[ "$recursive" -eq 0 ] && [ "$force" -eq 0 ]
+		[ "$recursive" -eq 0 ] && [ "$force" -eq 0 ] || return 1
+		record_destructive_targets rm ${operands[@]+"${operands[@]}"}
 		;;
 	git)
 		# Skip git's global options, then require the clean subcommand and short
@@ -986,11 +1093,15 @@ is_destructive_segment() {
 		[ "$i" -lt "${#words[@]}" ] && [ "${words[$i]}" = clean ] || return 1
 		i=$((i + 1))
 		for w in "${words[@]:i}"; do
+			if [ "$end_of_options" -eq 0 ]; then
+				operands+=("$w")
+				continue
+			fi
 			case $w in
 			-n | --dry-run) return 1 ;;
 			--force) force=0 ;;
-			--) break ;;
-			[^-]*) ;;
+			--) end_of_options=0 ;;
+			[^-]*) operands+=("$w") ;;
 			--*) ;;
 			-*)
 				case ${w#-} in *n*) return 1 ;; esac
@@ -999,20 +1110,45 @@ is_destructive_segment() {
 				;;
 			esac
 			done
-		[ "$force" -eq 0 ] && [ "$descend" -eq 0 ]
+		[ "$force" -eq 0 ] && [ "$descend" -eq 0 ] || return 1
+		# `git clean -fdx` names no pathspec and means "the whole work tree". The kind
+		# prefix is what keeps that distinct from a pathspec-scoped clean and from an
+		# operand-less `rm`, so no spellable sentinel is needed.
+		record_destructive_targets git-clean ${operands[@]+"${operands[@]}"}
 		;;
 	*) return 1 ;;
 	esac
 }
 
 is_destructive_command() {
-	local cmd=$1 seg
+	local cmd=$1 seg found=1
+	DESTRUCTIVE_TARGETS=()
+	DESTRUCTIVE_UNEXPANDED=0
+	DESTRUCTIVE_ROOTISH=0
 	cmd=$(strip_heredocs "$cmd")
+	# Every destructive segment is scanned, not just the first. A command that deletes two
+	# path sets is two decisions, and the advisory should be able to name both — stopping
+	# at the first match is how the dangerous half of `rm -rf tmp/x && rm -rf "$S/base"`
+	# would inherit the safe half's verdict.
 	while IFS= read -r -d '' seg; do
 		[ -n "${seg// /}" ] || continue
-		is_destructive_segment "$seg" && return 0
+		is_destructive_segment "$seg" && found=0
 	done < <(split_segments "$cmd")
-	return 1
+	return "$found"
+}
+
+# The signature a repeated attempt must match to be let through. It is the target set, not
+# the category: see the rearm note in `needs_one_time_advisory`.
+destructive_signature() {
+	# Entries are built by record_destructive_targets and contain no newline: the kind is a
+	# literal and every operand went through `%q`, which renders a newline as `$'\n'`. So
+	# joining lines here cannot flatten two entries into one, and the state file's
+	# one-signature-per-line format holds without a second round of escaping.
+	if [ "${#DESTRUCTIVE_TARGETS[@]}" -eq 0 ]; then
+		printf '%s' '<nothing recorded>'
+		return
+	fi
+	printf '%s' "$(printf '%s\n' "${DESTRUCTIVE_TARGETS[@]}" | LC_ALL=C sort | tr '\n' '|')"
 }
 
 warn_ladder_tail() {
@@ -1182,6 +1318,81 @@ st_destructive_advisory_once() {
 	elif ! check_command "$1"; then
 		printf 'SELF-TEST FAIL: second destructive attempt should have reached normal rails: %s\n   reason given: %s\n' "$1" "$BLOCK_REASON" >&2
 		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
+}
+
+# The rearm fixture, and the load-bearing one for this rail: ONE state file across both
+# commands, so it fails if a spent advisory covers a deletion aimed somewhere new. Without
+# it, "fires once per target" is a claim in a comment.
+st_destructive_rearms_per_target() { # st_destructive_rearms_per_target <first> <second>
+	local first=$1 second=$2 state old_set old_state
+	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
+	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-rearm-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	DESTRUCTIVE_ADVISORY_STATE=$state
+	if check_command "$first"; then
+		printf 'SELF-TEST FAIL: first deletion should have been advised: %s\n' "$first" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif ! check_command "$first"; then
+		printf 'SELF-TEST FAIL: rerunning the SAME deletion should proceed: %s\n   reason given: %s\n' "$first" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif check_command "$second"; then
+		printf 'SELF-TEST FAIL: a deletion aimed at a NEW target must be advised even after an earlier one was cleared: %s (after %s)\n' "$second" "$first" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
+}
+
+# The advisory's TEXT is the whole intervention for this rail — nothing downstream consumes
+# it, so a silently emptied sentence would cost nothing mechanically and everything in
+# practice. Pin the clause that names the failure mode.
+st_destructive_reason_names() { # st_destructive_reason_names <substring> <command>
+	local want=$1 cmd=$2 state old_set old_state
+	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
+	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-reason-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	DESTRUCTIVE_ADVISORY_STATE=$state
+	if check_command "$cmd"; then
+		printf 'SELF-TEST FAIL: should have been advised: %s\n' "$cmd" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	else
+		case $ADVISORY_REASON in
+		*"$want"*) ;;
+		*)
+			printf 'SELF-TEST FAIL: destructive advisory did not mention %s: %s\n   reason given: %s\n' "$want" "$cmd" "$ADVISORY_REASON" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+			;;
+		esac
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
+}
+
+# The negative direction for the strongest paragraph. Without it, widening the ROOTISH test
+# to anything starting with `$` passes every fixture while telling an agent to check a
+# variable that does not exist — a rail is not allowed to be confidently wrong.
+st_destructive_reason_lacks() { # st_destructive_reason_lacks <substring> <command>
+	local unwanted=$1 cmd=$2 state old_set old_state
+	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
+	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-lacks-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	DESTRUCTIVE_ADVISORY_STATE=$state
+	if check_command "$cmd"; then
+		printf 'SELF-TEST FAIL: should have been advised: %s\n' "$cmd" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	else
+		case $ADVISORY_REASON in
+		*"$unwanted"*)
+			printf 'SELF-TEST FAIL: destructive advisory should NOT have claimed %s: %s\n   reason given: %s\n' "$unwanted" "$cmd" "$ADVISORY_REASON" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+			;;
+		esac
 	fi
 	rm -f -- "$state"
 	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
@@ -1362,6 +1573,42 @@ printenv'
 	st_destructive_advisory_once 'git clean -fdx'
 	rm -f -- "$self_destructive_advisory_state"
 	st_destructive_advisory_once 'git clean -df'
+	rm -f -- "$self_destructive_advisory_state"
+	# `--` ends the options: the path after it is an operand even when it looks like a flag.
+	st_destructive_advisory_once 'rm -rf -- -weird-name'
+
+	# The downstream incident, in three fixtures. A spent advisory must NOT cover a new
+	# target; the same target twice must still proceed; and the advisory must name the
+	# empty-variable failure mode rather than a way around itself.
+	st_destructive_rearms_per_target 'rm -rf tmp/build' 'rm -rf "$S/base"'
+	st_destructive_rearms_per_target 'git clean -fdx' 'rm -rf src'
+	st_destructive_reason_names 'is empty the command addresses an absolute path' 'rm -rf "$S/base"'
+	st_destructive_reason_names 'print the expansion before you rerun' 'rm -rf tmp/$BUILD'
+	st_destructive_reason_names 'renaming or relocating the target' 'rm -rf tmp/build'
+
+	# The parser rewrite: `--` stopped the scan before, so the operands after it were never
+	# recorded and every post-`--` deletion shared one signature. Advised-then-allowed alone
+	# cannot see that; only a rearm across two different post-`--` paths can.
+	st_destructive_rearms_per_target 'rm -rf -- a' 'rm -rf -- b'
+	st_destructive_rearms_per_target 'git clean -fd -- a' 'git clean -fd -- b'
+	# Scanning every segment rather than stopping at the first destructive one. With the
+	# short-circuit restored, the second command inherits the first's cleared verdict and
+	# `rm -rf /etc` runs unadvised.
+	st_destructive_rearms_per_target 'rm -rf tmp/x' 'rm -rf tmp/x && rm -rf /etc'
+	# The kind prefix. Without it an operand-less `rm` and a pathspec-less `git clean`
+	# collapse into one signature, and a spellable sentinel could be typed by hand.
+	st_destructive_rearms_per_target 'rm -rf' 'git clean -fdx'
+	st_destructive_rearms_per_target 'git clean -fdx' 'rm -rf "<work tree>"'
+	# Quoting the operands before joining them. `a b` as one target and as two are
+	# different deletions; a flattened signature let either clear the other.
+	st_destructive_rearms_per_target 'rm -rf a b' 'rm -rf "a b"'
+
+	# A substitution is not a variable, and an always-set variable has no empty case. Both
+	# still get the advisory — just not the paragraph that names a check they cannot make.
+	st_destructive_reason_lacks 'BEGINS with a variable' 'rm -rf "$(pwd)/x"'
+	st_destructive_reason_lacks 'BEGINS with a variable' 'rm -rf "$HOME/.cache/x"'
+	st_destructive_reason_lacks 'BEGINS with a variable' 'rm -rf "${S:-/tmp}/x"'
+	st_destructive_reason_names 'print the expansion before you rerun' 'rm -rf "$HOME/.cache/x"'
 
 	# --- must allow: the known false-positive classes.
 	# Quoted text naming a forbidden command is DATA, not a command.

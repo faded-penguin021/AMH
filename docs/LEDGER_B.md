@@ -709,3 +709,13 @@
   fires, and STATE is read in full at session start. The pointer left behind is prose only. A
   relocation is not a compression, so the preamble's "never cut text into another file" now
   carries the exception in writing. Shape: ask which of a bounded file's bytes the bound is for.
+
+- DB-030: **A one-time advisory keyed to a CATEGORY is spent by the first harmless instance;
+  key it to the target.** A session blocked on `rm -rf "$S/base"` renamed the target so no `rm`
+  was needed: "I routed around the trigger to save a turn." The text had offered "move the path
+  set to a temporary directory" — its own sidestep — and never named the failure mode
+  it exists for: an empty `S` makes that `rm -rf /base`, unseeable before expansion. One marker
+  per category also let an early `rm -rf tmp/build` silence later ones. Now: rearm per
+  operand set AS WRITTEN (text, not resolved path, and the advisory says so), the check named,
+  renaming ruled out. Where nothing consumes an advisory its PROSE is the intervention: fixture
+  what it must claim and what it must not.

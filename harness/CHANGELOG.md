@@ -86,6 +86,33 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   than it was at 5.2.1 (4084 → 3271 bytes) and this repository's 16% (1699 → 1420) — less than a
   first pass appeared to buy, because what looked compressible was mostly the part that had to be
   preserved verbatim or moved intact. Still no threshold, guard, fixture or exit code changed.
+- **The destructive-command advisory rearms per TARGET, not per category.** A downstream
+  session was blocked on `rm -rf "$S/base"`, renamed the target so the `rm` was not needed, and
+  described it accurately: "I routed around the trigger to save a turn." Three defects behind
+  that, all now fixed. (a) The state was one marker file per category, so the first `rm -rf` of
+  a session — typically a scratch directory — spent the rail for every later deletion on any
+  path. The file now holds one signature per operand set AS WRITTEN — the command text, not a
+  resolved path, which the advisory now states outright rather than leaving a reader to assume
+  the guard expands anything: rerunning the SAME deletion proceeds,
+  which is what "rerun to proceed" has always meant, and a deletion aimed somewhere new is
+  advised on its own. The `dotenv` and `keymaterial` rearms are untouched; this rail diverges
+  because for a deletion the target IS the risk. (b) The advisory never named the failure mode
+  it exists for. It now detects an operand that begins with a plain variable reference and
+  contains a `/` — `rm -rf "$S/base"` is `rm -rf /base` when `S` is empty — and asks for the
+  non-empty check, saying why the guard cannot make it (it sees the command before the shell
+  expands it). Command substitutions, defaulted expansions like `${S:-/tmp}` and the always-set
+  `HOME`/`PWD`/`TMPDIR`/`ROOT` are excluded: none has the empty case, and a rail that fires its
+  loudest paragraph on the commonest safe spelling is one an agent learns to skim. Those, and a
+  variable anywhere else in a path, get the weaker form of the same request. (c) The old text
+  suggested "moving the path set to a temporary directory", which is the sidestep that was
+  taken. It is gone, and the advisory now says outright that renaming or relocating the target
+  to avoid the deletion is not compliance, nor is rerunning without having looked. Advisory
+  prose is the entire intervention on this rail — nothing downstream consumes it — so the
+  clauses are pinned by fixtures in BOTH directions: what the advisory must say, and what it must
+  not claim. Each new behaviour was checked against a mutant that removes it, including the
+  parser rewrite and the signature's quoting; operands are `%q`-quoted and prefixed with the
+  command kind, so `rm -rf "a b"` and `rm -rf a b` are different deletions and `git clean -fdx`
+  cannot be cleared by an `rm` whose operand spells a sentinel.
 - **Accepted, and fixtured so it is a decision rather than a surprise:** a one-word grep
   PATTERN is indistinguishable from a path once quotes are stripped, so `grep -rn "id_rsa"
   docs/` is blocked — exactly as `grep -rn ".env" docs/` has always been. The fix would be a
@@ -115,6 +142,13 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
    `harness/templates/seed/docs/STATE.md` and the new paragraph from
    `harness/templates/seed/docs/RUNBOOK.md`, or you will delete a description you have nowhere
    else. Skipping the pair entirely costs nothing.
+6. **Expect the `rm -rf` speed bump more than once per session.** It used to fire on the first
+   destructive command and stay quiet afterwards; it now fires once per distinct target set.
+   Rerunning the same command still proceeds immediately, so no command is newly denied — but a
+   session that deletes several different path sets will see several advisories. That is the
+   point of the change, not a regression. `DESTRUCTIVE_ADVISORY_STATE` still overrides the state
+   path; its contents are now one signature per line rather than an empty marker, so a stale
+   file from an older version simply advises once more per target.
 
 ## 5.2.1 — 2026-08-10
 

@@ -95,6 +95,18 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-12 — **The destructive-command advisory rearms per operand set, names the failure mode it
+  is shaped for, and stops suggesting its own sidestep.** From a downstream session that was
+  blocked on `rm -rf "$S/base"`, renamed the target so no `rm` was needed, and reported it as
+  routing around the trigger to save a turn. One marker per category meant the first harmless
+  `rm -rf` in a session spent the rail for every later one; the state file now holds one line per
+  operand set AS WRITTEN — command text, not resolved path, and the advisory names that limit
+  rather than implying the guard resolves anything. The reason text asks for the non-empty check
+  on a leading `$VAR/` path, excluding substitutions and always-set variables so the strongest
+  paragraph stays rare, and says renaming the target is not compliance. Every new behaviour is
+  fixtured against a mutant that removes it. No other category's rearm changed. **DB-030** is
+  the record.
+
 - 2026-08-11 — **The ladder's output description moved out of working memory into the runbook.**
   Owner call on the fork the unit below raised: the preamble's account of which thresholds the
   size rung prints, and why a printed number is not a copy, is a description of a guard rather
