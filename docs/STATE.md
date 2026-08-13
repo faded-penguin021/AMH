@@ -95,6 +95,11 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-13 — **The ledger row cap is a maximum, not a drafting target.** Seed and local
+  preambles now tell agents to write the durable lesson at its natural size, even far below the
+  cap, rather than micro-trimming a narrative until it passes. The config template and scaffold
+  explanation carry the same distinction; no value or guard changed. **DB-031** is the record.
+
 - 2026-08-12 — **The destructive-command advisory rearms per operand set, names the failure mode it
   is shaped for, and stops suggesting its own sidestep.** From a downstream session that was
   blocked on `rm -rf "$S/base"`, renamed the target so no `rm` was needed, and reported it as

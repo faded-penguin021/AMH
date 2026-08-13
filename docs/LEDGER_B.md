@@ -26,8 +26,9 @@
 > **Search before appending.** Grep ALL volumes for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes DA-NNN") and the old row gets a correction pointer, never deletion.
-> **Keep new rows concise and at or below `LEDGER_ROW_CHAR_CAP`.** Capture the durable lesson,
-> not the whole debugging narrative; put larger narratives in `docs/history/` and link them
+> **Keep new rows concise and at or below `LEDGER_ROW_CHAR_CAP`.** The cap is a maximum, not a
+> target: write only the durable lesson, even when that takes far less space; do not draft a
+> narrative and shave it toward the cap. Put larger narratives in `docs/history/` and link them
 > from the `docs/STATE.md` changelog.
 >
 > **File cap & rollover.** This file holds at most `LEDGER_LINE_CAP` lines from `amh.conf` (the
@@ -719,3 +720,8 @@
   operand set AS WRITTEN (text, not resolved path, and the advisory says so), the check named,
   renaming ruled out. Where nothing consumes an advisory its PROSE is the intervention: fixture
   what it must claim and what it must not.
+
+- DB-031: **A row cap is a maximum, not a target.** Saying only “at or below” left the same
+  threshold reflex as STATE micro-trimming: draft 1100 bytes, then shave toward 800. Write the
+  durable lesson at its natural size, even 300 bytes; do not make a debugging narrative legal by
+  trimming it to the limit. The guard remains a rejection boundary, not a length prescription.
