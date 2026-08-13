@@ -86,6 +86,40 @@ expect pass "doc-navigation: clean tree" "$base" doc-navigation.sh
 expect pass "config-schema: clean tree" "$base" config-schema.sh
 expect pass "ledger-append-only: clean tree" "$base" ledger-append-only.sh
 expect pass "shipped-citations: clean tree" "$base" shipped-citations.sh
+expect pass "bearer-fixture-construction: current template" "$base" bearer-fixture-construction.sh
+
+# --- bearer-fixture-construction --------------------------------------------
+d=$(snapshot bearer_fixture_plain_alnum)
+# shellcheck disable=SC2016  # mutate literal command substitutions in the fixture source.
+sed -i 's/$(rand_upper 8)$(rand_alnum 32)/$(rand_alnum 40)/' \
+	"$d/harness/templates/scripts/redact.sh"
+expect fail "bearer-fixture-construction: unrestricted token cannot replace the guaranteed prefix" "$d" \
+	bearer-fixture-construction.sh "D-024's fixture satisfied the production predicate only probabilistically"
+
+d=$(snapshot bearer_fixture_reordered)
+# shellcheck disable=SC2016  # mutate literal command substitutions in the fixture source.
+sed -i 's/$(rand_upper 8)$(rand_alnum 32)/$(rand_alnum 32)$(rand_upper 8)/' \
+	"$d/harness/templates/scripts/redact.sh"
+expect fail "bearer-fixture-construction: guaranteed prefix cannot follow the unrestricted tail" "$d" \
+	bearer-fixture-construction.sh "prefix-before-tail construction"
+
+d=$(snapshot bearer_fixture_decoy)
+# shellcheck disable=SC2016  # mutate literal command substitutions in the fixture source.
+sed -i 's/"$(rand_upper 8)$(rand_alnum 32)")"/"$(rand_alnum 40)")" "$(rand_upper 8)$(rand_alnum 32)"/' \
+	"$d/harness/templates/scripts/redact.sh"
+expect fail "bearer-fixture-construction: a surplus argument cannot decoy the guard" "$d" \
+	bearer-fixture-construction.sh "prefix-before-tail construction"
+
+d=$(snapshot bearer_fixture_absent)
+sed -i '/st_redacted bearer_header/d' "$d/harness/templates/scripts/redact.sh"
+expect fail "bearer-fixture-construction: missing fixture checks nothing" "$d" \
+	bearer-fixture-construction.sh "checked NOTHING"
+
+d=$(snapshot bearer_fixture_duplicated)
+duplicate=$(sed -n '/st_redacted bearer_header/p' "$d/harness/templates/scripts/redact.sh")
+printf '%s\n' "$duplicate" >>"$d/harness/templates/scripts/redact.sh"
+expect fail "bearer-fixture-construction: duplicate fixture is not accepted by first match" "$d" \
+	bearer-fixture-construction.sh "expected exactly one"
 
 
 # --- ledger-append-only -------------------------------------------------------

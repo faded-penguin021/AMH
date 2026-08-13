@@ -732,3 +732,14 @@
   its output human-consumed. Keep the agent-neutral strongest-tier fallback: tooling support is
   not review validity. Runtime permission inheritance can weaken a read-only sandbox, so the
   instruction prohibition on edits remains independently necessary.
+
+- DB-033: **Merge-collision exception:** this row was DB-032 on the incoming base branch; the
+  owner-directed merge-conflict resolution assigned the next identifier because this branch had
+  independently committed DB-032 first. **A probabilistic-fixture repair needs a narrow
+  regression guard when its failure is
+  syntactically recognizable.** D-024's bearer fixture once drew an unrestricted alphanumeric
+  token and satisfied the redactor's production predicate only by chance. The repair guarantees
+  the qualifying prefix before an unrestricted tail. A repo-local guard now checks that one
+  source fixture has exactly that construction, including absence and duplicate branches; it
+  deliberately does not police random helpers or other fixtures whose literal prefixes already
+  satisfy their classes. Guard the incident's exact seam, not the technique around it.

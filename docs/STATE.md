@@ -97,6 +97,13 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-13 — **D-024's bearer-fixture repair is now mechanically preserved.** A narrow
+  repo-local guard requires exactly one template-source `bearer_header` fixture and requires its
+  guaranteed uppercase/digit prefix to precede the unrestricted alphanumeric tail. Mutants cover
+  plain-alphanumeric regression, reordering, absence with a checked-NOTHING diagnostic, and
+  duplication; the local shipped copy remains copy-drift's responsibility. **DB-033** is the
+  record.
+
 - 2026-08-13 — **The ledger row cap is a maximum, not a drafting target.** Seed and local
   preambles now tell agents to write the durable lesson at its natural size, even far below the
   cap, rather than micro-trimming a narrative until it passes. The config template and scaffold
