@@ -11,6 +11,24 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 6.1.0 — 2026-08-13
+
+- **Codex adopters can select a project-scoped AMH rule reviewer.** The custom-agent profile
+  performs the runbook's existing fresh-context review classes over the real uncommitted diff,
+  rule sources, and fixtures. It is read-only by both sandbox configuration and instruction,
+  does not pin a model or reasoning effort, and produces human-readable findings that no gate
+  may treat as an attestation. The initializer installs it only inside the repository's Codex
+  adapter tree, and adapter-set coverage keeps its template, reference copy, installer action,
+  `RULE_FILES`, and `ADAPTER_FILES` synchronized.
+
+### Upgrading
+
+1. Copy the shipped scripts and configuration templates as usual.
+2. **Existing Codex adopters, hand-applied:** copy
+   `harness/templates/configs/codex-agents/amh-rule-reviewer.toml` to
+   `.codex/agents/amh-rule-reviewer.toml`. The initializer preserves adopter-owned adapter
+   files on re-runs, so it will not replace a file already present at that path.
+
 ## 6.0.1 — 2026-08-13
 
 - **The ledger row cap is now named as a maximum, not a target.** The old seed correctly said

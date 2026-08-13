@@ -725,3 +725,10 @@
   threshold reflex as STATE micro-trimming: draft 1100 bytes, then shave toward 800. Write the
   durable lesson at its natural size, even 300 bytes; do not make a debugging narrative legal by
   trimming it to the limit. The guard remains a rejection boundary, not a length prescription.
+
+- DB-032: **A specialized reviewer is a selectable lens, not a second standard or an
+  attestation.** Project-scoped agent configuration can make the mandatory fresh-context pass
+  easier to invoke, but its checklist must remain the runbook's, its findings falsifiable, and
+  its output human-consumed. Keep the agent-neutral strongest-tier fallback: tooling support is
+  not review validity. Runtime permission inheritance can weaken a read-only sandbox, so the
+  instruction prohibition on edits remains independently necessary.
