@@ -1209,11 +1209,14 @@ extract_command() { # fail-open: print nothing if the payload is not what we exp
 		printf '%s' "$payload" | python3 -c 'import json,sys
 try:
     d = json.load(sys.stdin)
-    print(d.get("tool_input", {}).get("command", ""))
+    if d.get("tool_name") == "Bash":
+        print(d.get("tool_input", {}).get("command", ""))
 except Exception:
     pass' 2>/dev/null
 	else
-		printf '%s' "$payload" | sed -n 's/.*"command"[[:space:]]*:[[:space:]]*"\(.*\)".*/\1/p' | head -1
+		# A JSON parser is optional. Without one, fail open rather than mistake a
+		# command-looking fragment in malformed or non-Bash input for hook evidence.
+		return 0
 	fi
 }
 
