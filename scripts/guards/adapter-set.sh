@@ -18,6 +18,7 @@ ADAPTERS=(
 	'harness/templates/configs/claude-settings.json|.claude/settings.json'
 	'harness/templates/configs/codex-config.toml|.codex/config.toml'
 	'harness/templates/configs/codex-amh.rules|.codex/rules/amh.rules'
+	'harness/templates/configs/codex-agents/amh-rule-reviewer.toml|.codex/agents/amh-rule-reviewer.toml'
 )
 
 conf_value() { # conf_value <key> <config>

@@ -421,6 +421,10 @@ d=$(snapshot adapter_codex_path_gone)
 rm "$d/.codex/config.toml"
 expect fail "adapter-set: a Codex reference path was removed" "$d" adapter-set.sh ".codex/config.toml"
 
+d=$(snapshot adapter_codex_reviewer_path_gone)
+rm "$d/.codex/agents/amh-rule-reviewer.toml"
+expect fail "adapter-set: the Codex reviewer reference path was removed" "$d" adapter-set.sh ".codex/agents/amh-rule-reviewer.toml"
+
 d=$(snapshot adapter_codex_install_gone)
 sed -i '\|codex-config.toml.*\.codex/config.toml|d' "$d/scripts/amh-init.sh"
 expect fail "adapter-set: a Codex install action was removed" "$d" adapter-set.sh "install action missing"
