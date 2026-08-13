@@ -414,6 +414,31 @@ akia_token() {
 printf 'ladder guard fixtures\n'
 timing_diagnostics_self_test
 
+# --- command-guard.sh: Codex PreToolUse payload -----------------------------
+d=$(mk codex_hook_payload)
+out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat .env"}}' |
+	scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'prefer presence-only checks'; then
+	report ok "a forbidden Codex Bash payload is blocked with the instructive reason"
+else
+	report no "a forbidden Codex Bash payload is blocked with the instructive reason" "rc=$rc" "$out"
+fi
+
+out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf hello"}}' |
+	scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ]; then report ok "an allowed Codex Bash payload passes"; else report no "an allowed Codex Bash payload passes" "rc=$rc" "$out"; fi
+
+out=$(cd "$d" && printf '%s' '{not-json' | scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ]; then report ok "a malformed Codex payload fails open"; else report no "a malformed Codex payload fails open" "rc=$rc" "$out"; fi
+
+out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Read","tool_input":{"command":"cat .env"}}' |
+	scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ]; then report ok "a non-Bash Codex payload fails open"; else report no "a non-Bash Codex payload fails open" "rc=$rc" "$out"; fi
+
 # --- baseline
 d=$(mk baseline)
 started=$SECONDS

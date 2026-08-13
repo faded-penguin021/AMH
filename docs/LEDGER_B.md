@@ -725,3 +725,11 @@
   threshold reflex as STATE micro-trimming: draft 1100 bytes, then shave toward 800. Write the
   durable lesson at its natural size, even 300 bytes; do not make a debugging narrative legal by
   trimming it to the limit. The guard remains a rejection boundary, not a length prescription.
+
+- DB-032: **Lifecycle wiring should call agent-neutral scripts, not fork policy into an adapter.**
+  Codex gained repository hooks after the adapter had honestly documented their absence. Inline
+  SessionStart and Bash PreToolUse tables now resolve the repository root and invoke the same
+  shipped bootstrap and command guard as other agents, while static rules remain an independent
+  lower layer. Hook payload fixtures pin vendor field extraction; adapter fixtures pin wiring.
+  Output remains an explicit boundary: blocking before a shell call does not imply Codex can
+  suppress or rewrite what tools return.

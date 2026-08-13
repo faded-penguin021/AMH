@@ -1,6 +1,19 @@
-# Codex adapter for the AMH. Wiring only: all behavioral policy lives in
-# AGENTS.md and scripts/. Codex currently has no repository-local session-start,
-# pre-shell, or output-filter lifecycle hook, so this file does not pretend to
-# run scripts/session-start.sh, scripts/command-guard.sh, or scripts/redact.sh.
-# The supported repository-local command-policy layer is wired separately in
-# .codex/rules/amh.rules. The command guard remains available for direct use.
+# Codex adapter for the AMH. Wiring only: behavioral policy lives in AGENTS.md
+# and scripts/. Hooks run the agent-neutral session bootstrap and command guard;
+# the static lower command-policy layer remains .codex/rules/amh.rules.
+#
+# Codex can block a shell call before execution, but its hooks cannot currently
+# suppress or rewrite tool output. There is intentionally no PostToolUse hook:
+# scripts/redact.sh remains available only for adapters with an output filter.
+
+[[hooks.SessionStart]]
+matcher = "startup|resume|clear|compact"
+hooks = [
+  { type = "command", command = "root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; exec bash \"$root/scripts/session-start.sh\"", timeout = 30, statusMessage = "Starting AMH session" },
+]
+
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+hooks = [
+  { type = "command", command = "root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; exec bash \"$root/scripts/command-guard.sh\"", timeout = 10, statusMessage = "Checking shell command" },
+]
