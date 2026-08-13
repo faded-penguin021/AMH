@@ -726,20 +726,24 @@
   durable lesson at its natural size, even 300 bytes; do not make a debugging narrative legal by
   trimming it to the limit. The guard remains a rejection boundary, not a length prescription.
 
-- DB-032: **A specialized reviewer is a selectable lens, not a second standard or an
+- DB-032: **Lifecycle wiring should call agent-neutral scripts, not fork policy into an adapter.**
+  Codex gained repository hooks after the adapter had honestly documented their absence. Inline
+  SessionStart and Bash PreToolUse tables now resolve the repository root and invoke the same
+  shipped bootstrap and command guard as other agents, while static rules remain an independent
+  lower layer. Hook payload fixtures pin vendor field extraction; adapter fixtures pin wiring.
+  Output remains an explicit boundary: blocking before a shell call does not imply Codex can
+  suppress or rewrite what tools return.
+
+- DB-033: **A specialized reviewer is a selectable lens, not a second standard or an
   attestation.** Project-scoped agent configuration can make the mandatory fresh-context pass
   easier to invoke, but its checklist must remain the runbook's, its findings falsifiable, and
   its output human-consumed. Keep the agent-neutral strongest-tier fallback: tooling support is
   not review validity. Runtime permission inheritance can weaken a read-only sandbox, so the
   instruction prohibition on edits remains independently necessary.
 
-- DB-033: **Merge-collision exception:** this row was DB-032 on the incoming base branch; the
-  owner-directed merge-conflict resolution assigned the next identifier because this branch had
-  independently committed DB-032 first. **A probabilistic-fixture repair needs a narrow
-  regression guard when its failure is
+- DB-034: **A probabilistic-fixture repair needs a narrow regression guard when its failure is
   syntactically recognizable.** D-024's bearer fixture once drew an unrestricted alphanumeric
   token and satisfied the redactor's production predicate only by chance. The repair guarantees
-  the qualifying prefix before an unrestricted tail. A repo-local guard now checks that one
-  source fixture has exactly that construction, including absence and duplicate branches; it
-  deliberately does not police random helpers or other fixtures whose literal prefixes already
-  satisfy their classes. Guard the incident's exact seam, not the technique around it.
+  the qualifying prefix before an unrestricted tail. A repo-local guard checks that exact source
+  construction, including absence and duplicate branches, without policing unrelated random
+  helpers. Guard the incident's seam, not the technique around it.

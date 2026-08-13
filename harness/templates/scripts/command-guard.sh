@@ -1209,11 +1209,22 @@ extract_command() { # fail-open: print nothing if the payload is not what we exp
 		printf '%s' "$payload" | python3 -c 'import json,sys
 try:
     d = json.load(sys.stdin)
-    print(d.get("tool_input", {}).get("command", ""))
+    if d.get("tool_name") == "Bash":
+        print(d.get("tool_input", {}).get("command", ""))
 except Exception:
     pass' 2>/dev/null
 	else
-		printf '%s' "$payload" | sed -n 's/.*"command"[[:space:]]*:[[:space:]]*"\(.*\)".*/\1/p' | head -1
+		# Keep the bash/git/coreutils baseline useful when Python is absent. This
+		# deliberately narrow fallback accepts only an object-shaped Bash payload and
+		# the documented tool_input.command spelling; anything ambiguous fails open.
+		case $payload in
+		'{'*'}') ;;
+		*) return 0 ;;
+		esac
+		printf '%s' "$payload" | grep -qE '"tool_name"[[:space:]]*:[[:space:]]*"Bash"' || return 0
+		printf '%s' "$payload" |
+			sed -n 's/.*"tool_input"[[:space:]]*:[[:space:]]*{[^}]*"command"[[:space:]]*:[[:space:]]*"\(.*\)"[[:space:]]*}.*/\1/p' |
+			head -1
 	fi
 }
 

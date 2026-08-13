@@ -86,5 +86,28 @@ for listed in $banner_adapters; do
 done
 set +f
 
+# Inline Codex hooks deliberately add no adapter path, but their two delivery points can
+# still drift together into a config that exists and does nothing. Pin one hook per event,
+# the exact shell matcher, and the agent-neutral shipped script each hook invokes.
+codex_config=harness/templates/configs/codex-config.toml
+[ "$(grep -cFx '[[hooks.SessionStart]]' "$codex_config")" -eq 1 ] ||
+	note "Codex adapter must contain exactly one SessionStart hook"
+[ "$(grep -cFx '[[hooks.PreToolUse]]' "$codex_config")" -eq 1 ] ||
+	note "Codex adapter must contain exactly one PreToolUse hook"
+[ "$(grep -cF 'matcher = "startup|resume|clear|compact"' "$codex_config")" -eq 1 ] ||
+	note "Codex SessionStart hook matcher is missing or duplicated"
+[ "$(grep -cF 'matcher = "^Bash$"' "$codex_config")" -eq 1 ] ||
+	note "Codex Bash PreToolUse matcher is missing or duplicated"
+session_hook=$(sed -n '/^\[\[hooks.SessionStart\]\]$/,/^$/p' "$codex_config")
+pretool_hook=$(sed -n '/^\[\[hooks.PreToolUse\]\]$/,/^$/p' "$codex_config")
+if [ "$(printf '%s\n' "$session_hook" | grep -cF 'scripts/session-start.sh')" -ne 1 ] ||
+	printf '%s\n' "$session_hook" | grep -qF 'scripts/command-guard.sh'; then
+	note "Codex SessionStart hook must invoke only the shipped agent-neutral session-start.sh"
+fi
+if [ "$(printf '%s\n' "$pretool_hook" | grep -cF 'scripts/command-guard.sh')" -ne 1 ] ||
+	printf '%s\n' "$pretool_hook" | grep -qF 'scripts/session-start.sh'; then
+	note "Codex PreToolUse hook must invoke only the shipped agent-neutral command-guard.sh"
+fi
+
 [ "$fails" -eq 0 ] || exit 1
 printf 'first-class adapter set is complete across sources, reference paths, installation and legislation\n'

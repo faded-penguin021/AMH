@@ -112,7 +112,8 @@ cheap:
   `scripts/guards` script, or in `scripts/verify.sh`.
 - **Everything else is yours**, written only when absent: the seed prose, `amh.conf`, the CI
   workflow, and both agent adapters (`.claude/settings.json` for Claude Code;
-  `.codex/config.toml` plus `.codex/rules/amh.rules` for Codex). Codex consumes the canonical
+  `.codex/config.toml`, `.codex/rules/amh.rules`, and the project-scoped
+  `.codex/agents/amh-rule-reviewer.toml` for Codex). Codex consumes the canonical
   `AGENTS.md` directly, so it does not need a second constitution pointer. Re-running never
   clobbers a word you wrote.
 
@@ -190,6 +191,7 @@ amh.conf             this repo's harness settings; the shipped scripts read it a
 .claude/settings.json   Claude Code adapter: permission rails and lifecycle hooks
 .codex/config.toml      Codex adapter: honest repository-local capability declaration
 .codex/rules/amh.rules  Codex adapter: static command-policy rails
+.codex/agents/amh-rule-reviewer.toml  Codex adapter: project-scoped rule-review lens
 docs/
   STATE.md           working memory: current state, Owner queue, changelog
   RUNBOOK.md         playbooks

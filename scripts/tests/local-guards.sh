@@ -437,6 +437,19 @@ d=$(snapshot adapter_codex_reference_legislation_gone)
 sed -i 's/ \.codex\/config\.toml//' "$d/amh.conf"
 expect fail "adapter-set: a Codex reference legislation entry was removed" "$d" adapter-set.sh "reference RULE_FILES"
 
+d=$(snapshot adapter_codex_session_hook_gone)
+sed -i '/\[\[hooks.SessionStart\]\]/,/^$/d' "$d/harness/templates/configs/codex-config.toml"
+expect fail "adapter-set: Codex has exactly one SessionStart hook" "$d" adapter-set.sh "exactly one SessionStart"
+
+d=$(snapshot adapter_codex_bash_hook_duplicated)
+cat "$d/harness/templates/configs/codex-config.toml" >>"$d/harness/templates/configs/codex-config.toml.copy"
+sed -n '/\[\[hooks.PreToolUse\]\]/,$p' "$d/harness/templates/configs/codex-config.toml.copy" >>"$d/harness/templates/configs/codex-config.toml"
+expect fail "adapter-set: Codex has exactly one Bash PreToolUse hook" "$d" adapter-set.sh "exactly one PreToolUse"
+
+d=$(snapshot adapter_codex_agent_neutral_script_gone)
+sed -i 's|scripts/command-guard\.sh|scripts/codex-command-guard.sh|' "$d/harness/templates/configs/codex-config.toml"
+expect fail "adapter-set: Codex invokes the shipped agent-neutral command guard" "$d" adapter-set.sh "agent-neutral command-guard.sh"
+
 # ADAPTER_FILES is the sixth place the set is written down — the session banner reports from
 # it — so it drifts like any other. All three mutations below are silent without the guard:
 # the banner simply stops mentioning an adapter, or mentions one nobody ships, and `unknown`

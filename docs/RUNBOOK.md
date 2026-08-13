@@ -268,9 +268,8 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
    **DA-003**). A pre-execution rail on `git log` was considered and declined: the defect is
    the generalisation drawn from the output, which no such rail can see. What was accepted
    instead is a line in the session banner — but that line reaches you only if your harness
-   ran `scripts/session-start.sh`, and one of the two first-class adapters has no
-   session-start hook to run it. So this is prose-only and binds you whether or not anything
-   printed it.
+   ran `scripts/session-start.sh`. Both first-class adapters wire that bootstrap; adapters
+   without lifecycle-hook support still depend on this prose-only discipline.
 
 ## Adversarial review protocol (MANDATORY for diffs the fixtures cannot see)
 

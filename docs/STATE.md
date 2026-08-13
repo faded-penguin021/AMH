@@ -31,9 +31,9 @@ the copy that counts.
 ## Current state
 
 AMH 6.0.0 is tagged and published on origin (confirmed by `git ls-remote --tags` on 2026-08-13).
-This branch is **6.1.0** (MINOR): it adds a project-scoped Codex rule reviewer without
-changing the agent-neutral fresh-context review standard. All five hand-maintained copies say
-6.1.0; the tag is queued.
+This branch is **6.1.0** (MINOR): it adds Codex lifecycle hooks and a project-scoped Codex rule
+reviewer while retaining the static permission layer and agent-neutral review standard. All five
+hand-maintained copies say 6.1.0; the tag is queued.
 
 Committed ledger rows are append-only, enforced against `HEAD` by a repo-local guard whose
 sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**.
@@ -92,16 +92,22 @@ re-litigate from.
 - 2026-08-13 — **A project-scoped Codex rule reviewer now ships.** Its read-only profile reuses
   the runbook review classes, inspects the live diff and supporting artifacts, and stays
   human-readable rather than becoming machine-consumed evidence. Installer and adapter-set
-  fixtures keep the repository-local copy synchronized (**DB-032**).
+  fixtures keep the repository-local copy synchronized (**DB-033**).
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-13 — **Codex lifecycle hooks run the existing agent-neutral rails.** One bounded
+  SessionStart hook runs the bootstrap and one Bash PreToolUse hook runs the instructive command
+  guard; both resolve the repository root. Static Codex rules remain beneath them, and the
+  adapter explicitly claims no output-rewriting ability. Payload, adapter and installer
+  fixtures pin the wiring and fail-open boundaries. **DB-032** is the record.
 
 - 2026-08-13 — **D-024's bearer-fixture repair is now mechanically preserved.** A narrow
   repo-local guard requires exactly one template-source `bearer_header` fixture and requires its
   guaranteed uppercase/digit prefix to precede the unrestricted alphanumeric tail. Mutants cover
   plain-alphanumeric regression, reordering, absence with a checked-NOTHING diagnostic, and
-  duplication; the local shipped copy remains copy-drift's responsibility. **DB-033** is the
+  duplication; the local shipped copy remains copy-drift's responsibility. **DB-034** is the
   record.
 
 - 2026-08-13 — **The ledger row cap is a maximum, not a drafting target.** Seed and local

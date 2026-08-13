@@ -107,12 +107,16 @@ sed "s/$default_branch_slot/main/g" \
 	"$ROOT/harness/templates/configs/codex-amh.rules" >"$expected_codex_rules"
 if cmp -s "$ROOT/harness/templates/configs/codex-config.toml" "$d/.codex/config.toml" &&
 	cmp -s "$expected_codex_rules" "$d/.codex/rules/amh.rules" &&
+	[ "$(grep -cFx '[[hooks.SessionStart]]' "$d/.codex/config.toml")" -eq 1 ] &&
+	[ "$(grep -cFx '[[hooks.PreToolUse]]' "$d/.codex/config.toml")" -eq 1 ] &&
+	sed -n '/^\[\[hooks.SessionStart\]\]$/,/^$/p' "$d/.codex/config.toml" | grep -qF 'scripts/session-start.sh' &&
+	sed -n '/^\[\[hooks.PreToolUse\]\]$/,/^$/p' "$d/.codex/config.toml" | grep -qF 'scripts/command-guard.sh' &&
 	cmp -s "$ROOT/harness/templates/configs/codex-agents/amh-rule-reviewer.toml" \
 		"$d/.codex/agents/amh-rule-reviewer.toml" &&
 	[ ! -e "$HOME/.codex/agents/amh-rule-reviewer.toml" ]; then
 	pass
 else
-	fail "a fresh instantiation keeps the complete Codex adapter repository-local"
+	fail "a fresh instantiation keeps the complete hook-bearing Codex adapter repository-local"
 fi
 
 placeholder_open=$(printf '{%s' '{')

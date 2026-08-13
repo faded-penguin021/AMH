@@ -414,6 +414,44 @@ akia_token() {
 printf 'ladder guard fixtures\n'
 timing_diagnostics_self_test
 
+# --- command-guard.sh: Codex PreToolUse payload -----------------------------
+d=$(mk codex_hook_payload)
+out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat .env"}}' |
+	scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'prefer presence-only checks'; then
+	report ok "a forbidden Codex Bash payload is blocked with the instructive reason"
+else
+	report no "a forbidden Codex Bash payload is blocked with the instructive reason" "rc=$rc" "$out"
+fi
+
+out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf hello"}}' |
+	scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ]; then report ok "an allowed Codex Bash payload passes"; else report no "an allowed Codex Bash payload passes" "rc=$rc" "$out"; fi
+
+out=$(cd "$d" && printf '%s' '{not-json' | scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ]; then report ok "a malformed Codex payload fails open"; else report no "a malformed Codex payload fails open" "rc=$rc" "$out"; fi
+
+out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Read","tool_input":{"command":"cat .env"}}' |
+	scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ]; then report ok "a non-Bash Codex payload fails open"; else report no "a non-Bash Codex payload fails open" "rc=$rc" "$out"; fi
+
+# The distributed baseline does not require Python. Hide it from command lookup and prove
+# the conservative coreutils fallback still enforces a straightforward Codex Bash payload.
+fallback_path="$d/no-python-bin"
+mkdir -p "$fallback_path"
+for tool in bash cat dirname git grep head sed; do
+	tool_path=$(command -v "$tool")
+	ln -s "$tool_path" "$fallback_path/$tool"
+done
+out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat .env"}}' |
+	env PATH="$fallback_path" scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ]; then report ok "a Codex Bash payload is guarded without Python"; else report no "a Codex Bash payload is guarded without Python" "rc=$rc" "$out"; fi
+
 # --- baseline
 d=$(mk baseline)
 started=$SECONDS

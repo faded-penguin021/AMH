@@ -1495,8 +1495,8 @@ rather than the command.
 - **Instructive pre-execution guard** (where the agent supports pre-tool-use hooks): wire the
   agent-neutral `scripts/command-guard.sh` so every shell command is checked against the hard
   rails before it runs, and a violation is blocked with a reason naming the rule and the
-  correct alternative (Claude Code: a Bash PreToolUse hook; exit 2 plus stderr becomes the
-  reason shown to the model). This is the layer that makes rails *self-correcting*; the static
+  correct alternative (Claude Code and Codex: a Bash PreToolUse hook; exit 2 plus stderr becomes
+  the reason shown to the model). This is the layer that makes rails *self-correcting*; the static
   deny list stays beneath it as the second net. Follow the P13 pattern rules: leading-command
   matching, mistake-not-evasion threat model, fail open on malformed input, self-test run by
   the ladder. Two honesty obligations come with it. The guard's header carries a consolidated
@@ -1509,8 +1509,10 @@ rather than the command.
   will not assume — so it is stated in the constitution rather than warned about at boot.
 - **Output redaction** (where supported): if the agent exposes an output-filter hook, pipe tool
   and terminal output through `scripts/redact.sh` so known token shapes are scrubbed before
-  they reach the context window. State explicitly in the adapter which layers it actually
-  provides — rails, redaction, or prose-only.
+  they reach the context window. Codex hooks can block a shell call before it runs, but cannot
+  currently suppress or rewrite tool output, so its adapter deliberately has no `PostToolUse`
+  redaction hook. State explicitly in the adapter which layers it actually provides — rails,
+  redaction, or prose-only.
 - **Server-side:** the owner mirrors the hardest rails at the host — branch protection on the
   default branch (PRs required; force-push and deletion blocked) and secret-scanning push
   protection. The adapter's deny rules bind only agents that load them; the server binds every
@@ -1609,21 +1611,34 @@ A worked adapter, for Claude Code:
 }
 ``````
 
-A worked adapter, for Codex (repository config plus static command policy):
+A worked adapter, for Codex (lifecycle hooks plus the static lower command-policy layer):
 
 ``````
-# Codex adapter for the AMH. Wiring only: all behavioral policy lives in
-# AGENTS.md and scripts/. Codex currently has no repository-local session-start,
-# pre-shell, or output-filter lifecycle hook, so this file does not pretend to
-# run scripts/session-start.sh, scripts/command-guard.sh, or scripts/redact.sh.
-# The supported repository-local command-policy layer is wired separately in
-# .codex/rules/amh.rules. The command guard remains available for direct use.
+# Codex adapter for the AMH. Wiring only: behavioral policy lives in AGENTS.md
+# and scripts/. Hooks run the agent-neutral session bootstrap and command guard;
+# the static lower command-policy layer remains .codex/rules/amh.rules.
+#
+# Codex can block a shell call before execution, but its hooks cannot currently
+# suppress or rewrite tool output. There is intentionally no PostToolUse hook:
+# scripts/redact.sh remains available only for adapters with an output filter.
+
+[[hooks.SessionStart]]
+matcher = "startup|resume|clear|compact"
+hooks = [
+  { type = "command", command = "root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; exec bash \"$root/scripts/session-start.sh\"", timeout = 30, statusMessage = "Starting AMH session" },
+]
+
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+hooks = [
+  { type = "command", command = "root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; exec bash \"$root/scripts/command-guard.sh\"", timeout = 10, statusMessage = "Checking shell command" },
+]
 ``````
 
 ``````
 # AMH static deny rails for Codex. Wiring only; AGENTS.md and scripts/ own the
-# behavior and explanations. Prefix rules cannot provide output filtering or
-# invoke scripts/command-guard.sh as a pre-execution hook.
+# behavior and explanations. These prefix rules remain the static lower layer beneath
+# the config's PreToolUse command guard; neither layer can filter tool output.
 
 # Environment dumps and direct secret-file reads.
 prefix_rule(pattern = ["env"], decision = "forbidden", justification = "AMH forbids environment dumps; check only whether a named key is set.")
