@@ -29,8 +29,8 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
 
 ### Upgrading
 
-1. Copy the shipped scripts. No shipped `.sh` file changed; from 6.0.0 this updates only the
-   manifest's release-version header.
+1. Copy the shipped scripts. `command-guard.sh` and `test-ladder-guards.sh` changed for Codex
+   payload dispatch and its regression coverage; the other shipped scripts are unchanged.
 2. **Seed prose, hand-applied and recommended.** Copy the maximum-not-target wording from
    `harness/templates/seed/docs/LEDGER.md` into each ledger volume's preamble. If you maintain a
    commented config template, make the same point beside `LEDGER_ROW_CHAR_CAP`. Skipping this
