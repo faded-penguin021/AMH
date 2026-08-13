@@ -11,6 +11,38 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 6.1.0 — 2026-08-13
+
+- **Codex now runs the agent-neutral lifecycle rails.** The repository config wires one
+  synchronous `SessionStart` hook to `scripts/session-start.sh` and one Bash `PreToolUse` hook
+  to `scripts/command-guard.sh`, resolving the repository root before either call and bounding
+  both runtimes. `.codex/rules/amh.rules` remains the static lower layer. Codex can block the
+  shell call, but cannot currently suppress or rewrite tool output, so no `PostToolUse`
+  redaction hook is claimed or installed. Codex-shaped payload fixtures pin the documented
+  `tool_input.command` path, Bash dispatch, blocking reason, allowed case and fail-open cases.
+
+- **Codex adopters can select a project-scoped AMH rule reviewer.** The custom-agent profile
+  performs the runbook's existing fresh-context review classes over the real uncommitted diff,
+  rule sources, and fixtures. It is read-only by both sandbox configuration and instruction,
+  does not pin a model or reasoning effort, and produces human-readable findings that no gate
+  may treat as an attestation. The initializer installs it only inside the repository's Codex
+  adapter tree, and adapter-set coverage keeps its template, reference copy, installer action,
+  `RULE_FILES`, and `ADAPTER_FILES` synchronized.
+
+### Upgrading
+
+1. Copy the shipped scripts. `command-guard.sh` and `test-ladder-guards.sh` changed for Codex
+   payload dispatch and its regression coverage; the other shipped scripts are unchanged.
+2. **Existing Codex adopters, hand-applied:** copy
+   `harness/templates/configs/codex-agents/amh-rule-reviewer.toml` to
+   `.codex/agents/amh-rule-reviewer.toml`. The initializer preserves adopter-owned adapter
+   files on re-runs, so it will not replace a file already present at that path.
+3. **Existing Codex adopters, hand-applied:** existing adopters own `.codex/config.toml`; copy
+   or merge the `SessionStart` and `PreToolUse` hook tables from
+   `harness/templates/configs/codex-config.toml` manually. Start Codex in a trusted project,
+   open `/hooks`, review the exact hook definitions, and trust them before expecting the hooks
+   to run. Keep `.codex/rules/amh.rules` as the static lower layer.
+
 ## 6.0.1 — 2026-08-13
 
 - **The ledger row cap is now named as a maximum, not a target.** The old seed correctly said
@@ -476,11 +508,10 @@ gained the hookless-rail rule and the guard-limits pointer, so it grew.)
 
 - **Codex is a first-class adapter.** `harness/templates/configs/codex-config.toml` and
   `codex-amh.rules` ship, and the initializer installs them. The adapter is honest about its
-  own layers: Codex exposes no repository-local session-start, pre-shell or output-filter hook,
-  so the config says plainly that it does not run `session-start.sh`, `command-guard.sh` or
-  `redact.sh`, and points at `.codex/rules/amh.rules`, where the command-policy layer it does
-  support is wired. The config file itself carries no settings — it exists to state which
-  layers are absent. An adapter that claimed otherwise would be worse than none.
+  original layers: at that release Codex exposed no repository-local lifecycle hooks, so the
+  config pointed at `.codex/rules/amh.rules`, where its static command-policy layer was wired.
+  Codex lifecycle support added in 6.1.0 supersedes that historical capability statement while
+  retaining the rules file as the lower layer.
 
 - **The adoption brief's placeholder sweep covers the adapter directories.** `AMH-ADOPT.md` now
   greps `.claude/` and `.codex/` alongside the docs, which is load-bearing for this release:

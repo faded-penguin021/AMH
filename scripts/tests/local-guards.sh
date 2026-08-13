@@ -86,6 +86,40 @@ expect pass "doc-navigation: clean tree" "$base" doc-navigation.sh
 expect pass "config-schema: clean tree" "$base" config-schema.sh
 expect pass "ledger-append-only: clean tree" "$base" ledger-append-only.sh
 expect pass "shipped-citations: clean tree" "$base" shipped-citations.sh
+expect pass "bearer-fixture-construction: current template" "$base" bearer-fixture-construction.sh
+
+# --- bearer-fixture-construction --------------------------------------------
+d=$(snapshot bearer_fixture_plain_alnum)
+# shellcheck disable=SC2016  # mutate literal command substitutions in the fixture source.
+sed -i 's/$(rand_upper 8)$(rand_alnum 32)/$(rand_alnum 40)/' \
+	"$d/harness/templates/scripts/redact.sh"
+expect fail "bearer-fixture-construction: unrestricted token cannot replace the guaranteed prefix" "$d" \
+	bearer-fixture-construction.sh "D-024's fixture satisfied the production predicate only probabilistically"
+
+d=$(snapshot bearer_fixture_reordered)
+# shellcheck disable=SC2016  # mutate literal command substitutions in the fixture source.
+sed -i 's/$(rand_upper 8)$(rand_alnum 32)/$(rand_alnum 32)$(rand_upper 8)/' \
+	"$d/harness/templates/scripts/redact.sh"
+expect fail "bearer-fixture-construction: guaranteed prefix cannot follow the unrestricted tail" "$d" \
+	bearer-fixture-construction.sh "prefix-before-tail construction"
+
+d=$(snapshot bearer_fixture_decoy)
+# shellcheck disable=SC2016  # mutate literal command substitutions in the fixture source.
+sed -i 's/"$(rand_upper 8)$(rand_alnum 32)")"/"$(rand_alnum 40)")" "$(rand_upper 8)$(rand_alnum 32)"/' \
+	"$d/harness/templates/scripts/redact.sh"
+expect fail "bearer-fixture-construction: a surplus argument cannot decoy the guard" "$d" \
+	bearer-fixture-construction.sh "prefix-before-tail construction"
+
+d=$(snapshot bearer_fixture_absent)
+sed -i '/st_redacted bearer_header/d' "$d/harness/templates/scripts/redact.sh"
+expect fail "bearer-fixture-construction: missing fixture checks nothing" "$d" \
+	bearer-fixture-construction.sh "checked NOTHING"
+
+d=$(snapshot bearer_fixture_duplicated)
+duplicate=$(sed -n '/st_redacted bearer_header/p' "$d/harness/templates/scripts/redact.sh")
+printf '%s\n' "$duplicate" >>"$d/harness/templates/scripts/redact.sh"
+expect fail "bearer-fixture-construction: duplicate fixture is not accepted by first match" "$d" \
+	bearer-fixture-construction.sh "expected exactly one"
 
 
 # --- ledger-append-only -------------------------------------------------------
@@ -387,6 +421,10 @@ d=$(snapshot adapter_codex_path_gone)
 rm "$d/.codex/config.toml"
 expect fail "adapter-set: a Codex reference path was removed" "$d" adapter-set.sh ".codex/config.toml"
 
+d=$(snapshot adapter_codex_reviewer_path_gone)
+rm "$d/.codex/agents/amh-rule-reviewer.toml"
+expect fail "adapter-set: the Codex reviewer reference path was removed" "$d" adapter-set.sh ".codex/agents/amh-rule-reviewer.toml"
+
 d=$(snapshot adapter_codex_install_gone)
 sed -i '\|codex-config.toml.*\.codex/config.toml|d' "$d/scripts/amh-init.sh"
 expect fail "adapter-set: a Codex install action was removed" "$d" adapter-set.sh "install action missing"
@@ -398,6 +436,19 @@ expect fail "adapter-set: a Codex legislation entry was removed" "$d" adapter-se
 d=$(snapshot adapter_codex_reference_legislation_gone)
 sed -i 's/ \.codex\/config\.toml//' "$d/amh.conf"
 expect fail "adapter-set: a Codex reference legislation entry was removed" "$d" adapter-set.sh "reference RULE_FILES"
+
+d=$(snapshot adapter_codex_session_hook_gone)
+sed -i '/\[\[hooks.SessionStart\]\]/,/^$/d' "$d/harness/templates/configs/codex-config.toml"
+expect fail "adapter-set: Codex has exactly one SessionStart hook" "$d" adapter-set.sh "exactly one SessionStart"
+
+d=$(snapshot adapter_codex_bash_hook_duplicated)
+cat "$d/harness/templates/configs/codex-config.toml" >>"$d/harness/templates/configs/codex-config.toml.copy"
+sed -n '/\[\[hooks.PreToolUse\]\]/,$p' "$d/harness/templates/configs/codex-config.toml.copy" >>"$d/harness/templates/configs/codex-config.toml"
+expect fail "adapter-set: Codex has exactly one Bash PreToolUse hook" "$d" adapter-set.sh "exactly one PreToolUse"
+
+d=$(snapshot adapter_codex_agent_neutral_script_gone)
+sed -i 's|scripts/command-guard\.sh|scripts/codex-command-guard.sh|' "$d/harness/templates/configs/codex-config.toml"
+expect fail "adapter-set: Codex invokes the shipped agent-neutral command guard" "$d" adapter-set.sh "agent-neutral command-guard.sh"
 
 # ADAPTER_FILES is the sixth place the set is written down — the session banner reports from
 # it — so it drifts like any other. All three mutations below are silent without the guard:

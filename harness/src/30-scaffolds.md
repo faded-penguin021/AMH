@@ -264,8 +264,8 @@ rather than the command.
 - **Instructive pre-execution guard** (where the agent supports pre-tool-use hooks): wire the
   agent-neutral `scripts/command-guard.sh` so every shell command is checked against the hard
   rails before it runs, and a violation is blocked with a reason naming the rule and the
-  correct alternative (Claude Code: a Bash PreToolUse hook; exit 2 plus stderr becomes the
-  reason shown to the model). This is the layer that makes rails *self-correcting*; the static
+  correct alternative (Claude Code and Codex: a Bash PreToolUse hook; exit 2 plus stderr becomes
+  the reason shown to the model). This is the layer that makes rails *self-correcting*; the static
   deny list stays beneath it as the second net. Follow the P13 pattern rules: leading-command
   matching, mistake-not-evasion threat model, fail open on malformed input, self-test run by
   the ladder. Two honesty obligations come with it. The guard's header carries a consolidated
@@ -278,8 +278,10 @@ rather than the command.
   will not assume — so it is stated in the constitution rather than warned about at boot.
 - **Output redaction** (where supported): if the agent exposes an output-filter hook, pipe tool
   and terminal output through `scripts/redact.sh` so known token shapes are scrubbed before
-  they reach the context window. State explicitly in the adapter which layers it actually
-  provides — rails, redaction, or prose-only.
+  they reach the context window. Codex hooks can block a shell call before it runs, but cannot
+  currently suppress or rewrite tool output, so its adapter deliberately has no `PostToolUse`
+  redaction hook. State explicitly in the adapter which layers it actually provides — rails,
+  redaction, or prose-only.
 - **Server-side:** the owner mirrors the hardest rails at the host — branch protection on the
   default branch (PRs required; force-push and deletion blocked) and secret-scanning push
   protection. The adapter's deny rules bind only agents that load them; the server binds every
@@ -289,7 +291,7 @@ A worked adapter, for Claude Code:
 
 <!-- amh:include harness/templates/configs/claude-settings.json -->
 
-A worked adapter, for Codex (repository config plus static command policy):
+A worked adapter, for Codex (lifecycle hooks plus the static lower command-policy layer):
 
 <!-- amh:include harness/templates/configs/codex-config.toml -->
 
