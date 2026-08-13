@@ -11,6 +11,23 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 6.0.1 — 2026-08-13
+
+- **The ledger row cap is now named as a maximum, not a target.** The old seed correctly said
+  rows may be shorter than `LEDGER_ROW_CHAR_CAP`, but left the familiar threshold reflex open:
+  draft a long narrative, then shave it until the guard passes. The ledger preamble and config
+  template now say to write the durable lesson at its natural size, even far below the cap, and
+  never trim a draft toward the limit. No threshold, guard, fixture or exit code changed.
+
+### Upgrading
+
+1. Copy the shipped scripts. No shipped `.sh` file changed; from 6.0.0 this updates only the
+   manifest's release-version header.
+2. **Seed prose, hand-applied and recommended.** Copy the maximum-not-target wording from
+   `harness/templates/seed/docs/LEDGER.md` into each ledger volume's preamble. If you maintain a
+   commented config template, make the same point beside `LEDGER_ROW_CHAR_CAP`. Skipping this
+   optional clarification changes no verdict, which is why 6.0.1 is a PATCH.
+
 ## 6.0.0 — 2026-08-11
 
 - **The secret-file rails covered `.env` and stopped there; they now reach private keys, and

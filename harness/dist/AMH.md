@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 6.0.0.** Repos that adopt it record the version they took
+**Harness version 6.0.1.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -755,9 +755,10 @@ LEDGER_DIR=docs
 LEDGER_BASENAME=LEDGER
 # Keep in lockstep with the number stated in the ledger's own header.
 LEDGER_LINE_CAP={{LINE_CAP}}
-# New rows appended to any live ledger volume are capped by bytes under LC_ALL=C
-# (ASCII/UTF-8 text therefore counts one byte per ASCII character). Historical rows
-# already committed at HEAD are exempt so append-only history is never rewritten.
+# New rows appended to any live ledger volume are capped by bytes under LC_ALL=C.
+# This is a maximum, not a target; a shorter durable lesson is preferable to a draft
+# trimmed toward the cap. Historical rows already committed at HEAD are exempt so
+# append-only history is never rewritten.
 # Not the same unit as LEDGER_LINE_CAP above, which counts lines in a whole volume;
 # equal numbers here are a coincidence, not a lockstep.
 LEDGER_ROW_CHAR_CAP=800
@@ -850,6 +851,11 @@ shave words one at a time until the guard goes quiet — the micro-trim reflex t
 break, reappearing one band lower and leaving no headroom for the next session. Do not add a
 second threshold to enforce the aim point: it would warn on a perfectly good compression pass,
 and "is 8 enough?" is a question with no answer.
+
+Apply the same wording to `LEDGER_ROW_CHAR_CAP`: it is a **maximum, not a target**. Its job is
+to bound the retrieval cost of one row, not to prescribe a standard row length. Prose — not the
+guard — asks authors to retain only the durable lesson. Write it at its natural size, even far
+below the cap; do not draft long and shave clauses until the rung passes.
 
 The landing check judges the shrink's *size* as well as where it lands, which is why
 `STATE_EDIT_DELTA_BYTES` exists. Its first form treated every byte lost above the soft cap as a
@@ -1215,8 +1221,9 @@ shipped bug teaches session N+9's review pass.
 > **Search before appending.** Grep the ledger for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes D-NNN") and the old row gets a correction pointer, never deletion.
-> **Keep new rows concise and at or below `LEDGER_ROW_CHAR_CAP`.** Capture the durable lesson,
-> not the whole debugging narrative; put larger narratives in `docs/history/` and link them
+> **Keep new rows concise and at or below `LEDGER_ROW_CHAR_CAP`.** The cap is a maximum, not a
+> target: write only the durable lesson, even when that takes far less space; do not draft a
+> narrative and shave it toward the cap. Put larger narratives in `docs/history/` and link them
 > from the `docs/STATE.md` changelog.
 >
 > **File cap & rollover.** This file holds at most `LEDGER_LINE_CAP` lines from `amh.conf` (the

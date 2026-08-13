@@ -25,17 +25,15 @@ The AMH meta-repository: both the **source of truth** for the Agentic Maintenanc
 reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
 **reference instance**, running byte-identical copies of the scripts it ships. The product is
 `harness/` (prose source, templates, generated bundle); this repo's instance is `AGENTS.md` +
-`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 6.0.0** — see `harness/VERSION`,
+`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 6.0.1** — see `harness/VERSION`,
 the copy that counts.
 
 ## Current state
 
-AMH 5.2.1 is tagged and published on origin at `48e0946` (confirmed by `git ls-remote --tags`,
-which closed both of its queue items rather than restating them — the DA-011 shape, three times
-running). This branch's work is classified **6.0.0** (MAJOR, agent) and all five hand-maintained
-copies say so; the tag is queued. The owner confirmed MAJOR (2026-08-11) and refused
-content-aware secret detection in the same breath: a guard never opens a file, so extension
-tiering is the whole answer for `.pem`/`.key` (**DB-027**).
+AMH 6.0.0 is tagged and published on origin (confirmed by `git ls-remote --tags` on 2026-08-13).
+This branch is **6.0.1** (PATCH): it makes the existing row-concision rule discoverable to
+6.0.0 adopters without changing a threshold or verdict. All five hand-maintained copies say
+6.0.1; the tag is queued.
 
 Committed ledger rows are append-only, enforced against `HEAD` by a repo-local guard whose
 sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**.
@@ -52,14 +50,13 @@ sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**.
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
 
-**OPEN — tag and publish AMH 6.0.0.** `harness/VERSION`, the changelog's top entry, `AGENTS.md`,
-this file, `amh.conf` and the README Quick Start all say 6.0.0; the bundle and the manifest are
-rebuilt (`command-guard.sh`'s hash moved, and the manifest's version header with it). Create and
-push `amh-v6.0.0` after merge. No check: only the owner may tag or publish.
-Check the copies with: `grep -rn '6\.0\.0' harness/VERSION AGENTS.md docs/STATE.md amh.conf README.md`
+**OPEN — tag and publish AMH 6.0.1.** `harness/VERSION`, the changelog's top entry, `AGENTS.md`,
+this file, `amh.conf` and the README Quick Start all say 6.0.1; the bundle and manifest are
+rebuilt. Create and push `amh-v6.0.1` after merge. No check: only the owner may tag or publish.
+Check the copies with: `grep -rn '6\.0\.1' harness/VERSION AGENTS.md docs/STATE.md amh.conf README.md`
 
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
-5.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
+6.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -94,6 +91,11 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-13 — **The ledger row cap is a maximum, not a drafting target.** Seed and local
+  preambles now tell agents to write the durable lesson at its natural size, even far below the
+  cap, rather than micro-trimming a narrative until it passes. The config template and scaffold
+  explanation carry the same distinction; no value or guard changed. **DB-031** is the record.
 
 - 2026-08-12 — **The destructive-command advisory rearms per operand set, names the failure mode it
   is shaped for, and stops suggesting its own sidestep.** From a downstream session that was

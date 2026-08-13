@@ -49,6 +49,11 @@ break, reappearing one band lower and leaving no headroom for the next session. 
 second threshold to enforce the aim point: it would warn on a perfectly good compression pass,
 and "is 8 enough?" is a question with no answer.
 
+Apply the same wording to `LEDGER_ROW_CHAR_CAP`: it is a **maximum, not a target**. Its job is
+to bound the retrieval cost of one row, not to prescribe a standard row length. Prose — not the
+guard — asks authors to retain only the durable lesson. Write it at its natural size, even far
+below the cap; do not draft long and shave clauses until the rung passes.
+
 The landing check judges the shrink's *size* as well as where it lands, which is why
 `STATE_EDIT_DELTA_BYTES` exists. Its first form treated every byte lost above the soft cap as a
 compression pass in progress, and that reading fails a three-byte typo fix: go to the floor or
