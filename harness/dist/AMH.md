@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 6.0.1.** Repos that adopt it record the version they took
+**Harness version 6.1.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -813,7 +813,7 @@ PLAN_DIR=docs/plans
 # this list is a rule change either way, never housekeeping.
 #
 # Add each new agent adapter's config file here.
-RULE_FILES='AGENTS.md docs/RUNBOOK.md amh.conf scripts/ladder.sh scripts/test-ladder-guards.sh scripts/command-guard.sh scripts/redact.sh scripts/session-start.sh .claude/settings.json .codex/config.toml .codex/rules/amh.rules'
+RULE_FILES='AGENTS.md docs/RUNBOOK.md amh.conf scripts/ladder.sh scripts/test-ladder-guards.sh scripts/command-guard.sh scripts/redact.sh scripts/session-start.sh .claude/settings.json .codex/config.toml .codex/rules/amh.rules .codex/agents/amh-rule-reviewer.toml'
 ``````
 
 ### 3.2 `docs/STATE.md` — working memory (bounded, compressible)
