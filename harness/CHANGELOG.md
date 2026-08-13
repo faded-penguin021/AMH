@@ -11,6 +11,28 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 7.0.0 — 2026-08-13
+
+- **The push rail now enforces the configured session namespace.** A real Codex session pushed
+  a generic `work` branch even though `BRANCH_PREFIX=session`; prohibiting only the default
+  branch left the positive naming rule as prose. `git push` must now name exactly one explicit
+  ref under `<BRANCH_PREFIX>/<codename>` rather than relying on the current branch implicitly.
+- **Shell-created pull requests must select the repository template.** A real PR was created
+  with an invented body despite `.github/pull_request_template.md`. The Bash pre-tool rail now
+  blocks `gh pr create` without `--template` and gives the exact correction; it cannot cover a
+  dedicated non-Bash forge tool, so the prose rule remains binding above it.
+
+### Upgrading
+
+1. Copy the shipped scripts and regenerated manifest.
+2. This is a major release because pushes that previously reached non-default, non-session
+   branches are now blocked. Rename or recreate in-flight branches under the configured
+   `BRANCH_PREFIX` before pushing.
+3. No Stop hook is added in this unit. Codex Stop hooks can request another model turn, but a
+   hook cannot reliably infer that an arbitrary response is the final delivery message. A
+   completion-only Owner-queue reminder needs a non-self-reported trigger before it can become
+   a gate; until then SessionStart and the constitution remain the honest layers.
+
 ## 6.1.0 — 2026-08-13
 
 - **Codex now runs the agent-neutral lifecycle rails.** The repository config wires one

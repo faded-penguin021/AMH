@@ -25,15 +25,15 @@ The AMH meta-repository: both the **source of truth** for the Agentic Maintenanc
 reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
 **reference instance**, running byte-identical copies of the scripts it ships. The product is
 `harness/` (prose source, templates, generated bundle); this repo's instance is `AGENTS.md` +
-`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 6.1.0** — see `harness/VERSION`,
+`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 7.0.0** — see `harness/VERSION`,
 the copy that counts.
 
 ## Current state
 
 AMH 6.0.0 is tagged and published on origin (confirmed by `git ls-remote --tags` on 2026-08-13).
-This branch is **6.1.0** (MINOR): it adds Codex lifecycle hooks and a project-scoped Codex rule
-reviewer while retaining the static permission layer and agent-neutral review standard. All five
-hand-maintained copies say 6.1.0; the tag is queued.
+This branch is **7.0.0** (MAJOR): the command rail now requires explicit session-prefixed push
+refs and repository-template use for shell-created pull requests. All five hand-maintained copies
+say 7.0.0; the tag is queued.
 
 Committed ledger rows are append-only, enforced against `HEAD` by a repo-local guard whose
 sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**.
@@ -50,10 +50,10 @@ sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**.
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
 
-**OPEN — tag and publish AMH 6.1.0.** `harness/VERSION`, the changelog's top entry, `AGENTS.md`,
-this file, `amh.conf` and the README Quick Start all say 6.1.0; the bundle and manifest are
-rebuilt. Create and push `amh-v6.1.0` after merge. No check: only the owner may tag or publish.
-Check the copies with: `grep -rn '6\.1\.0' harness/VERSION AGENTS.md docs/STATE.md amh.conf README.md`
+**OPEN — tag and publish AMH 7.0.0.** `harness/VERSION`, the changelog's top entry, `AGENTS.md`,
+this file, `amh.conf` and the README Quick Start all say 7.0.0; the bundle and manifest are
+rebuilt. Create and push `amh-v7.0.0` after merge. No check: only the owner may tag or publish.
+Check the copies with: `grep -rn '7\.0\.0' harness/VERSION AGENTS.md docs/STATE.md amh.conf README.md`
 
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
 6.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
@@ -96,6 +96,11 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-13 — **Publishing rails now enforce the configured session branch and PR template.**
+  Explicit non-session or implicit pushes are blocked, as is `gh pr create` without `--template`.
+  The Stop-hook idea remains declined until completion has an observable trigger rather than a
+  guess from final-looking prose. **DB-035** is the record.
 
 - 2026-08-13 — **Codex lifecycle hooks run the existing agent-neutral rails.** One bounded
   SessionStart hook runs the bootstrap and one Bash PreToolUse hook runs the instructive command

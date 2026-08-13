@@ -817,7 +817,9 @@ check_segment() {
 			esac
 		done
 		[ "$j" -lt "${#args[@]}" ] && [ "${args[$j]}" = push ] || return 0
+		local session_ref_count=0 saw_other_ref=0 positional=0 delete_push=0 skip_option_arg=0
 		for a in "${args[@]:$((j + 1))}"; do
+			if [ "$skip_option_arg" -eq 1 ]; then skip_option_arg=0; continue; fi
 			case $a in
 			--force | -f | --force-with-lease | --force-with-lease=* | --force-if-includes)
 				BLOCK_REASON="Force-push is denied (AMH P7): pushed checkpoints are immutable. If the branch diverged, merge the default branch in — never rewrite pushed history. A history rewrite is owner-executed and only for a leaked-credential incident."
@@ -845,13 +847,61 @@ check_segment() {
 				esac
 				return 1
 				;;
+			--delete | -d) delete_push=1 ;;
+			-o | --push-option | --receive-pack | --exec) skip_option_arg=1 ;;
+			--push-option=* | --receive-pack=* | --exec=*) ;;
 			-*) ;;
 			"$DEFAULT_BRANCH" | "refs/heads/$DEFAULT_BRANCH" | *:"$DEFAULT_BRANCH" | *:"refs/heads/$DEFAULT_BRANCH")
 				BLOCK_REASON="Pushing to \`$DEFAULT_BRANCH\` is denied (AMH P13). Push your session branch instead: \`git push -u origin $BRANCH_PREFIX/<codename>\`. The owner merges via squash PR."
 				return 1
 				;;
+			*)
+				# The first positional is the remote; every later positional is a refspec.
+				positional=$((positional + 1))
+				if [ "$positional" -gt 1 ]; then
+					case $a in
+					:"$BRANCH_PREFIX"/* | :refs/heads/"$BRANCH_PREFIX"/*) saw_other_ref=1 ;;
+					*:*)
+						case ${a#*:} in "$BRANCH_PREFIX"/* | refs/heads/"$BRANCH_PREFIX"/*) session_ref_count=$((session_ref_count + 1)) ;; *) saw_other_ref=1 ;; esac
+						;;
+					"$BRANCH_PREFIX"/* | refs/heads/"$BRANCH_PREFIX"/*) session_ref_count=$((session_ref_count + 1)) ;;
+					*) saw_other_ref=1 ;;
+					esac
+				fi
+				;;
 			esac
+			done
+		if [ "$delete_push" -eq 1 ]; then
+			BLOCK_REASON="Deleting a pushed branch rewrites published history and is denied (AMH P7). Leave it for the owner or the forge's post-merge cleanup."
+			return 1
+		fi
+		if [ "$saw_other_ref" -eq 1 ] || [ "$session_ref_count" -ne 1 ]; then
+			BLOCK_REASON="AMH requires one explicit session ref under \`$BRANCH_PREFIX/<codename>\`; this push names another branch or leaves the ref implicit. Create or switch to a descriptive \`$BRANCH_PREFIX/<codename>\` branch, then run \`git push -u origin $BRANCH_PREFIX/<codename>\`."
+			return 1
+		fi
+		;;
+	gh)
+		# `gh pr create --body ...` bypasses the repository's PR template. Requiring
+		# --template is an inspectable fact; whether the prose was filled honestly remains review.
+		local k=0 word saw_pr=0 saw_create=0 has_template=0
+		while [ "$k" -lt "${#args[@]}" ]; do
+			word=${args[$k]}
+			case $word in
+			-R | --repo | --hostname) k=$((k + 2)); continue ;;
+			--repo=* | --hostname=*) k=$((k + 1)); continue ;;
+			pr) saw_pr=1 ;;
+			create) [ "$saw_pr" -eq 1 ] && saw_create=1 ;;
+			esac
+			k=$((k + 1))
 		done
+		[ "$saw_create" -eq 1 ] || return 0
+		for a in "${args[@]}"; do
+			case $a in -T | --template | --template=*) has_template=1 ;; esac
+		done
+		if [ "$has_template" -eq 0 ]; then
+			BLOCK_REASON="Before creating a pull request, use the repository's PR template: pass \`--template pull_request_template.md\` when one exists. If the repository has no template, ask the owner whether to add one rather than inventing a one-off layout."
+			return 1
+		fi
 		;;
 	source | .)
 		# Sourcing does not print anything, so the reader reason would be false — but
@@ -1640,6 +1690,21 @@ printenv'
 	# Ordinary correct usage.
 	st_allowed "git push -u origin $BRANCH_PREFIX/some-codename"
 	st_allowed "git push -u origin $BRANCH_PREFIX/x && echo pushed"
+	st_blocked 'git push -u origin work'
+	st_blocked 'git push origin HEAD'
+	st_blocked 'git push origin'
+	st_blocked "git push origin $BRANCH_PREFIX/x other"
+	st_blocked "git push origin $BRANCH_PREFIX/x $BRANCH_PREFIX/y"
+	st_blocked "git push origin $BRANCH_PREFIX/x:refs/heads/work"
+	st_blocked "git push --delete origin $BRANCH_PREFIX/x"
+	st_blocked "git push origin :$BRANCH_PREFIX/x"
+	st_allowed "git push -o ci.skip origin $BRANCH_PREFIX/x"
+	st_allowed "git push --receive-pack git-receive-pack origin $BRANCH_PREFIX/x"
+	st_blocked 'gh pr create --title "Fix" --body "custom layout"'
+	st_blocked 'gh --repo owner/repo pr create --body custom'
+	st_blocked 'gh pr --repo owner/repo create --body custom'
+	st_allowed 'gh pr create --template pull_request_template.md --title "Fix"'
+	st_allowed 'gh pr view 44'
 	st_allowed 'env FOO=1 make test'
 	st_allowed 'FOO=1 make test'
 	st_allowed 'cat .env.example'
@@ -1760,7 +1825,7 @@ git push --force origin main
 	st_allowed 'tr "a" "b" < README.md'
 	st_allowed 'sort docs/LEDGER.md'
 	# A branch whose name merely CONTAINS the default branch name.
-	st_allowed "git push -u origin ${DEFAULT_BRANCH}tenance"
+	st_blocked "git push -u origin ${DEFAULT_BRANCH}tenance"
 	st_allowed "git push -u origin $BRANCH_PREFIX/$DEFAULT_BRANCH-cleanup"
 	# Fail-open on an empty or odd command.
 	st_allowed ''

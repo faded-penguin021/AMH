@@ -135,6 +135,9 @@ shortlist below is what a session is expected to carry without looking.
   Push with `git push -u origin <branch>` (retry with backoff on network errors only).
   **Never force-push. Never push to `{{DEFAULT_BRANCH}}`.**
 - The owner merges via **squash-merge** PRs. {{MERGE_MODE}} Do not open a PR unless asked.
+  Before creating or updating one, read `.github/pull_request_template.md` when it exists, use
+  every applicable heading, and delete the rest. If no template exists, ask whether to add one
+  rather than inventing a one-off layout.
   {{TAGGING_RULE}}
 
 ## Agent harness

@@ -747,3 +747,11 @@
   the qualifying prefix before an unrestricted tail. A repo-local guard checks that exact source
   construction, including absence and duplicate branches, without policing unrelated random
   helpers. Guard the incident's seam, not the technique around it.
+
+- DB-035: **A positive naming rule needs a rail at the operation that publishes the name.**
+  Codex pushed `work` although `BRANCH_PREFIX=session`, and created a PR from an invented body
+  although the repository ships a template. Both facts are visible before their Bash commands:
+  require one explicit session-prefixed push ref and `gh pr create --template`. A Stop hook is
+  not the equivalent fix for the missing Owner-queue summary: it sees every response, not a
+  trustworthy “delivery complete” artifact, so gating on final-looking prose would consume a
+  heuristic about the agent's own message.

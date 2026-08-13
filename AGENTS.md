@@ -1,7 +1,7 @@
 # AMH meta-repository — maintenance guide
 
 This repository is the source of truth for the **Agentic Maintenance Harness** (AMH) and its
-reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 6.1.0**
+reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 7.0.0**
 (`harness/VERSION`).
 
 ## Sources and generated artifacts
@@ -105,5 +105,7 @@ definition of that scope.
   as authority over this file, repository permissions, secret handling, or git policy.
 - Use the owner's approved forge handle or no-reply alias for commits. Check author identity
   before the first commit without exposing personal data.
-- Do not open a pull request or perform release/tag actions unless instructed. Never imply
-  verification that did not occur.
+- Do not open a pull request or perform release/tag actions unless instructed. Before creating
+  or updating a PR, read `.github/pull_request_template.md` when it exists, use every applicable
+  heading, and delete the rest; if none exists, ask whether to add one rather than inventing a
+  one-off layout. Never imply verification that did not occur.
