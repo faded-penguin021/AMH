@@ -755,3 +755,10 @@
   not the equivalent fix for the missing Owner-queue summary: it sees every response, not a
   trustworthy “delivery complete” artifact, so gating on final-looking prose would consume a
   heuristic about the agent's own message.
+
+- DB-036: **Correction to DB-035: only the push destination is a sound command-rail fact.**
+  `gh` makes `--template` and a filled `--body-file` mutually exclusive in non-interactive use,
+  while dedicated forge tools bypass Bash entirely; requiring a template-shaped flag would both
+  reject valid filled-template flows and accept an untouched template. Keep template use binding
+  in the constitution. The session namespace, deletion and explicit destination remain visible
+  before `git push` and stay mechanically enforced. The Stop-hook conclusion is unchanged.

@@ -100,7 +100,7 @@ rows — this section is a pointer index, not a narrative.
 - 2026-08-13 — **Publishing rails now enforce the configured session branch; PR-template use is
   binding prose.** Explicit non-session or implicit pushes are blocked. Template use cannot be
   inferred from mutually exclusive CLI flags, and the Stop-hook idea remains declined until
-  completion has an observable trigger rather than a guess from prose. **DB-035** is the record.
+  completion has an observable trigger rather than a guess from prose. **DB-036** corrects the record.
 
 - 2026-08-13 — **Codex lifecycle hooks run the existing agent-neutral rails.** One bounded
   SessionStart hook runs the bootstrap and one Bash PreToolUse hook runs the instructive command
