@@ -463,7 +463,7 @@
   it builds its `{{…}}` patterns at runtime from a data list rather than spelling them out,
   so the placeholder guard needs no exemption for it. The exemption was the obvious move and
   was wrong: it would also have hidden a placeholder the script forgot to substitute.
-- D-024: **A predicate a fixture satisfies only USUALLY is a flake, however sound the
+- D-024 [cited]: **A predicate a fixture satisfies only USUALLY is a flake, however sound the
   predicate looks — and this one shipped into the repo's entire secret scan.** Unit 4's
   `bearer_header` class required the value to contain a digit or punctuation with twelve
   characters after it; the fixture drew its token from `rand_alnum`, which guarantees no such

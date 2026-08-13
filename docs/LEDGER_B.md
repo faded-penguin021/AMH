@@ -733,3 +733,17 @@
   lower layer. Hook payload fixtures pin vendor field extraction; adapter fixtures pin wiring.
   Output remains an explicit boundary: blocking before a shell call does not imply Codex can
   suppress or rewrite what tools return.
+
+- DB-033: **A specialized reviewer is a selectable lens, not a second standard or an
+  attestation.** Project-scoped agent configuration can make the mandatory fresh-context pass
+  easier to invoke, but its checklist must remain the runbook's, its findings falsifiable, and
+  its output human-consumed. Keep the agent-neutral strongest-tier fallback: tooling support is
+  not review validity. Runtime permission inheritance can weaken a read-only sandbox, so the
+  instruction prohibition on edits remains independently necessary.
+
+- DB-034: **A probabilistic-fixture repair needs a narrow regression guard when its failure is
+  syntactically recognizable.** D-024's bearer fixture once drew an unrestricted alphanumeric
+  token and satisfied the redactor's production predicate only by chance. The repair guarantees
+  the qualifying prefix before an unrestricted tail. A repo-local guard checks that exact source
+  construction, including absence and duplicate branches, without policing unrelated random
+  helpers. Guard the incident's seam, not the technique around it.

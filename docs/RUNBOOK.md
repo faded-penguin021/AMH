@@ -383,6 +383,15 @@ requires, so do not ask permission each time — spawn it, and escalate the *dif
 if something genuinely needs a human. (The "ask before parking" clause above is narrower: it
 applies only when a standing instruction appears to forbid subagents outright.)
 
+**Codex invocation.** In a Codex repository that installs the project-scoped custom agent,
+select `amh-rule-reviewer` for this pass and give it the actual uncommitted diff; it will inspect
+the applicable rule sources and fixtures in the tree. This is a convenience, not a new review
+standard: any genuinely fresh context at the strongest available tier remains valid, including
+for agents that do not support Codex profiles. A live parent permission override can propagate
+to subagents and broaden the runtime sandbox; the reviewer's own instructions still forbid
+edits even in that case. The result remains human-readable prose, and no guard, script, or
+decision procedure may consume a “review complete” statement as evidence.
+
 **While the pass is in flight the diff stays green, uncommitted and unpushed.** A harness that
 prompts for a commit on every idle turn does not override the gate: hold, say so once, and do
 not re-explain every turn. Green-but-reviewed-pending is a normal state, not a stall — the

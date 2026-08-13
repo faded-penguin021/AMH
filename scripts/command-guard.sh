@@ -1214,9 +1214,17 @@ try:
 except Exception:
     pass' 2>/dev/null
 	else
-		# A JSON parser is optional. Without one, fail open rather than mistake a
-		# command-looking fragment in malformed or non-Bash input for hook evidence.
-		return 0
+		# Keep the bash/git/coreutils baseline useful when Python is absent. This
+		# deliberately narrow fallback accepts only an object-shaped Bash payload and
+		# the documented tool_input.command spelling; anything ambiguous fails open.
+		case $payload in
+		'{'*'}') ;;
+		*) return 0 ;;
+		esac
+		printf '%s' "$payload" | grep -qE '"tool_name"[[:space:]]*:[[:space:]]*"Bash"' || return 0
+		printf '%s' "$payload" |
+			sed -n 's/.*"tool_input"[[:space:]]*:[[:space:]]*{[^}]*"command"[[:space:]]*:[[:space:]]*"\(.*\)"[[:space:]]*}.*/\1/p' |
+			head -1
 	fi
 }
 

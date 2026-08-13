@@ -21,6 +21,30 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   redaction hook is claimed or installed. Codex-shaped payload fixtures pin the documented
   `tool_input.command` path, Bash dispatch, blocking reason, allowed case and fail-open cases.
 
+- **Codex adopters can select a project-scoped AMH rule reviewer.** The custom-agent profile
+  performs the runbook's existing fresh-context review classes over the real uncommitted diff,
+  rule sources, and fixtures. It is read-only by both sandbox configuration and instruction,
+  does not pin a model or reasoning effort, and produces human-readable findings that no gate
+  may treat as an attestation. The initializer installs it only inside the repository's Codex
+  adapter tree, and adapter-set coverage keeps its template, reference copy, installer action,
+  `RULE_FILES`, and `ADAPTER_FILES` synchronized.
+
+### Upgrading
+
+1. Copy the shipped scripts. `command-guard.sh` and `test-ladder-guards.sh` changed for Codex
+   payload dispatch and its regression coverage; the other shipped scripts are unchanged.
+2. **Existing Codex adopters, hand-applied:** copy
+   `harness/templates/configs/codex-agents/amh-rule-reviewer.toml` to
+   `.codex/agents/amh-rule-reviewer.toml`. The initializer preserves adopter-owned adapter
+   files on re-runs, so it will not replace a file already present at that path.
+3. **Existing Codex adopters, hand-applied:** existing adopters own `.codex/config.toml`; copy
+   or merge the `SessionStart` and `PreToolUse` hook tables from
+   `harness/templates/configs/codex-config.toml` manually. Start Codex in a trusted project,
+   open `/hooks`, review the exact hook definitions, and trust them before expecting the hooks
+   to run. Keep `.codex/rules/amh.rules` as the static lower layer.
+
+## 6.0.1 — 2026-08-13
+
 - **The ledger row cap is now named as a maximum, not a target.** The old seed correctly said
   rows may be shorter than `LEDGER_ROW_CHAR_CAP`, but left the familiar threshold reflex open:
   draft a long narrative, then shave it until the guard passes. The ledger preamble and config
@@ -29,17 +53,12 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
 
 ### Upgrading
 
-1. Copy the shipped scripts. `command-guard.sh` and `test-ladder-guards.sh` changed for Codex
-   payload dispatch and its regression coverage; the other shipped scripts are unchanged.
+1. Copy the shipped scripts. No shipped `.sh` file changed; from 6.0.0 this updates only the
+   manifest's release-version header.
 2. **Seed prose, hand-applied and recommended.** Copy the maximum-not-target wording from
    `harness/templates/seed/docs/LEDGER.md` into each ledger volume's preamble. If you maintain a
    commented config template, make the same point beside `LEDGER_ROW_CHAR_CAP`. Skipping this
    optional clarification changes no verdict, which is why 6.0.1 is a PATCH.
-3. **Codex adapter, hand-applied.** Existing adopters own `.codex/config.toml`; copy or merge
-   the `SessionStart` and `PreToolUse` hook tables from
-   `harness/templates/configs/codex-config.toml` manually. Start Codex in a trusted project,
-   open `/hooks`, review the exact hook definitions, and trust them before expecting the hooks
-   to run. Keep `.codex/rules/amh.rules` as the static lower layer.
 
 ## 6.0.0 — 2026-08-11
 
