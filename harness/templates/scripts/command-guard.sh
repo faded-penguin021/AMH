@@ -880,29 +880,6 @@ check_segment() {
 			return 1
 		fi
 		;;
-	gh)
-		# `gh pr create --body ...` bypasses the repository's PR template. Requiring
-		# --template is an inspectable fact; whether the prose was filled honestly remains review.
-		local k=0 word saw_pr=0 saw_create=0 has_template=0
-		while [ "$k" -lt "${#args[@]}" ]; do
-			word=${args[$k]}
-			case $word in
-			-R | --repo | --hostname) k=$((k + 2)); continue ;;
-			--repo=* | --hostname=*) k=$((k + 1)); continue ;;
-			pr) saw_pr=1 ;;
-			create) [ "$saw_pr" -eq 1 ] && saw_create=1 ;;
-			esac
-			k=$((k + 1))
-		done
-		[ "$saw_create" -eq 1 ] || return 0
-		for a in "${args[@]}"; do
-			case $a in -T | --template | --template=*) has_template=1 ;; esac
-		done
-		if [ "$has_template" -eq 0 ]; then
-			BLOCK_REASON="Before creating a pull request, use the repository's PR template: pass \`--template pull_request_template.md\` when one exists. If the repository has no template, ask the owner whether to add one rather than inventing a one-off layout."
-			return 1
-		fi
-		;;
 	source | .)
 		# Sourcing does not print anything, so the reader reason would be false — but
 		# it loads every credential in the file into the shell, where any later command
@@ -1700,11 +1677,6 @@ printenv'
 	st_blocked "git push origin :$BRANCH_PREFIX/x"
 	st_allowed "git push -o ci.skip origin $BRANCH_PREFIX/x"
 	st_allowed "git push --receive-pack git-receive-pack origin $BRANCH_PREFIX/x"
-	st_blocked 'gh pr create --title "Fix" --body "custom layout"'
-	st_blocked 'gh --repo owner/repo pr create --body custom'
-	st_blocked 'gh pr --repo owner/repo create --body custom'
-	st_allowed 'gh pr create --template pull_request_template.md --title "Fix"'
-	st_allowed 'gh pr view 44'
 	st_allowed 'env FOO=1 make test'
 	st_allowed 'FOO=1 make test'
 	st_allowed 'cat .env.example'

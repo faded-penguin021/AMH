@@ -17,10 +17,11 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   a generic `work` branch even though `BRANCH_PREFIX=session`; prohibiting only the default
   branch left the positive naming rule as prose. `git push` must now name exactly one explicit
   ref under `<BRANCH_PREFIX>/<codename>` rather than relying on the current branch implicitly.
-- **Shell-created pull requests must select the repository template.** A real PR was created
-  with an invented body despite `.github/pull_request_template.md`. The Bash pre-tool rail now
-  blocks `gh pr create` without `--template` and gives the exact correction; it cannot cover a
-  dedicated non-Bash forge tool, so the prose rule remains binding above it.
+- **PR-template use is now binding in the adopter constitution.** A real PR was created with an
+  invented body despite `.github/pull_request_template.md`. This stays prose rather than a rail:
+  `gh` rejects combining `--template` with `--body-file` in non-interactive use, and a gate over
+  either flag would block a valid filled template or accept an untouched one. Dedicated forge
+  tools also bypass Bash hooks, so the action-point instruction is the honest cross-agent layer.
 
 ### Upgrading
 
