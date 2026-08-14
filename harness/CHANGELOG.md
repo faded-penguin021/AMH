@@ -11,6 +11,34 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 7.0.0 — 2026-08-13
+
+- **The push rail now enforces the configured session namespace.** A real Codex session pushed
+  a generic `work` branch even though `BRANCH_PREFIX=session`; prohibiting only the default
+  branch left the positive naming rule as prose. `git push` must now name exactly one explicit
+  ref under `<BRANCH_PREFIX>/<codename>` rather than relying on the current branch implicitly.
+- **PR-template use is now binding in the adopter constitution.** A real PR was created with an
+  invented body despite `.github/pull_request_template.md`. This stays prose rather than a rail:
+  `gh` rejects combining `--template` with `--body-file` in non-interactive use, and a gate over
+  either flag would block a valid filled template or accept an untouched one. Dedicated forge
+  tools also bypass Bash hooks, so the action-point instruction is the honest cross-agent layer.
+- **Branch-train PR descriptions must cover the whole train.** The PR for this release initially
+  described only its final delivery-rail unit even though its diff also carried the lifecycle
+  hooks, project reviewer, bearer-fixture guard, and earlier prose change. The adopter
+  constitution now requires the PR body to describe the entire base-to-head diff, including
+  earlier units and not only commits from the current session.
+
+### Upgrading
+
+1. Copy the shipped scripts and regenerated manifest.
+2. This is a major release because pushes that previously reached non-default, non-session
+   branches are now blocked. Rename or recreate in-flight branches under the configured
+   `BRANCH_PREFIX` before pushing.
+3. No Stop hook is added in this unit. Codex Stop hooks can request another model turn, but a
+   hook cannot reliably infer that an arbitrary response is the final delivery message. A
+   completion-only Owner-queue reminder needs a non-self-reported trigger before it can become
+   a gate; until then SessionStart and the constitution remain the honest layers.
+
 ## 6.1.0 — 2026-08-13
 
 - **Codex now runs the agent-neutral lifecycle rails.** The repository config wires one

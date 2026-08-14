@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 6.1.0.** Repos that adopt it record the version they took
+**Harness version 7.0.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -628,6 +628,11 @@ shortlist below is what a session is expected to carry without looking.
   Push with `git push -u origin <branch>` (retry with backoff on network errors only).
   **Never force-push. Never push to `{{DEFAULT_BRANCH}}`.**
 - The owner merges via **squash-merge** PRs. {{MERGE_MODE}} Do not open a PR unless asked.
+  Before creating or updating one, read `.github/pull_request_template.md` when it exists, use
+  every applicable heading, and delete the rest. If no template exists, ask whether to add one
+  rather than inventing a one-off layout. Under `branch-train`, describe the **entire diff
+  against the PR's base branch**, including every earlier unit carried by the train—not merely
+  the latest unit or the commits authored in the current session.
   {{TAGGING_RULE}}
 
 ## Agent harness
