@@ -97,6 +97,11 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-14 — **Branch-train PR descriptions now explicitly cover the full base-to-head
+  diff.** PR #45 originally described only the final unit while carrying four earlier units.
+  The reference and seed constitutions now require every carried unit, not merely the latest
+  work or current-session commits, and the live PR has been corrected. **DB-037** is the record.
+
 - 2026-08-13 — **Publishing rails now enforce the configured session branch; PR-template use is
   binding prose.** Explicit non-session or implicit pushes are blocked. Template use cannot be
   inferred from mutually exclusive CLI flags, and the Stop-hook idea remains declined until

@@ -22,6 +22,11 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   `gh` rejects combining `--template` with `--body-file` in non-interactive use, and a gate over
   either flag would block a valid filled template or accept an untouched one. Dedicated forge
   tools also bypass Bash hooks, so the action-point instruction is the honest cross-agent layer.
+- **Branch-train PR descriptions must cover the whole train.** The PR for this release initially
+  described only its final delivery-rail unit even though its diff also carried the lifecycle
+  hooks, project reviewer, bearer-fixture guard, and earlier prose change. The adopter
+  constitution now requires the PR body to describe the entire base-to-head diff, including
+  earlier units and not only commits from the current session.
 
 ### Upgrading
 

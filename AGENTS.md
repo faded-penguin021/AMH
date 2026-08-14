@@ -108,4 +108,6 @@ definition of that scope.
 - Do not open a pull request or perform release/tag actions unless instructed. Before creating
   or updating a PR, read `.github/pull_request_template.md` when it exists, use every applicable
   heading, and delete the rest; if none exists, ask whether to add one rather than inventing a
-  one-off layout. Never imply verification that did not occur.
+  one-off layout. When `MERGE_MODE=branch-train`, describe the **entire diff against the PR's
+  base branch**, including every earlier unit carried by the train—not merely the latest unit or
+  the commits authored in the current session. Never imply verification that did not occur.

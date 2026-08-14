@@ -762,3 +762,10 @@
   reject valid filled-template flows and accept an untouched template. Keep template use binding
   in the constitution. The session namespace, deletion and explicit destination remain visible
   before `git push` and stay mechanically enforced. The Stop-hook conclusion is unchanged.
+
+- DB-037: **A branch-train PR describes the base-to-head artifact, not the current session's
+  contribution.** PR #45 used every template heading but still described only its last unit;
+  template shape did not supply scope. Under branch-train the review object carries every prior
+  unit, so the constitution now requires the entire diff against the PR base, including work
+  authored in earlier sessions. The corrected PR body is the immediate repair; the durable rule
+  prevents “used the template” from being mistaken for “described what will merge.”
