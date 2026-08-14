@@ -725,3 +725,47 @@
   threshold reflex as STATE micro-trimming: draft 1100 bytes, then shave toward 800. Write the
   durable lesson at its natural size, even 300 bytes; do not make a debugging narrative legal by
   trimming it to the limit. The guard remains a rejection boundary, not a length prescription.
+
+- DB-032: **Lifecycle wiring should call agent-neutral scripts, not fork policy into an adapter.**
+  Codex gained repository hooks after the adapter had honestly documented their absence. Inline
+  SessionStart and Bash PreToolUse tables now resolve the repository root and invoke the same
+  shipped bootstrap and command guard as other agents, while static rules remain an independent
+  lower layer. Hook payload fixtures pin vendor field extraction; adapter fixtures pin wiring.
+  Output remains an explicit boundary: blocking before a shell call does not imply Codex can
+  suppress or rewrite what tools return.
+
+- DB-033: **A specialized reviewer is a selectable lens, not a second standard or an
+  attestation.** Project-scoped agent configuration can make the mandatory fresh-context pass
+  easier to invoke, but its checklist must remain the runbook's, its findings falsifiable, and
+  its output human-consumed. Keep the agent-neutral strongest-tier fallback: tooling support is
+  not review validity. Runtime permission inheritance can weaken a read-only sandbox, so the
+  instruction prohibition on edits remains independently necessary.
+
+- DB-034: **A probabilistic-fixture repair needs a narrow regression guard when its failure is
+  syntactically recognizable.** D-024's bearer fixture once drew an unrestricted alphanumeric
+  token and satisfied the redactor's production predicate only by chance. The repair guarantees
+  the qualifying prefix before an unrestricted tail. A repo-local guard checks that exact source
+  construction, including absence and duplicate branches, without policing unrelated random
+  helpers. Guard the incident's seam, not the technique around it.
+
+- DB-035: **A positive naming rule needs a rail at the operation that publishes the name.**
+  Codex pushed `work` although `BRANCH_PREFIX=session`, and created a PR from an invented body
+  although the repository ships a template. Both facts are visible before their Bash commands:
+  require one explicit session-prefixed push ref and `gh pr create --template`. A Stop hook is
+  not the equivalent fix for the missing Owner-queue summary: it sees every response, not a
+  trustworthy “delivery complete” artifact, so gating on final-looking prose would consume a
+  heuristic about the agent's own message.
+
+- DB-036: **Correction to DB-035: only the push destination is a sound command-rail fact.**
+  `gh` makes `--template` and a filled `--body-file` mutually exclusive in non-interactive use,
+  while dedicated forge tools bypass Bash entirely; requiring a template-shaped flag would both
+  reject valid filled-template flows and accept an untouched template. Keep template use binding
+  in the constitution. The session namespace, deletion and explicit destination remain visible
+  before `git push` and stay mechanically enforced. The Stop-hook conclusion is unchanged.
+
+- DB-037: **A branch-train PR describes the base-to-head artifact, not the current session's
+  contribution.** PR #45 used every template heading but still described only its last unit;
+  template shape did not supply scope. Under branch-train the review object carries every prior
+  unit, so the constitution now requires the entire diff against the PR base, including work
+  authored in earlier sessions. The corrected PR body is the immediate repair; the durable rule
+  prevents “used the template” from being mistaken for “described what will merge.”

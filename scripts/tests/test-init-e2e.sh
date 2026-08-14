@@ -23,6 +23,8 @@ set -uo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
+export HOME="$WORK/home"
+mkdir -p "$HOME"
 
 export GIT_AUTHOR_NAME=amh-test GIT_AUTHOR_EMAIL=amh@test.invalid
 export GIT_COMMITTER_NAME=amh-test GIT_COMMITTER_EMAIL=amh@test.invalid
@@ -104,10 +106,17 @@ default_branch_slot=$(printf '{%sDEFAULT_BRANCH}%s' '{' '}')
 sed "s/$default_branch_slot/main/g" \
 	"$ROOT/harness/templates/configs/codex-amh.rules" >"$expected_codex_rules"
 if cmp -s "$ROOT/harness/templates/configs/codex-config.toml" "$d/.codex/config.toml" &&
-	cmp -s "$expected_codex_rules" "$d/.codex/rules/amh.rules"; then
+	cmp -s "$expected_codex_rules" "$d/.codex/rules/amh.rules" &&
+	[ "$(grep -cFx '[[hooks.SessionStart]]' "$d/.codex/config.toml")" -eq 1 ] &&
+	[ "$(grep -cFx '[[hooks.PreToolUse]]' "$d/.codex/config.toml")" -eq 1 ] &&
+	sed -n '/^\[\[hooks.SessionStart\]\]$/,/^$/p' "$d/.codex/config.toml" | grep -qF 'scripts/session-start.sh' &&
+	sed -n '/^\[\[hooks.PreToolUse\]\]$/,/^$/p' "$d/.codex/config.toml" | grep -qF 'scripts/command-guard.sh' &&
+	cmp -s "$ROOT/harness/templates/configs/codex-agents/amh-rule-reviewer.toml" \
+		"$d/.codex/agents/amh-rule-reviewer.toml" &&
+	[ ! -e "$HOME/.codex/agents/amh-rule-reviewer.toml" ]; then
 	pass
 else
-	fail "a fresh instantiation writes the complete rendered Codex adapter"
+	fail "a fresh instantiation keeps the complete hook-bearing Codex adapter repository-local"
 fi
 
 placeholder_open=$(printf '{%s' '{')
@@ -169,8 +178,10 @@ printf '\n# AN ADOPTER DECISION THAT MUST SURVIVE\n' >>"$d/amh.conf"
 adopter_conf=$(cat "$d/amh.conf")
 printf '\n# adopter Codex configuration\n' >>"$d/.codex/config.toml"
 printf '\n# adopter Codex policy\n' >>"$d/.codex/rules/amh.rules"
+printf '\n# adopter reviewer instruction\n' >>"$d/.codex/agents/amh-rule-reviewer.toml"
 adopter_codex_config=$(cat "$d/.codex/config.toml")
 adopter_codex_rules=$(cat "$d/.codex/rules/amh.rules")
+adopter_codex_reviewer=$(cat "$d/.codex/agents/amh-rule-reviewer.toml")
 # B13's shape, and the recovery for it: a seed script that has lost its execute bit makes
 # the ladder refuse to run its verification rung, and "re-run init" is what the docs tell
 # an adopter to do about it.
@@ -195,10 +206,11 @@ else
 fi
 
 if [ "$(cat "$d/.codex/config.toml")" = "$adopter_codex_config" ] &&
-	[ "$(cat "$d/.codex/rules/amh.rules")" = "$adopter_codex_rules" ]; then
+	[ "$(cat "$d/.codex/rules/amh.rules")" = "$adopter_codex_rules" ] &&
+	[ "$(cat "$d/.codex/agents/amh-rule-reviewer.toml")" = "$adopter_codex_reviewer" ]; then
 	pass
 else
-	fail "a re-run does not clobber adopter changes to either Codex adapter file"
+	fail "a re-run does not clobber adopter changes to any Codex adapter file"
 fi
 
 if [ -x "$d/scripts/verify.sh" ]; then
