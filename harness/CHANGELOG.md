@@ -11,6 +11,18 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 7.0.2 — 2026-08-15
+
+- **Destructive-advisory signatures stay inside Bash.** The 7.0.1 release-tag verification
+  produced signature-collision symptoms across all eight distinct-target fixtures under stock
+  macOS Bash 3.2. Target sorting and joining no longer cross the implicated process pipeline;
+  reversed-order coverage pins the canonical target-set behavior too.
+
+### Upgrading
+
+1. Copy the shipped scripts and regenerated manifest. No configuration or seed changes are
+   required.
+
 ## 7.0.1 — 2026-08-15
 
 - **The stock macOS toolchain is supported.** The initializer no longer passes GNU-only `--`

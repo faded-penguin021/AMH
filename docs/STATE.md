@@ -25,14 +25,14 @@ The AMH meta-repository: both the **source of truth** for the Agentic Maintenanc
 reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
 **reference instance**, running byte-identical copies of the scripts it ships. The product is
 `harness/` (prose source, templates, generated bundle); this repo's instance is `AGENTS.md` +
-`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 7.0.1** — see `harness/VERSION`,
+`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 7.0.2** — see `harness/VERSION`,
 the copy that counts.
 
 ## Current state
 
 AMH 6.0.0 is tagged and published on origin (confirmed by `git ls-remote --tags` on 2026-08-13).
-This branch is **7.0.1** (PATCH): a portability repair for stock macOS, Linux, and Windows Git
-Bash. AMH 7.0.0 is published on origin (verified 2026-08-15).
+This branch is **7.0.2** (PATCH): the immutable 7.0.1 tag failed release verification on stock
+macOS Bash 3.2 while constructing destructive-advisory signatures.
 
 Committed ledger rows are append-only, enforced against `HEAD` by a repo-local guard whose
 sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**.
@@ -49,8 +49,9 @@ sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**.
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
 
-**OPEN — tag and publish AMH 7.0.1.** After this portability repair merges, create and push
-`amh-v7.0.1`. No check: only the owner may tag or publish.
+**OPEN — tag and publish AMH 7.0.2.** The immutable `amh-v7.0.1` tag exists as an assetless
+prerelease; its workflow failed before artifact publication or final promotion. After this
+repair merges, create and push `amh-v7.0.2`. No check: only the owner may tag or publish.
 
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
 6.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
@@ -85,6 +86,11 @@ re-litigate from.
   file, and the advisory tier is the answer instead — **DB-027**.
 
 ## Changelog
+
+- 2026-08-15 — **The macOS release-tag failure is repaired as 7.0.2.** Destructive-advisory
+  signature sorting and joining now stay inside Bash, with reversed-order target-set coverage.
+  The immutable 7.0.1 tag is an assetless prerelease whose verification failed, so the corrected
+  artifact requires a new patch tag.
 
 - 2026-08-15 — **AMH 7.0.1 covers the supported macOS, Linux, and Windows toolchains.**
   Fixed the initializer's BSD-`chmod` failure and cleanup, Bash 3.2 heredoc parsing and BSD sed
