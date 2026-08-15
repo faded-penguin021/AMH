@@ -24,6 +24,19 @@ FAILED=0
 SUITE_STARTED=$SECONDS
 REPORT_STARTED=$SECONDS
 SLOW_FIXTURE_SECONDS=${SLOW_FIXTURE_SECONDS:-10}
+
+# POSIX does not standardise `sed -i`, and BSD and GNU sed give it incompatible argument
+# syntax. Fixtures edit disposable files through an ordinary temporary output-and-writeback operation so
+# this shipped suite runs unchanged with either implementation.
+sed_in_place() { # <sed-expression> <file>
+	local expression=$1 file=$2 tmp
+	tmp="${file}.amh-sed.$$"
+	sed "$expression" "$file" >"$tmp" || {
+		rm -f "$tmp"
+		return 1
+	}
+	cat "$tmp" >"$file" && rm -f "$tmp"
+}
 slow_threshold_valid() { # <candidate> — bounded to integers every supported bash can compare
 	case $1 in
 		''|*[!0-9]*|??????????*) return 1 ;;
@@ -119,10 +132,10 @@ mk() { # mk <name> -> prints the fixture path
 	chmod +x "$d/scripts"/*.sh
 	# Ordinary fixtures exercise other guards. Patch only their disposable ladder copy so the
 	# expensive, independently fixtured rungs return loudly; the shipped ladder has no bypass.
-	sed -i '/^guard_rail_selftests() {/a\
+	sed_in_place '/^guard_rail_selftests() {/a\
 \tskip "scripts/command-guard.sh and scripts/redact.sh self-tests already covered by fixture suite"\
 \treturn' "$d/scripts/ladder.sh"
-	sed -i '/^guard_shipped_integrity() {/a\
+	sed_in_place '/^guard_shipped_integrity() {/a\
 \tskip "shipped-script manifest check already covered by fixture suite"\
 \treturn' "$d/scripts/ladder.sh"
 	cat >"$d/amh.conf" <<-'CONF'
@@ -211,7 +224,7 @@ mk_integrity() { # mk_integrity <name> -> prints a fixture path with a current m
 	# Restore the real integrity rung, but retain the fixture-only rail skip. Integrity cases
 	# are not rail cases; using mk_unmodified here reran command-guard's self-test ten times.
 	cp "$ROOT/scripts/ladder.sh" "$d/scripts/ladder.sh"
-	sed -i '/^guard_rail_selftests() {/a\
+	sed_in_place '/^guard_rail_selftests() {/a\
 \tskip "scripts/command-guard.sh and scripts/redact.sh self-tests already covered by fixture suite"\
 \treturn' "$d/scripts/ladder.sh"
 	write_manifest "$d"
@@ -558,7 +571,7 @@ expect_warn "a conf without the delta key falls back to the shipped default" "$d
 # Same 100-byte shrink, a delta of 64: it must now read as a compression pass. This is what
 # proves the value comes from the config rather than from a constant in the script.
 d=$(mk state_delta_configured)
-sed -i 's/^STATE_EDIT_DELTA_BYTES=.*/STATE_EDIT_DELTA_BYTES=64/' "$d/amh.conf"
+sed_in_place 's/^STATE_EDIT_DELTA_BYTES=.*/STATE_EDIT_DELTA_BYTES=64/' "$d/amh.conf"
 state_bytes "$d" $((15 * 1024))
 (cd "$d" && git commit -qam "grow past the soft cap")
 head -c $((15 * 1024 - 100)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
@@ -566,7 +579,7 @@ expect_fail "the configured delta decides the branch" "$d" "unfinished compressi
 
 # A malformed delta must be loud and must not silently decide the branch.
 d=$(mk state_delta_malformed)
-sed -i 's/^STATE_EDIT_DELTA_BYTES=.*/STATE_EDIT_DELTA_BYTES=1KB/' "$d/amh.conf"
+sed_in_place 's/^STATE_EDIT_DELTA_BYTES=.*/STATE_EDIT_DELTA_BYTES=1KB/' "$d/amh.conf"
 state_bytes "$d" $((15 * 1024))
 (cd "$d" && git commit -qam "grow past the soft cap")
 head -c $((15 * 1024 - 100)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
@@ -624,7 +637,7 @@ expect_warn "a deleted Owner queue warns" "$d" "Owner queue"
 
 # --- ledger rollover
 d=$(mk ledger_cap)
-sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+sed_in_place 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
 printf -- '- D-003: past the cap.\n' >>"$d/docs/LEDGER.md"
 expect_fail "a row starting past the line cap fails" "$d" "past the"
 
@@ -658,36 +671,36 @@ d=$(mk ledger_bytes_warn)
 # with no row able to start past it — derived, because a hardcoded number silently moves
 # into the FAIL branch the moment a shipped script cites one more row.
 ledger_lines=$(wc -l <"$d/docs/LEDGER.md")
-sed -i "s/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=$ledger_lines/" "$d/amh.conf"
+sed_in_place "s/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=$ledger_lines/" "$d/amh.conf"
 expect_warn "the approaching-cap warning reports the size too" "$d" "KB, approaching the ${ledger_lines}-line cap"
 
 d=$(mk ledger_bytes_fail)
-sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+sed_in_place 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
 printf -- '- D-003: a row past the cap.\n' >>"$d/docs/LEDGER.md"
 expect_fail "the rollover FAILURE reports the size too — that is the branch that needs it" "$d" \
 	"KB), past the 4-line cap"
 
 
 d=$(mk ledger_row_char_under_cap)
-sed -i 's/^LEDGER_ROW_CHAR_CAP=800/LEDGER_ROW_CHAR_CAP=120/' "$d/amh.conf"
+sed_in_place 's/^LEDGER_ROW_CHAR_CAP=800/LEDGER_ROW_CHAR_CAP=120/' "$d/amh.conf"
 printf -- '- D-003: short enough.\n' >>"$d/docs/LEDGER.md"
 expect_pass_saying "a concise new ledger row under the byte-counted character cap passes" "$d" \
 	"checked 1 new ledger row(s) against LEDGER_ROW_CHAR_CAP=120"
 
 d=$(mk ledger_row_char_over_cap)
-sed -i 's/^LEDGER_ROW_CHAR_CAP=800/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
+sed_in_place 's/^LEDGER_ROW_CHAR_CAP=800/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
 printf -- '- D-003: long row. %s\n' "$(filler 120)" >>"$d/docs/LEDGER.md"
 expect_fail "a new ledger row over the byte-counted character cap fails" "$d" \
 	"over LEDGER_ROW_CHAR_CAP=80"
 
 d=$(mk ledger_row_char_committed_over_cap)
-sed -i 's/^LEDGER_ROW_CHAR_CAP=800/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
+sed_in_place 's/^LEDGER_ROW_CHAR_CAP=800/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
 printf -- '- D-003: committed long row. %s\n' "$(filler 120)" >>"$d/docs/LEDGER.md"
 (cd "$d" && git add amh.conf docs/LEDGER.md && git commit -qm long-ledger-history)
 expect_pass "an already committed over-cap ledger row is historical and exempt" "$d"
 
 d=$(mk ledger_row_char_superseded_pointer_existing)
-sed -i 's/^LEDGER_ROW_CHAR_CAP=800/LEDGER_ROW_CHAR_CAP=10/' "$d/amh.conf"
+sed_in_place 's/^LEDGER_ROW_CHAR_CAP=800/LEDGER_ROW_CHAR_CAP=10/' "$d/amh.conf"
 printf -- '  Superseded by D-999.\n' >>"$d/docs/LEDGER.md"
 expect_pass "a sanctioned metadata-only supersession on an existing row is exempt" "$d"
 
@@ -734,7 +747,7 @@ expect_pass_saying "a two-letter volume is live once the chain reaches it" "$d" 
 # file nobody writes to and prints `ok` over a volume that is past its cap — one untracked
 # one-line file switching the guard off. The cap must still fire on the real live volume.
 d=$(mk ledger_volume_archive)
-sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+sed_in_place 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
 add_volume "$d" A
 printf '# archived notes\n' >"$d/docs/LEDGER_ARCHIVE.md"
 expect_fail "an all-caps stray file does not become the live volume" "$d" \
@@ -759,7 +772,7 @@ expect_pass_saying "the walk stops at the first gap" "$d" "docs/LEDGER_A.md: 5/8
 # rendering is a skip, and a skip reads exactly like a pass. Citations are switched off in
 # this fixture so the verdict under test is the only one on trial.
 d=$(mk ledger_volume_no_base)
-sed -i "s/^CITATION_SCAN_PATHS=.*/CITATION_SCAN_PATHS=''/" "$d/amh.conf"
+sed_in_place "s/^CITATION_SCAN_PATHS=.*/CITATION_SCAN_PATHS=''/" "$d/amh.conf"
 add_volume "$d" A
 rm "$d/docs/LEDGER.md"
 expect_fail "a missing base volume with continuations fails instead of skipping" "$d" \
@@ -769,7 +782,7 @@ expect_fail "a missing base volume with continuations fails instead of skipping"
 # `DAA-` row matched nothing, so the cap could not fire however long the volume grew —
 # the failure this whole scheme change exists to remove, and it was silent.
 d=$(mk ledger_volume_multiletter_cap)
-sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+sed_in_place 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
 add_chain "$d" {A..Z} AA
 expect_fail "a multi-letter row past the cap fails instead of passing invisibly" "$d" \
 	"docs/LEDGER_AA.md: a row STARTS at line 5"
@@ -780,25 +793,25 @@ expect_fail "a multi-letter row past the cap fails instead of passing invisibly"
 # dense because the rung will not call an unreachable file live — which is why the ZZ case
 # builds seven hundred volumes rather than one.
 d=$(mk ledger_next_base)
-sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+sed_in_place 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
 printf -- '- D-003: past the cap.\n' >>"$d/docs/LEDGER.md"
 expect_fail "the base volume rolls to _A / DA-" "$d" \
 	"open docs/LEDGER_A.md, numbering from DA-001"
 
 d=$(mk ledger_next_z)
-sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+sed_in_place 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
 add_chain "$d" {A..Z}
 expect_fail "Z rolls to AA, which is where the old scheme simply stopped" "$d" \
 	"open docs/LEDGER_AA.md, numbering from DAA-001"
 
 d=$(mk ledger_next_az)
-sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+sed_in_place 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
 add_chain "$d" {A..Z} A{A..Z}
 expect_fail "AZ rolls to BA — the carry advances the letter to its left, not the length" "$d" \
 	"open docs/LEDGER_BA.md, numbering from DBA-001"
 
 d=$(mk ledger_next_zz)
-sed -i 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
+sed_in_place 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
 add_chain "$d" {A..Z} {A..Z}{A..Z}
 expect_fail "ZZ rolls to AAA — a carry off the left end lengthens the suffix" "$d" \
 	"open docs/LEDGER_AAA.md, numbering from DAAA-001"
@@ -813,13 +826,40 @@ printf '# see D-001\n' >"$d/scripts/thing.sh"
 expect_fail "a cited row without its [cited] marker fails" "$d" "not marked"
 
 d=$(mk cite_stale)
-sed -i 's/^- D-002:/- D-002 [cited]:/' "$d/docs/LEDGER.md"
+sed_in_place 's/^- D-002:/- D-002 [cited]:/' "$d/docs/LEDGER.md"
 expect_fail "a [cited] marker with no citation fails" "$d" "no longer cited"
 
 d=$(mk cite_ok)
 printf '# see D-001\n' >"$d/scripts/thing.sh"
-sed -i 's/^- D-001:/- D-001 [cited]:/' "$d/docs/LEDGER.md"
+sed_in_place 's/^- D-001:/- D-001 [cited]:/' "$d/docs/LEDGER.md"
 expect_pass "a citation with its marker passes" "$d"
+
+# GNU sed accepts escaped BRE `\+` and `\?` as extensions; BSD sed does not. Reject those
+# extensions in a shim on every host so the citation-row extractor stays on the shared ERE
+# syntax rather than waiting for the macOS job to rediscover the parse failure.
+d=$(mk cite_bsd_sed)
+printf '# see D-001\n' >"$d/scripts/thing.sh"
+sed_in_place 's/^- D-001:/- D-001 [cited]:/' "$d/docs/LEDGER.md"
+mkdir -p "$d/bsd-bin"
+real_sed=$(command -v sed)
+cat >"$d/bsd-bin/sed" <<-EOF
+	#!/usr/bin/env bash
+	for arg in "\$@"; do
+		case \$arg in *'\\+'*|*'\\?'*) exit 64 ;; esac
+	done
+	exec "$real_sed" "\$@"
+EOF
+chmod +x "$d/bsd-bin/sed"
+started=$SECONDS
+out=$(PATH="$d/bsd-bin:$PATH" run "$d")
+rc=$?
+FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
+if [ "$rc" -eq 0 ]; then
+	report ok "citation row extraction uses BSD/GNU-common sed syntax"
+else
+	report no "citation row extraction uses BSD/GNU-common sed syntax" \
+		"expected exit 0, got $rc" "$out"
+fi
 
 # A file name with a space, in the citation guard this time. `secret_spacey` existed
 # and this did not, so the word-split hole survived in one guard while being fixed in
@@ -842,7 +882,7 @@ expect_fail "a multi-letter citation with no ledger row fails" "$d" "no such led
 
 d=$(mk cite_multiletter_ok)
 add_chain "$d" {A..Z} AA
-sed -i 's/^- DAA-001:/- DAA-001 [cited]:/' "$d/docs/LEDGER_AA.md"
+sed_in_place 's/^- DAA-001:/- DAA-001 [cited]:/' "$d/docs/LEDGER_AA.md"
 printf '# see DAA-001\n' >"$d/scripts/thing.sh"
 expect_pass "a multi-letter citation with its marker passes" "$d"
 
@@ -1008,7 +1048,7 @@ mk_bootstrap() { # mk_bootstrap <dir> <exit-code>
 # naming — and `${!REMOTE_FLAG}` on it is a bad substitution: stderr, exit 0, no bootstrap,
 # no word about it. amh.conf documents the flag as free-form, so nothing was stopping it.
 d=$(mk ss_flag_invalid)
-sed -i 's/^REMOTE_FLAG=.*/REMOTE_FLAG=AMH-REMOTE/' "$d/amh.conf"
+sed_in_place 's/^REMOTE_FLAG=.*/REMOTE_FLAG=AMH-REMOTE/' "$d/amh.conf"
 mk_bootstrap "$d" 0
 out=$(cd "$d" && env AMH_REMOTE=1 bash scripts/session-start.sh 2>&1)
 # The whole banner, ⚠ and verdict word included — the fixture is asserting how LOUD the
@@ -1504,12 +1544,12 @@ d=$(mk_unmodified rail_regressed)
 # Mutate the fixture matrix itself, not the tail of the file: a function appended
 # after the dispatcher is defined too late to ever run, which is a mutation that
 # proves nothing.
-sed -i 's/^\tst_allowed .cat README.md./\tst_allowed "cat .env"/' "$d/scripts/command-guard.sh"
+sed_in_place 's/^\tst_allowed .cat README.md./\tst_allowed "cat .env"/' "$d/scripts/command-guard.sh"
 expect_runner_saying "a regressed rail self-test fails the ladder" run_rails "$d" 1 \
 	"self-test failed"
 
 d=$(mk_unmodified rail_noexec)
-sed -i 's/^\tst_allowed .cat README.md./\tst_allowed "cat .env"/' "$d/scripts/command-guard.sh"
+sed_in_place 's/^\tst_allowed .cat README.md./\tst_allowed "cat .env"/' "$d/scripts/command-guard.sh"
 chmod -x "$d/scripts/command-guard.sh"
 expect_runner_saying "a non-executable rail is still self-tested" run_rails "$d" 1 \
 	"self-test failed"
@@ -1637,7 +1677,7 @@ fi
 # because each is separately silent: printed unconditionally the line is FALSE for every
 # branch-per-change repo, and dropped entirely it is missing for every train.
 d=$(mk ss_merge_mode_train)
-sed -i 's/^MERGE_MODE=.*/MERGE_MODE=branch-train/' "$d/amh.conf"
+sed_in_place 's/^MERGE_MODE=.*/MERGE_MODE=branch-train/' "$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
 if grep -qF "merge mode: branch-train — main's history is squashed" <<<"$out"; then
 	report ok "a branch-train repo is told its default branch's log is not its past"
@@ -1838,7 +1878,7 @@ expect_warn "with no upstream ref the guard says it checked NOTHING" "$d" \
 # --- local advisories
 # Warn-only and skipped in CI, so `run()` can never reach them: assert on the text.
 d=$(mk advisory_rules)
-sed -i "s|^RULE_FILES=''|RULE_FILES='amh.conf'|" "$d/amh.conf"
+sed_in_place "s|^RULE_FILES=''|RULE_FILES='amh.conf'|" "$d/amh.conf"
 printf '\n# an uncommitted legislation edit\n' >>"$d/amh.conf"
 started=$SECONDS
 out=$(run_local "$d")
@@ -1866,7 +1906,7 @@ else
 fi
 
 d=$(mk advisory_ci)
-sed -i "s|^RULE_FILES=''|RULE_FILES='amh.conf'|" "$d/amh.conf"
+sed_in_place "s|^RULE_FILES=''|RULE_FILES='amh.conf'|" "$d/amh.conf"
 printf '\n# an uncommitted legislation edit\n' >>"$d/amh.conf"
 started=$SECONDS
 out=$(run "$d")

@@ -39,8 +39,7 @@ set -euo pipefail
 # `[REDACTED:<class>]` followed by its own tail, which is exactly the suffix the prose
 # rule forbids. A vendor lengthening a token must not silently downgrade this filter
 # from redaction to truncation.
-PATTERNS=$(
-	cat <<-'PATS'
+IFS= read -r -d '' PATTERNS <<-'PATS' || true
 		aws_access_key_id	AKIA[0-9A-Z]{16,}
 		aws_temp_key	ASIA[0-9A-Z]{16,}
 		github_pat	github_pat_[A-Za-z0-9_]{20,}
@@ -64,7 +63,6 @@ PATTERNS=$(
 		url_token_userinfo	[A-Za-z][A-Za-z0-9+.-]*://[A-Za-z0-9._~+%-]{20,}@
 		private_key_block	-----BEGIN [A-Z ]*PRIVATE KEY-----
 	PATS
-)
 
 # No regex here may contain `|` or `&`: the generated substitution is `s|regex|repl|g`,
 # so a `|` would terminate the command and a `&` in a replacement would re-insert the
@@ -234,7 +232,7 @@ KEY_BLOCK_END='-----END [A-Z ]*PRIVATE KEY-----'
 KEY_BLOCK_BODY='^[[:space:]]*[A-Za-z0-9+/]+={0,2}[[:space:]]*$'
 
 redact_key_blocks() {
-	sed -E "\|$KEY_BLOCK_BEGIN|,\|$KEY_BLOCK_END|{s|$KEY_BLOCK_BODY|[REDACTED:private_key_body]|}"
+	sed -E "\|$KEY_BLOCK_BEGIN|,\|$KEY_BLOCK_END|{s|$KEY_BLOCK_BODY|[REDACTED:private_key_body]|;}"
 }
 
 build_sed_script() {

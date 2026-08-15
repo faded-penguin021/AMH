@@ -16,6 +16,15 @@
 
 set -uo pipefail
 
+sed_in_place() { # <sed-expression> <file>
+	local expression=$1 file=$2 tmp="${2}.amh-sed.$$"
+	sed "$expression" "$file" >"$tmp" || {
+		rm -f "$tmp"
+		return 1
+	}
+	cat "$tmp" >"$file" && rm -f "$tmp"
+}
+
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
@@ -91,27 +100,27 @@ expect pass "bearer-fixture-construction: current template" "$base" bearer-fixtu
 # --- bearer-fixture-construction --------------------------------------------
 d=$(snapshot bearer_fixture_plain_alnum)
 # shellcheck disable=SC2016  # mutate literal command substitutions in the fixture source.
-sed -i 's/$(rand_upper 8)$(rand_alnum 32)/$(rand_alnum 40)/' \
+sed_in_place 's/$(rand_upper 8)$(rand_alnum 32)/$(rand_alnum 40)/' \
 	"$d/harness/templates/scripts/redact.sh"
 expect fail "bearer-fixture-construction: unrestricted token cannot replace the guaranteed prefix" "$d" \
 	bearer-fixture-construction.sh "D-024's fixture satisfied the production predicate only probabilistically"
 
 d=$(snapshot bearer_fixture_reordered)
 # shellcheck disable=SC2016  # mutate literal command substitutions in the fixture source.
-sed -i 's/$(rand_upper 8)$(rand_alnum 32)/$(rand_alnum 32)$(rand_upper 8)/' \
+sed_in_place 's/$(rand_upper 8)$(rand_alnum 32)/$(rand_alnum 32)$(rand_upper 8)/' \
 	"$d/harness/templates/scripts/redact.sh"
 expect fail "bearer-fixture-construction: guaranteed prefix cannot follow the unrestricted tail" "$d" \
 	bearer-fixture-construction.sh "prefix-before-tail construction"
 
 d=$(snapshot bearer_fixture_decoy)
 # shellcheck disable=SC2016  # mutate literal command substitutions in the fixture source.
-sed -i 's/"$(rand_upper 8)$(rand_alnum 32)")"/"$(rand_alnum 40)")" "$(rand_upper 8)$(rand_alnum 32)"/' \
+sed_in_place 's/"$(rand_upper 8)$(rand_alnum 32)")"/"$(rand_alnum 40)")" "$(rand_upper 8)$(rand_alnum 32)"/' \
 	"$d/harness/templates/scripts/redact.sh"
 expect fail "bearer-fixture-construction: a surplus argument cannot decoy the guard" "$d" \
 	bearer-fixture-construction.sh "prefix-before-tail construction"
 
 d=$(snapshot bearer_fixture_absent)
-sed -i '/st_redacted bearer_header/d' "$d/harness/templates/scripts/redact.sh"
+sed_in_place '/st_redacted bearer_header/d' "$d/harness/templates/scripts/redact.sh"
 expect fail "bearer-fixture-construction: missing fixture checks nothing" "$d" \
 	bearer-fixture-construction.sh "checked NOTHING"
 
@@ -188,14 +197,14 @@ expect pass "ledger-append-only: new uncommitted rows are draft-editable" "$d" l
 
 
 d=$(snapshot ledger_append_only_new_row_under_cap)
-sed -i 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=120/' "$d/amh.conf"
+sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=120/' "$d/amh.conf"
 cat >>"$d/docs/LEDGER_B.md" <<'ROW'
 - DB-999: **Short new row passes.** Small enough.
 ROW
 expect pass "ledger-append-only: a concise new row under the byte-counted character cap passes" "$d" ledger-append-only.sh
 
 d=$(snapshot ledger_append_only_new_row_over_cap)
-sed -i 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
+sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
 python3 - "$d/docs/LEDGER_B.md" <<'PYROW'
 from pathlib import Path
 import sys
@@ -205,7 +214,7 @@ expect fail "ledger-append-only: a new row over the byte-counted character cap f
 	ledger-append-only.sh "over LEDGER_ROW_CHAR_CAP=80"
 
 d=$(snapshot ledger_append_only_committed_over_cap_exempt)
-sed -i 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
+sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
 python3 - "$d/docs/LEDGER_B.md" <<'PYROW'
 from pathlib import Path
 import sys
@@ -215,13 +224,13 @@ PYROW
 expect pass "ledger-append-only: an already committed over-cap row is historical and exempt" "$d" ledger-append-only.sh
 
 d=$(snapshot ledger_append_only_superseded_over_cap_existing_row)
-sed -i 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=10/' "$d/amh.conf"
+sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=10/' "$d/amh.conf"
 awk '/^- D-002 / && !done { print "  Superseded by DB-999."; done = 1 } { print }' \
 	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
 expect pass "ledger-append-only: sanctioned supersession metadata ignores the new-row cap" "$d" ledger-append-only.sh
 
 d=$(snapshot ledger_append_only_cited_over_cap_existing_row)
-sed -i 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=10/' "$d/amh.conf"
+sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=10/' "$d/amh.conf"
 sed '0,/^- D-004: /s//- D-004 [cited]: /' \
 	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
 expect pass "ledger-append-only: sanctioned cited metadata ignores the new-row cap" "$d" ledger-append-only.sh
@@ -365,7 +374,7 @@ printf '# COMMENTED_OUT_KEY=x\n' >>"$d/harness/templates/amh.conf.example"
 expect pass "config-schema: a commented key in the example is not a requirement" "$d" config-schema.sh
 
 d=$(snapshot doc_navigation_missing)
-sed -i 's/^## Acceptance ladder$/## Verification ladder/' "$d/docs/RUNBOOK.md"
+sed_in_place 's/^## Acceptance ladder$/## Verification ladder/' "$d/docs/RUNBOOK.md"
 expect fail "doc-navigation: a binding heading was renamed" "$d" doc-navigation.sh "missing navigation heading"
 
 d=$(snapshot doc_navigation_duplicate)
@@ -373,12 +382,12 @@ printf '\n## Acceptance ladder\n' >>"$d/docs/RUNBOOK.md"
 expect fail "doc-navigation: a binding heading was duplicated" "$d" doc-navigation.sh "duplicate navigation heading"
 
 d=$(snapshot doc_navigation_pointer_missing)
-sed -i 's/^- Verification and locally unverifiable coverage:/- Local verification:/' "$d/AGENTS.md"
+sed_in_place 's/^- Verification and locally unverifiable coverage:/- Local verification:/' "$d/AGENTS.md"
 expect fail "doc-navigation: a binding constitution pointer was renamed" "$d" doc-navigation.sh "missing navigation pointer"
 
 d=$(snapshot doc_navigation_session_pointer_missing)
-sed -i '/^- Session execution, checkpoints, recovery, and owner forks:/d' "$d/AGENTS.md"
-sed -i 's/Follow \*\*Session discipline\*\* every/Follow the runbook every/' "$d/AGENTS.md"
+sed_in_place '/^- Session execution, checkpoints, recovery, and owner forks:/d' "$d/AGENTS.md"
+sed_in_place 's/Follow \*\*Session discipline\*\* every/Follow the runbook every/' "$d/AGENTS.md"
 expect fail "doc-navigation: Session discipline routing was removed" "$d" doc-navigation.sh "missing navigation pointer"
 
 d=$(snapshot drift_script)
@@ -405,7 +414,7 @@ printf '\n# an upstream change\n' >>"$d/harness/templates/scripts/session-start.
 expect fail "manifest-drift: a shipped script changed without a rebuild" "$d" manifest-drift.sh "stale or hand-edited"
 
 d=$(snapshot drift_manifest_edited)
-sed -i 's/^[0-9a-f]\{64\}/0000000000000000000000000000000000000000000000000000000000000000/' \
+sed_in_place 's/^[0-9a-f]\{64\}/0000000000000000000000000000000000000000000000000000000000000000/' \
 	"$d/harness/templates/scripts/MANIFEST.sha256"
 expect fail "manifest-drift: a hand-edited manifest" "$d" manifest-drift.sh "stale or hand-edited"
 
@@ -426,19 +435,19 @@ rm "$d/.codex/agents/amh-rule-reviewer.toml"
 expect fail "adapter-set: the Codex reviewer reference path was removed" "$d" adapter-set.sh ".codex/agents/amh-rule-reviewer.toml"
 
 d=$(snapshot adapter_codex_install_gone)
-sed -i '\|codex-config.toml.*\.codex/config.toml|d' "$d/scripts/amh-init.sh"
+sed_in_place '\|codex-config.toml.*\.codex/config.toml|d' "$d/scripts/amh-init.sh"
 expect fail "adapter-set: a Codex install action was removed" "$d" adapter-set.sh "install action missing"
 
 d=$(snapshot adapter_codex_legislation_gone)
-sed -i 's/ \.codex\/config\.toml//' "$d/harness/templates/amh.conf.example"
+sed_in_place 's/ \.codex\/config\.toml//' "$d/harness/templates/amh.conf.example"
 expect fail "adapter-set: a Codex legislation entry was removed" "$d" adapter-set.sh "adopter RULE_FILES"
 
 d=$(snapshot adapter_codex_reference_legislation_gone)
-sed -i 's/ \.codex\/config\.toml//' "$d/amh.conf"
+sed_in_place 's/ \.codex\/config\.toml//' "$d/amh.conf"
 expect fail "adapter-set: a Codex reference legislation entry was removed" "$d" adapter-set.sh "reference RULE_FILES"
 
 d=$(snapshot adapter_codex_session_hook_gone)
-sed -i '/\[\[hooks.SessionStart\]\]/,/^$/d' "$d/harness/templates/configs/codex-config.toml"
+sed_in_place '/\[\[hooks.SessionStart\]\]/,/^$/d' "$d/harness/templates/configs/codex-config.toml"
 expect fail "adapter-set: Codex has exactly one SessionStart hook" "$d" adapter-set.sh "exactly one SessionStart"
 
 d=$(snapshot adapter_codex_bash_hook_duplicated)
@@ -447,7 +456,7 @@ sed -n '/\[\[hooks.PreToolUse\]\]/,$p' "$d/harness/templates/configs/codex-confi
 expect fail "adapter-set: Codex has exactly one Bash PreToolUse hook" "$d" adapter-set.sh "exactly one PreToolUse"
 
 d=$(snapshot adapter_codex_agent_neutral_script_gone)
-sed -i 's|scripts/command-guard\.sh|scripts/codex-command-guard.sh|' "$d/harness/templates/configs/codex-config.toml"
+sed_in_place 's|scripts/command-guard\.sh|scripts/codex-command-guard.sh|' "$d/harness/templates/configs/codex-config.toml"
 expect fail "adapter-set: Codex invokes the shipped agent-neutral command guard" "$d" adapter-set.sh "agent-neutral command-guard.sh"
 
 # ADAPTER_FILES is the sixth place the set is written down — the session banner reports from
@@ -455,15 +464,15 @@ expect fail "adapter-set: Codex invokes the shipped agent-neutral command guard"
 # the banner simply stops mentioning an adapter, or mentions one nobody ships, and `unknown`
 # is the honest word for "this repo declares none", so a stale entry reads as a fact.
 d=$(snapshot adapter_banner_entry_gone)
-sed -i "s|^ADAPTER_FILES='\.claude/settings\.json |ADAPTER_FILES='|" "$d/amh.conf"
+sed_in_place "s|^ADAPTER_FILES='\.claude/settings\.json |ADAPTER_FILES='|" "$d/amh.conf"
 expect fail "adapter-set: an adapter dropped from the banner list" "$d" adapter-set.sh "does not list adapter path"
 
 d=$(snapshot adapter_banner_empty)
-sed -i "s|^ADAPTER_FILES=.*|ADAPTER_FILES=''|" "$d/amh.conf"
+sed_in_place "s|^ADAPTER_FILES=.*|ADAPTER_FILES=''|" "$d/amh.conf"
 expect fail "adapter-set: an empty banner list reports no adapter at all" "$d" adapter-set.sh "empty or unset"
 
 d=$(snapshot adapter_banner_stale_entry)
-sed -i "s|^ADAPTER_FILES='|ADAPTER_FILES='.zed/settings.json |" "$d/amh.conf"
+sed_in_place "s|^ADAPTER_FILES='|ADAPTER_FILES='.zed/settings.json |" "$d/amh.conf"
 expect fail "adapter-set: the banner lists a file outside the adapter set" "$d" adapter-set.sh "not in the first-class adapter set"
 
 d=$(snapshot drift_dist)
@@ -489,7 +498,7 @@ printf '1.9.0\n' >"$d/harness/VERSION"
 expect fail "version-lockstep: VERSION bumped alone" "$d" version-lockstep.sh "harness/VERSION says 1.9.0"
 
 d=$(snapshot ver_conf)
-sed -i 's/^AMH_VERSION=.*/AMH_VERSION=1.7.0/' "$d/amh.conf"
+sed_in_place 's/^AMH_VERSION=.*/AMH_VERSION=1.7.0/' "$d/amh.conf"
 expect fail "version-lockstep: amh.conf drifted" "$d" version-lockstep.sh "amh.conf"
 
 d=$(snapshot ver_tag)
@@ -504,11 +513,11 @@ expect fail "version-lockstep: a tag that does not match" "$d" "version-lockstep
 # cannot tell a drifted pin from a missing one — a review pass built exactly that and both arms
 # still passed.
 d=$(snapshot ver_readme)
-sed -i 's/--branch amh-v[0-9][0-9.]*/--branch amh-v0.1.0/' "$d/README.md"
+sed_in_place 's/--branch amh-v[0-9][0-9.]*/--branch amh-v0.1.0/' "$d/README.md"
 expect fail "version-lockstep: README pins the wrong release tag" "$d" version-lockstep.sh "README.md says 0.1.0"
 
 d=$(snapshot ver_readme_gone)
-sed -i 's/--branch amh-v[0-9][0-9.]*//' "$d/README.md"
+sed_in_place 's/--branch amh-v[0-9][0-9.]*//' "$d/README.md"
 expect fail "version-lockstep: README quickstart lost its pin" "$d" version-lockstep.sh "no version found"
 
 d=$(snapshot refs_broken)

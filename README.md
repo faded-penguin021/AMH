@@ -63,6 +63,13 @@ Two honest costs, before you adopt:
 
 ## Quick Start
 
+**Supported toolchains.** AMH's scripts run with Bash 3.2 or newer. Linux distributions with
+the usual GNU userland and macOS with its stock Bash and BSD userland are supported directly.
+On Windows, run AMH from Git Bash (installed with Git for
+Windows); native PowerShell and `cmd.exe` are not shell-compatible execution environments for
+AMH. ShellCheck is optional locally and installed by CI. You do not need Homebrew, GNU sed, or
+GNU coreutils on macOS.
+
 Open your coding agent in the repository you want to adopt AMH in, and paste this:
 
 ```text
@@ -70,7 +77,7 @@ Install the latest stable release of the Agentic Maintenance Harness (AMH) into 
 
 Run:
 
-    git clone --depth 1 --branch amh-v7.0.0 https://github.com/faded-penguin021/AMH.git /tmp/amh
+    git clone --depth 1 --branch amh-v7.0.1 https://github.com/faded-penguin021/AMH.git /tmp/amh
     /tmp/amh/scripts/amh-init.sh .
 
 Once the harness has been instantiated, read `AMH-ADOPT.md` and follow it completely.

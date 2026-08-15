@@ -28,3 +28,73 @@ jobs:
         # The single verification entrypoint, shared with local runs by construction
         # (AMH P4). Nothing here duplicates what the agent runs.
         run: scripts/ladder.sh
+
+  portability:
+    name: portability (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        # macOS exercises its stock /bin/bash; Windows exercises Git for Windows' Bash.
+        shell: bash
+    steps:
+      # Git for Windows defaults to CRLF checkout. These scripts and manifests are byte-bound
+      # artifacts, so configure LF before checkout rather than trying to repair the tree after.
+      - name: Preserve LF line endings (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install shellcheck (macOS)
+        if: runner.os == 'macOS'
+        run: brew install shellcheck
+
+      - name: Install shellcheck (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'shellcheck.zip'
+          $install = Join-Path $env:RUNNER_TEMP 'shellcheck'
+          Invoke-WebRequest `
+            -Uri 'https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.zip' `
+            -OutFile $archive
+          Expand-Archive -Path $archive -DestinationPath $install
+          Add-Content -Path $env:GITHUB_PATH -Value $install
+
+      - name: Assert stock macOS Bash
+        if: runner.os == 'macOS'
+        shell: /bin/bash {0}
+        run: |
+          set -euo pipefail
+          test "$(command -v bash)" = /bin/bash
+          [[ $BASH_VERSION == 3.2.* ]]
+
+      - name: Assert Windows Git Bash and shellcheck
+        if: runner.os == 'Windows'
+        run: |
+          set -euo pipefail
+          case $(uname -s) in
+            MINGW*|MSYS*) ;;
+            *) printf 'expected Git Bash, got %s\n' "$(uname -s)" >&2; exit 1 ;;
+          esac
+          shellcheck --version
+
+      - name: Portability smoke
+        run: |
+          set -euo pipefail
+          scripts/ladder.sh --guards-only
+          target=$(mktemp -d)
+          trap 'rm -rf "$target"' EXIT
+          git -C "$target" init -q
+          scripts/amh-init.sh --profile light "$target"
+          test -x "$target/scripts/ladder.sh"
+          test ! -e "$target/scripts/command-guard.sh.amh-init.tmp"
