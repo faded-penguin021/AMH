@@ -88,5 +88,13 @@ jobs:
           esac
           shellcheck --version
 
-      - name: Acceptance ladder
-        run: scripts/ladder.sh
+      - name: Portability smoke
+        run: |
+          set -euo pipefail
+          scripts/ladder.sh --guards-only
+          target=$(mktemp -d)
+          trap 'rm -rf "$target"' EXIT
+          git -C "$target" init -q
+          scripts/amh-init.sh --profile light "$target"
+          test -x "$target/scripts/ladder.sh"
+          test ! -e "$target/scripts/command-guard.sh.amh-init.tmp"

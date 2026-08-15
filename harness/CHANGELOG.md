@@ -23,9 +23,10 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
 - **The supported toolchain floor is explicit.** The README names stock macOS, GNU/Linux,
   and Windows Git Bash next to Quick Start, including the Bash floor and the unsupported native
   Windows shells.
-- **The supported environments run the same acceptance ladder in CI.** Linux, stock macOS Bash
-  3.2, and Windows Git Bash each run the full ladder with ShellCheck installed for that host;
-  reusable release verification waits for all three.
+- **The supported environments are exercised in CI.** Linux retains the full acceptance ladder;
+  stock macOS Bash 3.2 and Windows Git Bash run the shipped guards and a fresh installer smoke
+  test with ShellCheck installed for each host. Reusable release verification waits for the
+  Linux ladder and both portability jobs.
 
 ### Upgrading
 
