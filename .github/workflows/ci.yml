@@ -28,3 +28,53 @@ jobs:
         # The single verification entrypoint, shared with local runs by construction
         # (AMH P4). Nothing here duplicates what the agent runs.
         run: scripts/ladder.sh
+
+  portability:
+    name: portability (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        # macOS exercises its stock /bin/bash; Windows exercises Git for Windows' Bash.
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install shellcheck (macOS)
+        if: runner.os == 'macOS'
+        run: brew install shellcheck
+
+      - name: Install shellcheck (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'shellcheck.zip'
+          $install = Join-Path $env:RUNNER_TEMP 'shellcheck'
+          Invoke-WebRequest `
+            -Uri 'https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.zip' `
+            -OutFile $archive
+          Expand-Archive -Path $archive -DestinationPath $install
+          Add-Content -Path $env:GITHUB_PATH -Value $install
+
+      - name: Assert stock macOS Bash
+        if: runner.os == 'macOS'
+        shell: /bin/bash {0}
+        run: |
+          set -euo pipefail
+          test "$(command -v bash)" = /bin/bash
+          [[ $BASH_VERSION == 3.2.* ]]
+
+      - name: Assert Windows Git Bash and shellcheck
+        if: runner.os == 'Windows'
+        run: |
+          set -euo pipefail
+          [[ $OSTYPE == msys* ]]
+          shellcheck --version
+
+      - name: Acceptance ladder
+        run: scripts/ladder.sh
