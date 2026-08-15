@@ -18,7 +18,10 @@ bad() {
 	FAILS=$((FAILS + 1))
 }
 
-mapfile -t SCRIPTS < <(git ls-files -co --exclude-standard '*.sh' | sort)
+SCRIPTS=()
+while IFS= read -r script; do
+	SCRIPTS+=("$script")
+done < <(git ls-files -co --exclude-standard '*.sh' | sort)
 
 step "parse check (bash -n) on ${#SCRIPTS[@]} script(s)"
 for s in "${SCRIPTS[@]}"; do

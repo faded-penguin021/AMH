@@ -11,6 +11,23 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 7.0.1 — 2026-08-15
+
+- **The stock macOS toolchain is supported.** The initializer no longer passes GNU-only `--`
+  to BSD `chmod`, cleans its temporary file if a mode change fails, and the redactor now parses
+  under macOS's Bash 3.2 and uses a sed range program accepted by both BSD and GNU sed.
+- **The fixture suites no longer require GNU `sed -i`.** Disposable fixture edits use a
+  portable temporary-file helper, and the repository verification driver no longer requires
+  Bash 4's `mapfile`.
+- **The supported toolchain floor is explicit.** The README names stock macOS, GNU/Linux,
+  and Windows Git Bash next to Quick Start, including the Bash floor and the unsupported native
+  Windows shells.
+
+### Upgrading
+
+1. Copy the shipped scripts and regenerated manifest. No GNU-tool installation or PATH override
+   is needed on macOS; Windows adopters run AMH through Git Bash.
+
 ## 7.0.0 — 2026-08-13
 
 - **The push rail now enforces the configured session namespace.** A real Codex session pushed

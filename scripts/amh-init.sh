@@ -352,7 +352,7 @@ install_file() { # <src> <dest-relative> <overwrite|keep> <mode>
 		# its mode makes the ladder red — and "re-run init" is the documented recovery,
 		# which used to return here without repairing anything.
 		if [ "$mode" = 755 ] && [ ! -x "$dest" ] && [ "$DRY_RUN" = 0 ]; then
-			chmod "$mode" -- "$dest" || die "cannot chmod $rel"
+			chmod "$mode" "$dest" || die "cannot chmod $rel"
 			printf '   keep   %s (yours — content untouched, execute bit restored)\n' "$rel"
 			KEPT=$((KEPT + 1))
 			return 0
@@ -377,7 +377,10 @@ install_file() { # <src> <dest-relative> <overwrite|keep> <mode>
 		rm -f -- "$dest.amh-init.tmp"
 		die "cannot write $rel"
 	}
-	chmod "$mode" -- "$dest.amh-init.tmp" || die "cannot chmod $rel"
+	chmod "$mode" "$dest.amh-init.tmp" || {
+		rm -f -- "$dest.amh-init.tmp"
+		die "cannot chmod $rel"
+	}
 	mv -f -- "$dest.amh-init.tmp" "$dest" || die "cannot install $rel"
 	printf '   %-6s %s\n' "$verb" "$rel"
 	WROTE=$((WROTE + 1))

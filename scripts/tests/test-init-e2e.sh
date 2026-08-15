@@ -20,6 +20,15 @@
 
 set -uo pipefail
 
+sed_in_place() { # <sed-expression> <file>
+	local expression=$1 file=$2 tmp="${2}.amh-sed.$$"
+	sed "$expression" "$file" >"$tmp" || {
+		rm -f "$tmp"
+		return 1
+	}
+	cat "$tmp" >"$file" && rm -f "$tmp"
+}
+
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
@@ -78,6 +87,45 @@ if out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1); then
 	pass
 else
 	fail "amh-init.sh instantiates into an empty git repo" "$out"
+fi
+
+# BSD chmod treats GNU's `--` marker as a filename. Reproduce that contract on every host:
+# the installer must never pass the marker, and must still set executable modes correctly.
+chmod_bin=$(command -v chmod)
+mkdir -p "$WORK/bsd-bin"
+cat >"$WORK/bsd-bin/chmod" <<-EOF
+	#!/usr/bin/env bash
+	for arg in "\$@"; do
+		[ "\$arg" != -- ] || { printf 'bsd-chmod fixture: unsupported --\n' >&2; exit 1; }
+	done
+	exec "$chmod_bin" "\$@"
+EOF
+"$chmod_bin" +x "$WORK/bsd-bin/chmod"
+d_bsd_chmod=$(target bsd_chmod)
+if out=$(PATH="$WORK/bsd-bin:$PATH" "$ROOT/scripts/amh-init.sh" "$d_bsd_chmod" 2>&1) &&
+	[ -x "$d_bsd_chmod/scripts/ladder.sh" ] &&
+	[ ! -e "$d_bsd_chmod/scripts/ladder.sh.amh-init.tmp" ]; then
+	pass
+else
+	fail "amh-init.sh uses the BSD/GNU chmod intersection and leaves no temporary file" "$out"
+fi
+
+mkdir -p "$WORK/failing-chmod-bin"
+cat >"$WORK/failing-chmod-bin/chmod" <<-EOF
+	#!/usr/bin/env bash
+	case \${2:-} in
+	*.amh-init.tmp) exit 1 ;;
+	esac
+	exec "$chmod_bin" "\$@"
+EOF
+"$chmod_bin" +x "$WORK/failing-chmod-bin/chmod"
+d_chmod_failure=$(target chmod_failure_cleanup)
+if PATH="$WORK/failing-chmod-bin:$PATH" "$ROOT/scripts/amh-init.sh" "$d_chmod_failure" >/dev/null 2>&1; then
+	fail "amh-init.sh reports an injected chmod failure"
+elif [ ! -e "$d_chmod_failure/scripts/command-guard.sh.amh-init.tmp" ]; then
+	pass
+else
+	fail "amh-init.sh removes its temporary file after chmod failure"
 fi
 
 if grep -qxF 'BRANCH_PREFIX=session' "$d/amh.conf"; then
@@ -384,7 +432,7 @@ expect_init_dies "a documented init placeholder missing from the script is fatal
 	"$h" "$(target doc_extra_target)"
 
 h=$(harness_copy list_extra)
-sed -i "s/^INIT_PLACEHOLDERS='/INIT_PLACEHOLDERS='TOTALLY_NEW_KNOB /" \
+sed_in_place "s/^INIT_PLACEHOLDERS='/INIT_PLACEHOLDERS='TOTALLY_NEW_KNOB /" \
 	"$h/scripts/amh-init.sh"
 expect_init_dies "an init placeholder missing from the document is fatal" \
 	"$h" "$(target list_extra_target)"
