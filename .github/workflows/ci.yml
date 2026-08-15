@@ -41,6 +41,15 @@ jobs:
         # macOS exercises its stock /bin/bash; Windows exercises Git for Windows' Bash.
         shell: bash
     steps:
+      # Git for Windows defaults to CRLF checkout. These scripts and manifests are byte-bound
+      # artifacts, so configure LF before checkout rather than trying to repair the tree after.
+      - name: Preserve LF line endings (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0

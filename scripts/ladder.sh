@@ -540,7 +540,7 @@ guard_citations() {
 	# volume is was the shape being fixed; the walk is shared so they cannot.
 	local f
 	while IFS= read -r f; do
-		sed -n 's/^- \(D[A-Z]*-[0-9]\+\)\( \[cited\]\)\?:.*/\1\2/p' "$f" >>"$rows.raw"
+		sed -E -n 's/^- (D[A-Z]*-[0-9]+)( \[cited\])?:.*/\1\2/p' "$f" >>"$rows.raw"
 	done < <(chain_volumes)
 	if [ -f "$rows.raw" ]; then
 		awk '{print $1}' "$rows.raw" | sort >"$rows"

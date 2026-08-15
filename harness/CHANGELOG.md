@@ -18,7 +18,8 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   under macOS's Bash 3.2 and uses a sed range program accepted by both BSD and GNU sed.
 - **The fixture suites no longer require GNU `sed -i`.** Disposable fixture edits use a
   portable temporary-file helper, and the repository verification driver no longer requires
-  Bash 4's `mapfile`.
+  Bash 4's `mapfile`. Citation-row extraction also uses the BSD/GNU-common extended-regex
+  spelling rather than GNU-only basic-regex quantifiers.
 - **The supported toolchain floor is explicit.** The README names stock macOS, GNU/Linux,
   and Windows Git Bash next to Quick Start, including the Bash floor and the unsupported native
   Windows shells.

@@ -834,6 +834,33 @@ printf '# see D-001\n' >"$d/scripts/thing.sh"
 sed_in_place 's/^- D-001:/- D-001 [cited]:/' "$d/docs/LEDGER.md"
 expect_pass "a citation with its marker passes" "$d"
 
+# GNU sed accepts escaped BRE `\+` and `\?` as extensions; BSD sed does not. Reject those
+# extensions in a shim on every host so the citation-row extractor stays on the shared ERE
+# syntax rather than waiting for the macOS job to rediscover the parse failure.
+d=$(mk cite_bsd_sed)
+printf '# see D-001\n' >"$d/scripts/thing.sh"
+sed_in_place 's/^- D-001:/- D-001 [cited]:/' "$d/docs/LEDGER.md"
+mkdir -p "$d/bsd-bin"
+real_sed=$(command -v sed)
+cat >"$d/bsd-bin/sed" <<-EOF
+	#!/usr/bin/env bash
+	for arg in "\$@"; do
+		case \$arg in *'\\+'*|*'\\?'*) exit 64 ;; esac
+	done
+	exec "$real_sed" "\$@"
+EOF
+chmod +x "$d/bsd-bin/sed"
+started=$SECONDS
+out=$(PATH="$d/bsd-bin:$PATH" run "$d")
+rc=$?
+FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
+if [ "$rc" -eq 0 ]; then
+	report ok "citation row extraction uses BSD/GNU-common sed syntax"
+else
+	report no "citation row extraction uses BSD/GNU-common sed syntax" \
+		"expected exit 0, got $rc" "$out"
+fi
+
 # A file name with a space, in the citation guard this time. `secret_spacey` existed
 # and this did not, so the word-split hole survived in one guard while being fixed in
 # its neighbour — the fixture set marked the boundary of what anyone had thought about.

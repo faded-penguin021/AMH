@@ -88,7 +88,7 @@ re-litigate from.
 
 - 2026-08-15 — **AMH 7.0.1 covers the supported macOS, Linux, and Windows toolchains.**
   Fixed the initializer's BSD-`chmod` failure and cleanup, Bash 3.2 heredoc parsing and BSD sed
-  redaction range; removed GNU `sed -i` and Bash 4 dependencies from verification; documented
+  redaction and citation-row programs; removed GNU `sed -i` and Bash 4 dependencies from verification; documented
   the runtime floor for macOS, GNU/Linux, and Windows Git Bash; and added full-ladder CI jobs for
   macOS and Windows Git Bash alongside Linux. Prepared as 7.0.1.
 
