@@ -1175,7 +1175,25 @@ destructive_signature() {
 		printf '%s' '<nothing recorded>'
 		return
 	fi
-	printf '%s' "$(printf '%s\n' "${DESTRUCTIVE_TARGETS[@]}" | LC_ALL=C sort | tr '\n' '|')"
+	# Keep this sort in-process. The 7.0.1 release-tag run on stock macOS Bash 3.2
+	# produced collision symptoms in all eight distinct-target rearm fixtures while this
+	# nested pipeline built the signature. Removing the implicated process boundary keeps
+	# signature construction in the shell; the log does not isolate which pipeline stage
+	# lost the distinction, so this deliberately claims no narrower root cause.
+	local LC_ALL=C entry i inserted
+	local sorted=()
+	for entry in "${DESTRUCTIVE_TARGETS[@]}"; do
+		inserted=0
+		for ((i = 0; i < ${#sorted[@]}; i++)); do
+			if [[ $entry < ${sorted[$i]} ]]; then
+				sorted=("${sorted[@]:0:i}" "$entry" "${sorted[@]:i}")
+				inserted=1
+				break
+			fi
+		done
+		[ "$inserted" -eq 1 ] || sorted+=("$entry")
+	done
+	printf '%s|' "${sorted[@]}"
 }
 
 warn_ladder_tail() {
@@ -1379,6 +1397,27 @@ st_destructive_rearms_per_target() { # st_destructive_rearms_per_target <first> 
 		ST_FAILS=$((ST_FAILS + 1))
 	elif check_command "$second"; then
 		printf 'SELF-TEST FAIL: a deletion aimed at a NEW target must be advised even after an earlier one was cleared: %s (after %s)\n' "$second" "$first" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
+}
+
+# Sorting is semantic, not cosmetic: the same target SET in a different operand order is
+# the same deletion and must consume the same advisory. Without this direction, the rearm
+# fixtures prove only that different sets differ; a no-op or order-sensitive "sort" passes.
+st_destructive_same_target_set() { # <first spelling> <same targets, different order>
+	local first=$1 second=$2 state old_set old_state
+	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
+	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-same-set-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	DESTRUCTIVE_ADVISORY_STATE=$state
+	if check_command "$first"; then
+		printf 'SELF-TEST FAIL: first deletion should have been advised: %s\n' "$first" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif ! check_command "$second"; then
+		printf 'SELF-TEST FAIL: the same target set in a different order should proceed: %s (after %s)\n' "$second" "$first" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	fi
 	rm -f -- "$state"
@@ -1640,6 +1679,7 @@ printenv'
 	# Quoting the operands before joining them. `a b` as one target and as two are
 	# different deletions; a flattened signature let either clear the other.
 	st_destructive_rearms_per_target 'rm -rf a b' 'rm -rf "a b"'
+	st_destructive_same_target_set 'rm -rf a b' 'rm -rf b a'
 
 	# A substitution is not a variable, and an always-set variable has no empty case. Both
 	# still get the advisory — just not the paragraph that names a check they cannot make.
