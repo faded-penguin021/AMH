@@ -887,10 +887,22 @@ the sentence it reads has a fixed shape. So the copy and the config drift the mo
 moves, and the reader who trusts the stale one is misled by the document meant to orient them.
 The harness lowered `LEDGER_ROW_CHAR_CAP` in 5.0.0 and left three volume preambles stating the
 old value, missed because they spelled it `2,000` while the search was for `2000`. An agent
-does not need the number from the prose: `scripts/ladder.sh` reports each threshold it is
-judging against, from the config. Check that claim before you make it, though — a rung that
-prints a value only when it fails leaves that one to be read from `amh.conf`, which is exactly
-the case for the compression floor above.
+does not need the number from the prose: `amh.conf` is the source, and a verdict quotes the
+threshold it **turns on** — a rejection has to say what it rejected against.
+
+**A verdict that rejects nothing should quote nothing, and this is the harder half.** A green
+rung reporting "8 KB (soft cap 14 KB)" or "checked 2 rows against `LEDGER_ROW_CHAR_CAP`=800"
+puts the limit in front of the agent who is about to write against it, every clean run, and the
+limit is what gets optimized toward: the reported instances shaved a state file to seven bytes
+under its floor and drafted 828-byte ledger rows to trim them to just fit, one of them having
+copied "the cap is a maximum, not a target" into its own preamble by hand in the same session.
+Prose loses to salience, so the harness removed the anchor rather than adding another clause —
+print the measurement, print the headroom, name the threshold when a verdict depends on it.
+Prefer removing an anchor to adding a countermeasure: a second threshold to warn on (a
+top-decile band, say) is a second number to hug. And check what your rungs actually print before
+you promise a reader they can rely on it — the value a passing run never shows is one they must
+read from `amh.conf`, which since 8.0.0 is every threshold rather than the compression floor
+alone.
 
 Four kinds of restatement stay legitimate, and saying so keeps the rule from being read as a
 ban on ever writing a number: a **worked example** for an adopter choosing values (the previous
@@ -1211,19 +1223,36 @@ invocation. CI's verification step invokes THIS script, so there is no hand-main
 lockstep between what the agent runs and what CI runs. `--guards-only` covers docs-only
 changes in seconds.
 
-**What the working-memory size rung prints.** It reads `STATE_WARN_KB`, `STATE_COMPRESS_TO_KB`
-and `STATE_HARD_KB` from `amh.conf` — falling back to its own defaults for a key you leave out —
-and names whichever a verdict needs: the caps on its size line, the floor when it warns over the
-cap, when it fails, and again on the `ok` confirming a completed compression landing. A fully
-green run can therefore name all three, and seeing the floor in one is not a sign of trouble.
-Every one of those prints your configured value **verbatim**; only the landing lines add
-arithmetic, reporting the floor in bytes where the key is in KB. Which is precisely why a printed
-number is never a value to copy back into prose: quoting one makes a further copy of a config key,
-and nothing checks a copy against the config. This paragraph lives here rather than in
-`docs/STATE.md`'s length-guard preamble, which carries the RULES: a description of a guard's
-output is not working memory and should not be charged to that file's byte cap. It describes the
-three size verdicts and the landing `ok`, not the rung's other lines; read `guard_state_size` when
-it and this disagree.
+**What the working-memory size rung prints — and what it deliberately does not.** It reads
+`STATE_WARN_KB`, `STATE_COMPRESS_TO_KB` and `STATE_HARD_KB` from `amh.conf`, falling back to its
+own defaults for a key you leave out, and **names a threshold only in a verdict that turns on
+one**: the hard cap and the floor when it fails over the hard cap, the soft cap and the floor
+when it warns above the soft cap, and the floor in the landing failures. A verdict that rejects
+nothing names nothing — the plain size line reports your file's size and stops, and the `ok`
+confirming a completed landing reports how many bytes **clear of the floor** you landed rather
+than the floor itself. That is not brevity, it is the point: the number a clean run puts in front
+of you is the number the next compression aims at, and an instance that had copied "the cap is a
+maximum, not a target" into its own prose still shaved a dozen edits to land seven bytes under
+the floor. Headroom removes that pull; it is **not a score to maximise** in the other direction,
+because a file gutted to stubs prints a large number and passes. What governs the pass is the
+length-guard rule — fold whole completed stages, never shave — and no guard can tell those apart.
+
+So **read a threshold from `amh.conf`, not from a green run**: it is the source, a failing verdict
+will quote it back at you when one matters, and a number you copy into prose becomes a further
+copy that nothing checks against the config. If you left a key out of `amh.conf` entirely, the
+value in force is the shipped default at the top of `scripts/ladder.sh` — that is the one case
+where the config cannot answer you. Where a verdict does print a configured value it prints it
+**verbatim**; only the landing lines do arithmetic, working in bytes where the key is in KB.
+
+Two honest exceptions, so the discipline is not read as wider than it is. The boot banner still
+prints your state file's size **against the soft cap**, deliberately: it is read before a session
+writes, where knowing you are near the cap is the whole point, and it names the cap rather than
+the floor that compression aims at. And the `ok` for a small edit above the cap names
+`STATE_EDIT_DELTA_BYTES`, which is the threshold that verdict turns on. This paragraph lives here
+rather than in `docs/STATE.md`'s length-guard preamble, which carries the RULES: a description of
+a guard's output is not working memory and should not be charged to that file's byte cap. It
+describes the three size verdicts and the landing `ok`, not the rung's other lines; read
+`guard_state_size` when it and this disagree.
 
 ## When CI fails (workflow vs code)
 
@@ -1284,7 +1313,10 @@ shipped bug teaches session N+9's review pass.
 > cap bounds LINES, not rows — rows vary in length, and it is read and context cost that is
 > being bounded). Neither this cap nor the row cap below is restated here as a number, and
 > neither should be: nothing checks preamble prose against `amh.conf`, so a copied number goes
-> stale the first time a cap moves, and the ladder prints both live values in its verdicts.
+> stale the first time a cap moves. Read a live value from `amh.conf`, or from the verdict that
+> **turns on** it — a rejection has to say what it rejected against. A green run quotes neither
+> cap, deliberately: the number a clean run puts in front of you is the number the next row gets
+> drafted toward, which is how a cap written as a maximum is read as a length.
 > New rows must stay at or below `LEDGER_ROW_CHAR_CAP`, counted as bytes under `LC_ALL=C`;
 > ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. Rows
 > already committed when checked are historical and exempt. The final row may finish past the

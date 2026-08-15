@@ -34,7 +34,10 @@ shipped bug teaches session N+9's review pass.
 > cap bounds LINES, not rows — rows vary in length, and it is read and context cost that is
 > being bounded). Neither this cap nor the row cap below is restated here as a number, and
 > neither should be: nothing checks preamble prose against `amh.conf`, so a copied number goes
-> stale the first time a cap moves, and the ladder prints both live values in its verdicts.
+> stale the first time a cap moves. Read a live value from `amh.conf`, or from the verdict that
+> **turns on** it — a rejection has to say what it rejected against. A green run quotes neither
+> cap, deliberately: the number a clean run puts in front of you is the number the next row gets
+> drafted toward, which is how a cap written as a maximum is read as a length.
 > New rows must stay at or below `LEDGER_ROW_CHAR_CAP`, counted as bytes under `LC_ALL=C`;
 > ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. Rows
 > already committed when checked are historical and exempt. The final row may finish past the

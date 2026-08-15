@@ -30,10 +30,22 @@ the sentence it reads has a fixed shape. So the copy and the config drift the mo
 moves, and the reader who trusts the stale one is misled by the document meant to orient them.
 The harness lowered `LEDGER_ROW_CHAR_CAP` in 5.0.0 and left three volume preambles stating the
 old value, missed because they spelled it `2,000` while the search was for `2000`. An agent
-does not need the number from the prose: `scripts/ladder.sh` reports each threshold it is
-judging against, from the config. Check that claim before you make it, though — a rung that
-prints a value only when it fails leaves that one to be read from `amh.conf`, which is exactly
-the case for the compression floor above.
+does not need the number from the prose: `amh.conf` is the source, and a verdict quotes the
+threshold it **turns on** — a rejection has to say what it rejected against.
+
+**A verdict that rejects nothing should quote nothing, and this is the harder half.** A green
+rung reporting "8 KB (soft cap 14 KB)" or "checked 2 rows against `LEDGER_ROW_CHAR_CAP`=800"
+puts the limit in front of the agent who is about to write against it, every clean run, and the
+limit is what gets optimized toward: the reported instances shaved a state file to seven bytes
+under its floor and drafted 828-byte ledger rows to trim them to just fit, one of them having
+copied "the cap is a maximum, not a target" into its own preamble by hand in the same session.
+Prose loses to salience, so the harness removed the anchor rather than adding another clause —
+print the measurement, print the headroom, name the threshold when a verdict depends on it.
+Prefer removing an anchor to adding a countermeasure: a second threshold to warn on (a
+top-decile band, say) is a second number to hug. And check what your rungs actually print before
+you promise a reader they can rely on it — the value a passing run never shows is one they must
+read from `amh.conf`, which since 8.0.0 is every threshold rather than the compression floor
+alone.
 
 Four kinds of restatement stay legitimate, and saying so keeps the rule from being read as a
 ban on ever writing a number: a **worked example** for an adopter choosing values (the previous

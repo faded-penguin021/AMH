@@ -185,19 +185,36 @@ invocation. CI's verification step invokes THIS script, so there is no hand-main
 lockstep between what the agent runs and what CI runs. `--guards-only` covers docs-only
 changes in seconds.
 
-**What the working-memory size rung prints.** It reads `STATE_WARN_KB`, `STATE_COMPRESS_TO_KB`
-and `STATE_HARD_KB` from `amh.conf` — falling back to its own defaults for a key you leave out —
-and names whichever a verdict needs: the caps on its size line, the floor when it warns over the
-cap, when it fails, and again on the `ok` confirming a completed compression landing. A fully
-green run can therefore name all three, and seeing the floor in one is not a sign of trouble.
-Every one of those prints your configured value **verbatim**; only the landing lines add
-arithmetic, reporting the floor in bytes where the key is in KB. Which is precisely why a printed
-number is never a value to copy back into prose: quoting one makes a further copy of a config key,
-and nothing checks a copy against the config. This paragraph lives here rather than in
-`docs/STATE.md`'s length-guard preamble, which carries the RULES: a description of a guard's
-output is not working memory and should not be charged to that file's byte cap. It describes the
-three size verdicts and the landing `ok`, not the rung's other lines; read `guard_state_size` when
-it and this disagree.
+**What the working-memory size rung prints — and what it deliberately does not.** It reads
+`STATE_WARN_KB`, `STATE_COMPRESS_TO_KB` and `STATE_HARD_KB` from `amh.conf`, falling back to its
+own defaults for a key you leave out, and **names a threshold only in a verdict that turns on
+one**: the hard cap and the floor when it fails over the hard cap, the soft cap and the floor
+when it warns above the soft cap, and the floor in the landing failures. A verdict that rejects
+nothing names nothing — the plain size line reports your file's size and stops, and the `ok`
+confirming a completed landing reports how many bytes **clear of the floor** you landed rather
+than the floor itself. That is not brevity, it is the point: the number a clean run puts in front
+of you is the number the next compression aims at, and an instance that had copied "the cap is a
+maximum, not a target" into its own prose still shaved a dozen edits to land seven bytes under
+the floor. Headroom removes that pull; it is **not a score to maximise** in the other direction,
+because a file gutted to stubs prints a large number and passes. What governs the pass is the
+length-guard rule — fold whole completed stages, never shave — and no guard can tell those apart.
+
+So **read a threshold from `amh.conf`, not from a green run**: it is the source, a failing verdict
+will quote it back at you when one matters, and a number you copy into prose becomes a further
+copy that nothing checks against the config. If you left a key out of `amh.conf` entirely, the
+value in force is the shipped default at the top of `scripts/ladder.sh` — that is the one case
+where the config cannot answer you. Where a verdict does print a configured value it prints it
+**verbatim**; only the landing lines do arithmetic, working in bytes where the key is in KB.
+
+Two honest exceptions, so the discipline is not read as wider than it is. The boot banner still
+prints your state file's size **against the soft cap**, deliberately: it is read before a session
+writes, where knowing you are near the cap is the whole point, and it names the cap rather than
+the floor that compression aims at. And the `ok` for a small edit above the cap names
+`STATE_EDIT_DELTA_BYTES`, which is the threshold that verdict turns on. This paragraph lives here
+rather than in `docs/STATE.md`'s length-guard preamble, which carries the RULES: a description of
+a guard's output is not working memory and should not be charged to that file's byte cap. It
+describes the three size verdicts and the landing `ok`, not the rung's other lines; read
+`guard_state_size` when it and this disagree.
 
 ## When CI fails (workflow vs code)
 

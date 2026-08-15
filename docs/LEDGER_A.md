@@ -36,7 +36,7 @@
 > ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. Neither
 > value is restated here as a number, and neither should be: nothing checks preamble prose
 > against `amh.conf`, and the 5.0.0 cap change left three volume preambles contradicting the
-> guard (**DB-022**). The ladder prints both live values in its verdicts. Rows already committed when checked are historical and exempt. The final row may
+> guard (**DB-022**). The ladder quotes a value in the verdict that TURNS ON it — a rejection must say what it rejected against — and a green run deliberately quotes neither, because the number a clean run shows you is the number the next row is drafted toward (**DB-040**). Read both from `amh.conf`. Rows already committed when checked are historical and exempt. The final row may
 > finish past the file cap, but no row may
 > ever *start* past it: when this file stands over the cap, create LEDGER_B.md (this file's
 > name with a _B suffix) with the same header discipline, numbering from **DB-001**. It is

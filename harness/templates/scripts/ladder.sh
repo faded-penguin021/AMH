@@ -118,7 +118,15 @@ guard_state_size() {
 	elif [ "$cur" -gt "$warn_b" ]; then
 		warn "$((cur / 1024)) KB is over the ${STATE_WARN_KB} KB soft cap — run ONE deep compression pass to ≤ ${STATE_COMPRESS_TO_KB} KB (not to just under the cap)"
 	else
-		ok "$((cur / 1024)) KB (soft cap ${STATE_WARN_KB} KB, hard ${STATE_HARD_KB} KB)"
+		# The green line prints the MEASUREMENT and no threshold, deliberately. A clean
+		# run that says "8 KB (soft cap 14 KB)" re-anchors the cap in the context of the
+		# agent who will next compress this file, and the number in front of you is the
+		# number you optimize toward: a reported instance shaved clauses across a dozen
+		# edits to land 7 bytes under the floor, having never considered 7 KB. Every
+		# verdict that TURNS ON a threshold still names it — the warn, both fails, and
+		# the landing line below — because a rejection must say what it rejected
+		# against. A pass rejects nothing, so it owes no number.
+		ok "$((cur / 1024)) KB, within the band"
 	fi
 
 	# Landing check. Size thresholds alone are Goodhart-able: a trim that stops short of
@@ -180,7 +188,18 @@ guard_state_size() {
 		if [ "$cur" -gt "$comp_b" ]; then
 			fail "crossed below the soft cap but stops short at $cur bytes — the floor is $comp_b bytes (${STATE_COMPRESS_TO_KB} KB), and landing in the band re-arms the warning next session. Fold more completed stages into single Changelog lines or move content to the ledger — do not micro-trim."
 		else
-			ok "crossed below the soft cap and landed at $cur bytes, at or under the $comp_b-byte floor (from $prev bytes)"
+			# Reports the MARGIN, not the floor it was measured against. The landing
+			# line is the one an agent reads immediately after compressing, so the
+			# quantity it makes salient is the quantity the next pass aims at: "at or
+			# under the 9216-byte floor" teaches that the floor is the target, and
+			# landing ON it reads as a job well done. Headroom below the floor is the
+			# same fact without that pull. It is NOT a score to maximise either: a file
+			# gutted to stubs prints a big number and passes, and no guard can see the
+			# difference — the rule that governs it is the state file's own (fold whole
+			# completed stages; do not shave), and this line is a measurement, not a
+			# grade. The floor is still one addition away for anyone who wants it, and
+			# the fail branch beside this one names it outright.
+			ok "crossed below the soft cap and landed at $cur bytes, $((comp_b - cur)) bytes clear of the floor (from $prev bytes)"
 		fi
 	elif [ "$shrank" -lt "$delta" ]; then
 		ok "edit above the soft cap (shrank $shrank bytes, under the $delta-byte edit delta); compression still owed"
@@ -338,7 +357,7 @@ extract_ledger_rows() { # <tree-dir> <rows-dir>
 }
 
 guard_new_ledger_row_lengths() {
-	local cap=${LEDGER_ROW_CHAR_CAP:-0} changed path suffix='' next checked=0 row id count
+	local cap=${LEDGER_ROW_CHAR_CAP:-0} changed path suffix='' next checked=0 row id count lengths=''
 	case $cap in
 		'' | *[!0-9]*)
 			fail "LEDGER_ROW_CHAR_CAP must be a non-negative integer, got '${LEDGER_ROW_CHAR_CAP:-}'"
@@ -386,8 +405,16 @@ guard_new_ledger_row_lengths() {
 			fail "$id: new ledger row is $count byte-counted character(s), over LEDGER_ROW_CHAR_CAP=$cap — keep the durable lesson concise and shorten the draft before commit; historical committed rows and sanctioned metadata-only additions are exempt"
 			return
 		fi
+		lengths="$lengths $id=$count"
 	done
-	[ "$checked" -gt 0 ] && ok "checked $checked new ledger row(s) against LEDGER_ROW_CHAR_CAP=$cap"
+	# The lengths themselves, and not the cap they cleared. "checked 2 rows against
+	# LEDGER_ROW_CHAR_CAP=800" re-anchors 800 on every clean run, and the reported
+	# consequence is rows drafted long and trimmed to just fit — 828 and 805 in one
+	# session — where a 300-byte row stating the lesson tersely was the better artifact
+	# and never occurred to the author. Printing what the rows actually cost shows the
+	# distribution instead of the limit; the fail branch above still names the cap,
+	# because that verdict turns on it.
+	[ "$checked" -gt 0 ] && ok "checked $checked new ledger row(s) —${lengths} byte-counted character(s)"
 }
 
 
@@ -492,7 +519,12 @@ guard_ledger_rollover() {
 	elif [ "$lines" -ge $((LEDGER_LINE_CAP * 9 / 10)) ]; then
 		warn "$live: $lines lines / ${size} KB, approaching the ${LEDGER_LINE_CAP}-line cap — the next rollover is near"
 	else
-		ok "$live: $lines/$LEDGER_LINE_CAP lines, ${size} KB (grep it; a volume is retrieval storage, not a read)"
+		# Lines and size, not lines-over-cap: this is the third green line to lose its
+		# threshold, and the one that most nearly escaped, because `800/2000 lines` reads
+		# as context rather than as an anchor. It is the same anchor. The warn branch
+		# above it fires at nine tenths and names the cap, which is the moment the number
+		# is load-bearing.
+		ok "$live: $lines lines, ${size} KB (grep it; a volume is retrieval storage, not a read)"
 	fi
 }
 

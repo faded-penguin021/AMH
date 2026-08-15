@@ -345,6 +345,34 @@ verdict_line() { # <ladder output>
 # Asserts on the verdict line specifically, with an explicit checked-NOTHING branch: a run
 # that printed no verdict at all must be a failure and not a vacuous pass, which is the
 # hollow-guard case the runbook requires an arm for.
+expect_pass_not_saying() { # <name> <dir> <ERE the green output must NOT match> <fixed substring it MUST contain>
+	# The inverse of expect_pass_saying, and the only shape that can pin an ANTI-anchor: a
+	# rule saying "do not re-state the threshold on a pass" is satisfiable by prose and
+	# unfalsifiable without a fixture that fails when the number comes back. Compare 6.0.0's
+	# fixtures over what the destructive advisory must not claim.
+	#
+	# Two deliberate choices, both learned the hard way in review. The absent needle is an
+	# ERE, not a fixed string, so it can be written WITHOUT the fixture's configured value:
+	# `soft cap 14` passes the moment someone changes the fixture conf to 13 while the
+	# anchor is still printed — the DB-022 trap rebuilt inside the guard against it. And the
+	# fourth argument is the checked-NOTHING arm the runbook requires: an assertion about
+	# absence is satisfied by a rung that never ran, printed nothing, or was renamed out of
+	# existence, so the caller must also name a string the line positively has.
+	local out rc started=$SECONDS
+	out=$(run "$2")
+	rc=$?
+	FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
+	if [ "$rc" -ne 0 ]; then
+		report no "$1" "expected exit 0, got $rc" "$out"
+	elif ! grep -qF "$4" <<<"$out"; then
+		report no "$1" "checked NOTHING: the output never contained '$4', so the absence of '$3' proves nothing" "$out"
+	elif grep -qE "$3" <<<"$out"; then
+		report no "$1" "passed but the output re-stated '$3', which a green verdict must not do" "$out"
+	else
+		report ok "$1"
+	fi
+}
+
 expect_verdict() { # <name> <runner: run|run_full> <dir> <expected rc> <fixed substring>
 	local out rc line started=$SECONDS
 	out=$("$2" "$3")
@@ -590,6 +618,23 @@ state_bytes "$d" $((15 * 1024))
 (cd "$d" && git commit -qam "grow past the soft cap")
 head -c $((5 * 1024)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
 expect_pass "compression landing on the floor passes" "$d"
+# Landing well under the floor reports the HEADROOM, and the gradient it teaches is the
+# whole point: this fixture lands 4 KB clear, and a line that answered "at or under the
+# 9216-byte floor" would read identically for a landing 1 byte clear.
+expect_pass_saying "the landing line reports how far clear of the floor it landed" "$d" \
+	"bytes clear of the floor"
+
+# --- Anti-anchor: a green verdict names no threshold ------------------------
+# Two reported Goodhart failures, one shape: the number a clean run prints becomes the
+# number the next session optimizes toward. An instance shaved STATE across a dozen edits
+# to land 7 bytes under the floor, and drafted ledger rows at 828 and 805 to trim them to
+# just fit — after copying "the cap is a maximum, not a target" into its own preamble by
+# hand. Prose lost to salience, so the anchor is removed from the lines that reject
+# nothing. These fixtures fail the moment a threshold returns to a pass.
+d=$(mk state_size_green_anchor)
+state_bytes "$d" $((5 * 1024))
+expect_pass_not_saying "a green STATE size verdict names no threshold" "$d" \
+	"soft cap|hard cap|hard [0-9]" "KB, within the band"
 
 # --- STATE structure
 d=$(mk state_section)
@@ -648,6 +693,12 @@ expect_fail "a row starting past the line cap fails" "$d" "past the"
 d=$(mk ledger_bytes)
 expect_pass_saying "the passing rung reports the live volume's size, not just its lines" "$d" \
 	"KB (grep it; a volume is retrieval storage, not a read)"
+# …and reports the count without the cap beside it. `790/800 lines` reads as context rather
+# than as an anchor, which is exactly why it survived the first pass of this change: it is
+# the same number in the same place doing the same thing. The warn branch at nine tenths
+# still names the cap, and that is the verdict the number belongs to.
+expect_pass_not_saying "a green ledger cap verdict does not re-state the line cap" "$d" \
+	"[0-9]+/[0-9]+ lines|LEDGER_LINE_CAP" "lines,"
 
 # A REAL size, not just the literal around it. The fixture ledger is a few hundred bytes,
 # so every assertion above is equally satisfied by a script that hardcodes zero or measures
@@ -684,8 +735,10 @@ expect_fail "the rollover FAILURE reports the size too — that is the branch th
 d=$(mk ledger_row_char_under_cap)
 sed_in_place 's/^LEDGER_ROW_CHAR_CAP=800/LEDGER_ROW_CHAR_CAP=120/' "$d/amh.conf"
 printf -- '- D-003: short enough.\n' >>"$d/docs/LEDGER.md"
-expect_pass_saying "a concise new ledger row under the byte-counted character cap passes" "$d" \
-	"checked 1 new ledger row(s) against LEDGER_ROW_CHAR_CAP=120"
+expect_pass_saying "a concise new ledger row reports its own length, not the cap" "$d" \
+	"checked 1 new ledger row(s) — D-003="
+expect_pass_not_saying "a green ledger-row verdict does not re-state the row cap" "$d" \
+	"LEDGER_ROW_CHAR_CAP" "checked 1 new ledger row(s) — D-003="
 
 d=$(mk ledger_row_char_over_cap)
 sed_in_place 's/^LEDGER_ROW_CHAR_CAP=800/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
@@ -739,7 +792,7 @@ add_chain() { # <fixture dir> <suffix>... — in order
 d=$(mk ledger_volume_past_z)
 add_chain "$d" {A..Z} AA
 expect_pass_saying "a two-letter volume is live once the chain reaches it" "$d" \
-	"docs/LEDGER_AA.md: 5/800 lines"
+	"docs/LEDGER_AA.md: 5 lines"
 
 # Membership is REACHABILITY, not spelling, and this is the case that settles it: an
 # all-capitals stray file satisfies every name-shaped rule (`[A-Z]+`, and LONG, so it wins
@@ -766,7 +819,7 @@ expect_warn "an unreachable volume-shaped file is named, not silently ignored" "
 # missing"; it is unreachable, and its rows are read by nothing.
 d=$(mk ledger_volume_gap)
 add_chain "$d" A C
-expect_pass_saying "the walk stops at the first gap" "$d" "docs/LEDGER_A.md: 5/800 lines"
+expect_pass_saying "the walk stops at the first gap" "$d" "docs/LEDGER_A.md: 5 lines"
 
 # The base volume is where the chain starts, so its absence is not "no ledger yet" — that
 # rendering is a skip, and a skip reads exactly like a pass. Citations are switched off in

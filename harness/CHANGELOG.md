@@ -46,18 +46,59 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   memory-tier table now states the constitution's discipline rather than calling it "small by
   construction" and leaving it unbounded in fact.
 
+- **The working-memory and ledger rungs no longer print their thresholds on a green verdict.**
+  Reported from an
+  instance that committed both halves of the same Goodhart failure in one session: told to
+  compress `docs/STATE.md` to the floor it shaved clauses across a dozen edits and landed seven
+  bytes under, restructuring nothing; and it drafted two ledger rows at 828 and ~805 characters
+  and trimmed them to just fit, where a 300-byte row stating the lesson tersely was the better
+  artifact and never occurred to it. That instance had hand-copied 6.0.1's "the cap is a maximum,
+  not a target" into its own preamble in the same session. Another clause was therefore not the
+  fix: the prose is read by the same context that then optimizes toward whatever number is in
+  front of it. So the number is gone from where it does no work. `guard_state_size`'s plain `ok`
+  reports the size and no caps; its landing `ok` reports how many bytes **clear of the floor**
+  the pass landed instead of naming the floor — the same fact without the pull toward the limit.
+  Headroom is a measurement, not a score: a state file gutted to stubs prints a large one and
+  passes, which is why the length-guard rule (fold whole stages, never shave) is still what
+  governs the pass. The new-row rung reports each row's own length rather than the cap it cleared.
+  The ledger cap rung drops the `lines/cap` form for a bare line count. Every warn and fail still
+  quotes the threshold it turns on, because a rejection has to say what it rejected against — as
+  do two green lines that genuinely turn on one: the small-edit `ok` naming `STATE_EDIT_DELTA_BYTES`,
+  and the boot banner's size-against-soft-cap line, which is read before a session writes and is
+  left deliberately alone. Fixtured in the only shape that can pin an anti-anchor: `expect_pass_not_saying`,
+  three fixtures that fail the moment a threshold returns to a green line (**DB-040**).
+- **The inverted-gradient warning was considered and not built.** The same report proposed
+  warning when a row or a compression pass lands in the top decile below the cap, making hugging
+  the limit the costly move. Declined for now, on the reporter's own weighting: it invents a
+  second threshold to hug, and P3/P20 say a guard accretes after a real incident rather than
+  ahead of one. Removing the anchor is the cheaper intervention and is what shipped; if the
+  behaviour survives it, that is the incident the guard would then have earned.
+
 ### Upgrading
 
-1. Copy the shipped scripts and the regenerated manifest. No shipped `.sh` file changed; from
-   7.0.2 this updates only the manifest's release-version header.
-2. **Seed prose, hand-applied.** Copy the two-paragraph blockquote from
+1. Copy the shipped scripts and the regenerated manifest. `ladder.sh` and
+   `test-ladder-guards.sh` changed — green verdicts no longer print thresholds, and three new
+   fixtures pin that. No threshold, config key or exit code changed, and no verdict changed:
+   every run that passed before still passes.
+2. **Expect your green ladder output to read differently**, and do not treat it as information
+   lost. `8 KB (soft cap 14 KB, hard 16 KB)` becomes `8 KB, within the band`; a completed
+   compression landing reports bytes clear of the floor; the ledger rung lists each new row's
+   length. Read a threshold from `amh.conf`, which is where it was authoritative all along.
+3. **Seed prose — the ladder description, hand-applied, three files that move together.** If you carry the descriptive
+   paragraphs, take all three or none: `docs/RUNBOOK.md` → **Acceptance ladder** (what the size
+   rung prints, now including what it deliberately does not), your ledger volume preambles (the
+   "ladder prints both live values" sentence is no longer true of a green run), and — if you
+   keep one — any prose telling a reader they can rely on a passing run to show them a
+   threshold. Leaving the old wording in place leaves your docs describing output your ladder
+   no longer produces.
+4. **Seed prose — the constitution rule, hand-applied.** Copy the two-paragraph blockquote from
    `harness/templates/seed/AGENTS.md` — it sits directly under the long-term-memory paragraph —
    into your own constitution, adjusting the file names if your tree spells them differently.
-3. **Confirm your constitution is in `RULE_FILES`** in your `amh.conf` before you rely on the
-   advisory that step 5 leans on. `amh.conf` is yours forever and was installed once, so a repo
+5. **Confirm your constitution is in `RULE_FILES`** in your `amh.conf` before you rely on the
+   advisory that step 7 leans on. `amh.conf` is yours forever and was installed once, so a repo
    that pruned the list — or predates its constitution being in it — has no advisory at all,
    and nothing else will tell you.
-4. **Then relocate what your constitution has already accreted.** Read it for content that
+6. **Then relocate what your constitution has already accreted.** Read it for content that
    records the past rather than states the present: rules kept "for context" after they stopped
    binding, adoption and upgrade narratives, and any per-version paragraph recording that a
    version was reviewed or sanctioned. Each becomes one dated ledger row — what was sanctioned,
@@ -70,14 +111,14 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
    nothing here licenses shortening a live rule, and if you find yourself rewording one to save
    space you are doing the thing the second bullet above refused to build a cap for. Relocation
    is legislation — take the review protocol, and treat a bulk pass as an owner decision.
-5. **What this does to your tripwire — read it before step 4 worries you.** An in-file "this
+7. **What this does to your tripwire — read it before step 6 worries you.** An in-file "this
    version is sanctioned in full" paragraph was never what let a reviewer tell a sanctioned
    upgrade from an injected edit: it lives inside the very file an injection would edit, so
    anything able to add a rule is able to add its own sanction for it, and nothing consumes it
    anyway. (It was legal prose — the ban on attestations is on *machinery*, not on a sentence a
    human may disbelieve — so this is an argument about accretion and provenance, not about a
    rule you broke.) What actually discriminates is unchanged by this release: the `RULE_FILES`
-   warning on the diff and the review protocol behind it. What step 4 leaves behind is strictly
+   warning on the diff and the review protocol behind it. What step 6 leaves behind is strictly
    better on the axis that matters here — a dated row in an append-only file whose ordering a
    guard checks against `HEAD`, rather than a paragraph in a file where an edit fails nothing.
    State the trade honestly to yourself, though: the ledger is deliberately **not** in

@@ -49,20 +49,28 @@ sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**.
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
 
-**OPEN — confirm the version call before tagging: is the constitution-discipline release MAJOR
-or MINOR?** Prepared as **8.0.0** (MAJOR) on the ground that a repo recording upgrade history in
-its constitution is now doing what its constitution forbids. The counter-case is real and the
-rule says an ambiguous call is yours, not a session's: nothing breaks for an adopter until they
-paste the seed prose in, no shipped script, key, threshold, fixture or exit code changed, and
-6.0.1 shipped a structurally identical seed-prose-only change as a PATCH. MINOR is not right
-either — it promises the adopter does nothing, and the Upgrading notes ask for a real
-relocation. Check: `sed -n '/^## 8.0.0/,/^## 7.0.2/p' harness/CHANGELOG.md` for what an adopter
-is actually asked to do. A different call means re-running the five lockstep copies.
+**OPEN — the push rail blocks a legal push that carries a redirection.** `git push -u origin
+session/x 2>&1` and `… >/dev/null` are both denied, with a reason that says the push "names
+another branch or leaves the ref implicit" — false of both. Redirection tokens survive into the
+segment the ref counter reads, so they count as extra refs; `&&` is handled correctly. This is
+the shape that teaches a session to route around a rail (**DB-030**). Check:
+`scripts/command-guard.sh --command 'git push -u origin session/x 2>&1'` exits 2 while the same
+command without `2>&1` exits 0. Not fixed here — it is a shipped-rail change with its own
+fixture and review pass.
 
-**OPEN — tag and publish the release once the number is settled.** Create and push
-`amh-v<VERSION>` after this branch merges. No check: only the owner may tag or publish.
-(`amh-v7.0.2` is published — `git ls-remote --tags origin 'refs/tags/amh-v*'` on 2026-08-15 —
-which closed the previous item.)
+**OPEN — the macOS rail self-test is nondeterministic.** Run 31913987929 failed on
+`portability (macos-latest)` with 18 `should have been BLOCKED` cases — every private-key case
+and the dotenv write-destination/redirect/reader forms — then passed on re-run at the same
+commit, with `command-guard.sh` byte-identical to the green `main` run 74 minutes earlier. So it
+is neither a regression from this branch nor a static portability bug. The failing set is one
+contiguous block of advisory-bearing cases, which points at advisory state or signature
+construction rather than parsing — the area 7.0.2 already repaired once for Bash 3.2 collisions.
+A rail that intermittently does not block is worse than one that never did, so this needs a real
+diagnosis, not a re-run. Check: re-run the macOS job a few times at a fixed commit and count.
+
+**OPEN — tag and publish AMH 8.0.0.** Create and push `amh-v8.0.0` after this branch merges. No
+check: only the owner may tag or publish. (`amh-v7.0.2` is published — `git ls-remote --tags
+origin 'refs/tags/amh-v*'` on 2026-08-15 — which closed the previous item.)
 
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
 6.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
@@ -91,6 +99,10 @@ re-litigate from.
   RFC2's run-receipt format, its transport, the CI artifact and a status tool — **DA-025**,
   which also scopes what a record may still be. Five of RFC3's seven scenarios, per-scenario YAML, an oracle directory and in-tree
   reports — **DA-026**, whose five failed provenance three DIFFERENT ways.
+- **A warning when a ledger row or a compression pass lands in the top decile below its cap**
+  (the inverted-gradient guard), declined with the anchor removal that shipped instead: it
+  invents a second threshold to hug, and a guard accretes after an incident, not ahead of one
+  (**DB-040**). Reopen it if cap-hugging survives the removal — that is the incident.
 - **A byte cap on the constitution (`CONSTITUTION_WARN_KB`)**, refused while adding the
   current-state rule that would have motivated it — the defect is kind, not size, and a cap over
   all-live legislation makes shaving a rule the cheapest compliance (**DB-038**).
@@ -100,6 +112,16 @@ re-litigate from.
   file, and the advisory tier is the answer instead — **DB-027**.
 
 ## Changelog
+
+- 2026-08-15 — **Green verdicts stopped printing thresholds (8.0.0, same release).** The size
+  line reports the measurement, the landing line reports bytes clear of the floor, and the
+  new-row rung reports each row's length; warns and fails still quote the cap they turn on.
+  Three `expect_pass_not_saying` fixtures fail if a number returns to a green line. The
+  inverted-gradient warning the same report proposed was declined — a second threshold is a
+  second number to hug. **DB-040**.
+
+- 2026-08-15 — **Owner: the release is MAJOR, and both units ship inside 8.0.0** (owner,
+  2026-08-15, answering the version question raised in this queue and closing it).
 
 - 2026-08-15 — **The constitution is bounded by kind, not by bytes, as 8.0.0.** The seed and
   this instance now say they state the system as currently built, and route supersession

@@ -37,7 +37,7 @@
 > ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. Neither
 > value is restated here as a number, and neither should be: nothing checks preamble prose
 > against `amh.conf`, and the 5.0.0 cap change left three volume preambles contradicting the
-> guard (**DB-022**). The ladder prints both live values in its verdicts. Rows already committed when checked are historical and exempt. The final row may
+> guard (**DB-022**). The ladder quotes a value in the verdict that TURNS ON it — a rejection must say what it rejected against — and a green run deliberately quotes neither, because the number a clean run shows you is the number the next row is drafted toward (**DB-040**). Read both from `amh.conf`. Rows already committed when checked are historical and exempt. The final row may
 > finish past the file cap, but no row may
 > ever *start* past it: when this file stands over the cap, create LEDGER_C.md (this file's
 > name with a _C suffix) with the same header discipline, numbering from **DC-001**. It is
@@ -671,6 +671,7 @@
   reproduced the class it was closing**, calling that number the config value "quoted" when the
   line emits bytes and the key is KB. Read the branch that emits the line, and prefer a claim
   about DERIVATION to one about equality; a remembered verdict is not one.
+  Superseded by DB-040.
 
 - DB-026: **Tier a secret-file rail by whether its block reason is true of the file it names.**
   Asked whether `.pem`, `.key` and `id_rsa` belonged in the safeguard, the answer split by
@@ -788,3 +789,13 @@
   skipped in CI, reading only the uncommitted diff, silent once committed. The mandatory pass
   found both, in prose whose argument was otherwise sound. Open a route and you owe its limit;
   cite an enforcement layer and you owe what it actually does, in the same sentence.
+
+- DB-040: **A threshold printed on a GREEN run is a target; print it only where a verdict turns
+  on it.** Two reports, one shape: a state file shaved across a dozen edits to land 7 bytes
+  under its floor, and rows drafted at 828 and ~805 to be trimmed to just fit — by an instance
+  that had hand-copied "a cap is a maximum, not a target" into its own preamble the same
+  session. Prose loses to salience when one context reads the number and then optimizes. Now the
+  size line reports the measurement, the landing line the headroom, the row rung each row's
+  length; warns and fails still quote the cap. Removing an anchor beats adding a countermeasure:
+  a top-decile warning is a second number to hug. Partly reverses 5.2.1 (DB-025); fixtured on
+  what a green line must NOT say.
