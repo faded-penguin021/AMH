@@ -73,7 +73,10 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           set -euo pipefail
-          [[ $OSTYPE == msys* ]]
+          case $(uname -s) in
+            MINGW*|MSYS*) ;;
+            *) printf 'expected Git Bash, got %s\n' "$(uname -s)" >&2; exit 1 ;;
+          esac
           shellcheck --version
 
       - name: Acceptance ladder
