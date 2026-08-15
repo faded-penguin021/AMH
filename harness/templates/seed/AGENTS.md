@@ -23,6 +23,30 @@ the live ledger file — each file caps at `LEDGER_LINE_CAP` lines from `amh.con
 this prose deliberately does not copy: the final row may overflow the
 cap, the next row opens the next file, `D-… → DA-…` (`_A.md`) `→ DB-…`).
 
+> **This file states the harness and the project as they are NOW.** Every rule here binds
+> today and every inventory names what exists today: a rule that changed is rewritten in
+> place, a rule that stopped binding is deleted, and neither leaves behind a note saying what
+> it used to be. **A rule that still binds stays, whatever its age** — what follows routes
+> HISTORY, and a live rule is never history, so relocating one is not tidying but repeal.
+> Supersession history, adoption and upgrade narratives, and per-version records of what the
+> owner sanctioned belong in the live ledger volume that `docs/STATE.md` names — permanent,
+> dated, retrieval storage — with a pointer line in the `docs/STATE.md` changelog (one line
+> for a migration, not one per paragraph moved). That is not deletion: it puts them where a
+> reader can grep for them, instead of in front of every session, most of which will never
+> need them. Moving anything out of this file is a change to legislation and takes the
+> rule-review protocol like any other; a bulk relocation is an owner decision, not a
+> session's.
+>
+> **No byte cap governs this file, and that is deliberate.** The defect a cap catches is size;
+> the defect here is KIND — this file can be long and wholly current, or short and half
+> history — and a cap over live legislation invites shaving rules to make room for kept
+> narrative, the same reflex `docs/STATE.md`'s compression rule exists to break. What stands
+> in for a cap is a reader, not a check. This file is in `RULE_FILES`, so an uncommitted diff
+> touching it raises the ladder's legislation advisory — and know exactly what that is worth:
+> it is a WARN that blocks nothing, it is skipped in CI, and it reads only the uncommitted
+> diff, so it goes quiet the moment the change is committed. Reviewer attention is the
+> enforcement; the warning only says the protocol applies.
+
 > **Establish coverage before you report an absence.** "It does not exist" and "it never
 > happened" are claims about your search until you can say what you searched and that it could
 > have contained the thing. Before reporting one, name the artifact you looked in and why it

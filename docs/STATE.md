@@ -25,14 +25,14 @@ The AMH meta-repository: both the **source of truth** for the Agentic Maintenanc
 reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
 **reference instance**, running byte-identical copies of the scripts it ships. The product is
 `harness/` (prose source, templates, generated bundle); this repo's instance is `AGENTS.md` +
-`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 7.0.2** — see `harness/VERSION`,
+`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 8.0.0** — see `harness/VERSION`,
 the copy that counts.
 
 ## Current state
 
-AMH 6.0.0 is tagged and published on origin (confirmed by `git ls-remote --tags` on 2026-08-13).
-This branch is **7.0.2** (PATCH): the immutable 7.0.1 tag failed release verification on stock
-macOS Bash 3.2 while constructing destructive-advisory signatures.
+AMH 7.0.2 is tagged and published on origin (confirmed by `git ls-remote --tags` on 2026-08-15).
+This branch is **8.0.0** (MAJOR): the seed constitution states that it describes the system as
+currently built, and adoption history now belongs in the ledger and the state changelog.
 
 Committed ledger rows are append-only, enforced against `HEAD` by a repo-local guard whose
 sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**.
@@ -49,9 +49,20 @@ sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**.
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
 
-**OPEN — tag and publish AMH 7.0.2.** The immutable `amh-v7.0.1` tag exists as an assetless
-prerelease; its workflow failed before artifact publication or final promotion. After this
-repair merges, create and push `amh-v7.0.2`. No check: only the owner may tag or publish.
+**OPEN — confirm the version call before tagging: is the constitution-discipline release MAJOR
+or MINOR?** Prepared as **8.0.0** (MAJOR) on the ground that a repo recording upgrade history in
+its constitution is now doing what its constitution forbids. The counter-case is real and the
+rule says an ambiguous call is yours, not a session's: nothing breaks for an adopter until they
+paste the seed prose in, no shipped script, key, threshold, fixture or exit code changed, and
+6.0.1 shipped a structurally identical seed-prose-only change as a PATCH. MINOR is not right
+either — it promises the adopter does nothing, and the Upgrading notes ask for a real
+relocation. Check: `sed -n '/^## 8.0.0/,/^## 7.0.2/p' harness/CHANGELOG.md` for what an adopter
+is actually asked to do. A different call means re-running the five lockstep copies.
+
+**OPEN — tag and publish the release once the number is settled.** Create and push
+`amh-v<VERSION>` after this branch merges. No check: only the owner may tag or publish.
+(`amh-v7.0.2` is published — `git ls-remote --tags origin 'refs/tags/amh-v*'` on 2026-08-15 —
+which closed the previous item.)
 
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
 6.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
@@ -80,12 +91,24 @@ re-litigate from.
   RFC2's run-receipt format, its transport, the CI artifact and a status tool — **DA-025**,
   which also scopes what a record may still be. Five of RFC3's seven scenarios, per-scenario YAML, an oracle directory and in-tree
   reports — **DA-026**, whose five failed provenance three DIFFERENT ways.
+- **A byte cap on the constitution (`CONSTITUTION_WARN_KB`)**, refused while adding the
+  current-state rule that would have motivated it — the defect is kind, not size, and a cap over
+  all-live legislation makes shaving a rule the cheapest compliance (**DB-038**).
 - **The 2026-08-10 review's two refusals** — **DB-024**.
 - **A guard that opens files to classify them** (owner, 2026-08-11). Reading a `.pem`'s first
   line would separate a private key from a certificate, and it is refused: no rail here opens a
   file, and the advisory tier is the answer instead — **DB-027**.
 
 ## Changelog
+
+- 2026-08-15 — **The constitution is bounded by kind, not by bytes, as 8.0.0.** The seed and
+  this instance now say they state the system as currently built, and route supersession
+  history, adoption narratives and per-version sanction records to the ledger with a changelog
+  pointer. A `CONSTITUTION_WARN_KB` was considered and refused; the `RULE_FILES` tripwire is the
+  enforcement, described at its real strength. Existing adopters relocate by hand — the
+  changelog's Upgrading notes carry the steps and what the move does to their tripwire. The
+  review pass added the routing's limit (a live rule never leaves) and the owner-queue escalation
+  of the version call. **DB-038**, **DB-039**.
 
 - 2026-08-15 — **The macOS release-tag failure is repaired as 7.0.2.** Destructive-advisory
   signature sorting and joining now stay inside Bash, with reversed-order target-set coverage.

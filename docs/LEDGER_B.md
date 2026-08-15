@@ -769,3 +769,22 @@
   unit, so the constitution now requires the entire diff against the PR base, including work
   authored in earlier sessions. The corrected PR body is the immediate repair; the durable rule
   prevents “used the template” from being mistaken for “described what will merge.”
+
+- DB-038: **Bound a document by KIND when the defect is what it holds, not how much.** The
+  harness capped working memory and the ledger and left the constitution — read in full every
+  turn — unbounded; an adopter grew a "this version is user-sanctioned in full" paragraph per
+  upgrade. `CONSTITUTION_WARN_KB` was refused: a byte count
+  cannot see the defect (long-and-current vs short-and-half-history), and over a file of all
+  live legislation the cheapest compliance is shaving a rule — the reflex DB-031 and the STATE
+  band exist to break. `RULE_FILES` already puts a reviewer at the only moment it grows. The
+  in-file sanction paragraph was poor provenance: a self-report inside the file an
+  injection would edit. Shape from DB-029, a tier up.
+
+- DB-039: **A routing rule ships with its limit, or it is a licence.** The constitution's new
+  current-state rule said where history goes and not what may never leave: a live rule moved to
+  retrieval storage is repealed, not tidied — nothing reads a volume whole, so it binds nobody,
+  and the discriminator is exactly the self-judgement no guard can make. The same draft offered
+  `RULE_FILES` as the substitute for the refused cap without naming its strength: a WARN,
+  skipped in CI, reading only the uncommitted diff, silent once committed. The mandatory pass
+  found both, in prose whose argument was otherwise sound. Open a route and you owe its limit;
+  cite an enforcement layer and you owe what it actually does, in the same sentence.

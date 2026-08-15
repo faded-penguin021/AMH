@@ -11,6 +11,81 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 8.0.0 — 2026-08-15
+
+- **The constitution now says that it states the system as currently built — and where history
+  goes instead.** The harness bounds working memory (byte band, hysteresis, landing check) and
+  permanent memory (line cap, rollover, row cap), and left the most-read file in the tree
+  unbounded: the constitution, the one document an agent reads in full on every turn. Adopting
+  repos accrete history in it. One instance grew a "this version is user-sanctioned in full"
+  paragraph for every upgrade it took, so the oldest content in the file every session loads
+  was also the least useful. That instance reported it here on 2026-08-15 and its tree is not
+  ours, so this sentence is the whole of the evidence — no row, fixture or artifact in this
+  repository attests to it, which is worth knowing before the rule is cited as incident-backed. The seed constitution now says what it is: current rules, current
+  inventory, current sanctioned configuration, with supersession history, adoption narratives
+  and per-version records going to `docs/LEDGER.md` and a pointer line in the `docs/STATE.md`
+  changelog. MAJOR because a repo that has been recording upgrade history in its constitution
+  is now doing something its constitution forbids; the relocation is Upgrading step 3.
+- **The bound is on kind, not bytes: no `CONSTITUTION_WARN_KB` ships.** Considered and refused
+  in the same unit, because a cap here would import the Goodhart problem 5.0.0 and 6.0.1 were
+  cut to fix. The defect a cap catches is size and this defect is kind — a constitution can be
+  long and wholly current, or short and half history — so the number cannot see the thing it
+  would be pointed at. Worse, over a file that is *all* live legislation the cheapest way under
+  a cap is to shave a rule, which is precisely the reflex the state file's landing check and
+  the ledger's maximum-not-a-target wording exist to break: a cap that invites shaving the
+  paragraph rather than moving the content is worse than the prose. The precedent is 6.0.0's
+  relocation of the size-rung description out of `docs/STATE.md` (**DB-029**) and its test —
+  ask which of a bounded file's bytes the bound is *for* — applied one tier up. What stands in
+  for the number is a reader, and the seed says exactly what that is worth: `RULE_FILES` names
+  the constitution, so a diff to it raises the ladder's legislation advisory — a WARN that
+  blocks nothing, is skipped in CI, and reads only the uncommitted diff. Reviewer attention is
+  the enforcement; the warning only says the protocol applies. The rule also carries its own
+  limit, because without it the routing is a hole: only what records the past may leave, and a
+  rule that still binds stays whatever its age — relocating a live rule into retrieval storage
+  is repeal with a forwarding address. No threshold, guard, fixture or exit code changed; P2's
+  memory-tier table now states the constitution's discipline rather than calling it "small by
+  construction" and leaving it unbounded in fact.
+
+### Upgrading
+
+1. Copy the shipped scripts and the regenerated manifest. No shipped `.sh` file changed; from
+   7.0.2 this updates only the manifest's release-version header.
+2. **Seed prose, hand-applied.** Copy the two-paragraph blockquote from
+   `harness/templates/seed/AGENTS.md` — it sits directly under the long-term-memory paragraph —
+   into your own constitution, adjusting the file names if your tree spells them differently.
+3. **Confirm your constitution is in `RULE_FILES`** in your `amh.conf` before you rely on the
+   advisory that step 5 leans on. `amh.conf` is yours forever and was installed once, so a repo
+   that pruned the list — or predates its constitution being in it — has no advisory at all,
+   and nothing else will tell you.
+4. **Then relocate what your constitution has already accreted.** Read it for content that
+   records the past rather than states the present: rules kept "for context" after they stopped
+   binding, adoption and upgrade narratives, and any per-version paragraph recording that a
+   version was reviewed or sanctioned. Each becomes one dated ledger row — what was sanctioned,
+   by whom, when — appended to your live volume, plus **one** pointer line in the
+   `docs/STATE.md` changelog for the migration as a whole, not one per paragraph moved; a
+   byte-capped file should not absorb ten lines for one cleanup. Then delete the paragraphs.
+   **A rule that still binds stays, whatever its age**, and this is the half to get right: a
+   live rule moved into the ledger is repealed, not tidied — retrieval storage is grepped, not
+   read, so nothing will apply it again. This is a move of history, not a compression pass:
+   nothing here licenses shortening a live rule, and if you find yourself rewording one to save
+   space you are doing the thing the second bullet above refused to build a cap for. Relocation
+   is legislation — take the review protocol, and treat a bulk pass as an owner decision.
+5. **What this does to your tripwire — read it before step 4 worries you.** An in-file "this
+   version is sanctioned in full" paragraph was never what let a reviewer tell a sanctioned
+   upgrade from an injected edit: it lives inside the very file an injection would edit, so
+   anything able to add a rule is able to add its own sanction for it, and nothing consumes it
+   anyway. (It was legal prose — the ban on attestations is on *machinery*, not on a sentence a
+   human may disbelieve — so this is an argument about accretion and provenance, not about a
+   rule you broke.) What actually discriminates is unchanged by this release: the `RULE_FILES`
+   warning on the diff and the review protocol behind it. What step 4 leaves behind is strictly
+   better on the axis that matters here — a dated row in an append-only file whose ordering a
+   guard checks against `HEAD`, rather than a paragraph in a file where an edit fails nothing.
+   State the trade honestly to yourself, though: the ledger is deliberately **not** in
+   `RULE_FILES`, so the records move to a file the advisory does not watch. Better provenance,
+   less review surface. Keep exactly one current-state line naming the adopted version — you
+   already have it, and step 7 of `docs/UPGRADING.md` is what keeps it true; what goes is the
+   paragraph per version.
+
 ## 7.0.2 — 2026-08-15
 
 - **Destructive-advisory signatures stay inside Bash.** The 7.0.1 release-tag verification
