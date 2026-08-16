@@ -11,6 +11,253 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 8.0.0 — 2026-08-15
+
+- **The constitution now says that it states the system as currently built — and where history
+  goes instead.** The harness bounds working memory (byte band, hysteresis, landing check) and
+  permanent memory (line cap, rollover, row cap), and left the most-read file in the tree
+  unbounded: the constitution, the one document an agent reads in full on every turn. Adopting
+  repos accrete history in it. One instance grew a "this version is user-sanctioned in full"
+  paragraph for every upgrade it took, so the oldest content in the file every session loads
+  was also the least useful. That instance reported it here on 2026-08-15 and its tree is not
+  ours, so this sentence is the whole of the evidence — no row, fixture or artifact in this
+  repository attests to it, which is worth knowing before the rule is cited as incident-backed. The seed constitution now says what it is: current rules, current
+  inventory, current sanctioned configuration, with supersession history, adoption narratives
+  and per-version records going to `docs/LEDGER.md` and a pointer line in the `docs/STATE.md`
+  changelog. MAJOR because a repo that has been recording upgrade history in its constitution
+  is now doing something its constitution forbids; the relocation is Upgrading step 11.
+- **The bound is on kind, not bytes: no `CONSTITUTION_WARN_KB` ships.** Considered and refused
+  in the same unit, because a cap here would import the Goodhart problem 5.0.0 and 6.0.1 were
+  cut to fix. The defect a cap catches is size and this defect is kind — a constitution can be
+  long and wholly current, or short and half history — so the number cannot see the thing it
+  would be pointed at. Worse, over a file that is *all* live legislation the cheapest way under
+  a cap is to shave a rule, which is precisely the reflex the state file's landing check and
+  the ledger's maximum-not-a-target wording exist to break: a cap that invites shaving the
+  paragraph rather than moving the content is worse than the prose. The precedent is 6.0.0's
+  relocation of the size-rung description out of `docs/STATE.md` (**DB-029**) and its test —
+  ask which of a bounded file's bytes the bound is *for* — applied one tier up. What stands in
+  for the number is a reader, and the seed says exactly what that is worth: `RULE_FILES` names
+  the constitution, so a diff to it raises the ladder's legislation advisory — a WARN that
+  blocks nothing, is skipped in CI, and reads only the uncommitted diff. Reviewer attention is
+  the enforcement; the warning only says the protocol applies. The rule also carries its own
+  limit, because without it the routing is a hole: only what records the past may leave, and a
+  rule that still binds stays whatever its age — relocating a live rule into retrieval storage
+  is repeal with a forwarding address. No threshold, guard, fixture or exit code changed; P2's
+  memory-tier table now states the constitution's discipline rather than calling it "small by
+  construction" and leaving it unbounded in fact.
+
+- **The working-memory and ledger rungs no longer print their thresholds on a green verdict.**
+  Reported from an
+  instance that committed both halves of the same Goodhart failure in one session: told to
+  compress `docs/STATE.md` to the floor it shaved clauses across a dozen edits and landed seven
+  bytes under, restructuring nothing; and it drafted two ledger rows at 828 and ~805 characters
+  and trimmed them to just fit, where a 300-byte row stating the lesson tersely was the better
+  artifact and never occurred to it. That instance had hand-copied 6.0.1's "the cap is a maximum,
+  not a target" into its own preamble in the same session. Another clause was therefore not the
+  fix: the prose is read by the same context that then optimizes toward whatever number is in
+  front of it. So the number is gone from where it does no work. `guard_state_size`'s plain `ok`
+  reports the size and no caps; its landing `ok` reports how many bytes **clear of the floor**
+  the pass landed instead of naming the floor — the same fact without the pull toward the limit.
+  Headroom is a measurement, not a score: a state file gutted to stubs prints a large one and
+  passes, which is why the length-guard rule (fold whole stages, never shave) is still what
+  governs the pass. The new-row rung reports each row's own length rather than the cap it cleared.
+  The ledger cap rung drops the `lines/cap` form for a bare line count. Every warn and fail still
+  quotes the threshold it turns on, because a rejection has to say what it rejected against — as
+  do two green lines that genuinely turn on one: the small-edit `ok` naming `STATE_EDIT_DELTA_BYTES`,
+  and the boot banner's size-against-soft-cap line, which is read before a session writes and is
+  left deliberately alone. Fixtured in the only shape that can pin an anti-anchor: `expect_pass_not_saying`,
+  three fixtures that fail the moment a threshold returns to a green line (**DB-040**).
+- **Every cap an agent writes toward is now bounded in two units, and a draft satisfies both.**
+  The 8.0.0 anchor removal above did not stop the reflex it was cut for: drafting a row in this
+  repository still went 874 bytes → 797 against an 800-byte cap, because a session measures its
+  own draft against a cap it reads from `amh.conf` — no change to what a rung PRINTS can reach an
+  anchor the session builds itself. Bytes are continuous, so a byte target can always be
+  approached by shaving words, which removes no content. The obvious repair, counting sentences
+  instead, fails in the mirror image: rewriting `. T` to `; t` across a file collapses the count
+  while freeing nothing, measured at 85 → 41 sentences and zero bytes on this repository's own
+  state file. **Every single measure has a cheap satisfier, so the aim-points now carry two.**
+  `STATE_COMPRESS_TO_SENTENCES` joins `STATE_COMPRESS_TO_KB` and a landing must clear both;
+  `LEDGER_ROW_SENTENCE_CAP` becomes the new-row working limit with `LEDGER_ROW_CHAR_CAP` beneath
+  it as a backstop against runaway sentences, its default raised from 800 to 2000 after measuring
+  that the longest sentence-compliant row in this repository is ~1450 bytes. Bytes still stand
+  alone where nobody aims: `STATE_WARN_KB` and `STATE_HARD_KB` say WHEN to compress, and
+  `STATE_EDIT_DELTA_BYTES` classifies a shrink already made. The counter is deliberately lenient
+  — a terminator ends a sentence only when what follows starts another one, `e.g.`/`i.e.` are
+  folded away, and headings and list fragments count as nothing — because a phantom sentence
+  would red-line honest prose, and a rule that rejects correct work gets deleted rather than
+  obeyed; it fails loudly rather than returning a blank when awk cannot produce a number. Ten
+  fixtures fail against the previous script, and the two that matter are the cheap moves
+  themselves: a landing that keeps every sentence while dropping 93% of its bytes, and one that
+  collapses the sentence count while freeing none. **What this does NOT claim** is that the pair
+  cannot be gamed — a rewrite that removes the wrong content passes both, no guard can see it,
+  and fold-whole-stages remains prose. MAJOR: one config key is added, one changes default, and
+  the rule they enforce changes shape.
+- **The inverted-gradient warning was considered and not built.** The same report proposed
+  warning when a row or a compression pass lands in the top decile below the cap, making hugging
+  the limit the costly move. Declined for now, on the reporter's own weighting: it invents a
+  second threshold to hug, and P3/P20 say a guard accretes after a real incident rather than
+  ahead of one. Removing the anchor is the cheaper intervention and is what shipped; the
+  behaviour then survived it, and the answer was the unit change above rather than this warning
+  — which needed no new threshold and left the second-number objection standing.
+- **Redirections are removed before the command guard judges any word — fixing both a false
+  denial and a silent bypass.** `git push -u origin session/x 2>&1` and `… >/dev/null` were
+  BLOCKED with a reason, "this push names another branch or leaves the ref implicit", that was
+  false of both: redirection words survived into the word list the refspec counter reads. The
+  mandatory review pass then found the same class running the other way, and worse. A
+  redirection between a command and its subcommand made `git >/dev/null push origin <default>`,
+  `git >/dev/null push --force …` and `git 2>err.log push --mirror origin` return **allowed**,
+  because the loop looking for the `push` subcommand stopped at the redirection; one before the
+  command word hid the command from every rail, so `>/dev/null printenv` passed too. Both are
+  as old as those rails. A quote-aware strip now runs before any word is judged, so position no
+  longer matters, and quoting is respected in the direction that counts: a literal `'2>'`
+  argument is a word bash really passes, not syntax, and the word behind it is still judged.
+  Thirteen new fixtures, each demonstrated to fail against a broken implementation rather than
+  merely to pass against this one. **One accepted miss is documented rather than fixed**: an
+  fd-duplicating redirection placed BEFORE the operands (`git 2>&1 push --mirror origin`)
+  splits the segment at the `&` and hides what follows. It predates this change, it is now in
+  the guard header's "does NOT catch" block, and closing it means changing the segment splitter
+  every scanner is built on.
+
+- **An unparsed command is now blocked, not allowed.** Eighteen shipped self-test fixtures —
+  every private-key case and the write-destination forms — failed on stock macOS Bash 3.2 and
+  passed on a re-run at the same commit, with the guard byte-identical to a green `main` run
+  and the Linux ladder green throughout. The scanners reached their word list through a process
+  substitution, and an empty read took the "no words to judge" branch, which ALLOWED the
+  command: the rail could report a clean read of text it never parsed. The mechanism is
+  inferred and not proven — no macOS host was available — so read the repair on its merits and
+  not as a closed case. Two changes. The parsers (`split_segments`, `split_words`,
+  `redirect_targets`, `strip_redirections`) now fill arrays in-process instead of piping
+  through a subshell; 7.0.2 removed a process pipeline on the same platform for a different
+  symptom whose cause was also never established, which makes this the same shape of
+  intermittency rather than the same bug. And `parse_produced_nothing` makes the discriminator
+  explicit: non-blank text that parses to nothing is a defect in the guard and blocks with a
+  reason saying so, while a genuinely blank segment (all redirection, once stripped) still
+  passes. Against the current parsers that arm is unreachable — every non-blank string yields
+  at least one word and one segment — so it is a tripwire for the next transport, not a fix in
+  its own right, and two fixtures blind a parser to pin the wiring rather than the predicate. The header's "fail OPEN on malformed input" rule now says what it always meant — it
+  is about a malformed command from you, not a licence for this script to call an unread
+  command clean (**DC-002**).
+
+- **The destructive advisory asks for a spelling that removes the hazard, and an abandoned
+  advisory now leaves a trace.** The rail blocks a destructive command once so the session
+  spends a turn on the check, and its text names two moves that are not compliance. A session
+  took the second: blocked on `rm -rf $d`, it renamed the directory, dropped the deletion, and
+  cleared the prompt without ever checking anything. Wording had already been tried once against
+  that move, so this release changes the layer instead. The advisory now asks for the guarded
+  spelling — `rm -rf -- "${S:?}/base"` — because the shell aborts on an unset or empty `S`,
+  which means a session that types it mechanically still gets that much. Read the bound
+  exactly: it closes the unset-or-empty case and nothing else, so a set-but-wrong variable —
+  `S=/` above all, which makes the same command `rm -rf /base` again — still reaches the
+  filesystem, and the advisory now asks for the guarded spelling IN ADDITION to printing the
+  expansion rather than instead of it. For that to be usable the
+  signature folds `${d}` and `${d:?}` onto `$d`, so the rewrite the rail just asked for counts
+  as the rerun rather than arming a second prompt; the SUBSTITUTING forms `${d:-x}` and
+  `${d:+x}` deliberately do not fold, because they can address a path the bare variable never
+  would. Separately, the rail records whether an advised command was ever re-attempted, and
+  `scripts/ladder.sh` prints the ones that were not as a `note` line. That line is not a verdict:
+  it touches no counter, changes no exit code, and nothing may read it as evidence that a check
+  happened or did not — it reports only what the rail can observe, which is that a prompt fired
+  and the command never came back (**DC-004**).
+- **A hole this found rather than closed.** `split_segments` treats `{` and `}` as segment
+  operators, so an unquoted `rm -rf ${d}/build` is cut before any scanner sees it and records
+  its target as the bare `$` — which every other unquoted-brace deletion also records, so they
+  clear each other's advisory. Quoting records the real target and the advisory recommends the
+  quoted spelling. It is in the guard header's does-NOT-catch block with the fd-duplication miss
+  it shares a root with, and closing both is a change to the splitter every scanner is built on.
+
+### Upgrading
+
+1. **Add two `amh.conf` keys; keep the ones you have.** `STATE_COMPRESS_TO_KB` stays exactly as
+   it is. Add `STATE_COMPRESS_TO_SENTENCES` beside it — a landing must now clear both — choosing
+   a count that bites at about the same place as your byte floor at your file's rough
+   bytes-per-sentence, or one of the two is decorative (this repository uses 9 KB and 50
+   sentences at ~170 bytes each). Add `LEDGER_ROW_SENTENCE_CAP`, 6 shipped, set at the top of the
+   shape your rows already have rather than out of reach — if it never binds it teaches nothing.
+   Then re-set `LEDGER_ROW_CHAR_CAP` as a backstop with real headroom over your longest
+   sentence-compliant row (2000 shipped, up from 800); leaving it at a value your rows already
+   crowd makes it a second number to hug. Leave a key out and the shipped default applies.
+   `scripts/amh-init.sh` gains `--compress-to-sentences` beside `--compress-to-kb`, and
+   `{{COMPRESS_TO_SENTENCES}}` beside `{{COMPRESS_TO_KB}}`.
+2. Copy the shipped scripts and the regenerated manifest. `command-guard.sh`, `ladder.sh` and
+   `test-ladder-guards.sh` changed — green verdicts no longer print thresholds, and three new
+   fixtures pin that. **`command-guard.sh` changed in a way that changes verdicts** — take it
+   before the others if you take nothing else: pushes that redirect their output are no longer
+   denied, and commands that hid behind a redirection (`git >/dev/null push --force …`,
+   `>/dev/null printenv`) are no longer allowed. No threshold, config key or exit code changed.
+3. **Two verdict changes and one new CLI mode in `command-guard.sh`.** The signature now folds
+   `${d}` and `${d:?}` onto `$d`, so `rm -rf "${d:?}/x"` after `rm -rf $d/x` exits 0 where 7.x
+   exited 2 — that is the point, not a regression. `--advisory-report` is a new argument, which
+   matters if you wrap the guard's argument surface. Nothing else that passed before is denied
+   now.
+4. **Expect one new block reason, and treat it as a bug report about the guard.** If
+   `command-guard.sh` ever says it could not parse your command, nothing was judged — the
+   command is denied on that basis alone, and re-running will not clear it. Your way through is
+   to report it with the command text and, if you are stuck, run outside the hooked agent;
+   do not edit the arm away. No previously allowed command becomes denied by this change on a
+   working parser: verified differentially against 7.0.2's guard over ~1350 command strings,
+   with zero verdict or message differences.
+5. **If you wrapped or forked the parsers, their calling convention changed.**
+   `split_segments`, `split_words`, `redirect_targets` and `strip_redirections` used to write
+   to stdout; they now fill `SEGMENTS`, `SPLIT_WORDS`, `REDIRECT_TARGETS` and `STRIPPED` and
+   print nothing. A local `for w in $(split_words "$x")` now yields an empty list — which on a
+   pre-8.0.0 code path meant ALLOW, this release's own failure reintroduced in your tree.
+6. **Expect a `note` line after an abandoned destructive advisory, and a new sentence in the
+   advisory itself.** The note names deletions the rail prompted on that never came back. It is
+   informational: no counter, no exit code, nothing to fix. If you keep a local copy of the
+   advisory text, take the guarded-spelling sentence with it — that sentence is the change, not
+   the note.
+7. **Expect your green ladder output to read differently**, and do not treat it as information
+   lost. `8 KB (soft cap 14 KB, hard 16 KB)` becomes `8 KB, within the band`; a completed
+   compression landing reports how far clear of the floor it landed in both units; the ledger rung
+   lists each new row's sentence count rather than its byte length. Read a threshold from `amh.conf`, which is
+   where it was authoritative all along.
+8. **Seed prose — the ladder description and the two memory-file preambles, hand-applied, and
+   they move together.** If you carry the descriptive paragraphs, take all of them or none:
+   `docs/RUNBOOK.md` → **Acceptance ladder** (what the size rung prints, what it deliberately
+   does not, and that the floor is now a sentence count while the caps are byte sizes), your
+   `docs/STATE.md` length-guard preamble (the floor counts sentences, which is what makes
+   "a ceiling, not a target" hold without depending on restraint), and your ledger volume
+   preambles (the working limit is `LEDGER_ROW_SENTENCE_CAP`; `LEDGER_ROW_CHAR_CAP` is a
+   backstop, and the "ladder prints both live values" sentence is no longer true of a green
+   run). Copy the wording from `harness/templates/seed/docs/STATE.md` and
+   `harness/templates/seed/docs/LEDGER.md`. Leaving the old wording in place leaves your docs
+   describing output your ladder no longer produces, and a rule in a unit it no longer uses.
+9. **Seed prose — the constitution rule, hand-applied.** Copy the two-paragraph blockquote from
+   `harness/templates/seed/AGENTS.md` — it sits directly under the long-term-memory paragraph —
+   into your own constitution, adjusting the file names if your tree spells them differently.
+10. **Confirm your constitution is in `RULE_FILES`** in your `amh.conf` before you rely on the
+   advisory that step 12 leans on. `amh.conf` is yours forever and was installed once, so a repo
+   that pruned the list — or predates its constitution being in it — has no advisory at all,
+   and nothing else will tell you.
+11. **Then relocate what your constitution has already accreted.** Read it for content that
+   records the past rather than states the present: rules kept "for context" after they stopped
+   binding, adoption and upgrade narratives, and any per-version paragraph recording that a
+   version was reviewed or sanctioned. Each becomes one dated ledger row — what was sanctioned,
+   by whom, when — appended to your live volume, plus **one** pointer line in the
+   `docs/STATE.md` changelog for the migration as a whole, not one per paragraph moved; a
+   byte-capped file should not absorb ten lines for one cleanup. Then delete the paragraphs.
+   **A rule that still binds stays, whatever its age**, and this is the half to get right: a
+   live rule moved into the ledger is repealed, not tidied — retrieval storage is grepped, not
+   read, so nothing will apply it again. This is a move of history, not a compression pass:
+   nothing here licenses shortening a live rule, and if you find yourself rewording one to save
+   space you are doing the thing the second bullet above refused to build a cap for. Relocation
+   is legislation — take the review protocol, and treat a bulk pass as an owner decision.
+12. **What this does to your tripwire — read it before step 11 worries you.** An in-file "this
+   version is sanctioned in full" paragraph was never what let a reviewer tell a sanctioned
+   upgrade from an injected edit: it lives inside the very file an injection would edit, so
+   anything able to add a rule is able to add its own sanction for it, and nothing consumes it
+   anyway. (It was legal prose — the ban on attestations is on *machinery*, not on a sentence a
+   human may disbelieve — so this is an argument about accretion and provenance, not about a
+   rule you broke.) What actually discriminates is unchanged by this release: the `RULE_FILES`
+   warning on the diff and the review protocol behind it. What step 11 leaves behind is strictly
+   better on the axis that matters here — a dated row in an append-only file whose ordering a
+   guard checks against `HEAD`, rather than a paragraph in a file where an edit fails nothing.
+   State the trade honestly to yourself, though: the ledger is deliberately **not** in
+   `RULE_FILES`, so the records move to a file the advisory does not watch. Better provenance,
+   less review surface. Keep exactly one current-state line naming the adopted version — you
+   already have it, and step 7 of `docs/UPGRADING.md` is what keeps it true; what goes is the
+   paragraph per version.
+
 ## 7.0.2 — 2026-08-15
 
 - **Destructive-advisory signatures stay inside Bash.** The 7.0.1 release-tag verification

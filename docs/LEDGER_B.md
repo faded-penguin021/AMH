@@ -26,18 +26,22 @@
 > **Search before appending.** Grep ALL volumes for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes DA-NNN") and the old row gets a correction pointer, never deletion.
-> **Keep new rows concise and at or below `LEDGER_ROW_CHAR_CAP`.** The cap is a maximum, not a
-> target: write only the durable lesson, even when that takes far less space; do not draft a
-> narrative and shave it toward the cap. Put larger narratives in `docs/history/` and link them
-> from the `docs/STATE.md` changelog.
+> **Keep new rows concise and at or below `LEDGER_ROW_SENTENCE_CAP`.** The working limit counts
+> SENTENCES (**DC-003**), beneath a `LEDGER_ROW_CHAR_CAP` backstop, and a new row satisfies both:
+> shaving words cannot move the sentence count, and repunctuating cannot move the bytes. Write
+> only the durable lesson, even when that takes far less space. Put larger narratives in
+> `docs/history/` and link them from the `docs/STATE.md` changelog. This volume is closed, so
+> the rule is here for a reader following a citation into it — new rows go to the live volume
+> `docs/STATE.md` names.
 >
 > **File cap & rollover.** This file holds at most `LEDGER_LINE_CAP` lines from `amh.conf` (the
 > cap bounds LINES, not rows — it is read cost that is being bounded). New rows are capped by
-> `LEDGER_ROW_CHAR_CAP`; the guard counts bytes under `LC_ALL=C` for a locale-stable result, so
-> ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. Neither
+> `LEDGER_ROW_SENTENCE_CAP` and, beneath it, `LEDGER_ROW_CHAR_CAP`; the guard counts bytes under
+> `LC_ALL=C` for a locale-stable result, so ASCII text is one byte per character and non-ASCII
+> UTF-8 is charged by encoded bytes. Neither
 > value is restated here as a number, and neither should be: nothing checks preamble prose
 > against `amh.conf`, and the 5.0.0 cap change left three volume preambles contradicting the
-> guard (**DB-022**). The ladder prints both live values in its verdicts. Rows already committed when checked are historical and exempt. The final row may
+> guard (**DB-022**). The ladder quotes a value in the verdict that TURNS ON it — a rejection must say what it rejected against — and a green run deliberately quotes neither, because the number a clean run shows you is the number the next row is drafted toward (**DB-040**). Read both from `amh.conf`. Rows already committed when checked are historical and exempt. The final row may
 > finish past the file cap, but no row may
 > ever *start* past it: when this file stands over the cap, create LEDGER_C.md (this file's
 > name with a _C suffix) with the same header discipline, numbering from **DC-001**. It is
@@ -671,6 +675,7 @@
   reproduced the class it was closing**, calling that number the config value "quoted" when the
   line emits bytes and the key is KB. Read the branch that emits the line, and prefer a claim
   about DERIVATION to one about equality; a remembered verdict is not one.
+  Superseded by DB-040.
 
 - DB-026: **Tier a secret-file rail by whether its block reason is true of the file it names.**
   Asked whether `.pem`, `.key` and `id_rsa` belonged in the safeguard, the answer split by
@@ -769,3 +774,32 @@
   unit, so the constitution now requires the entire diff against the PR base, including work
   authored in earlier sessions. The corrected PR body is the immediate repair; the durable rule
   prevents “used the template” from being mistaken for “described what will merge.”
+
+- DB-038: **Bound a document by KIND when the defect is what it holds, not how much.** The
+  harness capped working memory and the ledger and left the constitution — read in full every
+  turn — unbounded; an adopter grew a "this version is user-sanctioned in full" paragraph per
+  upgrade. `CONSTITUTION_WARN_KB` was refused: a byte count
+  cannot see the defect (long-and-current vs short-and-half-history), and over a file of all
+  live legislation the cheapest compliance is shaving a rule — the reflex DB-031 and the STATE
+  band exist to break. `RULE_FILES` already puts a reviewer at the only moment it grows. The
+  in-file sanction paragraph was poor provenance: a self-report inside the file an
+  injection would edit. Shape from DB-029, a tier up.
+
+- DB-039: **A routing rule ships with its limit, or it is a licence.** The constitution's new
+  current-state rule said where history goes and not what may never leave: a live rule moved to
+  retrieval storage is repealed, not tidied — nothing reads a volume whole, so it binds nobody,
+  and the discriminator is exactly the self-judgement no guard can make. The same draft offered
+  `RULE_FILES` as the substitute for the refused cap without naming its strength: a WARN,
+  skipped in CI, reading only the uncommitted diff, silent once committed. The mandatory pass
+  found both, in prose whose argument was otherwise sound. Open a route and you owe its limit;
+  cite an enforcement layer and you owe what it actually does, in the same sentence.
+
+- DB-040: **A threshold printed on a GREEN run is a target; print it only where a verdict turns
+  on it.** Two reports, one shape: a state file shaved across a dozen edits to land 7 bytes
+  under its floor, and rows drafted at 828 and ~805 to be trimmed to just fit — by an instance
+  that had hand-copied "a cap is a maximum, not a target" into its own preamble the same
+  session. Prose loses to salience when one context reads the number and then optimizes. Now the
+  size line reports the measurement, the landing line the headroom, the row rung each row's
+  length; warns and fails still quote the cap. Removing an anchor beats adding a countermeasure:
+  a top-decile warning is a second number to hug. Partly reverses 5.2.1 (DB-025); fixtured on
+  what a green line must NOT say.

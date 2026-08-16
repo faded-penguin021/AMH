@@ -7,7 +7,7 @@ session's first read cheap.
 -->
 
 > **Length guard (read before editing — hysteresis).** The thresholds `STATE_WARN_KB`,
-> `STATE_COMPRESS_TO_KB` and `STATE_HARD_KB` live in `amh.conf`, named here and deliberately
+> `STATE_COMPRESS_TO_KB`, `STATE_COMPRESS_TO_SENTENCES` and `STATE_HARD_KB` live in `amh.conf`, named here and deliberately
 > **not** restated as numbers: nothing checks this prose against the config, so a copied number
 > drifts silently the first time a threshold moves. Which of them `scripts/ladder.sh` prints, and
 > why a number it printed is never a value to copy back into prose, are in `docs/RUNBOOK.md` →
@@ -17,9 +17,12 @@ session's first read cheap.
 > Grow freely to the soft cap; no trimming below that line. When the guard warns, run ONE deep
 > compression pass landing at or below the compression floor — never trim to just under the soft
 > cap, because micro-trims re-arm the warning a session later and the wide band IS the debounce,
-> statelessly. The floor is a **ceiling, not a target**: aim comfortably below it, and if the
-> pass lands short, fold MORE completed stages rather than micro-trimming toward the floor — the
-> same reflex the band exists to break, one threshold lower. Fail above the hard cap. Compressing
+> statelessly. **The floor counts SENTENCES, not bytes**, and that is what keeps "a ceiling, not
+> a target" from depending on your restraint: shaving words moves the count by nothing, so the
+> only way down is to delete whole sentences — which is what compressing this file means anyway.
+> Aim comfortably below the floor; if the pass lands short, fold MORE completed stages. Fail
+> above the hard cap, which is in bytes like the soft cap: those two say WHEN to compress, and
+> read cost is bytes. Compressing
 > means collapsing each completed work stage into one Changelog line, folding changelog clusters,
 > moving durable gotchas into the append-only ledger and deleting narrative prose. **Project**,
 > **Current state** and **Owner queue** must always survive it: compress an Owner-queue item's

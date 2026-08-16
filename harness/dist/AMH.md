@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 7.0.2.** Repos that adopt it record the version they took
+**Harness version 8.0.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -61,7 +61,7 @@ the *why* of every tier's rule without re-derivation.
 
 | Tier | Hardware analog | Artifact | Mutability & discipline |
 |---|---|---|---|
-| Constitution | ROM / firmware | the agent-instructions file | Boot-loaded, read-mostly; changed rarely and deliberately; small by construction |
+| Constitution | ROM / firmware | the agent-instructions file | Boot-loaded, read-mostly; changed rarely and deliberately; **current-state only** — bounded by what it may contain rather than by a number |
 | Working memory | RAM | `docs/STATE.md` | Rewritten freely but **capacity-bounded** — a machine-enforced cap forces compaction (hysteresis, protected regions); volatile, so results must be *flushed* to durable tiers |
 | Permanent memory | Disk / append-only journal | the numbered ledger | Append-only, never rewritten; rolls to a new volume at a size cap; every durable fact lands here, citable forever; **addressed by citation — grep a row, never read the volume** |
 | Archive | Cold storage / backup tape | `docs/history/` | Frozen: consult it, never edit it. Grows only when a document is retired into it WHOLE — never another tier's live file; off the hot path, so unbounded is fine |
@@ -77,6 +77,31 @@ prevent. Working memory is capped so it can be read whole every session; permane
 capped so no single volume grows past what a *search* over it stays cheap on. That is why the
 ledger's cap counts lines while the rung beside it reports the live volume's size: the cap is a
 proxy, and a proxy that drifts from the cost it stands for should at least show you the drift.
+
+**The constitution is bounded by KIND, not by size — the one tier with no number on it.**
+Every other tier above is bounded by a threshold a script can read, and this one deliberately
+is not. It states the system as currently built: current rules, current inventory, current
+sanctioned configuration. What accretes in it is not verbosity but history — a superseded rule
+kept "for context", an adoption narrative, a paragraph per upgrade recording that this version
+was sanctioned — and each of those already has a tier: the ledger takes the durable row, the
+changelog takes the pointer line. A cap has nothing useful to do here. It cannot see the defect
+(a long constitution may be entirely current, a short one half history), and aimed at a file
+that is *all* live legislation it makes the cheapest compliance shaving a rule — the threshold
+reflex the working-memory band and the ledger's maximum-not-a-target wording were both written
+to break. What fits instead is a reader at the one moment the file grows: the constitution
+belongs in the rule-file tripwire, so a change to it surfaces the review protocol — a courtesy
+warning, not a gate, and worth stating as such wherever it is offered as the substitute for a
+number. Prose-only by construction — telling a current rule from a record of a past one is a
+judgement, which is exactly what P3 forbids building machinery on.
+
+**The routing has one limit, and omitting it turns the rule into a hole.** Only what records
+the past may leave; a rule that still binds stays however old it is. Without that clause the
+discipline reads as a licence to move any inconvenient rule into permanent memory and leave a
+pointer line, which is worse than deleting it: the ledger is retrieval storage nobody reads
+whole, so a relocated live rule binds nothing and is invisible to every session that does not
+grep for it. Relocation out of the constitution is legislation — it takes the review protocol,
+and in bulk it is an owner decision, the same answer the working-memory tier reached when the
+question was asked one tier down.
 
 **Spent narrative is not moved anywhere, and this is the corollary that gets misread.** A
 compression pass *folds* it: the durable content leaves as a ledger row, and what remains
@@ -303,6 +328,24 @@ the deny rules, prose and server rails layer beneath); fail open on malformed ho
 guard that bricks every command gets disabled, not fixed); and give it a blocked-plus-allowed
 self-test matrix run as a ladder guard, since a rail must not regress silently.
 
+**When a rail asks for something it cannot see, change what it asks for.** The advisory tier —
+block once, let the rerun through — buys a turn for a check, and nothing in the tree records
+whether the check happened. Prose cannot close that: an adopting instance, blocked on
+`rm -rf $d`, renamed the directory and dropped the deletion, clearing the prompt with no check
+at all, after the advisory's own text had already named that move as non-compliance. Two layers
+work where a third round of wording does not. First, ask for a spelling whose presence IS the
+protection rather than evidence of it: `rm -rf -- "${d:?}"` aborts in the shell on an unset or
+empty variable, so even a session that types it mechanically gets that much, and Goodharting
+the instruction still produces the outcome. Say what such a token does NOT cover in the same
+breath, or the layer becomes the false comfort it replaced: this one closes unset-or-empty and
+nothing else, and a set-but-wrong variable still deletes. That only holds if the requested rewrite counts as
+the same target as the original — a rail that charges a second prompt for the fix it just
+demanded teaches the sidestep it is trying to stop. Second, record what the rail CAN observe:
+that a prompt fired, and whether the command ever came back. Print the unresolved ones where a
+human already reads, as a line that no counter, exit code or gate consumes — it is not evidence
+that anyone looked, only that the cheapest escape stopped being invisible, and P3 forbids any
+machinery that reads it as more.
+
 Mirror the hardest rails **server-side** where the host supports it — branch protection on the
 default branch (PRs required; force-push and deletion blocked) and secret-scanning push
 protection — because the agent-side permission layer binds only agents that load it, while
@@ -515,6 +558,30 @@ it for you; never compress or delete entries; append the next number in
 the live ledger file — each file caps at `LEDGER_LINE_CAP` lines from `amh.conf`, a number
 this prose deliberately does not copy: the final row may overflow the
 cap, the next row opens the next file, `D-… → DA-…` (`_A.md`) `→ DB-…`).
+
+> **This file states the harness and the project as they are NOW.** Every rule here binds
+> today and every inventory names what exists today: a rule that changed is rewritten in
+> place, a rule that stopped binding is deleted, and neither leaves behind a note saying what
+> it used to be. **A rule that still binds stays, whatever its age** — what follows routes
+> HISTORY, and a live rule is never history, so relocating one is not tidying but repeal.
+> Supersession history, adoption and upgrade narratives, and per-version records of what the
+> owner sanctioned belong in the live ledger volume that `docs/STATE.md` names — permanent,
+> dated, retrieval storage — with a pointer line in the `docs/STATE.md` changelog (one line
+> for a migration, not one per paragraph moved). That is not deletion: it puts them where a
+> reader can grep for them, instead of in front of every session, most of which will never
+> need them. Moving anything out of this file is a change to legislation and takes the
+> rule-review protocol like any other; a bulk relocation is an owner decision, not a
+> session's.
+>
+> **No byte cap governs this file, and that is deliberate.** The defect a cap catches is size;
+> the defect here is KIND — this file can be long and wholly current, or short and half
+> history — and a cap over live legislation invites shaving rules to make room for kept
+> narrative, the same reflex `docs/STATE.md`'s compression rule exists to break. What stands
+> in for a cap is a reader, not a check. This file is in `RULE_FILES`, so an uncommitted diff
+> touching it raises the ladder's legislation advisory — and know exactly what that is worth:
+> it is a WARN that blocks nothing, it is skipped in CI, and it reads only the uncommitted
+> diff, so it goes quiet the moment the change is committed. Reviewer attention is the
+> enforcement; the warning only says the protocol applies.
 
 > **Establish coverage before you report an absence.** "It does not exist" and "it never
 > happened" are claims about your search until you can say what you searched and that it could
@@ -738,10 +805,19 @@ ADAPTER_FILES=
 # Grow freely to WARN. Over WARN, one deep compression pass must land at or below
 # COMPRESS_TO — landing between them fails, because a micro-trim to just under the
 # warning re-arms it a session later. Over HARD fails outright.
-# Pick numbers so WARN − COMPRESS_TO spans many sessions of growth and HARD − WARN
-# leaves one long session of margin.
+#
+# The floor is BOTH keys below and a landing satisfies both, because neither works alone.
+# A byte floor is reachable by shaving words, which removes no content; a sentence floor is
+# reachable by rewriting `. T` to `; t`, which frees no space. Each blocks the cheap move
+# that satisfies the other, and folding whole stages is what satisfies both at once. WARN
+# and HARD stay byte-only: they answer WHEN to compress, and nobody drafts toward them.
+# Set COMPRESS_TO_SENTENCES so it bites at about the same place as the byte floor at your
+# file's rough bytes-per-sentence — otherwise one of the two is decorative — and leave
+# HARD − WARN as one long session of margin. Nothing checks that alignment; it is a
+# property of prose, so re-read the number if your file's density changes markedly.
 STATE_FILE=docs/STATE.md
 STATE_COMPRESS_TO_KB={{COMPRESS_TO_KB}}
+STATE_COMPRESS_TO_SENTENCES={{COMPRESS_TO_SENTENCES}}
 STATE_WARN_KB={{WARN_KB}}
 STATE_HARD_KB={{HARD_KB}}
 # Above WARN, a shrink smaller than this is an ordinary edit (a typo fix, a closed queue
@@ -760,13 +836,21 @@ LEDGER_DIR=docs
 LEDGER_BASENAME=LEDGER
 # Keep in lockstep with the number stated in the ledger's own header.
 LEDGER_LINE_CAP={{LINE_CAP}}
-# New rows appended to any live ledger volume are capped by bytes under LC_ALL=C.
-# This is a maximum, not a target; a shorter durable lesson is preferable to a draft
-# trimmed toward the cap. Historical rows already committed at HEAD are exempt so
-# append-only history is never rewritten.
-# Not the same unit as LEDGER_LINE_CAP above, which counts lines in a whole volume;
-# equal numbers here are a coincidence, not a lockstep.
-LEDGER_ROW_CHAR_CAP=800
+# The working limit on a new row, and the only one a draft is written toward. It counts
+# SENTENCES for the reason COMPRESS_TO does: an over-length draft cannot be reworded into
+# compliance, only shortened by a whole sentence, so "a maximum, not a target" stops
+# depending on the author's restraint. Set it above the shape your rows already have, so
+# a row that states its lesson and stops is never near it. Historical rows already
+# committed at HEAD are exempt so append-only history is never rewritten.
+LEDGER_ROW_SENTENCE_CAP=6
+# The backstop, not the working limit and not a number to draft against: it exists for the
+# one shape the sentence cap cannot see, a row inside its sentence budget whose sentences
+# each run hundreds of bytes. Measure your own longest compliant row and leave real
+# headroom above it — and do not expect to get far above it, since a value that high stops
+# bounding read cost at all. If a draft approaches it, the answer is an archive tier with a
+# pointer from the state changelog, never tighter wording. Counted as bytes under LC_ALL=C.
+# Not the same unit as LEDGER_LINE_CAP above, which counts lines in a whole volume.
+LEDGER_ROW_CHAR_CAP=2000
 
 # Where citations are scanned for: code and workflows only — NOT docs (prose mentions
 # IDs without citing them), and not the guard fixtures (which carry synthetic IDs).
@@ -826,9 +910,24 @@ RULE_FILES='AGENTS.md docs/RUNBOOK.md amh.conf scripts/ladder.sh scripts/test-la
 Note the hysteresis band and the *landing* check. Size thresholds alone are Goodhart-able: a
 micro-trim to just under the soft cap passes the guard and re-arms the warning a session later.
 The guard therefore also fails a change that trims the file out of warn territory but stops
-inside the debounce band instead of reaching the compression floor. Pick numbers so
-warn − compress-to spans many sessions of growth and hard − warn leaves one long session of
-margin — 9 / 14 / 16 KB is a working example.
+inside the debounce band instead of reaching the compression floor.
+
+**The floor is two numbers in two units, and a landing satisfies both. That is the whole of the
+8.0.0 change, and the reason it is two is worth more than the change itself.** A byte floor can
+be reached by shaving — drop an adjective, re-measure, repeat — which removes no content, and a
+landing 7 bytes under one is a reported instance rather than a worry. A sentence floor cannot be
+shaved, because the smallest edit that moves that count deletes a whole sentence. But it can be
+reached by rewriting `. T` to `; t`, which frees no space: measured on this repository's own
+state file, one `sed` pass took 85 sentences to 41 and zero bytes. **Every single measure of a
+document has a cheap satisfier; the pair does not, because each number is the other's
+countermeasure.** Bytes make the repunctuation pointless, sentences make the shave pointless,
+and folding whole completed stages is the move that satisfies both at once — which is the move
+the rule was always asking for. The soft and hard caps stay byte-only: they answer *when* to
+compress, not how far, and nobody drafts toward them. Set the sentence floor so it bites at
+about the same place as the byte floor at your file's rough bytes-per-sentence, or one of the
+two is decorative — 9 KB / 50 sentences / 14 KB / 16 KB is a working example at roughly 170
+bytes a sentence. Nothing checks that alignment, because nothing can: it is a property of prose,
+so re-read the number if the file's density changes markedly.
 
 In the *rule* prose that explains these thresholds, name the `amh.conf` keys rather than
 restating their values. Nothing checks such a number, and a guard for it would have to lift a
@@ -838,10 +937,25 @@ the sentence it reads has a fixed shape. So the copy and the config drift the mo
 moves, and the reader who trusts the stale one is misled by the document meant to orient them.
 The harness lowered `LEDGER_ROW_CHAR_CAP` in 5.0.0 and left three volume preambles stating the
 old value, missed because they spelled it `2,000` while the search was for `2000`. An agent
-does not need the number from the prose: `scripts/ladder.sh` reports each threshold it is
-judging against, from the config. Check that claim before you make it, though — a rung that
-prints a value only when it fails leaves that one to be read from `amh.conf`, which is exactly
-the case for the compression floor above.
+does not need the number from the prose: `amh.conf` is the source, and a verdict quotes the
+threshold it **turns on** — a rejection has to say what it rejected against.
+
+**A verdict that rejects nothing should quote nothing, and this is the harder half.** A green
+rung reporting "8 KB (soft cap 14 KB)" or "checked 2 rows against `LEDGER_ROW_CHAR_CAP`=800"
+puts the limit in front of the agent who is about to write against it, every clean run, and the
+limit is what gets optimized toward: the reported instances shaved a state file to seven bytes
+under its floor and drafted 828-byte ledger rows to trim them to just fit, one of them having
+copied "the cap is a maximum, not a target" into its own preamble by hand in the same session.
+Prose loses to salience, so the harness removed the anchor rather than adding another clause —
+print the measurement, print the headroom, name the threshold when a verdict depends on it.
+Prefer removing an anchor to adding a countermeasure: a second threshold to warn on (a
+top-decile band, say) is a second number to hug. Know the limit of that removal, which 8.0.0
+found by watching it fail: the session builds its own draft and measures it against a cap it
+read from `amh.conf`, so the anchor survives in the one place no change to a rung's output can
+reach. What reached it was giving the cap a second unit, so that no single-measure trick satisfies it. And check what your rungs actually print before
+you promise a reader they can rely on it — the value a passing run never shows is one they must
+read from `amh.conf`, which since 8.0.0 is every threshold rather than the compression floor
+alone.
 
 Four kinds of restatement stay legitimate, and saying so keeps the rule from being read as a
 ban on ever writing a number: a **worked example** for an adopter choosing values (the previous
@@ -850,17 +964,31 @@ paragraph is one), a **historical statement** of what a threshold was at some pa
 no `amh.conf` to be authoritative. What the rule forbids is a live rule-statement asserting a
 value it is not the source of.
 
-Say in the file itself that the compression floor is a **ceiling, not a target**. Every phrasing
-of the rule is naturally read as "land at the floor", and an agent that reads it that way will
-shave words one at a time until the guard goes quiet — the micro-trim reflex the band exists to
-break, reappearing one band lower and leaving no headroom for the next session. Do not add a
-second threshold to enforce the aim point: it would warn on a perfectly good compression pass,
-and "is 8 enough?" is a question with no answer.
+Say in the file itself that the compression floor is a **ceiling, not a target** — and note what
+that sentence could not do on its own. Every phrasing of the rule is naturally read as "land at
+the floor", and an agent that reads it that way shaves words one at a time until the guard goes
+quiet. Two countermeasures were tried against that reflex before the unit change: the prose
+above, which a session copied into its own preamble by hand and then disregarded in the same
+session, and removing the number from green output, which does not reach a session that measures
+its own draft. Adding the second unit is the countermeasure that does not depend on restraint.
+Note what it still is not: **not proof against gaming, only against the two cheap moves.** A
+determined rewrite that genuinely removes content in the wrong places passes both floors, and no
+guard can see the difference — that is what the fold-whole-stages rule is for, and it stays
+prose. Do not answer this by adding a *third* threshold: a top-decile warning would fire on a
+perfectly good pass, "is 8 enough?" has no answer, and a second number in the SAME unit is a
+second number to hug. Two numbers in two units is not that shape; it is one aim-point that
+cannot be met sideways.
 
-Apply the same wording to `LEDGER_ROW_CHAR_CAP`: it is a **maximum, not a target**. Its job is
-to bound the retrieval cost of one row, not to prescribe a standard row length. Prose — not the
-guard — asks authors to retain only the durable lesson. Write it at its natural size, even far
-below the cap; do not draft long and shave clauses until the rung passes.
+Apply the same pair to the ledger's new-row limit. `LEDGER_ROW_SENTENCE_CAP` is the working
+limit and it is a **maximum, not a target**: its job is to bound the retrieval cost of one row,
+not to prescribe a standard row length, and a draft over it loses a whole sentence of narrative
+rather than a handful of clauses. Set it at the top of the shape your rows already have — if it
+never binds it teaches nothing. `LEDGER_ROW_CHAR_CAP` stays underneath as a **backstop** against
+the shape a sentence count cannot see, a row inside its sentence budget whose sentences run away.
+Measure your longest compliant row before you set it, and expect the honest answer to be
+"some headroom", not "far above": a backstop high enough to be invisible has stopped bounding
+read cost. When it does fire, the answer is an archive tier with a pointer from the state
+changelog, not tighter wording.
 
 The landing check judges the shrink's *size* as well as where it lands, which is why
 `STATE_EDIT_DELTA_BYTES` exists. Its first form treated every byte lost above the soft cap as a
@@ -872,6 +1000,11 @@ gap between the two populations — no ordinary edit runs to a kilobyte, no real
 comes in under several. Widen the *delta* if your file is unusual; never widen the *band*, which
 is the hole the landing check was built for.
 
+The delta stays byte-only while the floor beside it is a pair, and that is the rule rather than
+an oversight: **a number an agent writes toward is bounded in two units; a number the guard
+merely observes needs only one.** The delta classifies a shrink that already happened, and
+nobody drafts toward it.
+
 ``````
 # STATE — project state & session memory
 
@@ -882,7 +1015,7 @@ session's first read cheap.
 -->
 
 > **Length guard (read before editing — hysteresis).** The thresholds `STATE_WARN_KB`,
-> `STATE_COMPRESS_TO_KB` and `STATE_HARD_KB` live in `amh.conf`, named here and deliberately
+> `STATE_COMPRESS_TO_KB`, `STATE_COMPRESS_TO_SENTENCES` and `STATE_HARD_KB` live in `amh.conf`, named here and deliberately
 > **not** restated as numbers: nothing checks this prose against the config, so a copied number
 > drifts silently the first time a threshold moves. Which of them `scripts/ladder.sh` prints, and
 > why a number it printed is never a value to copy back into prose, are in `docs/RUNBOOK.md` →
@@ -892,9 +1025,12 @@ session's first read cheap.
 > Grow freely to the soft cap; no trimming below that line. When the guard warns, run ONE deep
 > compression pass landing at or below the compression floor — never trim to just under the soft
 > cap, because micro-trims re-arm the warning a session later and the wide band IS the debounce,
-> statelessly. The floor is a **ceiling, not a target**: aim comfortably below it, and if the
-> pass lands short, fold MORE completed stages rather than micro-trimming toward the floor — the
-> same reflex the band exists to break, one threshold lower. Fail above the hard cap. Compressing
+> statelessly. **The floor counts SENTENCES, not bytes**, and that is what keeps "a ceiling, not
+> a target" from depending on your restraint: shaving words moves the count by nothing, so the
+> only way down is to delete whole sentences — which is what compressing this file means anyway.
+> Aim comfortably below the floor; if the pass lands short, fold MORE completed stages. Fail
+> above the hard cap, which is in bytes like the soft cap: those two say WHEN to compress, and
+> read cost is bytes. Compressing
 > means collapsing each completed work stage into one Changelog line, folding changelog clusters,
 > moving durable gotchas into the append-only ledger and deleting narrative prose. **Project**,
 > **Current state** and **Owner queue** must always survive it: compress an Owner-queue item's
@@ -1162,19 +1298,44 @@ invocation. CI's verification step invokes THIS script, so there is no hand-main
 lockstep between what the agent runs and what CI runs. `--guards-only` covers docs-only
 changes in seconds.
 
-**What the working-memory size rung prints.** It reads `STATE_WARN_KB`, `STATE_COMPRESS_TO_KB`
-and `STATE_HARD_KB` from `amh.conf` — falling back to its own defaults for a key you leave out —
-and names whichever a verdict needs: the caps on its size line, the floor when it warns over the
-cap, when it fails, and again on the `ok` confirming a completed compression landing. A fully
-green run can therefore name all three, and seeing the floor in one is not a sign of trouble.
-Every one of those prints your configured value **verbatim**; only the landing lines add
-arithmetic, reporting the floor in bytes where the key is in KB. Which is precisely why a printed
-number is never a value to copy back into prose: quoting one makes a further copy of a config key,
-and nothing checks a copy against the config. This paragraph lives here rather than in
-`docs/STATE.md`'s length-guard preamble, which carries the RULES: a description of a guard's
-output is not working memory and should not be charged to that file's byte cap. It describes the
-three size verdicts and the landing `ok`, not the rung's other lines; read `guard_state_size` when
-it and this disagree.
+**What the working-memory size rung prints — and what it deliberately does not.** It reads
+`STATE_WARN_KB`, both compression-floor keys and `STATE_HARD_KB` from `amh.conf`, falling back to its
+own defaults for a key you leave out, and **names a threshold only in a verdict that turns on
+one**: the hard cap and the floor when it fails over the hard cap, the soft cap and the floor
+when it warns above the soft cap, and the floor in the landing failures. A verdict that rejects
+nothing names nothing — the plain size line reports your file's size and stops, and the `ok`
+confirming a completed landing reports how far **clear of the floor** you landed, in both of
+its units, rather than the floor itself. That is not brevity, it is the point: the number a clean run puts
+in front of you is the number the next compression aims at, and an instance that had copied "the
+cap is a maximum, not a target" into its own prose still shaved a dozen edits to land seven bytes
+under the floor. Headroom removes that pull; it is **not a score to maximise** in the other
+direction, because a file gutted to stubs prints a large number and passes.
+
+Note the units, because they are what the removal above could not achieve on its own: the
+landing verdict is a byte floor AND a sentence floor, and neither is satisfied alone. A pass
+that shaved words to cross the soft cap arrives carrying every sentence it started with and
+fails on one; a pass that repunctuated to collapse the sentence count freed no space and fails
+on the other. The size lines stay byte-only — they say *when* to compress, and nobody drafts
+toward them. What still cannot be checked is whether the sentences
+that went were the right ones: the length-guard rule governs that — fold whole completed stages,
+never shave — and no guard can tell a folded stage from a gutted one.
+
+So **read a threshold from `amh.conf`, not from a green run**: it is the source, a failing verdict
+will quote it back at you when one matters, and a number you copy into prose becomes a further
+copy that nothing checks against the config. If you left a key out of `amh.conf` entirely, the
+value in force is the shipped default at the top of `scripts/ladder.sh` — that is the one case
+where the config cannot answer you. Where a verdict does print a configured value it prints it
+**verbatim**; only the landing lines do arithmetic, working in bytes where the key is in KB.
+
+Two honest exceptions, so the discipline is not read as wider than it is. The boot banner still
+prints your state file's size **against the soft cap**, deliberately: it is read before a session
+writes, where knowing you are near the cap is the whole point, and it names the cap rather than
+the floor that compression aims at. And the `ok` for a small edit above the cap names
+`STATE_EDIT_DELTA_BYTES`, which is the threshold that verdict turns on. This paragraph lives here
+rather than in `docs/STATE.md`'s length-guard preamble, which carries the RULES: a description of
+a guard's output is not working memory and should not be charged to that file's byte cap. It
+describes the three size verdicts and the landing `ok`, not the rung's other lines; read
+`guard_state_size` when it and this disagree.
 
 ## When CI fails (workflow vs code)
 
@@ -1226,18 +1387,29 @@ shipped bug teaches session N+9's review pass.
 > **Search before appending.** Grep the ledger for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes D-NNN") and the old row gets a correction pointer, never deletion.
-> **Keep new rows concise and at or below `LEDGER_ROW_CHAR_CAP`.** The cap is a maximum, not a
-> target: write only the durable lesson, even when that takes far less space; do not draft a
-> narrative and shave it toward the cap. Put larger narratives in `docs/history/` and link them
-> from the `docs/STATE.md` changelog.
+> **Keep new rows concise and at or below `LEDGER_ROW_SENTENCE_CAP`.** The working limit counts
+> SENTENCES, which is what stops "a maximum, not a target" depending on restraint: a draft over
+> it cannot be reworded into compliance, only shortened by a whole sentence. It is not a claim
+> that the count cannot be gamed — repunctuating would move it — which is why the byte backstop
+> below stays underneath and a new row satisfies both. Write only the durable lesson, even when
+> that takes far less space; do not draft a narrative and shave it toward the cap, because
+> shaving buys nothing here. Put larger narratives in `docs/history/` and link them from the
+> `docs/STATE.md` changelog.
 >
 > **File cap & rollover.** This file holds at most `LEDGER_LINE_CAP` lines from `amh.conf` (the
 > cap bounds LINES, not rows — rows vary in length, and it is read and context cost that is
 > being bounded). Neither this cap nor the row cap below is restated here as a number, and
 > neither should be: nothing checks preamble prose against `amh.conf`, so a copied number goes
-> stale the first time a cap moves, and the ladder prints both live values in its verdicts.
-> New rows must stay at or below `LEDGER_ROW_CHAR_CAP`, counted as bytes under `LC_ALL=C`;
-> ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. Rows
+> stale the first time a cap moves. Read a live value from `amh.conf`, or from the verdict that
+> **turns on** it — a rejection has to say what it rejected against. A green run quotes neither
+> cap, deliberately: the number a clean run puts in front of you is the number the next row gets
+> drafted toward, which is how a cap written as a maximum is read as a length.
+> New rows must also stay at or below `LEDGER_ROW_CHAR_CAP`, counted as bytes under `LC_ALL=C`;
+> ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. That one
+> is a backstop against sentences that run away, not the limit you write toward. Set it with
+> real headroom over your longest compliant row, but do not expect to get FAR above it — a
+> backstop that high has stopped bounding read cost. If it fires, the row is a narrative and
+> belongs in an archive tier with a pointer from the changelog. Rows
 > already committed when checked are historical and exempt. The final row may finish past the
 > file cap, but no row may ever *start* past it: when the file stands over the
 > cap, create the next volume with this same header discipline and number its rows from the
@@ -1503,8 +1675,9 @@ rather than the command.
   correct alternative (Claude Code and Codex: a Bash PreToolUse hook; exit 2 plus stderr becomes
   the reason shown to the model). This is the layer that makes rails *self-correcting*; the static
   deny list stays beneath it as the second net. Follow the P13 pattern rules: leading-command
-  matching, mistake-not-evasion threat model, fail open on malformed input, self-test run by
-  the ladder. Two honesty obligations come with it. The guard's header carries a consolidated
+  matching, mistake-not-evasion threat model, fail open on malformed input — but never on the
+  guard's own failure to parse, which is not an odd command and must not be reported as a clean
+  one — and a self-test run by the ladder. Two honesty obligations come with it. The guard's header carries a consolidated
   **what this guard does NOT catch** block — interpreters outside its enumerated reader list,
   wrappers, constructed commands, heredocs, window limits — because a rail whose limits are
   only discoverable by reading its scanners will be mistaken for a vault. And an agent with no

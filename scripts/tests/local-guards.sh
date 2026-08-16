@@ -190,37 +190,37 @@ expect fail "ledger-append-only: cited marker removal is still a rewrite" "$d" \
 	ledger-append-only.sh "D-001 existed at HEAD and was edited"
 
 d=$(snapshot ledger_append_only_new_row_draft)
-cat >>"$d/docs/LEDGER_B.md" <<'ROW'
-- DB-999: **Draft row can be rewritten before commit.** First draft.
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-999: **Draft row can be rewritten before commit.** First draft.
 ROW
 expect pass "ledger-append-only: new uncommitted rows are draft-editable" "$d" ledger-append-only.sh
 
 
 d=$(snapshot ledger_append_only_new_row_under_cap)
 sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=120/' "$d/amh.conf"
-cat >>"$d/docs/LEDGER_B.md" <<'ROW'
-- DB-999: **Short new row passes.** Small enough.
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-999: **Short new row passes.** Small enough.
 ROW
 expect pass "ledger-append-only: a concise new row under the byte-counted character cap passes" "$d" ledger-append-only.sh
 
 d=$(snapshot ledger_append_only_new_row_over_cap)
 sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
-python3 - "$d/docs/LEDGER_B.md" <<'PYROW'
+python3 - "$d/docs/LEDGER_C.md" <<'PYROW'
 from pathlib import Path
 import sys
-Path(sys.argv[1]).write_text(Path(sys.argv[1]).read_text() + "- DB-999: **Long new row fails.** " + ("x" * 120) + "\n")
+Path(sys.argv[1]).write_text(Path(sys.argv[1]).read_text() + "- DC-999: **Long new row fails.** " + ("x" * 120) + "\n")
 PYROW
 expect fail "ledger-append-only: a new row over the byte-counted character cap fails" "$d" \
 	ledger-append-only.sh "over LEDGER_ROW_CHAR_CAP=80"
 
 d=$(snapshot ledger_append_only_committed_over_cap_exempt)
 sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
-python3 - "$d/docs/LEDGER_B.md" <<'PYROW'
+python3 - "$d/docs/LEDGER_C.md" <<'PYROW'
 from pathlib import Path
 import sys
-Path(sys.argv[1]).write_text(Path(sys.argv[1]).read_text() + "- DB-999: **Committed long row is historical.** " + ("x" * 120) + "\n")
+Path(sys.argv[1]).write_text(Path(sys.argv[1]).read_text() + "- DC-999: **Committed long row is historical.** " + ("x" * 120) + "\n")
 PYROW
-(cd "$d" && git add amh.conf docs/LEDGER_B.md && git commit -qm over-cap-history)
+(cd "$d" && git add amh.conf docs/LEDGER_C.md && git commit -qm over-cap-history)
 expect pass "ledger-append-only: an already committed over-cap row is historical and exempt" "$d" ledger-append-only.sh
 
 d=$(snapshot ledger_append_only_superseded_over_cap_existing_row)
@@ -242,13 +242,13 @@ cat >>"$d/docs/LEDGER.md" <<'ROW'
 - D-999: **New row in a closed volume.** It resolves nowhere its prefix promises.
 ROW
 expect warn "ledger-append-only: a new row outside the live volume warns" "$d" \
-	ledger-append-only.sh "live volume is docs/LEDGER_B.md"
+	ledger-append-only.sh "live volume is docs/LEDGER_C.md"
 
 # ...and the live volume itself is silent, or the warning would fire on every ordinary
 # append and be worth nothing inside a month.
 d=$(snapshot ledger_append_only_new_row_live_volume)
-cat >>"$d/docs/LEDGER_B.md" <<'ROW'
-- DB-999: **New row in the live volume.** Exactly where it belongs.
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-999: **New row in the live volume.** Exactly where it belongs.
 ROW
 expect pass "ledger-append-only: a new row in the live volume is silent" "$d" ledger-append-only.sh
 
@@ -256,8 +256,8 @@ expect pass "ledger-append-only: a new row in the live volume is silent" "$d" le
 # volume, so the check above is silent, but its prefix names a different file — which is where
 # a reader following the preamble's rule will look for it, and not find it.
 d=$(snapshot ledger_append_only_new_row_wrong_prefix)
-cat >>"$d/docs/LEDGER_B.md" <<'ROW'
-- D-999: **Live volume, wrong prefix.** A D- id does not resolve in volume B.
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- D-999: **Live volume, wrong prefix.** A D- id does not resolve in volume C.
 ROW
 expect warn "ledger-append-only: a new row whose prefix names another volume warns" "$d" \
 	ledger-append-only.sh "its prefix names docs/LEDGER.md"

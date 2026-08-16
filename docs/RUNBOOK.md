@@ -298,9 +298,12 @@ the reader to discount all of it:
   *where* defeats itself. Report file and position only.
 - **Silent skips that look like passes** — a word-split file list drops names with spaces; an
   absent tool "skips" instead of failing in CI; a missing ref makes a guard vacuous.
-- **Fail-closed rails** *(inherited, not yet seen here)* — a guard that blocks on malformed
-  input gets disabled, not fixed. Rails fail open; the layers beneath them catch what leaks
-  through.
+- **Fail-closed rails** — a guard that blocks on malformed INPUT gets disabled, not fixed.
+  Rails fail open on an odd command; the layers beneath them catch what leaks through. The
+  direction reverses for the guard's OWN failure: when a scanner cannot read the command at
+  all, nothing was judged, and reporting that as clean is the worse error (**DC-002**). Ask
+  which of the two a new arm is about — "your input is strange" fails open, "I did not manage
+  to look" fails closed.
 - **Guard/prose lockstep** *(inherited, not yet seen here)* — a constant in a script and the
   number stated in prose must move together. When they disagree the code says what the system
   DOES; it does not settle what the value SHOULD be (see the constitution's ground-truth
@@ -468,20 +471,33 @@ Containment outranks the checkpoint invariant.
 CI invokes this exact script, so there is no hand-maintained lockstep between what the agent
 runs and what CI runs. `--guards-only` covers docs-only changes in seconds.
 
-**What the working-memory size rung prints.** It names whichever of `STATE_WARN_KB`,
-`STATE_COMPRESS_TO_KB` and `STATE_HARD_KB` a verdict needs: the soft and hard caps on its
-plain `ok`, the floor on its over-cap warn and on its fail lines, and the floor again on the `ok`
-confirming a completed compression landing. So a fully green run can name all three, and seeing
-the floor in one is not a reason to doubt it — that inference is what release 5.2.1 was cut to
-delete. Every one of those prints the configured value **verbatim**; only the landing lines add
-arithmetic, reporting the floor in bytes where the key is in KB. Which is precisely why a printed
-number is never a value to copy into prose: quoting one back makes a fourth copy of a config key,
-the drift class **DB-022** names and no guard here catches (**DB-025**). This paragraph lives here
-rather than in `docs/STATE.md`'s length-guard preamble, which carries the RULES, because a
-description of a guard's output is not working memory and should not be charged to a byte cap
-(owner, 2026-08-11). It describes four branches of `guard_state_size` — the three size verdicts
-and the landing `ok` — and not the rung's other lines; read the function when it and this
-disagree.
+**What the working-memory size rung prints — and what it deliberately does not.** It names
+whichever of `STATE_WARN_KB`, the two compression-floor keys and `STATE_HARD_KB` a verdict **turns on**,
+and nothing on a verdict that turns on none: the hard cap and the floor on the hard-cap fail, the
+soft cap and the floor on the over-cap warn, the floor on each landing fail, and **no threshold at
+all** on the plain `ok`, which reports the file's size and stops. The landing `ok` likewise
+reports how far **clear of the floor** it landed, in bytes and in sentences, rather than the
+floor — a measurement, not a score, since a file gutted to stubs prints a large one and passes.
+Read the units off those verdicts rather than assuming one: the caps are byte sizes, and the
+floor is a byte size AND a sentence count that a landing satisfies together, because the caps
+say WHEN to compress while the floor is what a session writes toward (**DC-003**). This is 8.0.0's change and it reverses part
+of what 5.2.1 said:
+that release was cut to record that the landing line names the floor, which was true and is now
+deliberately not, because the anchor turned out to cost more than the description bought
+(**DB-040**). Every verdict that does print a configured value prints it **verbatim**; only the
+landing lines add arithmetic — in bytes where the size keys are in KB, and in sentences beside
+it. A printed number is still
+never a value to copy into prose — quoting one back makes a fourth copy of a config key, the
+drift class **DB-022** names and no guard here catches (**DB-025**) — and the source to read a
+threshold from is `amh.conf`, which is now the answer for every threshold on a green run rather
+than for the floor alone. Two exceptions keep this honest rather than wider than it is: the boot
+banner still prints the state file's size against the **soft cap**, on purpose, because it is read
+before a session writes; and the small-edit-above-the-cap `ok` names `STATE_EDIT_DELTA_BYTES`,
+the threshold that verdict turns on. This paragraph lives here rather than in `docs/STATE.md`'s length-guard
+preamble, which carries the RULES, because a description of a guard's output is not working
+memory and should not be charged to a byte cap (owner, 2026-08-11). It describes four branches of
+`guard_state_size` — the three size verdicts and the landing `ok` — and not the rung's other
+lines; read the function when it and this disagree.
 
 ## When CI fails (workflow vs code)
 

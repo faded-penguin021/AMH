@@ -1,8 +1,19 @@
 # AMH meta-repository — maintenance guide
 
 This repository is the source of truth for the **Agentic Maintenance Harness** (AMH) and its
-reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 7.0.2**
+reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 8.0.0**
 (`harness/VERSION`).
+
+This file states the harness and this repository as they are now. Rules are rewritten in place
+and deleted when they stop binding; nothing here records what a rule used to be. A rule that
+still binds stays, whatever its age — relocating a live rule is repeal, not tidying.
+Supersession history, adoption narratives, and per-version records of what the owner sanctioned
+go to the live ledger volume, with a pointer line in the `docs/STATE.md` changelog; moving
+anything out of this file takes the rule-review protocol, and a bulk relocation is the owner's
+call. No byte cap governs this file: the defect is kind, not size, and a cap over live
+legislation would only invite shaving rules to make room for kept narrative. What stands in is
+a reader, not a check — the `RULE_FILES` advisory is a local, WARN-only, uncommitted-diff-only
+courtesy that says the protocol applies; the reviewer is the enforcement.
 
 ## Sources and generated artifacts
 

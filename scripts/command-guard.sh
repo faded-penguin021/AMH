@@ -16,7 +16,13 @@
 #   * Target agent MISTAKES, not evasion. Quoting and prefix tricks are accepted
 #     misses; the layers beneath catch those.
 #   * Fail OPEN on malformed input. A guard that bricks every command gets disabled,
-#     not fixed.
+#     not fixed. Read that as written: it is about YOUR command being odd, and it is not
+#     a licence for THIS SCRIPT to report a clean read of something it never read. When
+#     the parser hands back no words for text that plainly has some, nothing was judged,
+#     and an unjudged command is blocked with a reason naming the defect — see
+#     `parse_produced_nothing` and AMH ledger row DC002. The two states used to share one
+#     exit path, and eighteen shipped fixtures went red on stock macOS Bash 3.2 and green
+#     again on a re-run at the same commit before anyone could tell them apart.
 #
 # WHAT THIS GUARD DOES NOT CATCH — the consolidated list, so no one has to reconstruct
 # it from the per-scanner notes below and no one mistakes this script for a vault. Each
@@ -56,6 +62,18 @@
 #     coverage the self-test asserts.
 #   * CONSTRUCTED AND ENCODED COMMANDS. `eval`, base64/hex payloads decoded at runtime,
 #     and any command assembled from variables are text at scan time, not commands.
+#   * AN UNQUOTED `${VAR}` IN A DESTRUCTIVE OPERAND. `split_segments` treats `{` and `}`
+#     as segment operators, so `rm -rf ${d}/build` is cut into `rm -rf $`, `d` and
+#     `/build` before any scanner sees it. The advisory still fires — the first piece is
+#     still an `rm -rf` — but its TARGET is recorded as the bare `$`, which every other
+#     unquoted-brace deletion also produces. So `rm -rf ${scratch}/x` clears the advisory
+#     for `rm -rf ${root}/y`, which is the cross-target silence the per-target rearm
+#     exists to prevent. Quoting the operand (`rm -rf "${d}/build"`, the spelling the
+#     advisory recommends) records the real target. It costs the strongest PARAGRAPH too, not
+#     just the target: the surviving operand is a bare `$` with no `/` in it, so
+#     `DESTRUCTIVE_ROOTISH` never sets and the empty-variable warning — the one this rail
+#     exists for — is suppressed on the very spelling that needs it. Closing it means
+#     teaching `split_segments` that `${...}` is one expansion.
 #   * HEREDOCS AND LONG LINES. `cmd <<EOF` hides its body until the delimiter, and the
 #     window-based scanners give up past `CHAR_LOOKAHEAD` characters — a variable name or
 #     redirection target longer than the window is not classified.
@@ -75,6 +93,7 @@
 #   command-guard.sh                  read a hook payload (JSON) on stdin
 #   command-guard.sh --command 'CMD'  check one command directly
 #   command-guard.sh --self-test      blocked + allowed fixture matrix
+#   command-guard.sh --advisory-report  destructive advisories fired but never re-attempted
 #
 # Exit codes: 0 = allowed (or fail-open; warnings may print on stderr), 2 = blocked (reason on stderr).
 #
@@ -132,9 +151,10 @@ CHAR_LOOKAHEAD=512
 # Slices, never accumulates: `seg+=$c` per character reallocates the segment on
 # every byte, which is the second half of the quadratic blow-up (the first is the
 # locale, above). Splitting on index boundaries copies each segment exactly once.
-split_segments() {
+split_segments() { # sets SEGMENTS
 	local s=$1
 	local i=0 n=${#s} c q='' start=0
+	SEGMENTS=()
 	local wbase=0 wbuf='' wsafe=0
 	local out=()
 	while [ "$i" -lt "$n" ]; do
@@ -152,7 +172,20 @@ split_segments() {
 		case $c in
 		"'" | '"') q=$c ;;
 		\\) i=$((i + 1)) ;;
-		';' | '&' | '|' | $'\n' | '(' | ')' | '{' | '}' | '`')
+		'&')
+			# In an fd-duplication redirection (`2>&1`, `<&0`, `>&-`), `&` is
+			# syntax inside the redirection rather than a command separator. Splitting
+			# here blinds the next segment by leaving the duplicated fd as its first
+			# word (`1 push ...`). strip_redirections judges the whole construct later.
+			if [ "$i" -gt 0 ]; then
+				case ${s:i-1:1}${s:i+1:1} in
+				'>'[0-9-] | '<'[0-9-]) i=$((i + 1)); continue ;;
+				esac
+			fi
+			out+=("${s:start:i-start}")
+			start=$((i + 1))
+			;;
+		';' | '|' | $'\n' | '(' | ')' | '{' | '}' | '`')
 			out+=("${s:start:i-start}")
 			start=$((i + 1))
 			;;
@@ -167,13 +200,14 @@ split_segments() {
 		i=$((i + 1))
 	done
 	out+=("${s:start}")
-	# NUL-separated: a quoted NEWLINE stays inside its segment (a commit message body
-	# is one argument), and a newline-separated round-trip would re-split it — turning
+	# An ARRAY, not a delimited stream: a quoted NEWLINE stays inside its segment (a commit
+	# message body is one argument), where a newline-separated round-trip would re-split it — turning
 	# the body's second line into a leading command and blocking a commit on its own
 	# message. That is the AMH ledger row D007 class arriving through the transport
 	# instead of the scan.
-	printf '%s\0' "${out[@]}"
+	SEGMENTS=("${out[@]}")
 }
+SEGMENTS=()
 
 # Remove here-document BODIES before segmenting. A heredoc body is data — a
 # commit message, a doc block, a file being written — and it routinely quotes
@@ -382,6 +416,16 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# what the fixtures pin), and a deletion aimed somewhere new gets its own turn.
 		sig=$(destructive_signature)
 		if [ -e "$state" ] && LC_ALL=C grep -qxF -- "$sig" "$state" 2>/dev/null; then
+			# The rerun is the only thing here anyone can OBSERVE. Record it, so that
+			# "advised, then went ahead" and "advised, then quietly dropped" stop
+			# looking identical in the tree — the second is what the rail's own text
+			# calls not-compliance, and until now it left no trace at all. Nothing
+			# consumes this file: `--advisory-report` prints it and the ladder shows
+			# the line. No gate reads it, and none may (P3, AMH ledger row DC004).
+			if [ "$HOOK_INVOCATION" -eq 1 ] &&
+				{ [ ! -e "$state.resumed" ] || ! LC_ALL=C grep -qxF -- "$sig" "$state.resumed" 2>/dev/null; }; then
+				printf '%s\n' "$sig" >>"$state.resumed" 2>/dev/null || :
+			fi
 			return 1
 		fi
 		# If `grep` is unavailable the test above fails and the advisory re-fires — the
@@ -414,12 +458,13 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		ADVISORY_REASON='This destructive filesystem command may delete guard fixtures, source files, or untracked evidence. The command guard is stopping this ONCE, for this target, so you can spend one turn on the check rather than the deletion.'
 		if [ "$DESTRUCTIVE_ROOTISH" -eq 1 ]; then
 			# shellcheck disable=SC2016 # the examples must print literally, unexpanded.
-			ADVISORY_REASON="$ADVISORY_REASON"' A path here BEGINS with a variable and contains a `/`, which is the failure mode this rail is shaped for: if that variable is empty the command addresses an absolute path instead. `rm -rf "$S/base"` with an unset `S` is `rm -rf /base`. Verify it is non-empty before you rerun — `printf %s=[%s] S "$S"` — and verify it separately from the deletion, because the guard sees the command before the shell expands it and cannot do this for you.'
+			ADVISORY_REASON="$ADVISORY_REASON"' A path here BEGINS with a variable and contains a `/`, which is the failure mode this rail is shaped for: if that variable is empty the command addresses an absolute path instead. `rm -rf "$S/base"` with an unset `S` is `rm -rf /base`. The rerun that removes that failure mode rather than merely surviving it is the GUARDED spelling — `rm -rf -- "${S:?}/base"` — because the shell itself aborts on an unset or empty `S`, and this guard treats the guarded and bare spellings as the same target, so rewriting it does not arm a second prompt. Use it IN ADDITION to `printf %s=[%s] S "$S"`, not instead of: the guarded spelling closes the unset-or-empty case and nothing else, so a set-but-wrong `S` — `/` above all, which makes this exact command `rm -rf /base` again — still reaches the filesystem, and only looking catches that one.'
 		elif [ "$DESTRUCTIVE_UNEXPANDED" -eq 1 ]; then
-			ADVISORY_REASON="$ADVISORY_REASON"' A path here still contains a variable. The guard sees the command before the shell expands it, so what actually gets deleted is only knowable on your side: print the expansion before you rerun.'
+			# shellcheck disable=SC2016 # the guarded spelling must print literally.
+			ADVISORY_REASON="$ADVISORY_REASON"' A path here still contains a variable. The guard sees the command before the shell expands it, so what actually gets deleted is only knowable on your side: print the expansion before you rerun, and prefer the guarded spelling `"${VAR:?}"` in the rerun, which makes an empty value abort the command instead of widening it. The guarded and bare spellings count as the same target here, so the rewrite is the rerun and not a second prompt.'
 		fi
 		# shellcheck disable=SC2016 # the example must print literally, unexpanded.
-		ADVISORY_REASON="$ADVISORY_REASON"' Then rerun the same command to proceed if the deletion is intentional. Two things that are NOT compliance: renaming or relocating the target so the deletion is no longer needed, and rerunning without having looked — both leave the rail spent and the check unmade. Deciding not to delete is a fine answer; arriving at it to avoid the prompt is not. Rerunning clears this advisory for this command TEXT only, and a deletion aimed somewhere else gets its own. Note the limit of that: the guard keys on the operands AS WRITTEN, so clearing `rm -rf "$S/base"` clears it for every later value of `S` — the rerun is your check, not the guard'"'"'s.'
+		ADVISORY_REASON="$ADVISORY_REASON"' Then rerun the same command to proceed if the deletion is intentional. Two things that are NOT compliance: renaming or relocating the target so the deletion is no longer needed, and rerunning without having looked — both leave the rail spent and the check unmade. Deciding not to delete is a fine answer; arriving at it to avoid the prompt is not. Rerunning clears this advisory for this command TEXT only, and a deletion aimed somewhere else gets its own. Two limits of that, both worth knowing: the guard keys on the operands AS WRITTEN, so clearing `rm -rf "$S/base"` clears it for every later value of `S` — the rerun is your check, not the guard'"'"'s — and `${S:?}` folds to `$S` for that purpose in both directions. What this rail can see is that a prompt fired and whether the command came back; it cannot see whether you looked, and `scripts/ladder.sh` prints the ones that never came back.'
 		;;
 	esac
 	return 0
@@ -577,9 +622,10 @@ is_env_dump_builtin() {
 # word containing a space and names nothing. Raw `${var}` word-splitting cannot tell
 # them apart — it is the same presence-vs-position error AMH ledger row D007 records for
 # `<`, and it is why the operand scan blocked a grep for the string ".env".
-split_words() {
+split_words() { # sets SPLIT_WORDS
 	local s=$1
 	local i=0 n=${#s} c q='' start=-1 w
+	SPLIT_WORDS=()
 	local wbase=0 wbuf='' wsafe=0
 	while [ "$i" -lt "$n" ]; do
 		if [ "$i" -ge "$wsafe" ]; then # windowed scan — see CHAR_WINDOW
@@ -597,7 +643,7 @@ split_words() {
 		' ' | $'\t' | $'\n')
 			if [ "$start" -ge 0 ]; then
 				w=${s:start:i-start}
-				printf '%s\0' "${w//[\'\"]/}"
+				SPLIT_WORDS+=("${w//[\'\"]/}")
 				start=-1
 			fi
 			;;
@@ -615,9 +661,110 @@ split_words() {
 	done
 	if [ "$start" -ge 0 ]; then
 		w=${s:start}
-		printf '%s\0' "${w//[\'\"]/}"
+		SPLIT_WORDS+=("${w//[\'\"]/}")
 	fi
 	return 0
+}
+SPLIT_WORDS=()
+
+# Remove REDIRECTIONS from a segment, leaving the words the shell would actually hand the
+# command. Redirections are syntax, not arguments, and a scanner that reads word lists
+# counts them as operands anyway: the push rail read `git push -u origin session/x 2>&1` as
+# naming two refs and denied a legal push with a reason — "names another branch or leaves
+# the ref implicit" — that was false of the command in front of it. A rail demonstrably
+# wrong about what it just read is worse than one that never looked, so this runs before
+# any word is judged (AMH ledger row DC001).
+#
+# POSITION, not presence, and the same three disciplines the scanners above are built on:
+#
+#   * Quoted text is DATA. `git push origin session/x '2>' x` passes bash a literal `2>`
+#     argument, so removing it here would hide a word the command really receives — the
+#     AMH ledger row D007 class, arriving one layer down.
+#   * An fd number glued to the operator is syntax (`2>err`), but any other word prefix is
+#     a word bash still passes on: `abc2>err` hands the command `abc2`. Only an all-digit
+#     prefix is eaten.
+#   * A bare operator claims the NEXT word (`> /dev/null`, and the `2>` that
+#     `split_segments` leaves behind when it consumes the `&` of `2>&1`); an operator with
+#     a target glued on claims nothing further.
+#
+# Slices, never accumulates: the copy is one append per redirection removed, not one per
+# character (see `split_segments` on the quadratic shape this avoids).
+strip_redirections() { # sets STRIPPED
+	local s=$1
+	STRIPPED=$s
+	case $s in *'<'* | *'>'*) ;; *) return 0 ;; esac
+	local i=0 n=${#s} c q='' kept='' keep=0 wstart=0 cut
+	while [ "$i" -lt "$n" ]; do
+		c=${s:i:1}
+		if [ -n "$q" ]; then
+			[ "$c" = "$q" ] && q=''
+			i=$((i + 1))
+			continue
+		fi
+		case $c in
+		"'" | '"')
+			q=$c
+			i=$((i + 1))
+			continue
+			;;
+		\\)
+			i=$((i + 2))
+			continue
+			;;
+		' ' | $'\t')
+			i=$((i + 1))
+			wstart=$i
+			continue
+			;;
+		'<' | '>') ;;
+		*)
+			i=$((i + 1))
+			continue
+			;;
+		esac
+		# A redirection starts here. Cut from the fd number when the whole word so far is
+		# one, and from the operator otherwise.
+		cut=$i
+		case ${s:wstart:i-wstart} in
+		'' | *[!0-9]*) ;;
+		*) cut=$wstart ;;
+		esac
+		while :; do case ${s:i:1} in '<' | '>') i=$((i + 1)) ;; *) break ;; esac done
+		# `>&2` carries its own target; only a bare operator reaches across the space.
+		case ${s:i:1} in '&') i=$((i + 1)) ;; esac
+		case ${s:i:1} in ' ' | $'\t') while :; do case ${s:i:1} in ' ' | $'\t') i=$((i + 1)) ;; *) break ;; esac done ;; esac
+		# The target word, quotes respected — a redirection to `my file` is one word.
+		while [ "$i" -lt "$n" ]; do
+			c=${s:i:1}
+			if [ -n "$q" ]; then
+				[ "$c" = "$q" ] && q=''
+				i=$((i + 1))
+				continue
+			fi
+			case $c in
+			"'" | '"') q=$c ;;
+			\\) i=$((i + 1)) ;;
+			' ' | $'\t') break ;;
+			esac
+			i=$((i + 1))
+		done
+		kept+=${s:keep:cut-keep}
+		keep=$i
+		wstart=$i
+	done
+	kept+=${s:keep}
+	STRIPPED=$kept
+}
+STRIPPED=''
+
+# TRUE when TEXT holds a non-space character but the parser handed back COUNT of nothing.
+# That combination is a defect in this script, never a property of the command: a blank
+# segment legitimately yields no words (`>/dev/null` is all redirection), and the two must
+# not share an exit path, because one of them means "checked, nothing to object to" and the
+# other means "not checked at all" (AMH ledger row DC002).
+parse_produced_nothing() { # <text> <count>
+	case $1 in *[![:space:]]*) [ "$2" -eq 0 ] && return 0 ;; esac
+	return 1
 }
 
 strip_quotes() { # sets UNQUOTED
@@ -637,10 +784,11 @@ UNQUOTED=''
 # rather than
 # from a file and are skipped; a digit prefix (`0<file`) is just an fd number and
 # needs no special case, since the `<` is what this scan looks for.
-redirect_targets() {
+redirect_targets() { # sets REDIRECT_TARGETS
 	local s=$1
 	local i=0 n=${#s} c q='' rest target
 	local wbase=0 wbuf='' wsafe=0
+	REDIRECT_TARGETS=()
 	case $s in *'<'*) ;; *) return 0 ;; esac
 	while [ "$i" -lt "$n" ]; do
 		if [ "$i" -ge "$wsafe" ]; then # windowed scan — see CHAR_WINDOW
@@ -665,7 +813,7 @@ redirect_targets() {
 				rest=${rest#"${rest%%[![:space:]]*}"}
 				target=${rest%%[[:space:];|&<>)(\`]*}
 				strip_quotes "$target"
-				[ -n "$UNQUOTED" ] && printf '%s\0' "$UNQUOTED"
+				[ -n "$UNQUOTED" ] && REDIRECT_TARGETS+=("$UNQUOTED")
 			fi
 			;;
 		esac
@@ -718,12 +866,21 @@ copies_env_operand() {
 check_segment() {
 	local raw=$1
 	local words=() i=0 w
-	while IFS= read -r -d '' w; do words+=("$w"); done < <(split_words "$raw")
+	# Judge the words bash would pass, not the redirections around them. A redirection can
+	# sit ANYWHERE — before the command word (`>/dev/null printenv`), between a command and
+	# its subcommand (`git >/dev/null push origin main`), or after the operands — and in
+	# every one of those positions it used to shift or hide the word this guard judges. The
+	# `<`-target scan below deliberately reads `raw` instead: the redirection is exactly
+	# what it is looking for.
+	strip_redirections "$raw"
+	split_words "$STRIPPED"
+	words=(${SPLIT_WORDS[@]+"${SPLIT_WORDS[@]}"})
 
 	# A redirection reaches the same file a reader command would, from ANY command:
 	# `tr "\0" "\n" < /proc/self/environ` names no reader at all.
 	local target
-	while IFS= read -r -d '' target; do
+	redirect_targets "$raw"
+	for target in ${REDIRECT_TARGETS[@]+"${REDIRECT_TARGETS[@]}"}; do
 		if names_env_file "$target"; then
 			BLOCK_REASON="Redirecting from \`$target\` feeds credential values into the command (AMH P17). Check key presence instead, or ask the owner for a narrower evidence contract via the Owner queue."
 			return 1
@@ -732,7 +889,20 @@ check_segment() {
 			BLOCK_REASON="Redirecting from \`$target\` feeds private key material into the command (AMH P17). Check that the file exists, or read the public half (\`$target.pub\`), or ask the owner for a narrower evidence contract via the Owner queue."
 			return 1
 		fi
-	done < <(redirect_targets "$raw")
+	done
+
+	# A non-blank command that parses to NO words is a parser failure, not an empty
+	# command, and the two must never share an exit path. The scanners used to reach
+	# their word list through a process substitution, whose output arrived empty often
+	# enough on stock macOS Bash 3.2 to turn eighteen shipped fixtures red and green
+	# again on a re-run at the same commit (AMH ledger row DC002). An empty list took
+	# the `no words to judge` branch below and ALLOWED the command: a rail reporting a
+	# clean read of something it never read. The subshells are gone, and this arm is
+	# what makes their return visible instead of silent.
+	if parse_produced_nothing "$STRIPPED" "${#words[@]}"; then
+		BLOCK_REASON="The command guard could not parse this command: it has text but produced no words to judge. This is a defect in the guard, not a verdict about your command — nothing was checked, so nothing may be allowed on that basis. Report it with the command text; re-running will not help."
+		return 1
+	fi
 
 	# Strip leading variable assignments and transparent prefixes so that
 	# `env FOO=1 git push --force` is judged as a git command, not an env dump.
@@ -978,7 +1148,8 @@ check_segment() {
 leading_command() {
 	local raw=$1 w i=0
 	local words=()
-	while IFS= read -r -d '' w; do words+=("$w"); done < <(split_words "$raw")
+	split_words "$raw"
+	words=(${SPLIT_WORDS[@]+"${SPLIT_WORDS[@]}"})
 	while [ "$i" -lt "${#words[@]}" ]; do
 		w=${words[$i]}
 		case $w in
@@ -999,6 +1170,65 @@ leading_command() {
 	[ "$i" -lt "${#words[@]}" ] || return 1
 	printf '%s' "${words[$i]##*/}"
 }
+
+# Normalise ONE operand for the signature. `$d`, `${d}` and `${d:?}` name the same target,
+# and after 8.0.0 they must produce the same signature, because the advisory now ASKS for the
+# `${d:?}` spelling. A rewrite the rail requested must not read as a new deletion and re-arm
+# the prompt it was written to satisfy — that trap is what turns a safety rewrite into a
+# second turn, and a second turn is what the session was trying to avoid when it renamed the
+# directory instead (AMH ledger row DC004).
+#
+# Only the two forms that name the same thing are folded. `${d:-/tmp}` and `${d:+x}` are NOT:
+# they SUBSTITUTE a different value, so they can address a path the bare variable never
+# would, and folding them would let one deletion clear the advisory for another.
+#
+# The fold is one-directional in intent and symmetric in fact: clearing `${d:?}` also clears
+# `$d`. Living with that is deliberate — reaching the guarded spelling means the prompt was
+# already seen and answered, which is the whole cost this rail charges.
+normalize_operand() { # sets NORMALIZED
+	local w=$1 # split: `local w=$1 n=${#w}` expands ${#w} BEFORE w exists — see split_words
+	local n=${#w} i=0 acc='' c inner name rest close fold
+	while [ "$i" -lt "$n" ]; do
+		c=${w:i:1}
+		if [ "$c" = '$' ] && [ "${w:i+1:1}" = '{' ]; then
+			rest=${w:i+2}
+			close=${rest%%\}*}
+			if [ "$close" = "$rest" ]; then # no closing brace: copy verbatim
+				acc=$acc$c
+				i=$((i + 1))
+				continue
+			fi
+			inner=$close
+			name=${inner%%[!A-Za-z0-9_]*}
+			# The suffix decides, and `:?` must be matched LITERALLY: written as an
+			# unquoted pattern the `?` is a glob for any character, which folded
+			# `${d:-/tmp}` and `${d:+x}` into `$d` — exactly the substituting forms this
+			# must leave alone.
+			rest=${inner#"$name"}
+			# The character AFTER the closing brace decides whether the braces were
+			# load-bearing. `${d}build` is `$d` followed by `build`; `$dbuild` names a
+			# different variable, so folding the first into the second collides two
+			# unrelated deletions on one signature — the cross-target silence the rearm
+			# exists to stop, reached through the idiomatic reason braces exist. Fold only
+			# when what follows cannot continue an identifier.
+			case ${w:i+2+${#inner}+1:1} in
+			[A-Za-z0-9_]) fold=0 ;;
+			*) fold=1 ;;
+			esac
+			if [ "$fold" -eq 1 ] && [ -n "$name" ] && { [ -z "$rest" ] || [ "${rest#':?'}" != "$rest" ]; }; then
+				acc=$acc\$$name
+			else
+				acc=$acc\$\{$inner\}
+			fi
+			i=$((i + 2 + ${#inner} + 1))
+			continue
+		fi
+		acc=$acc$c
+		i=$((i + 1))
+	done
+	NORMALIZED=$acc
+}
+NORMALIZED=''
 
 # Record what a confirmed destructive segment is aimed AT. The target is the whole risk
 # here — unlike the dotenv and key-material rails, where every hit means the same thing
@@ -1060,7 +1290,14 @@ record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 	if [ "$#" -eq 0 ]; then
 		entry=$kind
 	else
-		entry="$kind $(printf '%q\n' "$@" | LC_ALL=C sort | tr '\n' ' ')"
+		# Normalised for the SIGNATURE only. The detection above reads the operand as
+		# written, because `${d:?}` and `$d` differ in exactly the property it reports.
+		local norm=()
+		for w in "$@"; do
+			normalize_operand "$w"
+			norm+=("$NORMALIZED")
+		done
+		entry="$kind $(printf '%q\n' "${norm[@]}" | LC_ALL=C sort | tr '\n' ' ')"
 	fi
 	DESTRUCTIVE_TARGETS+=("$entry")
 }
@@ -1069,7 +1306,8 @@ is_destructive_segment() {
 	local raw=$1 w cmd recursive=1 force=1 descend=1 i=0
 	local words=()
 	local operands=() end_of_options=1
-	while IFS= read -r -d '' w; do words+=("$w"); done < <(split_words "$raw")
+	split_words "$raw"
+	words=(${SPLIT_WORDS[@]+"${SPLIT_WORDS[@]}"})
 	# Find the same leading command that leading_command reports, without treating
 	# later quoted prose or operands as commands.
 	while [ "$i" -lt "${#words[@]}" ]; do
@@ -1157,10 +1395,11 @@ is_destructive_command() {
 	# path sets is two decisions, and the advisory should be able to name both — stopping
 	# at the first match is how the dangerous half of `rm -rf tmp/x && rm -rf "$S/base"`
 	# would inherit the safe half's verdict.
-	while IFS= read -r -d '' seg; do
+	split_segments "$cmd"
+	for seg in ${SEGMENTS[@]+"${SEGMENTS[@]}"}; do
 		[ -n "${seg// /}" ] || continue
 		is_destructive_segment "$seg" && found=0
-	done < <(split_segments "$cmd")
+	done
 	return "$found"
 }
 
@@ -1203,7 +1442,8 @@ warn_ladder_tail() {
 	# output is piped to tail. Reuse the shell-ish segment and word scanners so quoted
 	# prose like a commit message stays data, not a warning.
 	cmd=$(strip_heredocs "$cmd")
-	while IFS= read -r -d '' seg; do
+	split_segments "$cmd"
+	for seg in ${SEGMENTS[@]+"${SEGMENTS[@]}"}; do
 		[ -n "${seg// /}" ] || continue
 		lead=$(leading_command "$seg") || { prev_ladder=0; continue; }
 		# split_segments treats the `&` in `2>&1` as an operator, yielding a bare
@@ -1215,7 +1455,7 @@ warn_ladder_tail() {
 			return 0
 		fi
 		case $lead in ladder.sh) prev_ladder=1 ;; *) prev_ladder=0 ;; esac
-	done < <(split_segments "$cmd")
+	done
 }
 
 check_command() {
@@ -1240,10 +1480,18 @@ check_command() {
 	fi
 	warn_ladder_tail "$cmd"
 	cmd=$(strip_heredocs "$cmd")
-	while IFS= read -r -d '' seg; do
+	split_segments "$cmd"
+	# Same fail-closed rule as check_segment's, one level up: a non-blank command that
+	# yields no segments has not been judged, and "no segments" must not read as "nothing
+	# to object to" (AMH ledger row DC002).
+	if parse_produced_nothing "$cmd" "${#SEGMENTS[@]}"; then
+		BLOCK_REASON="The command guard could not parse this command: it has text but produced no segments to judge. This is a defect in the guard, not a verdict about your command — nothing was checked, so nothing may be allowed on that basis. Report it with the command text; re-running will not help."
+		return 1
+	fi
+	for seg in ${SEGMENTS[@]+"${SEGMENTS[@]}"}; do
 		[ -n "${seg// /}" ] || continue
 		check_segment "$seg" || return 1
-	done < <(split_segments "$cmd")
+	done
 	return 0
 }
 
@@ -1273,8 +1521,17 @@ except Exception:
 	fi
 }
 
+# Set ONLY on the path where a pass means the command actually runs next. `--command` is an
+# inspection: it answers "would this be blocked" and executes nothing, so counting it as the
+# command coming back would be false on its face — and it would also hand any session a way to
+# clear its own abandoned-advisory line by asking the guard about the text twice. The rail's
+# threat model is mistakes rather than evasion, but a record that a spectator can write is not
+# a record of anything.
+HOOK_INVOCATION=0
+
 run_hook() {
 	local payload cmd
+	HOOK_INVOCATION=1
 	payload=$(cat) || exit 0
 	cmd=$(extract_command "$payload")
 	[ -n "$cmd" ] || exit 0 # malformed or non-Bash tool: fail open
@@ -1302,6 +1559,50 @@ st_allowed() {
 		printf 'SELF-TEST FAIL: should have been ALLOWED WITHOUT WARNING: %s\n   warning given: %s\n' "$1" "$WARN_REASON" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	fi
+}
+st_parse_integration() { # st_parse_integration <parser to blind: words|segments>
+	# The predicate fixtures above pin a truth table; this one pins the WIRING, which is
+	# the part that actually changed. Blind one parser so it hands back an empty array for
+	# a command that must never be allowed, and require the guard to deny it AND to say the
+	# denial is its own defect. Against the pre-8.0.0 script the same blinding produced
+	# exit 0 — the fixture fails where the behaviour is absent, which is what earns it.
+	local saved rc
+	case $1 in
+	words)
+		saved=$(declare -f split_words)
+		split_words() { SPLIT_WORDS=(); }
+		;;
+	segments)
+		saved=$(declare -f split_segments)
+		split_segments() { SEGMENTS=(); }
+		;;
+	esac
+	check_command 'git push --force origin main'
+	rc=$?
+	eval "$saved"
+	if [ "$rc" -eq 0 ]; then
+		printf 'SELF-TEST FAIL: a blinded %s parser ALLOWED a force push\n' "$1" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+		return 0
+	fi
+	case $BLOCK_REASON in
+	*'could not parse'*) ;;
+	*)
+		printf 'SELF-TEST FAIL: a blinded %s parser blocked without naming the guard defect: %s\n' "$1" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+		;;
+	esac
+}
+st_parse_sanity() { # st_parse_sanity <expect: defect|normal> <text> <count>
+	local want=$1 text=$2 count=$3
+	if parse_produced_nothing "$text" "$count"; then
+		[ "$want" = defect ] && return 0
+		printf 'SELF-TEST FAIL: parse sanity called a normal parse a defect: text=%s count=%s\n' "$text" "$count" >&2
+	else
+		[ "$want" = normal ] && return 0
+		printf 'SELF-TEST FAIL: parse sanity missed a defect: text=%s count=%s\n' "$text" "$count" >&2
+	fi
+	ST_FAILS=$((ST_FAILS + 1))
 }
 st_dotenv_advisory_once() {
 	local state old_set old_state
@@ -1424,6 +1725,41 @@ st_destructive_same_target_set() { # <first spelling> <same targets, different o
 	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
 }
 
+# The report is the only OBSERVED thing this rail can say about compliance, so pin both
+# halves: an advisory that was re-attempted must NOT be listed, and one that was abandoned
+# must be. A report that lists everything is as useless as one that lists nothing, and both
+# pass a fixture that only counts lines.
+st_advisory_report() { # st_advisory_report <abandoned cmd> <resumed cmd>
+	local abandoned=$1 resumed=$2 state old_set old_state out
+	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
+	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-report-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	DESTRUCTIVE_ADVISORY_STATE=$state
+	local old_hook=$HOOK_INVOCATION
+	HOOK_INVOCATION=1                        # the marker is hook-path only; see run_hook
+	check_command "$abandoned" || :          # advised, never re-attempted
+	check_command "$resumed" || :            # advised...
+	check_command "$resumed" || :            # ...and re-attempted
+	HOOK_INVOCATION=$old_hook
+	out=$(advisory_report)
+	case $out in
+	*"${abandoned#rm -rf }"*) ;;
+	*)
+		printf 'SELF-TEST FAIL: the report omitted an abandoned advisory: %s\n   report: %s\n' "$abandoned" "$out" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+		;;
+	esac
+	case $out in
+	*"${resumed#rm -rf }"*)
+		printf 'SELF-TEST FAIL: the report listed a re-attempted advisory: %s\n   report: %s\n' "$resumed" "$out" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+		;;
+	esac
+	rm -f -- "$state" "$state.resumed"
+	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
+}
+
 # The advisory's TEXT is the whole intervention for this rail — nothing downstream consumes
 # it, so a silently emptied sentence would cost nothing mechanically and everything in
 # practice. Pin the clause that names the failure mode.
@@ -1517,6 +1853,21 @@ self_test() {
 	rm -f -- "$self_destructive_advisory_state"
 	DESTRUCTIVE_ADVISORY_STATE=$self_destructive_advisory_state
 
+	# --- the parser's own failure is a BLOCK, never a pass
+	# A rail that hands back an empty word list has not judged the command, and until
+	# 8.0.0 that read as "nothing to object to". These pin the discriminator: text
+	# present + nothing parsed is a defect; blank text + nothing parsed is an ordinary
+	# empty segment (a segment that was all redirection, once stripped); anything parsed
+	# at all is normal. Neutering `parse_produced_nothing` to `return 1` fails the two
+	# `defect` rows, which is the demonstration that this fixture can fail.
+	st_parse_sanity defect 'git push --force origin main' 0
+	st_parse_sanity defect '  sudo rm -rf /  ' 0
+	st_parse_sanity normal '' 0
+	st_parse_sanity normal '   ' 0
+	st_parse_sanity normal 'git push --force origin main' 4
+	st_parse_integration words
+	st_parse_integration segments
+
 	# --- must block: the rails themselves
 	st_blocked 'git push --force origin feature'
 	st_blocked 'git push -f origin feature'
@@ -1593,6 +1944,7 @@ printenv'
 	st_blocked "git push origin +HEAD:$DEFAULT_BRANCH"
 	st_blocked 'git push origin +feature'
 	st_blocked 'git push --mirror origin'
+	st_blocked 'git 2>&1 push --mirror origin'
 	st_blocked 'git push --all origin'
 	# Sourcing loads the values into the shell.
 	st_blocked 'source .env'
@@ -1680,6 +2032,26 @@ printenv'
 	# different deletions; a flattened signature let either clear the other.
 	st_destructive_rearms_per_target 'rm -rf a b' 'rm -rf "a b"'
 	st_destructive_same_target_set 'rm -rf a b' 'rm -rf b a'
+	# The guarded rewrite the advisory now ASKS for must count as the rerun, not as a new
+	# deletion — otherwise the rail charges a second turn for doing what it just told the
+	# session to do, and the cheapest way out stays the sidestep it is trying to stop.
+	st_destructive_same_target_set 'rm -rf $d/build' 'rm -rf -- "${d:?}/build"'
+	st_destructive_same_target_set 'rm -rf "${d}/build"' 'rm -rf $d/build'
+	st_destructive_same_target_set 'rm -rf "${d:?set d}/build"' 'rm -rf $d/build'
+	# Quoted on purpose, and the reason is a hole this unit found rather than closed:
+	# `split_segments` treats `{` and `}` as segment operators, so an UNQUOTED `${d}/build`
+	# is cut into `rm -rf $`, `d` and `/build` before any of this runs. The first piece
+	# carries the operand `$`, which every other unquoted brace deletion also produces — so
+	# they share one signature and clear each other. The advisory recommends the quoted
+	# spelling, the header's does-NOT-catch block records the hole, and closing it means
+	# teaching that splitter about `${...}`, which is the same change the fd-duplication
+	# item is waiting on.
+	# ...and the SUBSTITUTING forms must not fold, because they can address a path the bare
+	# variable never would. `${d:-/tmp}` with an empty `d` deletes `/tmp`, not `$d`.
+	st_destructive_rearms_per_target 'rm -rf "${d:-/tmp}/x"' 'rm -rf $d/x'
+	st_destructive_rearms_per_target 'rm -rf "${d:+alt}/x"' 'rm -rf $d/x'
+	# The report distinguishes the two outcomes the rail can actually observe.
+	st_advisory_report 'rm -rf /tmp/abandoned' 'rm -rf /tmp/resumed'
 
 	# A substitution is not a variable, and an always-set variable has no empty case. Both
 	# still get the advisory — just not the paragraph that names a check they cannot make.
@@ -1687,6 +2059,10 @@ printenv'
 	st_destructive_reason_lacks 'BEGINS with a variable' 'rm -rf "$HOME/.cache/x"'
 	st_destructive_reason_lacks 'BEGINS with a variable' 'rm -rf "${S:-/tmp}/x"'
 	st_destructive_reason_names 'print the expansion before you rerun' 'rm -rf "$HOME/.cache/x"'
+	# The guarded spelling is the intervention, so the sentence offering it is pinned in
+	# both paragraphs the way the sidestep clause already is.
+	st_destructive_reason_names '${S:?}' 'rm -rf $S/base'
+	st_destructive_reason_names '${VAR:?}' 'rm -rf "$HOME/.cache/x"'
 
 	# --- must allow: the known false-positive classes.
 	# Quoted text naming a forbidden command is DATA, not a command.
@@ -1715,6 +2091,44 @@ printenv'
 	st_blocked "git push origin $BRANCH_PREFIX/x:refs/heads/work"
 	st_blocked "git push --delete origin $BRANCH_PREFIX/x"
 	st_blocked "git push origin :$BRANCH_PREFIX/x"
+	# A redirection is syntax, not a second ref. Every one of these names ONE session
+	# branch, and the shipped rail denied all of them for naming another (AMH ledger row
+	# DC001) — the glued-on target, the detached one, and the `2>` that `split_segments`
+	# leaves behind when it consumes the `&` of `2>&1`.
+	st_allowed "git push -u origin $BRANCH_PREFIX/x 2>&1"
+	st_allowed "git push -u origin $BRANCH_PREFIX/x >/dev/null"
+	st_allowed "git push -u origin $BRANCH_PREFIX/x > /dev/null 2>&1"
+	st_allowed "git push -u origin $BRANCH_PREFIX/x >>push.log"
+	st_allowed "git push -u origin $BRANCH_PREFIX/x 2>err.log"
+	# An option argument is not a refspec either, and a redirection standing between an
+	# option and its argument must not shift the words after it.
+	st_allowed "git push -o >/dev/null ci.skip origin $BRANCH_PREFIX/x"
+	# ...and dropping the syntax must not drop the words around it. Each of these is
+	# discriminating: a skip that always swallowed the following word would let the force
+	# push and the second refspec through, and the suite would stay green on the allow
+	# cases above.
+	st_blocked "git push -u origin >/dev/null --force $BRANCH_PREFIX/x"
+	st_blocked "git push -u origin >/dev/null $BRANCH_PREFIX/x $BRANCH_PREFIX/y"
+	st_blocked "git push -u origin >/dev/null $DEFAULT_BRANCH"
+	st_blocked "git push -u origin 2>&1"
+	# A redirection between the command and its SUBCOMMAND hid the push from every check
+	# above: bash hands git `push origin <default>` either way. Any position, one rule.
+	st_blocked "git >/dev/null push origin $DEFAULT_BRANCH"
+	st_blocked "git 2>err.log push --force origin $BRANCH_PREFIX/x"
+	# ...and a redirection before the command word hid the command itself, from EVERY rail.
+	st_blocked '>/dev/null printenv'
+	st_blocked ">/dev/null git push origin $DEFAULT_BRANCH"
+	# A QUOTED operator is a literal argument bash really passes, so it is a word, not
+	# syntax — the AMH ledger row D007 class one layer down. Treating it as syntax would
+	# swallow the word after it, which is `--force` here.
+	st_blocked "git push -u origin $BRANCH_PREFIX/x '2>' --force"
+	st_blocked "git push -u origin $BRANCH_PREFIX/x '>' $DEFAULT_BRANCH"
+	# An fd number is syntax; any other word prefix is a word bash passes on (`abc2>err`
+	# hands the command `abc2`), so the operand is still judged.
+	st_blocked "git push -u origin $BRANCH_PREFIX/x abc2>/dev/null"
+	# Prose about a redirection is prose, in the file this guard is likeliest to be
+	# described in.
+	st_allowed 'git commit -m "use > to redirect, and read the 2> form"'
 	st_allowed "git push -o ci.skip origin $BRANCH_PREFIX/x"
 	st_allowed "git push --receive-pack git-receive-pack origin $BRANCH_PREFIX/x"
 	st_allowed 'env FOO=1 make test'
@@ -1868,6 +2282,30 @@ git push --force origin main
 	printf 'command-guard.sh self-test: ok\n'
 }
 
+# Print the destructive advisories this session fired and never saw re-attempted, one per
+# line. It reports an OBSERVED artifact — the rail's own state files — and it is the whole
+# of what this rail can honestly say about compliance: it knows a prompt fired and it knows
+# whether the command came back. It does NOT know whether anyone looked, and no guard, gate,
+# CI step or decision procedure may read this output as evidence that a check happened or
+# did not (P3, AMH ledger row D014). It is a sentence for whoever reads the transcript.
+#
+# Exit is always 0, including when the state files are absent, which is the ordinary case in
+# a session that deleted nothing.
+advisory_report() {
+	local state advised
+	state=$(advisory_state_file destructive) || return 0
+	[ -n "$state" ] || return 0
+	[ -e "$state" ] || return 0
+	while IFS= read -r advised; do
+		[ -n "$advised" ] || continue
+		if [ -e "$state.resumed" ] && LC_ALL=C grep -qxF -- "$advised" "$state.resumed" 2>/dev/null; then
+			continue
+		fi
+		printf '%s\n' "$advised"
+	done <"$state"
+	return 0
+}
+
 case "${1:-}" in
 "") run_hook ;;
 --command)
@@ -1879,8 +2317,9 @@ case "${1:-}" in
 	exit 2
 	;;
 --self-test) self_test ;;
+--advisory-report) advisory_report ;;
 *)
-	printf 'usage: %s [--command CMD|--self-test]\n' "$0" >&2
+	printf 'usage: %s [--command CMD|--self-test|--advisory-report]\n' "$0" >&2
 	exit 2
 	;;
 esac

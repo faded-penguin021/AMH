@@ -77,7 +77,7 @@ Install the latest stable release of the Agentic Maintenance Harness (AMH) into 
 
 Run:
 
-    git clone --depth 1 --branch amh-v7.0.2 https://github.com/faded-penguin021/AMH.git /tmp/amh
+    git clone --depth 1 --branch amh-v8.0.0 https://github.com/faded-penguin021/AMH.git /tmp/amh
     /tmp/amh/scripts/amh-init.sh .
 
 Once the harness has been instantiated, read `AMH-ADOPT.md` and follow it completely.
@@ -205,6 +205,7 @@ docs/
   LEDGER.md          permanent memory: append-only D-NNN rows
   LEDGER_A.md        continuation volumes, capped by line count; STATE names the live one
   LEDGER_B.md
+  LEDGER_C.md
   UPGRADING.md       for an adopting repo moving to a newer harness version
   history/           frozen archive: completed plans and other documents retired whole
   plans/             active multi-session build plans (absent when none is active)

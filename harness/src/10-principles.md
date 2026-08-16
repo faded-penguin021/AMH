@@ -27,7 +27,7 @@ the *why* of every tier's rule without re-derivation.
 
 | Tier | Hardware analog | Artifact | Mutability & discipline |
 |---|---|---|---|
-| Constitution | ROM / firmware | the agent-instructions file | Boot-loaded, read-mostly; changed rarely and deliberately; small by construction |
+| Constitution | ROM / firmware | the agent-instructions file | Boot-loaded, read-mostly; changed rarely and deliberately; **current-state only** — bounded by what it may contain rather than by a number |
 | Working memory | RAM | `docs/STATE.md` | Rewritten freely but **capacity-bounded** — a machine-enforced cap forces compaction (hysteresis, protected regions); volatile, so results must be *flushed* to durable tiers |
 | Permanent memory | Disk / append-only journal | the numbered ledger | Append-only, never rewritten; rolls to a new volume at a size cap; every durable fact lands here, citable forever; **addressed by citation — grep a row, never read the volume** |
 | Archive | Cold storage / backup tape | `docs/history/` | Frozen: consult it, never edit it. Grows only when a document is retired into it WHOLE — never another tier's live file; off the hot path, so unbounded is fine |
@@ -43,6 +43,31 @@ prevent. Working memory is capped so it can be read whole every session; permane
 capped so no single volume grows past what a *search* over it stays cheap on. That is why the
 ledger's cap counts lines while the rung beside it reports the live volume's size: the cap is a
 proxy, and a proxy that drifts from the cost it stands for should at least show you the drift.
+
+**The constitution is bounded by KIND, not by size — the one tier with no number on it.**
+Every other tier above is bounded by a threshold a script can read, and this one deliberately
+is not. It states the system as currently built: current rules, current inventory, current
+sanctioned configuration. What accretes in it is not verbosity but history — a superseded rule
+kept "for context", an adoption narrative, a paragraph per upgrade recording that this version
+was sanctioned — and each of those already has a tier: the ledger takes the durable row, the
+changelog takes the pointer line. A cap has nothing useful to do here. It cannot see the defect
+(a long constitution may be entirely current, a short one half history), and aimed at a file
+that is *all* live legislation it makes the cheapest compliance shaving a rule — the threshold
+reflex the working-memory band and the ledger's maximum-not-a-target wording were both written
+to break. What fits instead is a reader at the one moment the file grows: the constitution
+belongs in the rule-file tripwire, so a change to it surfaces the review protocol — a courtesy
+warning, not a gate, and worth stating as such wherever it is offered as the substitute for a
+number. Prose-only by construction — telling a current rule from a record of a past one is a
+judgement, which is exactly what P3 forbids building machinery on.
+
+**The routing has one limit, and omitting it turns the rule into a hole.** Only what records
+the past may leave; a rule that still binds stays however old it is. Without that clause the
+discipline reads as a licence to move any inconvenient rule into permanent memory and leave a
+pointer line, which is worse than deleting it: the ledger is retrieval storage nobody reads
+whole, so a relocated live rule binds nothing and is invisible to every session that does not
+grep for it. Relocation out of the constitution is legislation — it takes the review protocol,
+and in bulk it is an owner decision, the same answer the working-memory tier reached when the
+question was asked one tier down.
 
 **Spent narrative is not moved anywhere, and this is the corollary that gets misread.** A
 compression pass *folds* it: the durable content leaves as a ledger row, and what remains
@@ -268,6 +293,24 @@ day one; target agent MISTAKES, not evasion (quoting and prefix tricks are accep
 the deny rules, prose and server rails layer beneath); fail open on malformed hook input (a
 guard that bricks every command gets disabled, not fixed); and give it a blocked-plus-allowed
 self-test matrix run as a ladder guard, since a rail must not regress silently.
+
+**When a rail asks for something it cannot see, change what it asks for.** The advisory tier —
+block once, let the rerun through — buys a turn for a check, and nothing in the tree records
+whether the check happened. Prose cannot close that: an adopting instance, blocked on
+`rm -rf $d`, renamed the directory and dropped the deletion, clearing the prompt with no check
+at all, after the advisory's own text had already named that move as non-compliance. Two layers
+work where a third round of wording does not. First, ask for a spelling whose presence IS the
+protection rather than evidence of it: `rm -rf -- "${d:?}"` aborts in the shell on an unset or
+empty variable, so even a session that types it mechanically gets that much, and Goodharting
+the instruction still produces the outcome. Say what such a token does NOT cover in the same
+breath, or the layer becomes the false comfort it replaced: this one closes unset-or-empty and
+nothing else, and a set-but-wrong variable still deletes. That only holds if the requested rewrite counts as
+the same target as the original — a rail that charges a second prompt for the fix it just
+demanded teaches the sidestep it is trying to stop. Second, record what the rail CAN observe:
+that a prompt fired, and whether the command ever came back. Print the unresolved ones where a
+human already reads, as a line that no counter, exit code or gate consumes — it is not evidence
+that anyone looked, only that the cheapest escape stopped being invisible, and P3 forbids any
+machinery that reads it as more.
 
 Mirror the hardest rails **server-side** where the host supports it — branch protection on the
 default branch (PRs required; force-push and deletion blocked) and secret-scanning push
