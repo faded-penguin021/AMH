@@ -298,9 +298,12 @@ the reader to discount all of it:
   *where* defeats itself. Report file and position only.
 - **Silent skips that look like passes** — a word-split file list drops names with spaces; an
   absent tool "skips" instead of failing in CI; a missing ref makes a guard vacuous.
-- **Fail-closed rails** *(inherited, not yet seen here)* — a guard that blocks on malformed
-  input gets disabled, not fixed. Rails fail open; the layers beneath them catch what leaks
-  through.
+- **Fail-closed rails** — a guard that blocks on malformed INPUT gets disabled, not fixed.
+  Rails fail open on an odd command; the layers beneath them catch what leaks through. The
+  direction reverses for the guard's OWN failure: when a scanner cannot read the command at
+  all, nothing was judged, and reporting that as clean is the worse error (**DC-002**). Ask
+  which of the two a new arm is about — "your input is strange" fails open, "I did not manage
+  to look" fails closed.
 - **Guard/prose lockstep** *(inherited, not yet seen here)* — a constant in a script and the
   number stated in prose must move together. When they disagree the code says what the system
   DOES; it does not settle what the value SHOULD be (see the constitution's ground-truth

@@ -77,15 +77,14 @@ script is built on, so it is its own unit with its own review pass. Check:
 `scripts/command-guard.sh --command 'git 2>&1 push --mirror origin'` exits 0 while
 `… --command 'git push --mirror origin'` exits 2.
 
-**OPEN — the macOS rail self-test is nondeterministic.** Run 31913987929 failed on
-`portability (macos-latest)` with 18 `should have been BLOCKED` cases — every private-key case
-and the dotenv write-destination/redirect/reader forms — then passed on re-run at the same
-commit, with `command-guard.sh` byte-identical to the green `main` run 74 minutes earlier. So it
-is neither a regression from this branch nor a static portability bug. The failing set is one
-contiguous block of advisory-bearing cases, which points at advisory state or signature
-construction rather than parsing — the area 7.0.2 already repaired once for Bash 3.2 collisions.
-A rail that intermittently does not block is worse than one that never did, so this needs a real
-diagnosis, not a re-run. Check: re-run the macOS job a few times at a fixed commit and count.
+**WATCH — the macOS rail self-test failure has a repair, but not a proven cause.** The
+subshell transport the failure rode is gone: the parsers fill arrays in-process (**DC-002**).
+That is the whole of the repair. The fail-closed arm added beside it cannot fire against these
+parsers — every non-blank string yields a word and a segment — so it is a tripwire for a future
+transport and not a second line of defence here; do not read a green macOS run as proof it
+works. If the same eighteen fixtures go red again, the diagnosis was wrong and the mechanism is
+still open. Close this item after several green macOS runs. Check: the
+`portability (macos-latest)` job on this branch.
 
 **OPEN — tag and publish AMH 8.0.0.** Create and push `amh-v8.0.0` after this branch merges. No
 check: only the owner may tag or publish. (`amh-v7.0.2` is published — `git ls-remote --tags
@@ -138,6 +137,11 @@ re-litigate from.
   a redirection between `git` and `push` hid `--force` and `--mirror`, one before the command
   word hid the command. Thirteen fixtures, each shown to fail against a broken implementation.
   One miss stays open below. The ledger rolled over to `docs/LEDGER_C.md`. **DC-001**.
+
+- 2026-08-16 — **The guard's parsers stopped piping through subshells (8.0.0, same release).**
+  The repair for the intermittent macOS self-test failure, whose cause is inferred rather than
+  proven — the queue carries a WATCH. A fail-closed arm now denies non-blank text that parses
+  to nothing, unreachable against these parsers and kept as a tripwire. **DC-002**.
 
 - 2026-08-15 — **Green verdicts stopped printing thresholds (8.0.0, same release).** The size
   line reports the measurement, the landing line reports bytes clear of the floor, and the

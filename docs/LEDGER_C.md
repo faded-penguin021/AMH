@@ -91,3 +91,13 @@
   behind it, D-007 one layer down. One quote-aware strip now runs first, in every position.
   Sessions route around rails (**DB-030**); a rail provably wrong about what it just read
   supplies the argument.
+
+- DC-002: **"Not judged" and "nothing to object to" must never share an exit path** — a rail's
+  form of the failure DA-008 records for generators. A scanner read its word list through a
+  process substitution; an empty read took the "no words" branch and ALLOWED the command, so
+  the rail could report a clean read of text it never parsed. Observed as 18 fixtures red on
+  stock macOS Bash 3.2 and green on a re-run at the same commit; the mechanism is inferred, not
+  proven, and the contiguity of the failing block fits sustained pressure over a window rather
+  than a per-call coin flip. Removing the subshells is the repair. The fail-closed arms are a
+  tripwire for the next transport, unreachable against these parsers by construction, which is
+  the honest claim for them.

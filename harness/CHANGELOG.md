@@ -92,33 +92,65 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   the guard header's "does NOT catch" block, and closing it means changing the segment splitter
   every scanner is built on.
 
+- **An unparsed command is now blocked, not allowed.** Eighteen shipped self-test fixtures —
+  every private-key case and the write-destination forms — failed on stock macOS Bash 3.2 and
+  passed on a re-run at the same commit, with the guard byte-identical to a green `main` run
+  and the Linux ladder green throughout. The scanners reached their word list through a process
+  substitution, and an empty read took the "no words to judge" branch, which ALLOWED the
+  command: the rail could report a clean read of text it never parsed. The mechanism is
+  inferred and not proven — no macOS host was available — so read the repair on its merits and
+  not as a closed case. Two changes. The parsers (`split_segments`, `split_words`,
+  `redirect_targets`, `strip_redirections`) now fill arrays in-process instead of piping
+  through a subshell; 7.0.2 removed a process pipeline on the same platform for a different
+  symptom whose cause was also never established, which makes this the same shape of
+  intermittency rather than the same bug. And `parse_produced_nothing` makes the discriminator
+  explicit: non-blank text that parses to nothing is a defect in the guard and blocks with a
+  reason saying so, while a genuinely blank segment (all redirection, once stripped) still
+  passes. Against the current parsers that arm is unreachable — every non-blank string yields
+  at least one word and one segment — so it is a tripwire for the next transport, not a fix in
+  its own right, and two fixtures blind a parser to pin the wiring rather than the predicate. The header's "fail OPEN on malformed input" rule now says what it always meant — it
+  is about a malformed command from you, not a licence for this script to call an unread
+  command clean (**DC-002**).
+
 ### Upgrading
 
-1. Copy the shipped scripts and the regenerated manifest. `ladder.sh` and
+1. Copy the shipped scripts and the regenerated manifest. `command-guard.sh`, `ladder.sh` and
    `test-ladder-guards.sh` changed — green verdicts no longer print thresholds, and three new
    fixtures pin that. **`command-guard.sh` changed in a way that changes verdicts** — take it
    before the others if you take nothing else: pushes that redirect their output are no longer
    denied, and commands that hid behind a redirection (`git >/dev/null push --force …`,
    `>/dev/null printenv`) are no longer allowed. No threshold, config key or exit code changed.
-2. **Expect your green ladder output to read differently**, and do not treat it as information
+2. **Expect one new block reason, and treat it as a bug report about the guard.** If
+   `command-guard.sh` ever says it could not parse your command, nothing was judged — the
+   command is denied on that basis alone, and re-running will not clear it. Your way through is
+   to report it with the command text and, if you are stuck, run outside the hooked agent;
+   do not edit the arm away. No previously allowed command becomes denied by this change on a
+   working parser: verified differentially against 7.0.2's guard over ~1350 command strings,
+   with zero verdict or message differences.
+3. **If you wrapped or forked the parsers, their calling convention changed.**
+   `split_segments`, `split_words`, `redirect_targets` and `strip_redirections` used to write
+   to stdout; they now fill `SEGMENTS`, `SPLIT_WORDS`, `REDIRECT_TARGETS` and `STRIPPED` and
+   print nothing. A local `for w in $(split_words "$x")` now yields an empty list — which on a
+   pre-8.0.0 code path meant ALLOW, this release's own failure reintroduced in your tree.
+4. **Expect your green ladder output to read differently**, and do not treat it as information
    lost. `8 KB (soft cap 14 KB, hard 16 KB)` becomes `8 KB, within the band`; a completed
    compression landing reports bytes clear of the floor; the ledger rung lists each new row's
    length. Read a threshold from `amh.conf`, which is where it was authoritative all along.
-3. **Seed prose — the ladder description, hand-applied, three files that move together.** If you carry the descriptive
+5. **Seed prose — the ladder description, hand-applied, three files that move together.** If you carry the descriptive
    paragraphs, take all three or none: `docs/RUNBOOK.md` → **Acceptance ladder** (what the size
    rung prints, now including what it deliberately does not), your ledger volume preambles (the
    "ladder prints both live values" sentence is no longer true of a green run), and — if you
    keep one — any prose telling a reader they can rely on a passing run to show them a
    threshold. Leaving the old wording in place leaves your docs describing output your ladder
    no longer produces.
-4. **Seed prose — the constitution rule, hand-applied.** Copy the two-paragraph blockquote from
+6. **Seed prose — the constitution rule, hand-applied.** Copy the two-paragraph blockquote from
    `harness/templates/seed/AGENTS.md` — it sits directly under the long-term-memory paragraph —
    into your own constitution, adjusting the file names if your tree spells them differently.
-5. **Confirm your constitution is in `RULE_FILES`** in your `amh.conf` before you rely on the
-   advisory that step 7 leans on. `amh.conf` is yours forever and was installed once, so a repo
+7. **Confirm your constitution is in `RULE_FILES`** in your `amh.conf` before you rely on the
+   advisory that step 9 leans on. `amh.conf` is yours forever and was installed once, so a repo
    that pruned the list — or predates its constitution being in it — has no advisory at all,
    and nothing else will tell you.
-6. **Then relocate what your constitution has already accreted.** Read it for content that
+8. **Then relocate what your constitution has already accreted.** Read it for content that
    records the past rather than states the present: rules kept "for context" after they stopped
    binding, adoption and upgrade narratives, and any per-version paragraph recording that a
    version was reviewed or sanctioned. Each becomes one dated ledger row — what was sanctioned,
@@ -131,14 +163,14 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
    nothing here licenses shortening a live rule, and if you find yourself rewording one to save
    space you are doing the thing the second bullet above refused to build a cap for. Relocation
    is legislation — take the review protocol, and treat a bulk pass as an owner decision.
-7. **What this does to your tripwire — read it before step 6 worries you.** An in-file "this
+9. **What this does to your tripwire — read it before step 8 worries you.** An in-file "this
    version is sanctioned in full" paragraph was never what let a reviewer tell a sanctioned
    upgrade from an injected edit: it lives inside the very file an injection would edit, so
    anything able to add a rule is able to add its own sanction for it, and nothing consumes it
    anyway. (It was legal prose — the ban on attestations is on *machinery*, not on a sentence a
    human may disbelieve — so this is an argument about accretion and provenance, not about a
    rule you broke.) What actually discriminates is unchanged by this release: the `RULE_FILES`
-   warning on the diff and the review protocol behind it. What step 6 leaves behind is strictly
+   warning on the diff and the review protocol behind it. What step 8 leaves behind is strictly
    better on the axis that matters here — a dated row in an append-only file whose ordering a
    guard checks against `HEAD`, rather than a paragraph in a file where an edit fails nothing.
    State the trade honestly to yourself, though: the ledger is deliberately **not** in

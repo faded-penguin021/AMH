@@ -1584,8 +1584,9 @@ rather than the command.
   correct alternative (Claude Code and Codex: a Bash PreToolUse hook; exit 2 plus stderr becomes
   the reason shown to the model). This is the layer that makes rails *self-correcting*; the static
   deny list stays beneath it as the second net. Follow the P13 pattern rules: leading-command
-  matching, mistake-not-evasion threat model, fail open on malformed input, self-test run by
-  the ladder. Two honesty obligations come with it. The guard's header carries a consolidated
+  matching, mistake-not-evasion threat model, fail open on malformed input — but never on the
+  guard's own failure to parse, which is not an odd command and must not be reported as a clean
+  one — and a self-test run by the ladder. Two honesty obligations come with it. The guard's header carries a consolidated
   **what this guard does NOT catch** block — interpreters outside its enumerated reader list,
   wrappers, constructed commands, heredocs, window limits — because a rail whose limits are
   only discoverable by reading its scanners will be mistaken for a vault. And an agent with no

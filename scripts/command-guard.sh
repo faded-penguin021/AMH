@@ -16,7 +16,13 @@
 #   * Target agent MISTAKES, not evasion. Quoting and prefix tricks are accepted
 #     misses; the layers beneath catch those.
 #   * Fail OPEN on malformed input. A guard that bricks every command gets disabled,
-#     not fixed.
+#     not fixed. Read that as written: it is about YOUR command being odd, and it is not
+#     a licence for THIS SCRIPT to report a clean read of something it never read. When
+#     the parser hands back no words for text that plainly has some, nothing was judged,
+#     and an unjudged command is blocked with a reason naming the defect — see
+#     `parse_produced_nothing` and AMH ledger row DC002. The two states used to share one
+#     exit path, and eighteen shipped fixtures went red on stock macOS Bash 3.2 and green
+#     again on a re-run at the same commit before anyone could tell them apart.
 #
 # WHAT THIS GUARD DOES NOT CATCH — the consolidated list, so no one has to reconstruct
 # it from the per-scanner notes below and no one mistakes this script for a vault. Each
@@ -140,9 +146,10 @@ CHAR_LOOKAHEAD=512
 # Slices, never accumulates: `seg+=$c` per character reallocates the segment on
 # every byte, which is the second half of the quadratic blow-up (the first is the
 # locale, above). Splitting on index boundaries copies each segment exactly once.
-split_segments() {
+split_segments() { # sets SEGMENTS
 	local s=$1
 	local i=0 n=${#s} c q='' start=0
+	SEGMENTS=()
 	local wbase=0 wbuf='' wsafe=0
 	local out=()
 	while [ "$i" -lt "$n" ]; do
@@ -175,13 +182,14 @@ split_segments() {
 		i=$((i + 1))
 	done
 	out+=("${s:start}")
-	# NUL-separated: a quoted NEWLINE stays inside its segment (a commit message body
-	# is one argument), and a newline-separated round-trip would re-split it — turning
+	# An ARRAY, not a delimited stream: a quoted NEWLINE stays inside its segment (a commit
+	# message body is one argument), where a newline-separated round-trip would re-split it — turning
 	# the body's second line into a leading command and blocking a commit on its own
 	# message. That is the AMH ledger row D007 class arriving through the transport
 	# instead of the scan.
-	printf '%s\0' "${out[@]}"
+	SEGMENTS=("${out[@]}")
 }
+SEGMENTS=()
 
 # Remove here-document BODIES before segmenting. A heredoc body is data — a
 # commit message, a doc block, a file being written — and it routinely quotes
@@ -585,9 +593,10 @@ is_env_dump_builtin() {
 # word containing a space and names nothing. Raw `${var}` word-splitting cannot tell
 # them apart — it is the same presence-vs-position error AMH ledger row D007 records for
 # `<`, and it is why the operand scan blocked a grep for the string ".env".
-split_words() {
+split_words() { # sets SPLIT_WORDS
 	local s=$1
 	local i=0 n=${#s} c q='' start=-1 w
+	SPLIT_WORDS=()
 	local wbase=0 wbuf='' wsafe=0
 	while [ "$i" -lt "$n" ]; do
 		if [ "$i" -ge "$wsafe" ]; then # windowed scan — see CHAR_WINDOW
@@ -605,7 +614,7 @@ split_words() {
 		' ' | $'\t' | $'\n')
 			if [ "$start" -ge 0 ]; then
 				w=${s:start:i-start}
-				printf '%s\0' "${w//[\'\"]/}"
+				SPLIT_WORDS+=("${w//[\'\"]/}")
 				start=-1
 			fi
 			;;
@@ -623,10 +632,11 @@ split_words() {
 	done
 	if [ "$start" -ge 0 ]; then
 		w=${s:start}
-		printf '%s\0' "${w//[\'\"]/}"
+		SPLIT_WORDS+=("${w//[\'\"]/}")
 	fi
 	return 0
 }
+SPLIT_WORDS=()
 
 # Remove REDIRECTIONS from a segment, leaving the words the shell would actually hand the
 # command. Redirections are syntax, not arguments, and a scanner that reads word lists
@@ -650,9 +660,10 @@ split_words() {
 #
 # Slices, never accumulates: the copy is one append per redirection removed, not one per
 # character (see `split_segments` on the quadratic shape this avoids).
-strip_redirections() {
+strip_redirections() { # sets STRIPPED
 	local s=$1
-	case $s in *'<'* | *'>'*) ;; *) printf '%s' "$s"; return 0 ;; esac
+	STRIPPED=$s
+	case $s in *'<'* | *'>'*) ;; *) return 0 ;; esac
 	local i=0 n=${#s} c q='' kept='' keep=0 wstart=0 cut
 	while [ "$i" -lt "$n" ]; do
 		c=${s:i:1}
@@ -713,7 +724,18 @@ strip_redirections() {
 		wstart=$i
 	done
 	kept+=${s:keep}
-	printf '%s' "$kept"
+	STRIPPED=$kept
+}
+STRIPPED=''
+
+# TRUE when TEXT holds a non-space character but the parser handed back COUNT of nothing.
+# That combination is a defect in this script, never a property of the command: a blank
+# segment legitimately yields no words (`>/dev/null` is all redirection), and the two must
+# not share an exit path, because one of them means "checked, nothing to object to" and the
+# other means "not checked at all" (AMH ledger row DC002).
+parse_produced_nothing() { # <text> <count>
+	case $1 in *[![:space:]]*) [ "$2" -eq 0 ] && return 0 ;; esac
+	return 1
 }
 
 strip_quotes() { # sets UNQUOTED
@@ -733,10 +755,11 @@ UNQUOTED=''
 # rather than
 # from a file and are skipped; a digit prefix (`0<file`) is just an fd number and
 # needs no special case, since the `<` is what this scan looks for.
-redirect_targets() {
+redirect_targets() { # sets REDIRECT_TARGETS
 	local s=$1
 	local i=0 n=${#s} c q='' rest target
 	local wbase=0 wbuf='' wsafe=0
+	REDIRECT_TARGETS=()
 	case $s in *'<'*) ;; *) return 0 ;; esac
 	while [ "$i" -lt "$n" ]; do
 		if [ "$i" -ge "$wsafe" ]; then # windowed scan — see CHAR_WINDOW
@@ -761,7 +784,7 @@ redirect_targets() {
 				rest=${rest#"${rest%%[![:space:]]*}"}
 				target=${rest%%[[:space:];|&<>)(\`]*}
 				strip_quotes "$target"
-				[ -n "$UNQUOTED" ] && printf '%s\0' "$UNQUOTED"
+				[ -n "$UNQUOTED" ] && REDIRECT_TARGETS+=("$UNQUOTED")
 			fi
 			;;
 		esac
@@ -820,12 +843,15 @@ check_segment() {
 	# every one of those positions it used to shift or hide the word this guard judges. The
 	# `<`-target scan below deliberately reads `raw` instead: the redirection is exactly
 	# what it is looking for.
-	while IFS= read -r -d '' w; do words+=("$w"); done < <(split_words "$(strip_redirections "$raw")")
+	strip_redirections "$raw"
+	split_words "$STRIPPED"
+	words=(${SPLIT_WORDS[@]+"${SPLIT_WORDS[@]}"})
 
 	# A redirection reaches the same file a reader command would, from ANY command:
 	# `tr "\0" "\n" < /proc/self/environ` names no reader at all.
 	local target
-	while IFS= read -r -d '' target; do
+	redirect_targets "$raw"
+	for target in ${REDIRECT_TARGETS[@]+"${REDIRECT_TARGETS[@]}"}; do
 		if names_env_file "$target"; then
 			BLOCK_REASON="Redirecting from \`$target\` feeds credential values into the command (AMH P17). Check key presence instead, or ask the owner for a narrower evidence contract via the Owner queue."
 			return 1
@@ -834,7 +860,20 @@ check_segment() {
 			BLOCK_REASON="Redirecting from \`$target\` feeds private key material into the command (AMH P17). Check that the file exists, or read the public half (\`$target.pub\`), or ask the owner for a narrower evidence contract via the Owner queue."
 			return 1
 		fi
-	done < <(redirect_targets "$raw")
+	done
+
+	# A non-blank command that parses to NO words is a parser failure, not an empty
+	# command, and the two must never share an exit path. The scanners used to reach
+	# their word list through a process substitution, whose output arrived empty often
+	# enough on stock macOS Bash 3.2 to turn eighteen shipped fixtures red and green
+	# again on a re-run at the same commit (AMH ledger row DC002). An empty list took
+	# the `no words to judge` branch below and ALLOWED the command: a rail reporting a
+	# clean read of something it never read. The subshells are gone, and this arm is
+	# what makes their return visible instead of silent.
+	if parse_produced_nothing "$STRIPPED" "${#words[@]}"; then
+		BLOCK_REASON="The command guard could not parse this command: it has text but produced no words to judge. This is a defect in the guard, not a verdict about your command — nothing was checked, so nothing may be allowed on that basis. Report it with the command text; re-running will not help."
+		return 1
+	fi
 
 	# Strip leading variable assignments and transparent prefixes so that
 	# `env FOO=1 git push --force` is judged as a git command, not an env dump.
@@ -1080,7 +1119,8 @@ check_segment() {
 leading_command() {
 	local raw=$1 w i=0
 	local words=()
-	while IFS= read -r -d '' w; do words+=("$w"); done < <(split_words "$raw")
+	split_words "$raw"
+	words=(${SPLIT_WORDS[@]+"${SPLIT_WORDS[@]}"})
 	while [ "$i" -lt "${#words[@]}" ]; do
 		w=${words[$i]}
 		case $w in
@@ -1171,7 +1211,8 @@ is_destructive_segment() {
 	local raw=$1 w cmd recursive=1 force=1 descend=1 i=0
 	local words=()
 	local operands=() end_of_options=1
-	while IFS= read -r -d '' w; do words+=("$w"); done < <(split_words "$raw")
+	split_words "$raw"
+	words=(${SPLIT_WORDS[@]+"${SPLIT_WORDS[@]}"})
 	# Find the same leading command that leading_command reports, without treating
 	# later quoted prose or operands as commands.
 	while [ "$i" -lt "${#words[@]}" ]; do
@@ -1259,10 +1300,11 @@ is_destructive_command() {
 	# path sets is two decisions, and the advisory should be able to name both — stopping
 	# at the first match is how the dangerous half of `rm -rf tmp/x && rm -rf "$S/base"`
 	# would inherit the safe half's verdict.
-	while IFS= read -r -d '' seg; do
+	split_segments "$cmd"
+	for seg in ${SEGMENTS[@]+"${SEGMENTS[@]}"}; do
 		[ -n "${seg// /}" ] || continue
 		is_destructive_segment "$seg" && found=0
-	done < <(split_segments "$cmd")
+	done
 	return "$found"
 }
 
@@ -1305,7 +1347,8 @@ warn_ladder_tail() {
 	# output is piped to tail. Reuse the shell-ish segment and word scanners so quoted
 	# prose like a commit message stays data, not a warning.
 	cmd=$(strip_heredocs "$cmd")
-	while IFS= read -r -d '' seg; do
+	split_segments "$cmd"
+	for seg in ${SEGMENTS[@]+"${SEGMENTS[@]}"}; do
 		[ -n "${seg// /}" ] || continue
 		lead=$(leading_command "$seg") || { prev_ladder=0; continue; }
 		# split_segments treats the `&` in `2>&1` as an operator, yielding a bare
@@ -1317,7 +1360,7 @@ warn_ladder_tail() {
 			return 0
 		fi
 		case $lead in ladder.sh) prev_ladder=1 ;; *) prev_ladder=0 ;; esac
-	done < <(split_segments "$cmd")
+	done
 }
 
 check_command() {
@@ -1342,10 +1385,18 @@ check_command() {
 	fi
 	warn_ladder_tail "$cmd"
 	cmd=$(strip_heredocs "$cmd")
-	while IFS= read -r -d '' seg; do
+	split_segments "$cmd"
+	# Same fail-closed rule as check_segment's, one level up: a non-blank command that
+	# yields no segments has not been judged, and "no segments" must not read as "nothing
+	# to object to" (AMH ledger row DC002).
+	if parse_produced_nothing "$cmd" "${#SEGMENTS[@]}"; then
+		BLOCK_REASON="The command guard could not parse this command: it has text but produced no segments to judge. This is a defect in the guard, not a verdict about your command — nothing was checked, so nothing may be allowed on that basis. Report it with the command text; re-running will not help."
+		return 1
+	fi
+	for seg in ${SEGMENTS[@]+"${SEGMENTS[@]}"}; do
 		[ -n "${seg// /}" ] || continue
 		check_segment "$seg" || return 1
-	done < <(split_segments "$cmd")
+	done
 	return 0
 }
 
@@ -1404,6 +1455,50 @@ st_allowed() {
 		printf 'SELF-TEST FAIL: should have been ALLOWED WITHOUT WARNING: %s\n   warning given: %s\n' "$1" "$WARN_REASON" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	fi
+}
+st_parse_integration() { # st_parse_integration <parser to blind: words|segments>
+	# The predicate fixtures above pin a truth table; this one pins the WIRING, which is
+	# the part that actually changed. Blind one parser so it hands back an empty array for
+	# a command that must never be allowed, and require the guard to deny it AND to say the
+	# denial is its own defect. Against the pre-8.0.0 script the same blinding produced
+	# exit 0 — the fixture fails where the behaviour is absent, which is what earns it.
+	local saved rc
+	case $1 in
+	words)
+		saved=$(declare -f split_words)
+		split_words() { SPLIT_WORDS=(); }
+		;;
+	segments)
+		saved=$(declare -f split_segments)
+		split_segments() { SEGMENTS=(); }
+		;;
+	esac
+	check_command 'git push --force origin main'
+	rc=$?
+	eval "$saved"
+	if [ "$rc" -eq 0 ]; then
+		printf 'SELF-TEST FAIL: a blinded %s parser ALLOWED a force push\n' "$1" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+		return 0
+	fi
+	case $BLOCK_REASON in
+	*'could not parse'*) ;;
+	*)
+		printf 'SELF-TEST FAIL: a blinded %s parser blocked without naming the guard defect: %s\n' "$1" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+		;;
+	esac
+}
+st_parse_sanity() { # st_parse_sanity <expect: defect|normal> <text> <count>
+	local want=$1 text=$2 count=$3
+	if parse_produced_nothing "$text" "$count"; then
+		[ "$want" = defect ] && return 0
+		printf 'SELF-TEST FAIL: parse sanity called a normal parse a defect: text=%s count=%s\n' "$text" "$count" >&2
+	else
+		[ "$want" = normal ] && return 0
+		printf 'SELF-TEST FAIL: parse sanity missed a defect: text=%s count=%s\n' "$text" "$count" >&2
+	fi
+	ST_FAILS=$((ST_FAILS + 1))
 }
 st_dotenv_advisory_once() {
 	local state old_set old_state
@@ -1618,6 +1713,21 @@ self_test() {
 	self_destructive_advisory_state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-advisory-self-test.XXXXXX") || exit 1
 	rm -f -- "$self_destructive_advisory_state"
 	DESTRUCTIVE_ADVISORY_STATE=$self_destructive_advisory_state
+
+	# --- the parser's own failure is a BLOCK, never a pass
+	# A rail that hands back an empty word list has not judged the command, and until
+	# 8.0.0 that read as "nothing to object to". These pin the discriminator: text
+	# present + nothing parsed is a defect; blank text + nothing parsed is an ordinary
+	# empty segment (a segment that was all redirection, once stripped); anything parsed
+	# at all is normal. Neutering `parse_produced_nothing` to `return 1` fails the two
+	# `defect` rows, which is the demonstration that this fixture can fail.
+	st_parse_sanity defect 'git push --force origin main' 0
+	st_parse_sanity defect '  sudo rm -rf /  ' 0
+	st_parse_sanity normal '' 0
+	st_parse_sanity normal '   ' 0
+	st_parse_sanity normal 'git push --force origin main' 4
+	st_parse_integration words
+	st_parse_integration segments
 
 	# --- must block: the rails themselves
 	st_blocked 'git push --force origin feature'
