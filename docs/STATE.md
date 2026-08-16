@@ -35,7 +35,8 @@ This branch is **8.0.0** (MAJOR): the seed constitution states that it describes
 currently built, and adoption history now belongs in the ledger and the state changelog.
 
 Committed ledger rows are append-only, enforced against `HEAD` by a repo-local guard whose
-sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**.
+sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**. The live volume is
+`docs/LEDGER_C.md`, opened at the 8.0.0 rollover; `docs/LEDGER_B.md` is closed at **DB-040**.
 
 ## Owner queue
 
@@ -49,14 +50,32 @@ sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**.
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
 
-**OPEN — the push rail blocks a legal push that carries a redirection.** `git push -u origin
-session/x 2>&1` and `… >/dev/null` are both denied, with a reason that says the push "names
-another branch or leaves the ref implicit" — false of both. Redirection tokens survive into the
-segment the ref counter reads, so they count as extra refs; `&&` is handled correctly. This is
-the shape that teaches a session to route around a rail (**DB-030**). Check:
-`scripts/command-guard.sh --command 'git push -u origin session/x 2>&1'` exits 2 while the same
-command without `2>&1` exits 0. Not fixed here — it is a shipped-rail change with its own
-fixture and review pass.
+**OPEN — cap-hugging survived the anchor removal, which is the condition the inverted-gradient
+guard was declined pending.** Drafting **DC-001** this session went 874 bytes → 797 against an
+800-byte cap → 769, and the last step happened only because the owner named the reflex; the
+769 landing came from cutting process narrative, which is the compliant move, but the 797 one
+was shaving to fit. The 8.0.0 change (**DB-040**) removed thresholds from GREEN ladder output
+and it did work on the path it aimed at: no rung showed the cap. The anchor arrived anyway,
+because the row rule obliges the session to MEASURE the row against
+`LEDGER_ROW_CHAR_CAP`, and a measured length beside a known cap IS the anchor — a source no
+change to the ladder's output can reach, since the session builds it. The Decided non-item says
+to reopen on exactly this evidence. Options, none an agent's call because each reshapes what
+the ledger rule asks of every session: the declined top-decile warning (refused as a second
+number to hug, and this evidence does not answer that objection), a rule to draft the lesson
+and let the guard be the only measurer, or accept the reflex as the cost of a checkable cap.
+No `Check:` — the evidence is this session's drafts, which no command replays, and only the
+owner settles whether it earns a guard.
+
+**OPEN — an fd-duplicating redirection before the operands hides the command from every
+rail.** `split_segments` treats the `&` of `2>&1` as a segment operator, so `git 2>&1 push
+--mirror origin` splits into `git 2>` and `1 push --mirror origin`; the second segment leads
+with `1`, which is no command, and bash runs the push. Same for `2>&1 env`. It predates the
+8.0.0 redirection fix, which closed every other position, and it is recorded in the guard
+header's "does NOT catch" block rather than left implicit. Closing it means teaching
+`split_segments` that `N>&M` is one token — a change to the function every scanner in that
+script is built on, so it is its own unit with its own review pass. Check:
+`scripts/command-guard.sh --command 'git 2>&1 push --mirror origin'` exits 0 while
+`… --command 'git push --mirror origin'` exits 2.
 
 **OPEN — the macOS rail self-test is nondeterministic.** Run 31913987929 failed on
 `portability (macos-latest)` with 18 `should have been BLOCKED` cases — every private-key case
@@ -112,6 +131,13 @@ re-litigate from.
   file, and the advisory tier is the answer instead — **DB-027**.
 
 ## Changelog
+
+- 2026-08-16 — **Redirections are stripped before the command guard judges any word (8.0.0,
+  same release).** Closed the queue item's false denial of `git push … 2>&1`, and — found by
+  the mandatory pass, not by the report — two silent bypasses as old as the rails themselves:
+  a redirection between `git` and `push` hid `--force` and `--mirror`, one before the command
+  word hid the command. Thirteen fixtures, each shown to fail against a broken implementation.
+  One miss stays open below. The ledger rolled over to `docs/LEDGER_C.md`. **DC-001**.
 
 - 2026-08-15 — **Green verdicts stopped printing thresholds (8.0.0, same release).** The size
   line reports the measurement, the landing line reports bytes clear of the floor, and the

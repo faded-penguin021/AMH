@@ -56,6 +56,14 @@
 #     coverage the self-test asserts.
 #   * CONSTRUCTED AND ENCODED COMMANDS. `eval`, base64/hex payloads decoded at runtime,
 #     and any command assembled from variables are text at scan time, not commands.
+#   * AN fd-DUPLICATING REDIRECTION BEFORE THE OPERANDS. Redirections are removed before
+#     any word is judged, in every position — but `split_segments` treats the `&` of
+#     `2>&1` as a segment operator, so `git 2>&1 push --mirror origin` is split into `git
+#     2>` and `1 push --mirror origin`, and the second segment leads with `1`, which is no
+#     command. Bash still runs the push. `2>&1` written AFTER the operands, the common
+#     form, is judged normally; only a dup placed before them hides what follows. Closing
+#     it means teaching the splitter that `N>&M` is one token, which is a change to the
+#     function every scanner here is built on.
 #   * HEREDOCS AND LONG LINES. `cmd <<EOF` hides its body until the delimiter, and the
 #     window-based scanners give up past `CHAR_LOOKAHEAD` characters — a variable name or
 #     redirection target longer than the window is not classified.
@@ -620,6 +628,94 @@ split_words() {
 	return 0
 }
 
+# Remove REDIRECTIONS from a segment, leaving the words the shell would actually hand the
+# command. Redirections are syntax, not arguments, and a scanner that reads word lists
+# counts them as operands anyway: the push rail read `git push -u origin session/x 2>&1` as
+# naming two refs and denied a legal push with a reason — "names another branch or leaves
+# the ref implicit" — that was false of the command in front of it. A rail demonstrably
+# wrong about what it just read is worse than one that never looked, so this runs before
+# any word is judged (AMH ledger row DC001).
+#
+# POSITION, not presence, and the same three disciplines the scanners above are built on:
+#
+#   * Quoted text is DATA. `git push origin session/x '2>' x` passes bash a literal `2>`
+#     argument, so removing it here would hide a word the command really receives — the
+#     AMH ledger row D007 class, arriving one layer down.
+#   * An fd number glued to the operator is syntax (`2>err`), but any other word prefix is
+#     a word bash still passes on: `abc2>err` hands the command `abc2`. Only an all-digit
+#     prefix is eaten.
+#   * A bare operator claims the NEXT word (`> /dev/null`, and the `2>` that
+#     `split_segments` leaves behind when it consumes the `&` of `2>&1`); an operator with
+#     a target glued on claims nothing further.
+#
+# Slices, never accumulates: the copy is one append per redirection removed, not one per
+# character (see `split_segments` on the quadratic shape this avoids).
+strip_redirections() {
+	local s=$1
+	case $s in *'<'* | *'>'*) ;; *) printf '%s' "$s"; return 0 ;; esac
+	local i=0 n=${#s} c q='' kept='' keep=0 wstart=0 cut
+	while [ "$i" -lt "$n" ]; do
+		c=${s:i:1}
+		if [ -n "$q" ]; then
+			[ "$c" = "$q" ] && q=''
+			i=$((i + 1))
+			continue
+		fi
+		case $c in
+		"'" | '"')
+			q=$c
+			i=$((i + 1))
+			continue
+			;;
+		\\)
+			i=$((i + 2))
+			continue
+			;;
+		' ' | $'\t')
+			i=$((i + 1))
+			wstart=$i
+			continue
+			;;
+		'<' | '>') ;;
+		*)
+			i=$((i + 1))
+			continue
+			;;
+		esac
+		# A redirection starts here. Cut from the fd number when the whole word so far is
+		# one, and from the operator otherwise.
+		cut=$i
+		case ${s:wstart:i-wstart} in
+		'' | *[!0-9]*) ;;
+		*) cut=$wstart ;;
+		esac
+		while :; do case ${s:i:1} in '<' | '>') i=$((i + 1)) ;; *) break ;; esac done
+		# `>&2` carries its own target; only a bare operator reaches across the space.
+		case ${s:i:1} in '&') i=$((i + 1)) ;; esac
+		case ${s:i:1} in ' ' | $'\t') while :; do case ${s:i:1} in ' ' | $'\t') i=$((i + 1)) ;; *) break ;; esac done ;; esac
+		# The target word, quotes respected — a redirection to `my file` is one word.
+		while [ "$i" -lt "$n" ]; do
+			c=${s:i:1}
+			if [ -n "$q" ]; then
+				[ "$c" = "$q" ] && q=''
+				i=$((i + 1))
+				continue
+			fi
+			case $c in
+			"'" | '"') q=$c ;;
+			\\) i=$((i + 1)) ;;
+			' ' | $'\t') break ;;
+			esac
+			i=$((i + 1))
+		done
+		kept+=${s:keep:cut-keep}
+		keep=$i
+		wstart=$i
+	done
+	kept+=${s:keep}
+	printf '%s' "$kept"
+}
+
 strip_quotes() { # sets UNQUOTED
 	UNQUOTED=$1
 	UNQUOTED=${UNQUOTED%\"}
@@ -718,7 +814,13 @@ copies_env_operand() {
 check_segment() {
 	local raw=$1
 	local words=() i=0 w
-	while IFS= read -r -d '' w; do words+=("$w"); done < <(split_words "$raw")
+	# Judge the words bash would pass, not the redirections around them. A redirection can
+	# sit ANYWHERE — before the command word (`>/dev/null printenv`), between a command and
+	# its subcommand (`git >/dev/null push origin main`), or after the operands — and in
+	# every one of those positions it used to shift or hide the word this guard judges. The
+	# `<`-target scan below deliberately reads `raw` instead: the redirection is exactly
+	# what it is looking for.
+	while IFS= read -r -d '' w; do words+=("$w"); done < <(split_words "$(strip_redirections "$raw")")
 
 	# A redirection reaches the same file a reader command would, from ANY command:
 	# `tr "\0" "\n" < /proc/self/environ` names no reader at all.
@@ -1715,6 +1817,44 @@ printenv'
 	st_blocked "git push origin $BRANCH_PREFIX/x:refs/heads/work"
 	st_blocked "git push --delete origin $BRANCH_PREFIX/x"
 	st_blocked "git push origin :$BRANCH_PREFIX/x"
+	# A redirection is syntax, not a second ref. Every one of these names ONE session
+	# branch, and the shipped rail denied all of them for naming another (AMH ledger row
+	# DC001) — the glued-on target, the detached one, and the `2>` that `split_segments`
+	# leaves behind when it consumes the `&` of `2>&1`.
+	st_allowed "git push -u origin $BRANCH_PREFIX/x 2>&1"
+	st_allowed "git push -u origin $BRANCH_PREFIX/x >/dev/null"
+	st_allowed "git push -u origin $BRANCH_PREFIX/x > /dev/null 2>&1"
+	st_allowed "git push -u origin $BRANCH_PREFIX/x >>push.log"
+	st_allowed "git push -u origin $BRANCH_PREFIX/x 2>err.log"
+	# An option argument is not a refspec either, and a redirection standing between an
+	# option and its argument must not shift the words after it.
+	st_allowed "git push -o >/dev/null ci.skip origin $BRANCH_PREFIX/x"
+	# ...and dropping the syntax must not drop the words around it. Each of these is
+	# discriminating: a skip that always swallowed the following word would let the force
+	# push and the second refspec through, and the suite would stay green on the allow
+	# cases above.
+	st_blocked "git push -u origin >/dev/null --force $BRANCH_PREFIX/x"
+	st_blocked "git push -u origin >/dev/null $BRANCH_PREFIX/x $BRANCH_PREFIX/y"
+	st_blocked "git push -u origin >/dev/null $DEFAULT_BRANCH"
+	st_blocked "git push -u origin 2>&1"
+	# A redirection between the command and its SUBCOMMAND hid the push from every check
+	# above: bash hands git `push origin <default>` either way. Any position, one rule.
+	st_blocked "git >/dev/null push origin $DEFAULT_BRANCH"
+	st_blocked "git 2>err.log push --force origin $BRANCH_PREFIX/x"
+	# ...and a redirection before the command word hid the command itself, from EVERY rail.
+	st_blocked '>/dev/null printenv'
+	st_blocked ">/dev/null git push origin $DEFAULT_BRANCH"
+	# A QUOTED operator is a literal argument bash really passes, so it is a word, not
+	# syntax — the AMH ledger row D007 class one layer down. Treating it as syntax would
+	# swallow the word after it, which is `--force` here.
+	st_blocked "git push -u origin $BRANCH_PREFIX/x '2>' --force"
+	st_blocked "git push -u origin $BRANCH_PREFIX/x '>' $DEFAULT_BRANCH"
+	# An fd number is syntax; any other word prefix is a word bash passes on (`abc2>err`
+	# hands the command `abc2`), so the operand is still judged.
+	st_blocked "git push -u origin $BRANCH_PREFIX/x abc2>/dev/null"
+	# Prose about a redirection is prose, in the file this guard is likeliest to be
+	# described in.
+	st_allowed 'git commit -m "use > to redirect, and read the 2> form"'
 	st_allowed "git push -o ci.skip origin $BRANCH_PREFIX/x"
 	st_allowed "git push --receive-pack git-receive-pack origin $BRANCH_PREFIX/x"
 	st_allowed 'env FOO=1 make test'

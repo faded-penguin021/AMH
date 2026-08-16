@@ -73,13 +73,33 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   second threshold to hug, and P3/P20 say a guard accretes after a real incident rather than
   ahead of one. Removing the anchor is the cheaper intervention and is what shipped; if the
   behaviour survives it, that is the incident the guard would then have earned.
+- **Redirections are removed before the command guard judges any word — fixing both a false
+  denial and a silent bypass.** `git push -u origin session/x 2>&1` and `… >/dev/null` were
+  BLOCKED with a reason, "this push names another branch or leaves the ref implicit", that was
+  false of both: redirection words survived into the word list the refspec counter reads. The
+  mandatory review pass then found the same class running the other way, and worse. A
+  redirection between a command and its subcommand made `git >/dev/null push origin <default>`,
+  `git >/dev/null push --force …` and `git 2>err.log push --mirror origin` return **allowed**,
+  because the loop looking for the `push` subcommand stopped at the redirection; one before the
+  command word hid the command from every rail, so `>/dev/null printenv` passed too. Both are
+  as old as those rails. A quote-aware strip now runs before any word is judged, so position no
+  longer matters, and quoting is respected in the direction that counts: a literal `'2>'`
+  argument is a word bash really passes, not syntax, and the word behind it is still judged.
+  Thirteen new fixtures, each demonstrated to fail against a broken implementation rather than
+  merely to pass against this one. **One accepted miss is documented rather than fixed**: an
+  fd-duplicating redirection placed BEFORE the operands (`git 2>&1 push --mirror origin`)
+  splits the segment at the `&` and hides what follows. It predates this change, it is now in
+  the guard header's "does NOT catch" block, and closing it means changing the segment splitter
+  every scanner is built on.
 
 ### Upgrading
 
 1. Copy the shipped scripts and the regenerated manifest. `ladder.sh` and
    `test-ladder-guards.sh` changed — green verdicts no longer print thresholds, and three new
-   fixtures pin that. No threshold, config key or exit code changed, and no verdict changed:
-   every run that passed before still passes.
+   fixtures pin that. **`command-guard.sh` changed in a way that changes verdicts** — take it
+   before the others if you take nothing else: pushes that redirect their output are no longer
+   denied, and commands that hid behind a redirection (`git >/dev/null push --force …`,
+   `>/dev/null printenv`) are no longer allowed. No threshold, config key or exit code changed.
 2. **Expect your green ladder output to read differently**, and do not treat it as information
    lost. `8 KB (soft cap 14 KB, hard 16 KB)` becomes `8 KB, within the band`; a completed
    compression landing reports bytes clear of the floor; the ledger rung lists each new row's

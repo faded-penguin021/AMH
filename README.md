@@ -205,6 +205,7 @@ docs/
   LEDGER.md          permanent memory: append-only D-NNN rows
   LEDGER_A.md        continuation volumes, capped by line count; STATE names the live one
   LEDGER_B.md
+  LEDGER_C.md
   UPGRADING.md       for an adopting repo moving to a newer harness version
   history/           frozen archive: completed plans and other documents retired whole
   plans/             active multi-session build plans (absent when none is active)
