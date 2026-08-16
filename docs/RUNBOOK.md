@@ -472,17 +472,21 @@ CI invokes this exact script, so there is no hand-maintained lockstep between wh
 runs and what CI runs. `--guards-only` covers docs-only changes in seconds.
 
 **What the working-memory size rung prints — and what it deliberately does not.** It names
-whichever of `STATE_WARN_KB`, `STATE_COMPRESS_TO_KB` and `STATE_HARD_KB` a verdict **turns on**,
+whichever of `STATE_WARN_KB`, the two compression-floor keys and `STATE_HARD_KB` a verdict **turns on**,
 and nothing on a verdict that turns on none: the hard cap and the floor on the hard-cap fail, the
 soft cap and the floor on the over-cap warn, the floor on each landing fail, and **no threshold at
 all** on the plain `ok`, which reports the file's size and stops. The landing `ok` likewise
-reports the bytes **clear of the floor** rather than the floor — a measurement, not a score, since
-a file gutted to stubs prints a large one and passes. This is 8.0.0's change and it reverses part
+reports how far **clear of the floor** it landed, in bytes and in sentences, rather than the
+floor — a measurement, not a score, since a file gutted to stubs prints a large one and passes.
+Read the units off those verdicts rather than assuming one: the caps are byte sizes, and the
+floor is a byte size AND a sentence count that a landing satisfies together, because the caps
+say WHEN to compress while the floor is what a session writes toward (**DC-003**). This is 8.0.0's change and it reverses part
 of what 5.2.1 said:
 that release was cut to record that the landing line names the floor, which was true and is now
 deliberately not, because the anchor turned out to cost more than the description bought
 (**DB-040**). Every verdict that does print a configured value prints it **verbatim**; only the
-landing lines add arithmetic, working in bytes where the key is in KB. A printed number is still
+landing lines add arithmetic — in bytes where the size keys are in KB, and in sentences beside
+it. A printed number is still
 never a value to copy into prose — quoting one back makes a fourth copy of a config key, the
 drift class **DB-022** names and no guard here catches (**DB-025**) — and the source to read a
 threshold from is `amh.conf`, which is now the answer for every threshold on a green run rather

@@ -26,15 +26,22 @@
 > **Search before appending.** Grep ALL volumes for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes DB-NNN") and the old row gets a correction pointer, never deletion.
-> **Keep new rows concise and at or below `LEDGER_ROW_CHAR_CAP`.** The cap is a maximum, not a
-> target: write only the durable lesson, even when that takes far less space; do not draft a
-> narrative and shave it toward the cap. Put larger narratives in `docs/history/` and link them
-> from the `docs/STATE.md` changelog.
+> **Keep new rows concise and at or below `LEDGER_ROW_SENTENCE_CAP`.** The working limit counts
+> SENTENCES (**DC-003**), which is what stops "a maximum, not a target" depending on restraint:
+> a draft over it cannot be reworded into compliance, only shortened by a whole sentence. It is
+> not a claim that the count cannot be gamed — repunctuating would move it — which is why the
+> `LEDGER_ROW_CHAR_CAP` backstop stays underneath and a row satisfies both. Write only the
+> durable lesson, even when that takes far less space; do not draft a narrative and shave it
+> toward the cap, because shaving buys nothing here. Put larger narratives in `docs/history/`
+> and link them from the `docs/STATE.md` changelog.
 >
 > **File cap & rollover.** This file holds at most `LEDGER_LINE_CAP` lines from `amh.conf` (the
 > cap bounds LINES, not rows — it is read cost that is being bounded). New rows are capped by
-> `LEDGER_ROW_CHAR_CAP`; the guard counts bytes under `LC_ALL=C` for a locale-stable result, so
-> ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. Neither
+> `LEDGER_ROW_SENTENCE_CAP`, and beneath that by `LEDGER_ROW_CHAR_CAP`; the guard counts bytes
+> under `LC_ALL=C` for a locale-stable result, so ASCII text is one byte per character and
+> non-ASCII UTF-8 is charged by encoded bytes. The byte cap is a backstop against sentences that
+> run away and sits far above where a compliant row lands — if it fires, the row is a narrative
+> and belongs in `docs/history/`, not in tighter wording. Neither
 > value is restated here as a number, and neither should be: nothing checks preamble prose
 > against `amh.conf`, and the 5.0.0 cap change left three volume preambles contradicting the
 > guard (**DB-022**). The ladder quotes a value in the verdict that TURNS ON it — a rejection must say what it rejected against — and a green run deliberately quotes neither, because the number a clean run shows you is the number the next row is drafted toward (**DB-040**). Read both from `amh.conf`. Rows already committed when checked are historical and exempt. The final row may
@@ -101,3 +108,16 @@
   than a per-call coin flip. Removing the subshells is the repair. The fail-closed arms are a
   tripwire for the next transport, unreachable against these parsers by construction, which is
   the honest claim for them.
+
+- DC-003 [cited]: **A limit an agent writes toward needs a second unit, because one unit is
+  always cheap to satisfy.** The state floor and the new-row cap were byte thresholds, and both
+  produced the same reflex: a draft over the line got trimmed word by word until it fit, landing
+  7 bytes under the floor in one instance and going 874 to 797 against an 800-byte cap in
+  another. Removing the number from green output (**DB-040**) could not reach it, because a
+  session measures its own draft against a cap it read from `amh.conf` — the anchor is the cap,
+  not the report of it. Counting sentences kills the shave, since the smallest edit that moves
+  that count deletes a whole sentence; the review pass then showed a sentence floor alone is
+  just as cheap to satisfy in the other direction, rewriting `. T` to `; t` across this state
+  file from 85 sentences to 41 while freeing no byte at all. So an aim-point is bounded in both
+  units and a landing satisfies both, each blocking the move that fools the other, while bytes
+  still stand alone where nobody drafts: the soft and hard caps, and the edit delta.

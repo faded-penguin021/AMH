@@ -22,8 +22,9 @@ Two kinds:
 | `MERGE_MODE_KEY` | init | `branch-per-change` or `branch-train`. |
 | `MERGE_MODE` | you | The prose sentence in the constitution describing the chosen merge mode and what it obliges. |
 | `REMOTE_FLAG` | init | Environment variable that marks a remote container, e.g. `AMH_REMOTE`. The bootstrap runs toolchain setup only when it is `1`. |
-| `COMPRESS_TO_KB` | init | The state file's compression floor. |
-| `WARN_KB` | init | The state file's soft cap. Must exceed the floor by many sessions of growth — the band IS the debounce. |
+| `COMPRESS_TO_KB` | init | The state file's compression floor in bytes. Half of the floor: it is what makes a punctuation rewrite pointless. |
+| `COMPRESS_TO_SENTENCES` | init | The state file's compression floor in sentences. The other half: it is what makes shaving words pointless. A landing satisfies both. |
+| `WARN_KB` | init | The state file's soft cap, in bytes. Leave many sessions of growth above where the floor lands — the band IS the debounce. |
 | `HARD_KB` | init | The state file's hard cap. Leave one long session of margin above the soft cap. |
 | `LINE_CAP` | init | Line cap per ledger file, after which the next volume opens. |
 | `CITATION_SCAN_PATHS` | init | Source trees scanned for `D-NNN` citations. Code and workflows only. |

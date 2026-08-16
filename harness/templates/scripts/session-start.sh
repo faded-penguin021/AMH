@@ -31,6 +31,7 @@ RELEASE_TAG_PREFIX=''
 STATE_FILE=docs/STATE.md
 STATE_WARN_KB=14
 STATE_COMPRESS_TO_KB=9
+STATE_COMPRESS_TO_SENTENCES=50
 REMOTE_FLAG=AMH_REMOTE
 # Both empty by default, which switches the runtime-inventory lines off entirely. Same
 # reasoning as MERGE_MODE and the release keys above: an adopter's amh.conf is theirs forever
@@ -232,7 +233,7 @@ if [ -f "$STATE_FILE" ]; then
 	warn_b=$((STATE_WARN_KB * 1024))
 	printf '· %s: %s KB of %s KB soft cap\n' "$STATE_FILE" "$((bytes / 1024))" "$STATE_WARN_KB"
 	if [ "$bytes" -gt "$warn_b" ]; then
-		say "    ⚠ over the soft cap — run ONE deep compression pass to ≤ ${STATE_COMPRESS_TO_KB} KB before adding to it."
+		say "    ⚠ over the soft cap — run ONE deep compression pass to ≤ ${STATE_COMPRESS_TO_KB} KB AND ≤ ${STATE_COMPRESS_TO_SENTENCES} sentences before adding to it."
 	fi
 else
 	say "· ⚠ $STATE_FILE is missing — working memory is where every session starts."

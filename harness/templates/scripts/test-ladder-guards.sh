@@ -145,6 +145,7 @@ mk() { # mk <name> -> prints the fixture path
 		REMOTE_FLAG=AMH_REMOTE
 		STATE_FILE=docs/STATE.md
 		STATE_COMPRESS_TO_KB=9
+		STATE_COMPRESS_TO_SENTENCES=50
 		STATE_WARN_KB=14
 		STATE_HARD_KB=16
 		STATE_EDIT_DELTA_BYTES=1024
@@ -153,7 +154,8 @@ mk() { # mk <name> -> prints the fixture path
 		LEDGER_DIR=docs
 		LEDGER_BASENAME=LEDGER
 		LEDGER_LINE_CAP=800
-		LEDGER_ROW_CHAR_CAP=800
+		LEDGER_ROW_SENTENCE_CAP=6
+		LEDGER_ROW_CHAR_CAP=2000
 		CITATION_SCAN_PATHS='scripts'
 		CITATION_EXCLUDE=''
 		POISON_TOKENS='[skip ci]'
@@ -553,17 +555,70 @@ state_bytes() { # <dir> <bytes> — leaves docs/STATE.md exactly <bytes> long
 	fi
 }
 
+# Countable sentences for the branches whose verdict turns on the floor. One per line,
+# each terminator followed by the next line's capital once the counter joins them.
+state_sentences() { # <n> — n sentences of fixture prose on stdout
+	local i=0
+	while [ "$i" -lt "$1" ]; do
+		printf 'Fixture sentence %s states a durable lesson and stops. \n' "$i"
+		i=$((i + 1))
+	done
+}
+
 # Branch 1 — a shrink that crosses from above the soft cap to below it must reach the
 # floor, not stop in the debounce band. This is the Goodhart hole the size thresholds
 # alone leave, and the branch split must not reopen it.
-d=$(mk state_landing_bad)
-state_bytes "$d" $((15 * 1024))
-(cd "$d" && git commit -qam "grow past the soft cap")
-head -c $((11 * 1024)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
+#
+# The floor is two conditions, so this branch takes three fixtures: one for each cheap move
+# that satisfies one condition while removing nothing, and one for a real pass. They share
+# a construction — a committed file of N sentences padded past the soft cap — so the
+# "compressed" file below is genuinely the committed one with words taken out of it, which
+# is what makes the word MICRO-TRIM in the first fixture's name true of what it does.
+state_grown() { # <dir> <sentences> — commit a file of <sentences> sentences past the cap
+	cp "$1/docs/STATE.md" "$1/base.md"
+	{ state_sentences "$2"; } >>"$1/docs/STATE.md"
+	cp "$1/docs/STATE.md" "$1/sentences.md"
+	state_bytes "$1" $((15 * 1024))
+	(cd "$1" && git commit -qam "grow past the soft cap")
+}
+
+# THE MICRO-TRIM CASE. The committed file carries 60 sentences and 15 KB; the landing keeps
+# every one of those sentences and throws away 14 KB of the padding around them. That is
+# the reflex in its purest form — a 93% cut by bytes, removing no content — and the byte
+# floor alone passed it, which is why the sentence floor stands beside it.
+d=$(mk state_landing_micro_trim)
+state_grown "$d" 60
+cp "$d/sentences.md" "$d/docs/STATE.md"
 # Greps branch 1's OWN wording, not the "stops short" both failing branches share: with the
 # shared phrase, rewriting branch 1's message in branch 3's words left the suite green, so
 # the fixture could not tell which branch had fired.
 expect_fail "micro-trim that crosses below the cap but misses the floor fails" "$d" "crossed below the soft cap but stops short"
+
+# THE REPUNCTUATION CASE, which is the same defect through the other floor. The body is
+# joined onto one line and every `. F` boundary rewritten to `; f`, so the sentence count
+# collapses to nearly nothing while not one byte is freed. Sized to sit BETWEEN the byte
+# floor and the soft cap, so the sentence half of the condition is satisfied and only the
+# byte half can reject it: delete that half and this fixture goes green.
+d=$(mk state_landing_repunctuated)
+state_grown "$d" 60
+{ cat "$d/base.md"; state_sentences 200 | tr '\n' ' ' | sed 's/\.  *F/; f/g'; } >"$d/docs/STATE.md"
+expect_fail "collapsing the sentence count without freeing bytes fails" "$d" "crossed below the soft cap but stops short"
+
+# The real pass, and the pair that proves the floors come from the config rather than from
+# constants: the same landing that fails above passes once both floors admit it.
+d=$(mk state_landing_floor_from_config)
+state_grown "$d" 60
+cp "$d/sentences.md" "$d/docs/STATE.md"
+sed_in_place 's/^STATE_COMPRESS_TO_SENTENCES=.*/STATE_COMPRESS_TO_SENTENCES=70/' "$d/amh.conf"
+sed_in_place 's/^STATE_COMPRESS_TO_KB=.*/STATE_COMPRESS_TO_KB=14/' "$d/amh.conf"
+expect_pass_saying "the configured floors decide the landing" "$d" "clear of the floor"
+
+# A malformed floor must be loud and must not silently decide the branch — the same
+# contract the edit delta below has, and for the same reason.
+d=$(mk state_floor_malformed)
+sed_in_place 's/^STATE_COMPRESS_TO_SENTENCES=.*/STATE_COMPRESS_TO_SENTENCES=9KB/' "$d/amh.conf"
+expect_warn "a malformed compression floor warns and falls back rather than deciding quietly" "$d" \
+	"is not a positive sentence count"
 
 # Branch 3 — the same hole one band higher: a compression pass that never crosses below
 # the cap. If the check only fired on a crossing, grow-to-15.5 / trim-to-14.2 would
@@ -613,16 +668,17 @@ state_bytes "$d" $((15 * 1024))
 head -c $((15 * 1024 - 100)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
 expect_warn "a malformed delta warns and falls back rather than deciding quietly" "$d" "is not a positive byte count"
 
+# A real compression pass: the sentences go WITH the bytes, which is the only move that
+# satisfies both floors at once.
 d=$(mk state_landing_good)
-state_bytes "$d" $((15 * 1024))
-(cd "$d" && git commit -qam "grow past the soft cap")
-head -c $((5 * 1024)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
+state_grown "$d" 60
+{ cat "$d/base.md"; state_sentences 2; } >"$d/docs/STATE.md"
 expect_pass "compression landing on the floor passes" "$d"
-# Landing well under the floor reports the HEADROOM, and the gradient it teaches is the
-# whole point: this fixture lands 4 KB clear, and a line that answered "at or under the
-# 9216-byte floor" would read identically for a landing 1 byte clear.
+# Landing well under the floor reports the HEADROOM in both units, and the gradient it
+# teaches is the whole point: a line that answered "at or under the floor" would read
+# identically for a landing one sentence clear.
 expect_pass_saying "the landing line reports how far clear of the floor it landed" "$d" \
-	"bytes clear of the floor"
+	"clear of the floor"
 
 # --- Anti-anchor: a green verdict names no threshold ------------------------
 # Two reported Goodhart failures, one shape: the number a clean run prints becomes the
@@ -732,28 +788,134 @@ expect_fail "the rollover FAILURE reports the size too — that is the branch th
 	"KB), past the 4-line cap"
 
 
-d=$(mk ledger_row_char_under_cap)
-sed_in_place 's/^LEDGER_ROW_CHAR_CAP=800/LEDGER_ROW_CHAR_CAP=120/' "$d/amh.conf"
-printf -- '- D-003: short enough.\n' >>"$d/docs/LEDGER.md"
-expect_pass_saying "a concise new ledger row reports its own length, not the cap" "$d" \
-	"checked 1 new ledger row(s) — D-003="
-expect_pass_not_saying "a green ledger-row verdict does not re-state the row cap" "$d" \
-	"LEDGER_ROW_CHAR_CAP" "checked 1 new ledger row(s) — D-003="
+# The row caps. Every `sed` below matches `^KEY=` rather than the shipped value, so a
+# default that moves cannot turn a substitution into a silent no-op.
+d=$(mk ledger_row_under_cap)
+sed_in_place 's/^LEDGER_ROW_SENTENCE_CAP=.*/LEDGER_ROW_SENTENCE_CAP=3/' "$d/amh.conf"
+printf -- '- D-003: **Short enough.** Two sentences, and it stops.\n' >>"$d/docs/LEDGER.md"
+expect_pass_saying "a concise new ledger row reports its own sentence count, not the cap" "$d" \
+	"checked 1 new ledger row(s) — D-003=2 sentence(s)"
+expect_pass_not_saying "a green ledger-row verdict re-states neither row cap" "$d" \
+	"LEDGER_ROW_SENTENCE_CAP|LEDGER_ROW_CHAR_CAP|[0-9]+ byte" "checked 1 new ledger row(s) — D-003="
 
+# What the counter treats as a sentence boundary, pinned where an author can see it. Each
+# of these fixtures dies if ONE branch of the regex is removed, which the first draft of
+# this block did not manage: its `e.g.` was followed by a lowercase word, so the
+# abbreviation fold it claimed to pin was never reached and deleting the fold left the
+# suite green.
+#
+# Closers: markup and punctuation stand between the terminator and the space. Two fixtures,
+# because a single one using `**` leaves every other member of the class deletable — the
+# closer class shrank to `[*]*` and the suite stayed green until the quote case joined it.
+d=$(mk ledger_row_counting_closer)
+printf -- '- D-003: **Bold ends a sentence.** And a second one follows it.\n' >>"$d/docs/LEDGER.md"
+expect_pass_saying "a bold closer ends a sentence" "$d" "D-003=2 sentence(s)"
+
+d=$(mk ledger_row_counting_closer_quote)
+printf -- '- D-003: The rail said "it stops here." Then the row states its lesson.\n' >>"$d/docs/LEDGER.md"
+expect_pass_saying "a closing quote ends a sentence" "$d" "D-003=2 sentence(s)"
+
+# Openers other than a capital. Shrink the opener class to [A-Z] and this reads 1.
+d=$(mk ledger_row_counting_opener)
+# shellcheck disable=SC2016 # the backticks are markdown in the row's text, not a substitution
+printf -- '- D-003: A first sentence ends here. `split_words` opens the second one.\n' >>"$d/docs/LEDGER.md"
+expect_pass_saying "a backticked identifier opens a sentence" "$d" "D-003=2 sentence(s)"
+
+# The abbreviation fold, with a CAPITAL after `e.g.` so the terminator regex would split
+# there if the fold were gone. Delete either gsub and this reads 3.
+d=$(mk ledger_row_counting_abbrev)
+printf -- '- D-003: One sentence, e.g. This clause and i.e. That one stay inside it. A second sentence closes.\n' >>"$d/docs/LEDGER.md"
+expect_pass_saying "e.g. and i.e. do not end a sentence even before a capital" "$d" \
+	"D-003=2 sentence(s)"
+
+# A count that cannot be produced at all is a FAILURE, never a quiet pass. The row is fine;
+# awk is what is missing, and the rung must say it judged nothing rather than print a
+# green line with a blank number in it.
+# The stub fails ONLY the sentence counter's program — matched on a string unique to it —
+# and passes every other awk call through. Hiding awk entirely was the blunt version and it
+# tests something else: half the ladder dies, the row rung never runs, and the arm under
+# test is never reached. A fixture has to fail for its own reason.
+d=$(mk ledger_row_counting_hollow)
+printf -- '- D-003: **Short.** It stops.\n' >>"$d/docs/LEDGER.md"
+mkdir -p "$d/stub-bin"
+real_awk=$(command -v awk)
+cat >"$d/stub-bin/awk" <<STUB
+#!/bin/sh
+case "\$*" in *'buf = buf "X"'*) exit 3 ;; esac
+exec $real_awk "\$@"
+STUB
+chmod +x "$d/stub-bin/awk"
+out=$(cd "$d" && env PATH="$d/stub-bin:$PATH" scripts/ladder.sh --guards-only 2>&1)
+rc=$?
+if [ "$rc" -ne 0 ] && grep -qF "judged NOTHING" <<<"$out"; then
+	report ok "a sentence count that cannot be produced fails loudly"
+else
+	report no "a sentence count that cannot be produced fails loudly" "rc=$rc" "$out"
+fi
+
+# The other half of hollow, and the one an exit status cannot catch: awk SUCCEEDS and
+# prints nothing. Without the non-numeric check the empty string reaches `[ "" -gt 6 ]`,
+# which writes an error to stderr and takes the else branch — a green rung reporting a
+# count nobody produced.
+d=$(mk ledger_row_counting_empty)
+printf -- '- D-003: **Short.** It stops.\n' >>"$d/docs/LEDGER.md"
+mkdir -p "$d/stub-bin"
+real_awk=$(command -v awk)
+cat >"$d/stub-bin/awk" <<STUB
+#!/bin/sh
+case "\$*" in *'buf = buf "X"'*) exit 0 ;; esac
+exec $real_awk "\$@"
+STUB
+chmod +x "$d/stub-bin/awk"
+out=$(cd "$d" && env PATH="$d/stub-bin:$PATH" scripts/ladder.sh --guards-only 2>&1)
+rc=$?
+if [ "$rc" -ne 0 ] && grep -qF "judged NOTHING" <<<"$out"; then
+	report ok "a sentence counter that succeeds and prints nothing fails loudly"
+else
+	report no "a sentence counter that succeeds and prints nothing fails loudly" "rc=$rc" "$out"
+fi
+
+# The micro-trim case, as a fixture rather than as advice. The same three sentences twice,
+# once stated at length and once shaved to a third of the bytes: under a byte cap the
+# second draft bought compliance, and under the sentence cap neither does. A row loses a
+# whole sentence or it does not pass.
+d=$(mk ledger_row_sentences_over_cap)
+sed_in_place 's/^LEDGER_ROW_SENTENCE_CAP=.*/LEDGER_ROW_SENTENCE_CAP=2/' "$d/amh.conf"
+printf -- '- D-003: **A finding that took three sentences to state.** The second sentence carries narrative nobody will need again. The third repeats it at greater length still.\n' >>"$d/docs/LEDGER.md"
+expect_fail "a new ledger row over the sentence cap fails" "$d" \
+	"over LEDGER_ROW_SENTENCE_CAP=2"
+
+d=$(mk ledger_row_sentences_shaved)
+sed_in_place 's/^LEDGER_ROW_SENTENCE_CAP=.*/LEDGER_ROW_SENTENCE_CAP=2/' "$d/amh.conf"
+printf -- '- D-003: **A finding.** The narrative. It repeats.\n' >>"$d/docs/LEDGER.md"
+expect_fail "shaving that row to a third of its bytes buys nothing" "$d" \
+	"over LEDGER_ROW_SENTENCE_CAP=2"
+
+# The sentence cap is read from the config like every other threshold, and a malformed one
+# fails loudly rather than switching the rung off — a cap that silently stops checking is
+# the shape AMH ledger row D019 is about.
+d=$(mk ledger_row_sentence_cap_malformed)
+sed_in_place 's/^LEDGER_ROW_SENTENCE_CAP=.*/LEDGER_ROW_SENTENCE_CAP=six/' "$d/amh.conf"
+printf -- '- D-003: **Short.** It stops.\n' >>"$d/docs/LEDGER.md"
+expect_fail "a malformed sentence cap fails rather than switching the rung off" "$d" \
+	"LEDGER_ROW_SENTENCE_CAP must be a non-negative integer"
+
+# The byte backstop, which is a different rule and says so in its own words. The filler row
+# carries no sentence at all, so nothing but the backstop can be firing here.
 d=$(mk ledger_row_char_over_cap)
-sed_in_place 's/^LEDGER_ROW_CHAR_CAP=800/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
+sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
 printf -- '- D-003: long row. %s\n' "$(filler 120)" >>"$d/docs/LEDGER.md"
 expect_fail "a new ledger row over the byte-counted character cap fails" "$d" \
-	"over LEDGER_ROW_CHAR_CAP=80"
+	"over LEDGER_ROW_CHAR_CAP=80 — that is the runaway backstop"
 
 d=$(mk ledger_row_char_committed_over_cap)
-sed_in_place 's/^LEDGER_ROW_CHAR_CAP=800/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
+sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
 printf -- '- D-003: committed long row. %s\n' "$(filler 120)" >>"$d/docs/LEDGER.md"
 (cd "$d" && git add amh.conf docs/LEDGER.md && git commit -qm long-ledger-history)
 expect_pass "an already committed over-cap ledger row is historical and exempt" "$d"
 
 d=$(mk ledger_row_char_superseded_pointer_existing)
-sed_in_place 's/^LEDGER_ROW_CHAR_CAP=800/LEDGER_ROW_CHAR_CAP=10/' "$d/amh.conf"
+sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=10/' "$d/amh.conf"
 printf -- '  Superseded by D-999.\n' >>"$d/docs/LEDGER.md"
 expect_pass "a sanctioned metadata-only supersession on an existing row is exempt" "$d"
 

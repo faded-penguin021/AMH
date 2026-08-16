@@ -66,7 +66,8 @@ usage: scripts/amh-init.sh [options] <target-repo>
   --branch-prefix NAME      session-branch namespace              (default: session)
   --merge-mode MODE         branch-per-change | branch-train      (default: branch-per-change)
   --remote-flag NAME        env var marking a remote container    (default: AMH_REMOTE)
-  --compress-to-kb N        state-file compression floor          (default: 9)
+  --compress-to-kb N        state-file compression floor, in KB         (default: 9)
+  --compress-to-sentences N state-file compression floor, in sentences (default: 50)
   --warn-kb N               state-file soft cap                   (default: 14)
   --hard-kb N               state-file hard cap                   (default: 16)
   --line-cap N              lines per ledger volume               (default: 800)
@@ -96,6 +97,7 @@ BRANCH_PREFIX=session
 MERGE_MODE_KEY=branch-per-change
 REMOTE_FLAG=AMH_REMOTE
 COMPRESS_TO_KB=9
+COMPRESS_TO_SENTENCES=50
 WARN_KB=14
 HARD_KB=16
 LINE_CAP=800
@@ -142,6 +144,11 @@ while [ $# -gt 0 ]; do
 	--compress-to-kb)
 		need_value --compress-to-kb "${2:-}"
 		COMPRESS_TO_KB=$2
+		shift 2
+		;;
+	--compress-to-sentences)
+		need_value --compress-to-sentences "${2:-}"
+		COMPRESS_TO_SENTENCES=$2
 		shift 2
 		;;
 	--warn-kb)
@@ -229,12 +236,19 @@ case $REMOTE_FLAG in
 *) die "--remote-flag must be a valid shell variable name: '$REMOTE_FLAG'" ;;
 esac
 
-for pair in "COMPRESS_TO_KB:$COMPRESS_TO_KB" "WARN_KB:$WARN_KB" "HARD_KB:$HARD_KB" "LINE_CAP:$LINE_CAP"; do
+for pair in "COMPRESS_TO_KB:$COMPRESS_TO_KB" "COMPRESS_TO_SENTENCES:$COMPRESS_TO_SENTENCES" "WARN_KB:$WARN_KB" "HARD_KB:$HARD_KB" "LINE_CAP:$LINE_CAP"; do
 	case ${pair#*:} in
 	'' | *[!0-9]*) die "${pair%%:*} must be a whole number, not '${pair#*:}'" ;;
 	esac
 done
 [ "$WARN_KB" -gt "$COMPRESS_TO_KB" ] || die "--warn-kb ($WARN_KB) must exceed --compress-to-kb ($COMPRESS_TO_KB): the band between them IS the debounce"
+# The sentence floor has no unit in common with the soft cap, so it cannot be ordered
+# against it. What CAN be checked is that it is a real limit rather than a vacuous one: a
+# floor of 0 asks for an empty file, and a floor larger than the soft cap could hold at any
+# plausible sentence length is a landing check that can never fail. One sentence per 20
+# bytes is denser than any prose and leaves the bound loose enough never to argue with.
+[ "$COMPRESS_TO_SENTENCES" -gt 0 ] || die "--compress-to-sentences must be a positive sentence count, not 0: a zero floor asks for an empty file"
+[ "$COMPRESS_TO_SENTENCES" -le $((WARN_KB * 1024 / 20)) ] || die "--compress-to-sentences ($COMPRESS_TO_SENTENCES) is more sentences than $WARN_KB KB can hold at 20 bytes each: the landing check would never fail, which is a vacuous gate rather than a lenient one"
 [ "$HARD_KB" -gt "$WARN_KB" ] || die "--hard-kb ($HARD_KB) must exceed --warn-kb ($WARN_KB)"
 
 # The placeholders this script fills, as DATA rather than ten near-identical sed lines.
@@ -244,7 +258,7 @@ done
 # file — they are built at runtime — so the placeholder guard does not have to carve out an
 # exemption for the one script whose whole job is filling placeholders in. An exemption
 # would have been a standing hole: it would also hide a placeholder this script forgot.
-INIT_PLACEHOLDERS='AMH_VERSION PROFILE DEFAULT_BRANCH BRANCH_PREFIX MERGE_MODE_KEY REMOTE_FLAG COMPRESS_TO_KB WARN_KB HARD_KB LINE_CAP CITATION_SCAN_PATHS'
+INIT_PLACEHOLDERS='AMH_VERSION PROFILE DEFAULT_BRANCH BRANCH_PREFIX MERGE_MODE_KEY REMOTE_FLAG COMPRESS_TO_KB COMPRESS_TO_SENTENCES WARN_KB HARD_KB LINE_CAP CITATION_SCAN_PATHS'
 
 # ...and that table is bound to harness/PLACEHOLDERS.md, whose `init` rows are the same
 # set said in prose. Nothing bound them before: they agreed, and a new template

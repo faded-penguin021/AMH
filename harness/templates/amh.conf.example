@@ -53,10 +53,19 @@ ADAPTER_FILES=
 # Grow freely to WARN. Over WARN, one deep compression pass must land at or below
 # COMPRESS_TO — landing between them fails, because a micro-trim to just under the
 # warning re-arms it a session later. Over HARD fails outright.
-# Pick numbers so WARN − COMPRESS_TO spans many sessions of growth and HARD − WARN
-# leaves one long session of margin.
+#
+# The floor is BOTH keys below and a landing satisfies both, because neither works alone.
+# A byte floor is reachable by shaving words, which removes no content; a sentence floor is
+# reachable by rewriting `. T` to `; t`, which frees no space. Each blocks the cheap move
+# that satisfies the other, and folding whole stages is what satisfies both at once. WARN
+# and HARD stay byte-only: they answer WHEN to compress, and nobody drafts toward them.
+# Set COMPRESS_TO_SENTENCES so it bites at about the same place as the byte floor at your
+# file's rough bytes-per-sentence — otherwise one of the two is decorative — and leave
+# HARD − WARN as one long session of margin. Nothing checks that alignment; it is a
+# property of prose, so re-read the number if your file's density changes markedly.
 STATE_FILE=docs/STATE.md
 STATE_COMPRESS_TO_KB={{COMPRESS_TO_KB}}
+STATE_COMPRESS_TO_SENTENCES={{COMPRESS_TO_SENTENCES}}
 STATE_WARN_KB={{WARN_KB}}
 STATE_HARD_KB={{HARD_KB}}
 # Above WARN, a shrink smaller than this is an ordinary edit (a typo fix, a closed queue
@@ -75,13 +84,21 @@ LEDGER_DIR=docs
 LEDGER_BASENAME=LEDGER
 # Keep in lockstep with the number stated in the ledger's own header.
 LEDGER_LINE_CAP={{LINE_CAP}}
-# New rows appended to any live ledger volume are capped by bytes under LC_ALL=C.
-# This is a maximum, not a target; a shorter durable lesson is preferable to a draft
-# trimmed toward the cap. Historical rows already committed at HEAD are exempt so
-# append-only history is never rewritten.
-# Not the same unit as LEDGER_LINE_CAP above, which counts lines in a whole volume;
-# equal numbers here are a coincidence, not a lockstep.
-LEDGER_ROW_CHAR_CAP=800
+# The working limit on a new row, and the only one a draft is written toward. It counts
+# SENTENCES for the reason COMPRESS_TO does: an over-length draft cannot be reworded into
+# compliance, only shortened by a whole sentence, so "a maximum, not a target" stops
+# depending on the author's restraint. Set it above the shape your rows already have, so
+# a row that states its lesson and stops is never near it. Historical rows already
+# committed at HEAD are exempt so append-only history is never rewritten.
+LEDGER_ROW_SENTENCE_CAP=6
+# The backstop, not the working limit and not a number to draft against: it exists for the
+# one shape the sentence cap cannot see, a row inside its sentence budget whose sentences
+# each run hundreds of bytes. Measure your own longest compliant row and leave real
+# headroom above it — and do not expect to get far above it, since a value that high stops
+# bounding read cost at all. If a draft approaches it, the answer is an archive tier with a
+# pointer from the state changelog, never tighter wording. Counted as bytes under LC_ALL=C.
+# Not the same unit as LEDGER_LINE_CAP above, which counts lines in a whole volume.
+LEDGER_ROW_CHAR_CAP=2000
 
 # Where citations are scanned for: code and workflows only — NOT docs (prose mentions
 # IDs without citing them), and not the guard fixtures (which carry synthetic IDs).

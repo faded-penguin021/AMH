@@ -186,18 +186,26 @@ lockstep between what the agent runs and what CI runs. `--guards-only` covers do
 changes in seconds.
 
 **What the working-memory size rung prints — and what it deliberately does not.** It reads
-`STATE_WARN_KB`, `STATE_COMPRESS_TO_KB` and `STATE_HARD_KB` from `amh.conf`, falling back to its
+`STATE_WARN_KB`, both compression-floor keys and `STATE_HARD_KB` from `amh.conf`, falling back to its
 own defaults for a key you leave out, and **names a threshold only in a verdict that turns on
 one**: the hard cap and the floor when it fails over the hard cap, the soft cap and the floor
 when it warns above the soft cap, and the floor in the landing failures. A verdict that rejects
 nothing names nothing — the plain size line reports your file's size and stops, and the `ok`
-confirming a completed landing reports how many bytes **clear of the floor** you landed rather
-than the floor itself. That is not brevity, it is the point: the number a clean run puts in front
-of you is the number the next compression aims at, and an instance that had copied "the cap is a
-maximum, not a target" into its own prose still shaved a dozen edits to land seven bytes under
-the floor. Headroom removes that pull; it is **not a score to maximise** in the other direction,
-because a file gutted to stubs prints a large number and passes. What governs the pass is the
-length-guard rule — fold whole completed stages, never shave — and no guard can tell those apart.
+confirming a completed landing reports how far **clear of the floor** you landed, in both of
+its units, rather than the floor itself. That is not brevity, it is the point: the number a clean run puts
+in front of you is the number the next compression aims at, and an instance that had copied "the
+cap is a maximum, not a target" into its own prose still shaved a dozen edits to land seven bytes
+under the floor. Headroom removes that pull; it is **not a score to maximise** in the other
+direction, because a file gutted to stubs prints a large number and passes.
+
+Note the units, because they are what the removal above could not achieve on its own: the
+landing verdict is a byte floor AND a sentence floor, and neither is satisfied alone. A pass
+that shaved words to cross the soft cap arrives carrying every sentence it started with and
+fails on one; a pass that repunctuated to collapse the sentence count freed no space and fails
+on the other. The size lines stay byte-only — they say *when* to compress, and nobody drafts
+toward them. What still cannot be checked is whether the sentences
+that went were the right ones: the length-guard rule governs that — fold whole completed stages,
+never shave — and no guard can tell a folded stage from a gutted one.
 
 So **read a threshold from `amh.conf`, not from a green run**: it is the source, a failing verdict
 will quote it back at you when one matters, and a number you copy into prose becomes a further

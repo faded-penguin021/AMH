@@ -67,12 +67,38 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   and the boot banner's size-against-soft-cap line, which is read before a session writes and is
   left deliberately alone. Fixtured in the only shape that can pin an anti-anchor: `expect_pass_not_saying`,
   three fixtures that fail the moment a threshold returns to a green line (**DB-040**).
+- **Every cap an agent writes toward is now bounded in two units, and a draft satisfies both.**
+  The 8.0.0 anchor removal above did not stop the reflex it was cut for: drafting a row in this
+  repository still went 874 bytes → 797 against an 800-byte cap, because a session measures its
+  own draft against a cap it reads from `amh.conf` — no change to what a rung PRINTS can reach an
+  anchor the session builds itself. Bytes are continuous, so a byte target can always be
+  approached by shaving words, which removes no content. The obvious repair, counting sentences
+  instead, fails in the mirror image: rewriting `. T` to `; t` across a file collapses the count
+  while freeing nothing, measured at 85 → 41 sentences and zero bytes on this repository's own
+  state file. **Every single measure has a cheap satisfier, so the aim-points now carry two.**
+  `STATE_COMPRESS_TO_SENTENCES` joins `STATE_COMPRESS_TO_KB` and a landing must clear both;
+  `LEDGER_ROW_SENTENCE_CAP` becomes the new-row working limit with `LEDGER_ROW_CHAR_CAP` beneath
+  it as a backstop against runaway sentences, its default raised from 800 to 2000 after measuring
+  that the longest sentence-compliant row in this repository is ~1450 bytes. Bytes still stand
+  alone where nobody aims: `STATE_WARN_KB` and `STATE_HARD_KB` say WHEN to compress, and
+  `STATE_EDIT_DELTA_BYTES` classifies a shrink already made. The counter is deliberately lenient
+  — a terminator ends a sentence only when what follows starts another one, `e.g.`/`i.e.` are
+  folded away, and headings and list fragments count as nothing — because a phantom sentence
+  would red-line honest prose, and a rule that rejects correct work gets deleted rather than
+  obeyed; it fails loudly rather than returning a blank when awk cannot produce a number. Ten
+  fixtures fail against the previous script, and the two that matter are the cheap moves
+  themselves: a landing that keeps every sentence while dropping 93% of its bytes, and one that
+  collapses the sentence count while freeing none. **What this does NOT claim** is that the pair
+  cannot be gamed — a rewrite that removes the wrong content passes both, no guard can see it,
+  and fold-whole-stages remains prose. MAJOR: one config key is added, one changes default, and
+  the rule they enforce changes shape.
 - **The inverted-gradient warning was considered and not built.** The same report proposed
   warning when a row or a compression pass lands in the top decile below the cap, making hugging
   the limit the costly move. Declined for now, on the reporter's own weighting: it invents a
   second threshold to hug, and P3/P20 say a guard accretes after a real incident rather than
-  ahead of one. Removing the anchor is the cheaper intervention and is what shipped; if the
-  behaviour survives it, that is the incident the guard would then have earned.
+  ahead of one. Removing the anchor is the cheaper intervention and is what shipped; the
+  behaviour then survived it, and the answer was the unit change above rather than this warning
+  — which needed no new threshold and left the second-number objection standing.
 - **Redirections are removed before the command guard judges any word — fixing both a false
   denial and a silent bypass.** `git push -u origin session/x 2>&1` and `… >/dev/null` were
   BLOCKED with a reason, "this push names another branch or leaves the ref implicit", that was
@@ -114,6 +140,17 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
 
 ### Upgrading
 
+0. **Add two `amh.conf` keys; keep the ones you have.** `STATE_COMPRESS_TO_KB` stays exactly as
+   it is. Add `STATE_COMPRESS_TO_SENTENCES` beside it — a landing must now clear both — choosing
+   a count that bites at about the same place as your byte floor at your file's rough
+   bytes-per-sentence, or one of the two is decorative (this repository uses 9 KB and 50
+   sentences at ~170 bytes each). Add `LEDGER_ROW_SENTENCE_CAP`, 6 shipped, set at the top of the
+   shape your rows already have rather than out of reach — if it never binds it teaches nothing.
+   Then re-set `LEDGER_ROW_CHAR_CAP` as a backstop with real headroom over your longest
+   sentence-compliant row (2000 shipped, up from 800); leaving it at a value your rows already
+   crowd makes it a second number to hug. Leave a key out and the shipped default applies.
+   `scripts/amh-init.sh` gains `--compress-to-sentences` beside `--compress-to-kb`, and
+   `{{COMPRESS_TO_SENTENCES}}` beside `{{COMPRESS_TO_KB}}`.
 1. Copy the shipped scripts and the regenerated manifest. `command-guard.sh`, `ladder.sh` and
    `test-ladder-guards.sh` changed — green verdicts no longer print thresholds, and three new
    fixtures pin that. **`command-guard.sh` changed in a way that changes verdicts** — take it
@@ -134,15 +171,20 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
    pre-8.0.0 code path meant ALLOW, this release's own failure reintroduced in your tree.
 4. **Expect your green ladder output to read differently**, and do not treat it as information
    lost. `8 KB (soft cap 14 KB, hard 16 KB)` becomes `8 KB, within the band`; a completed
-   compression landing reports bytes clear of the floor; the ledger rung lists each new row's
-   length. Read a threshold from `amh.conf`, which is where it was authoritative all along.
-5. **Seed prose — the ladder description, hand-applied, three files that move together.** If you carry the descriptive
-   paragraphs, take all three or none: `docs/RUNBOOK.md` → **Acceptance ladder** (what the size
-   rung prints, now including what it deliberately does not), your ledger volume preambles (the
-   "ladder prints both live values" sentence is no longer true of a green run), and — if you
-   keep one — any prose telling a reader they can rely on a passing run to show them a
-   threshold. Leaving the old wording in place leaves your docs describing output your ladder
-   no longer produces.
+   compression landing reports how far clear of the floor it landed in both units; the ledger rung
+   lists each new row's sentence count rather than its byte length. Read a threshold from `amh.conf`, which is
+   where it was authoritative all along.
+5. **Seed prose — the ladder description and the two memory-file preambles, hand-applied, and
+   they move together.** If you carry the descriptive paragraphs, take all of them or none:
+   `docs/RUNBOOK.md` → **Acceptance ladder** (what the size rung prints, what it deliberately
+   does not, and that the floor is now a sentence count while the caps are byte sizes), your
+   `docs/STATE.md` length-guard preamble (the floor counts sentences, which is what makes
+   "a ceiling, not a target" hold without depending on restraint), and your ledger volume
+   preambles (the working limit is `LEDGER_ROW_SENTENCE_CAP`; `LEDGER_ROW_CHAR_CAP` is a
+   backstop, and the "ladder prints both live values" sentence is no longer true of a green
+   run). Copy the wording from `harness/templates/seed/docs/STATE.md` and
+   `harness/templates/seed/docs/LEDGER.md`. Leaving the old wording in place leaves your docs
+   describing output your ladder no longer produces, and a rule in a unit it no longer uses.
 6. **Seed prose — the constitution rule, hand-applied.** Copy the two-paragraph blockquote from
    `harness/templates/seed/AGENTS.md` — it sits directly under the long-term-memory paragraph —
    into your own constitution, adjusting the file names if your tree spells them differently.

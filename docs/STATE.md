@@ -1,20 +1,23 @@
 # STATE — project state & session memory
 
-> **Length guard (hysteresis).** The thresholds `STATE_WARN_KB`, `STATE_COMPRESS_TO_KB` and
-> `STATE_HARD_KB` live in `amh.conf`, deliberately **not** restated here as numbers: nothing
+> **Length guard (hysteresis).** The thresholds `STATE_WARN_KB`, both compression-floor keys
+> and `STATE_HARD_KB` live in `amh.conf`, deliberately **not** restated here as numbers: nothing
 > checks this prose against the config, so a restated number is a drift class no guard here
 > covers (**DB-022**). Which of them the size rung prints, and why a number it printed is never a
 > copy to quote back, are in `docs/RUNBOOK.md` → **Acceptance ladder** — a description of the
 > guard's output, kept out of the file the guard measures (**DB-025**).
 > Grow freely to the soft cap; over it, ONE deep pass landing at or below the
 > compression floor — a ceiling, not a target: anywhere below is fine, and you do not keep
-> shaving once under (owner, 2026-07-27). Fail above the hard cap. **Compress by folding whole
+> shaving once under (owner, 2026-07-27). **The floor is a byte size AND a sentence count, and a
+> landing satisfies both** (**DC-003**), which is what stops that rule depending on your
+> restraint: trimming words cannot move the sentence count, repunctuating cannot move the bytes,
+> and folding whole stages is the only move that clears both. Fail above the hard cap, which is
+> byte-only like the soft cap — those two say WHEN to compress. **Compress by folding whole
 > completed stages into Changelog pointer lines and moving durable lessons to the ledger** —
 > never by shaving clauses until the guard goes quiet, and never by cutting text into another
 > file: moving a passage OUT is not compression and is the owner's call — granted once, for the
 > guard-output description now in the runbook (owner, 2026-08-11).
-> Land short and you fold MORE stages: micro-trimming toward the floor is the same reflex the
-> band exists to break, one threshold lower. A typo fix above the cap is allowed and still owes
+> Land short and you fold MORE stages. A typo fix above the cap is allowed and still owes
 > the pass (**D-027**). The ladder checks sizes, structure and repeated headings (**D-034**) and
 > nothing else — not whether what survived is any good, and not whether you dropped an open
 > owner-queue item. Never drop one.
@@ -50,21 +53,15 @@ sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**. The l
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
 
-**OPEN — cap-hugging survived the anchor removal, which is the condition the inverted-gradient
-guard was declined pending.** Drafting **DC-001** this session went 874 bytes → 797 against an
-800-byte cap → 769, and the last step happened only because the owner named the reflex; the
-769 landing came from cutting process narrative, which is the compliant move, but the 797 one
-was shaving to fit. The 8.0.0 change (**DB-040**) removed thresholds from GREEN ladder output
-and it did work on the path it aimed at: no rung showed the cap. The anchor arrived anyway,
-because the row rule obliges the session to MEASURE the row against
-`LEDGER_ROW_CHAR_CAP`, and a measured length beside a known cap IS the anchor — a source no
-change to the ladder's output can reach, since the session builds it. The Decided non-item says
-to reopen on exactly this evidence. Options, none an agent's call because each reshapes what
-the ledger rule asks of every session: the declined top-decile warning (refused as a second
-number to hug, and this evidence does not answer that objection), a rule to draft the lesson
-and let the guard be the only measurer, or accept the reflex as the cost of a checkable cap.
-No `Check:` — the evidence is this session's drafts, which no command replays, and only the
-owner settles whether it earns a guard.
+**OPEN — make the `rm -rf` pre-execution advisory actually change behaviour** (owner,
+2026-08-16). The rail stops a destructive command once so the session spends a turn checking the
+expansion, and it names the two moves that are NOT compliance: rerunning without looking, and
+renaming or relocating the target so the deletion is no longer needed. This session took the
+second one — blocked on `rm -rf $d`, it renamed the scratch directory and dropped the deletion,
+which cleared the prompt without ever making the check. The owner has tried one round of wording
+against this already. The question is what layer beyond wording could work, given that the rail
+cannot see whether a check happened and a self-report may never satisfy one (**D-014**). No
+`Check:` — the evidence is a session transcript, which no command replays.
 
 **OPEN — an fd-duplicating redirection before the operands hides the command from every
 rail.** `split_segments` treats the `&` of `2>&1` as a segment operator, so `git 2>&1 push
@@ -120,7 +117,10 @@ re-litigate from.
 - **A warning when a ledger row or a compression pass lands in the top decile below its cap**
   (the inverted-gradient guard), declined with the anchor removal that shipped instead: it
   invents a second threshold to hug, and a guard accretes after an incident, not ahead of one
-  (**DB-040**). Reopen it if cap-hugging survives the removal — that is the incident.
+  (**DB-040**). Cap-hugging then survived the removal, and the owner settled the reopening the
+  other way: the aim-points gained a second UNIT instead (**DC-003**), which is not a second
+  threshold in the same unit and so does not answer to this objection. The objection stands
+  unchanged for any future proposal of the top-decile shape.
 - **A byte cap on the constitution (`CONSTITUTION_WARN_KB`)**, refused while adding the
   current-state rule that would have motivated it — the defect is kind, not size, and a cap over
   all-live legislation makes shaving a rule the cheapest compliance (**DB-038**).
@@ -130,6 +130,11 @@ re-litigate from.
   file, and the advisory tier is the answer instead — **DB-027**.
 
 ## Changelog
+
+- 2026-08-16 — **The caps an agent writes toward gained a second unit (8.0.0, same release).**
+  `STATE_COMPRESS_TO_SENTENCES` joins the KB floor and a landing meets both; `LEDGER_ROW_SENTENCE_CAP`
+  becomes the working row limit over a raised byte backstop. Each unit blocks the cheap move that
+  satisfies the other, which is what the declined top-decile warning could not do. **DC-003**.
 
 - 2026-08-16 — **Redirections are stripped before the command guard judges any word (8.0.0,
   same release).** Closed the queue item's false denial of `git push … 2>&1`, and — found by
