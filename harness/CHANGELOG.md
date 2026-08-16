@@ -25,7 +25,7 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   inventory, current sanctioned configuration, with supersession history, adoption narratives
   and per-version records going to `docs/LEDGER.md` and a pointer line in the `docs/STATE.md`
   changelog. MAJOR because a repo that has been recording upgrade history in its constitution
-  is now doing something its constitution forbids; the relocation is Upgrading step 3.
+  is now doing something its constitution forbids; the relocation is Upgrading step 11.
 - **The bound is on kind, not bytes: no `CONSTITUTION_WARN_KB` ships.** Considered and refused
   in the same unit, because a cap here would import the Goodhart problem 5.0.0 and 6.0.1 were
   cut to fix. The defect a cap catches is size and this defect is kind — a constitution can be
@@ -138,9 +138,36 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   is about a malformed command from you, not a licence for this script to call an unread
   command clean (**DC-002**).
 
+- **The destructive advisory asks for a spelling that removes the hazard, and an abandoned
+  advisory now leaves a trace.** The rail blocks a destructive command once so the session
+  spends a turn on the check, and its text names two moves that are not compliance. A session
+  took the second: blocked on `rm -rf $d`, it renamed the directory, dropped the deletion, and
+  cleared the prompt without ever checking anything. Wording had already been tried once against
+  that move, so this release changes the layer instead. The advisory now asks for the guarded
+  spelling — `rm -rf -- "${S:?}/base"` — because the shell aborts on an unset or empty `S`,
+  which means a session that types it mechanically still gets that much. Read the bound
+  exactly: it closes the unset-or-empty case and nothing else, so a set-but-wrong variable —
+  `S=/` above all, which makes the same command `rm -rf /base` again — still reaches the
+  filesystem, and the advisory now asks for the guarded spelling IN ADDITION to printing the
+  expansion rather than instead of it. For that to be usable the
+  signature folds `${d}` and `${d:?}` onto `$d`, so the rewrite the rail just asked for counts
+  as the rerun rather than arming a second prompt; the SUBSTITUTING forms `${d:-x}` and
+  `${d:+x}` deliberately do not fold, because they can address a path the bare variable never
+  would. Separately, the rail records whether an advised command was ever re-attempted, and
+  `scripts/ladder.sh` prints the ones that were not as a `note` line. That line is not a verdict:
+  it touches no counter, changes no exit code, and nothing may read it as evidence that a check
+  happened or did not — it reports only what the rail can observe, which is that a prompt fired
+  and the command never came back (**DC-004**).
+- **A hole this found rather than closed.** `split_segments` treats `{` and `}` as segment
+  operators, so an unquoted `rm -rf ${d}/build` is cut before any scanner sees it and records
+  its target as the bare `$` — which every other unquoted-brace deletion also records, so they
+  clear each other's advisory. Quoting records the real target and the advisory recommends the
+  quoted spelling. It is in the guard header's does-NOT-catch block with the fd-duplication miss
+  it shares a root with, and closing both is a change to the splitter every scanner is built on.
+
 ### Upgrading
 
-0. **Add two `amh.conf` keys; keep the ones you have.** `STATE_COMPRESS_TO_KB` stays exactly as
+1. **Add two `amh.conf` keys; keep the ones you have.** `STATE_COMPRESS_TO_KB` stays exactly as
    it is. Add `STATE_COMPRESS_TO_SENTENCES` beside it — a landing must now clear both — choosing
    a count that bites at about the same place as your byte floor at your file's rough
    bytes-per-sentence, or one of the two is decorative (this repository uses 9 KB and 50
@@ -151,30 +178,40 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
    crowd makes it a second number to hug. Leave a key out and the shipped default applies.
    `scripts/amh-init.sh` gains `--compress-to-sentences` beside `--compress-to-kb`, and
    `{{COMPRESS_TO_SENTENCES}}` beside `{{COMPRESS_TO_KB}}`.
-1. Copy the shipped scripts and the regenerated manifest. `command-guard.sh`, `ladder.sh` and
+2. Copy the shipped scripts and the regenerated manifest. `command-guard.sh`, `ladder.sh` and
    `test-ladder-guards.sh` changed — green verdicts no longer print thresholds, and three new
    fixtures pin that. **`command-guard.sh` changed in a way that changes verdicts** — take it
    before the others if you take nothing else: pushes that redirect their output are no longer
    denied, and commands that hid behind a redirection (`git >/dev/null push --force …`,
    `>/dev/null printenv`) are no longer allowed. No threshold, config key or exit code changed.
-2. **Expect one new block reason, and treat it as a bug report about the guard.** If
+3. **Two verdict changes and one new CLI mode in `command-guard.sh`.** The signature now folds
+   `${d}` and `${d:?}` onto `$d`, so `rm -rf "${d:?}/x"` after `rm -rf $d/x` exits 0 where 7.x
+   exited 2 — that is the point, not a regression. `--advisory-report` is a new argument, which
+   matters if you wrap the guard's argument surface. Nothing else that passed before is denied
+   now.
+4. **Expect one new block reason, and treat it as a bug report about the guard.** If
    `command-guard.sh` ever says it could not parse your command, nothing was judged — the
    command is denied on that basis alone, and re-running will not clear it. Your way through is
    to report it with the command text and, if you are stuck, run outside the hooked agent;
    do not edit the arm away. No previously allowed command becomes denied by this change on a
    working parser: verified differentially against 7.0.2's guard over ~1350 command strings,
    with zero verdict or message differences.
-3. **If you wrapped or forked the parsers, their calling convention changed.**
+5. **If you wrapped or forked the parsers, their calling convention changed.**
    `split_segments`, `split_words`, `redirect_targets` and `strip_redirections` used to write
    to stdout; they now fill `SEGMENTS`, `SPLIT_WORDS`, `REDIRECT_TARGETS` and `STRIPPED` and
    print nothing. A local `for w in $(split_words "$x")` now yields an empty list — which on a
    pre-8.0.0 code path meant ALLOW, this release's own failure reintroduced in your tree.
-4. **Expect your green ladder output to read differently**, and do not treat it as information
+6. **Expect a `note` line after an abandoned destructive advisory, and a new sentence in the
+   advisory itself.** The note names deletions the rail prompted on that never came back. It is
+   informational: no counter, no exit code, nothing to fix. If you keep a local copy of the
+   advisory text, take the guarded-spelling sentence with it — that sentence is the change, not
+   the note.
+7. **Expect your green ladder output to read differently**, and do not treat it as information
    lost. `8 KB (soft cap 14 KB, hard 16 KB)` becomes `8 KB, within the band`; a completed
    compression landing reports how far clear of the floor it landed in both units; the ledger rung
    lists each new row's sentence count rather than its byte length. Read a threshold from `amh.conf`, which is
    where it was authoritative all along.
-5. **Seed prose — the ladder description and the two memory-file preambles, hand-applied, and
+8. **Seed prose — the ladder description and the two memory-file preambles, hand-applied, and
    they move together.** If you carry the descriptive paragraphs, take all of them or none:
    `docs/RUNBOOK.md` → **Acceptance ladder** (what the size rung prints, what it deliberately
    does not, and that the floor is now a sentence count while the caps are byte sizes), your
@@ -185,14 +222,14 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
    run). Copy the wording from `harness/templates/seed/docs/STATE.md` and
    `harness/templates/seed/docs/LEDGER.md`. Leaving the old wording in place leaves your docs
    describing output your ladder no longer produces, and a rule in a unit it no longer uses.
-6. **Seed prose — the constitution rule, hand-applied.** Copy the two-paragraph blockquote from
+9. **Seed prose — the constitution rule, hand-applied.** Copy the two-paragraph blockquote from
    `harness/templates/seed/AGENTS.md` — it sits directly under the long-term-memory paragraph —
    into your own constitution, adjusting the file names if your tree spells them differently.
-7. **Confirm your constitution is in `RULE_FILES`** in your `amh.conf` before you rely on the
-   advisory that step 9 leans on. `amh.conf` is yours forever and was installed once, so a repo
+10. **Confirm your constitution is in `RULE_FILES`** in your `amh.conf` before you rely on the
+   advisory that step 12 leans on. `amh.conf` is yours forever and was installed once, so a repo
    that pruned the list — or predates its constitution being in it — has no advisory at all,
    and nothing else will tell you.
-8. **Then relocate what your constitution has already accreted.** Read it for content that
+11. **Then relocate what your constitution has already accreted.** Read it for content that
    records the past rather than states the present: rules kept "for context" after they stopped
    binding, adoption and upgrade narratives, and any per-version paragraph recording that a
    version was reviewed or sanctioned. Each becomes one dated ledger row — what was sanctioned,
@@ -205,14 +242,14 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
    nothing here licenses shortening a live rule, and if you find yourself rewording one to save
    space you are doing the thing the second bullet above refused to build a cap for. Relocation
    is legislation — take the review protocol, and treat a bulk pass as an owner decision.
-9. **What this does to your tripwire — read it before step 8 worries you.** An in-file "this
+12. **What this does to your tripwire — read it before step 11 worries you.** An in-file "this
    version is sanctioned in full" paragraph was never what let a reviewer tell a sanctioned
    upgrade from an injected edit: it lives inside the very file an injection would edit, so
    anything able to add a rule is able to add its own sanction for it, and nothing consumes it
    anyway. (It was legal prose — the ban on attestations is on *machinery*, not on a sentence a
    human may disbelieve — so this is an argument about accretion and provenance, not about a
    rule you broke.) What actually discriminates is unchanged by this release: the `RULE_FILES`
-   warning on the diff and the review protocol behind it. What step 8 leaves behind is strictly
+   warning on the diff and the review protocol behind it. What step 11 leaves behind is strictly
    better on the axis that matters here — a dated row in an append-only file whose ordering a
    guard checks against `HEAD`, rather than a paragraph in a file where an edit fails nothing.
    State the trade honestly to yourself, though: the ledger is deliberately **not** in

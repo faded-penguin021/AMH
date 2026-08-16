@@ -121,3 +121,18 @@
   file from 85 sentences to 41 while freeing no byte at all. So an aim-point is bounded in both
   units and a landing satisfies both, each blocking the move that fools the other, while bytes
   still stand alone where nobody drafts: the soft and hard caps, and the edit delta.
+
+- DC-004: **When a rail asks for something it cannot see, make the compliant move the one that
+  removes the hazard, and make the sidestep leave a trace.** The `rm -rf` advisory spends a turn
+  on a check no guard can observe, so a session cleared it by renaming the target and dropping
+  the deletion — one round of wording had already been tried against exactly that move. Two
+  layers replaced a second round: the advisory now asks for `"${d:?}"`, whose presence IS the
+  protection rather than evidence of one — bounded to unset-or-empty, since a set-but-wrong
+  variable still deletes — and the signature folds `${d}` and `${d:?}` onto `$d`
+  so that the rewrite the rail requested counts as the rerun instead of arming a second prompt.
+  Beside it the rail records whether an advised command ever came back, and the ladder prints the
+  ones that did not as a note no counter, exit code or gate reads. The claim stays bounded on
+  purpose: this cannot tell whether anyone looked, only that a prompt fired and the command was
+  abandoned, which is the one fact about compliance the rail actually holds. Building it found
+  the brace hole in `split_segments` — an unquoted `${d}` operand records the target `$`, so two
+  unrelated deletions clear each other.

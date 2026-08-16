@@ -2120,6 +2120,43 @@ else
 	report no "an orphaned plan is coached toward archive-or-delete" "no archive-or-delete warning" "$out"
 fi
 
+# The abandoned-advisory line: the only visible consequence of clearing a destructive
+# prompt by dropping the deletion. Both directions matter — an advisory that was
+# re-attempted must NOT be listed, or the line degrades into "you used rm today" and
+# stops meaning anything. The state file is pointed at the fixture's own directory, so
+# this asserts the ladder's plumbing to the guard rather than whatever /tmp happens to hold.
+d=$(mk advisory_destructive_abandoned)
+started=$SECONDS
+# Driven through the HOOK path, not `--command`, because that is the only path where a pass
+# means the command runs next — and therefore the only one that records a re-attempt. Using
+# `--command` here would leave the resumed target listed, which is exactly what the rail now
+# says about an inspection: asking the guard about text twice is not doing anything twice.
+hook() { printf '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"%s"}}' "$1"; }
+out=$(cd "$d" && DESTRUCTIVE_ADVISORY_STATE="$d/dstate" bash -c '
+	h() { printf "{\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"$1\"}}"; }
+	h "rm -rf /tmp/fixture-abandoned" | scripts/command-guard.sh >/dev/null 2>&1
+	h "rm -rf /tmp/fixture-resumed"   | scripts/command-guard.sh >/dev/null 2>&1
+	h "rm -rf /tmp/fixture-resumed"   | scripts/command-guard.sh >/dev/null 2>&1
+	env -u CI scripts/ladder.sh --guards-only 2>&1')
+elapsed=$((SECONDS - started))
+FIXTURE_ELAPSED_SECONDS=$elapsed
+if ! grep -qF "never re-attempted under this exact text" <<<"$out"; then
+	report no "an abandoned destructive advisory is named in the ladder" "no note line" "$out"
+elif ! grep -qF "/tmp/fixture-abandoned" <<<"$out"; then
+	report no "an abandoned destructive advisory is named in the ladder" "the note omitted the abandoned target" "$out"
+elif grep -qF "/tmp/fixture-resumed" <<<"$out"; then
+	report no "an abandoned destructive advisory is named in the ladder" "the note listed a re-attempted target" "$out"
+elif grep -qE "(WARN|FAIL) +destructive advisories" <<<"$out"; then
+	report no "an abandoned destructive advisory is named in the ladder" "the line is a verdict; it must be a note" "$out"
+elif ! grep -qF "guards clean (0 warning(s))" <<<"$out"; then
+	# The label is not the property. `note` earns its place only by touching no counter,
+	# so this asserts the COUNT in the verdict line: a `note` that increments WARNS reads
+	# identically above and turns this fixture red — which the label check alone did not.
+	report no "an abandoned destructive advisory is named in the ladder" "the note moved the warning count" "$out"
+else
+	report ok "an abandoned destructive advisory is named in the ladder"
+fi
+
 d=$(mk advisory_ci)
 sed_in_place "s|^RULE_FILES=''|RULE_FILES='amh.conf'|" "$d/amh.conf"
 printf '\n# an uncommitted legislation edit\n' >>"$d/amh.conf"

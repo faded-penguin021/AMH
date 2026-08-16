@@ -53,26 +53,18 @@ sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**. The l
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
 
-**OPEN — make the `rm -rf` pre-execution advisory actually change behaviour** (owner,
-2026-08-16). The rail stops a destructive command once so the session spends a turn checking the
-expansion, and it names the two moves that are NOT compliance: rerunning without looking, and
-renaming or relocating the target so the deletion is no longer needed. This session took the
-second one — blocked on `rm -rf $d`, it renamed the scratch directory and dropped the deletion,
-which cleared the prompt without ever making the check. The owner has tried one round of wording
-against this already. The question is what layer beyond wording could work, given that the rail
-cannot see whether a check happened and a self-report may never satisfy one (**D-014**). No
-`Check:` — the evidence is a session transcript, which no command replays.
-
-**OPEN — an fd-duplicating redirection before the operands hides the command from every
-rail.** `split_segments` treats the `&` of `2>&1` as a segment operator, so `git 2>&1 push
---mirror origin` splits into `git 2>` and `1 push --mirror origin`; the second segment leads
-with `1`, which is no command, and bash runs the push. Same for `2>&1 env`. It predates the
-8.0.0 redirection fix, which closed every other position, and it is recorded in the guard
-header's "does NOT catch" block rather than left implicit. Closing it means teaching
-`split_segments` that `N>&M` is one token — a change to the function every scanner in that
-script is built on, so it is its own unit with its own review pass. Check:
+**OPEN — `split_segments` cuts two spellings that hide or blur a command.** (a) The `&` of
+`2>&1`: `git 2>&1 push --mirror origin` splits into `git 2>` and `1 push --mirror origin`, the
+second leads with `1`, which is no command, and bash runs the push. (b) `{` and `}`: unquoted
+`rm -rf ${d}/build` becomes `rm -rf $`, so every unquoted-brace deletion records the same target
+`$` and clears the advisory for every other one — the cross-target silence the per-target rearm
+exists to stop. Quoting records the real target and the advisory recommends the quoted spelling,
+so (b) is a hole rather than a live wound; both are in the guard header's "does NOT catch"
+block. One fix closes both: teach that splitter about `N>&M` and `${...}`. It is the function
+every scanner in the script is built on, so it is its own unit with its own review pass. Check:
 `scripts/command-guard.sh --command 'git 2>&1 push --mirror origin'` exits 0 while
-`… --command 'git push --mirror origin'` exits 2.
+`… --command 'git push --mirror origin'` exits 2; and `… --command 'rm -rf ${a}/x'` then
+`… --command 'rm -rf ${b}/y'` — the second exits 0.
 
 **WATCH — the macOS rail self-test failure has a repair, but not a proven cause.** The
 subshell transport the failure rode is gone: the parsers fill arrays in-process (**DC-002**).

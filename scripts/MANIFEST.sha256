@@ -6,8 +6,8 @@
 # Editing a shipped script is what this catches. The change belongs in amh.conf,
 # in a guard under scripts/guards/, or in scripts/verify.sh. Check by hand with:
 #   sha256sum -c scripts/MANIFEST.sha256
-949c2f4076cfd1ee1c3e2fa02c0df471647fe1d053b641c6e0b0dd19367df04f  scripts/command-guard.sh
-dc65913621e664d52e7ac23c6a19f02d4a43c0856dc1c641f006a346c9f35fff  scripts/ladder.sh
+eca349239777be2b3d80897b5a8760759dae4393583fb4570c881820fdf0d3cd  scripts/command-guard.sh
+dcef6d8f7709a7240f8837c946d7e107a3672d2f63869e8ea8ce2f020d1a90e6  scripts/ladder.sh
 f34facefeecd5c58ed36907eae4d1ee6bddc970efa9b8750a5e13c5b1b9aab6b  scripts/redact.sh
 abed7b29df125cc9ed4e3b5e67b8b88a769e3041dd5fd008e55311e6af21b9fa  scripts/session-start.sh
-6e6a116982f28af3410e3d9155ed47dfcf3fa3c5439d8c9d4f057ae59d5e1211  scripts/test-ladder-guards.sh
+58f118bd9110b3815fbb6a014d5e4facd5881710411f2064883e130b93321155  scripts/test-ladder-guards.sh

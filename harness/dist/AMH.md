@@ -328,6 +328,24 @@ the deny rules, prose and server rails layer beneath); fail open on malformed ho
 guard that bricks every command gets disabled, not fixed); and give it a blocked-plus-allowed
 self-test matrix run as a ladder guard, since a rail must not regress silently.
 
+**When a rail asks for something it cannot see, change what it asks for.** The advisory tier —
+block once, let the rerun through — buys a turn for a check, and nothing in the tree records
+whether the check happened. Prose cannot close that: an adopting instance, blocked on
+`rm -rf $d`, renamed the directory and dropped the deletion, clearing the prompt with no check
+at all, after the advisory's own text had already named that move as non-compliance. Two layers
+work where a third round of wording does not. First, ask for a spelling whose presence IS the
+protection rather than evidence of it: `rm -rf -- "${d:?}"` aborts in the shell on an unset or
+empty variable, so even a session that types it mechanically gets that much, and Goodharting
+the instruction still produces the outcome. Say what such a token does NOT cover in the same
+breath, or the layer becomes the false comfort it replaced: this one closes unset-or-empty and
+nothing else, and a set-but-wrong variable still deletes. That only holds if the requested rewrite counts as
+the same target as the original — a rail that charges a second prompt for the fix it just
+demanded teaches the sidestep it is trying to stop. Second, record what the rail CAN observe:
+that a prompt fired, and whether the command ever came back. Print the unresolved ones where a
+human already reads, as a line that no counter, exit code or gate consumes — it is not evidence
+that anyone looked, only that the cheapest escape stopped being invisible, and P3 forbids any
+machinery that reads it as more.
+
 Mirror the hardest rails **server-side** where the host supports it — branch protection on the
 default branch (PRs required; force-push and deletion blocked) and secret-scanning push
 protection — because the agent-side permission layer binds only agents that load it, while

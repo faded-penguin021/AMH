@@ -89,6 +89,16 @@ fail() {
 	FAILS=$((FAILS + 1))
 }
 skip() { printf '   skip  %s\n' "$1"; }
+# NOT a verdict, and the distinction is load-bearing: `note` touches no counter, changes no
+# exit code, and nothing branches on it. The four above answer "did this check pass"; this one
+# reports something observed that no check is being made about. A run-receipt vocabulary was
+# refused once (AMH ledger row DA025) and this is not one — it adds no second answer to the
+# ladder's question, and if anything ever consumes a `note` line, it has become the thing that
+# was refused.
+# (`scripts/guards/adapter-set.sh` also defines a `note`, and there it ACCUMULATES failures.
+# Different file, different scope, no shared code — but the word is not free in this tree, so
+# do not read one from the other.)
+note() { printf '   note  %s\n' "$1"; }
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -1309,6 +1319,35 @@ advisories() {
 		set +f
 		if [ -n "$touched" ]; then
 			warn "uncommitted diff touches legislation:$touched — the rule-review protocol applies (fresh-context reviewer, strongest tier, no self-review fallback) BEFORE commit."
+		fi
+	fi
+
+	# Destructive advisories that fired and were never re-attempted. The rail blocks such a
+	# command once so the session spends a turn on the check; a session can also clear the
+	# prompt by dropping the deletion — renaming the target, say — and that route left no
+	# trace anywhere, which is how it became the cheap one. This line is the trace.
+	#
+	# It is deliberately NOT a warning and NOT a failure. Abandoning a deletion is a
+	# legitimate outcome — the advisory says so in as many words — and a rung that went
+	# amber every time an agent thought better of an `rm` would be noise inside a week.
+	# Nothing consumes this: it reports the rail's own state files, it cannot see whether
+	# anyone looked, and no guard, gate or decision procedure may read it as evidence that a
+	# check happened (P3, AMH ledger row D014). It is a sentence for whoever reads the transcript.
+	if [ -f scripts/command-guard.sh ]; then
+		local unresolved
+		unresolved=$(bash scripts/command-guard.sh --advisory-report 2>/dev/null)
+		if [ -n "$unresolved" ]; then
+			# The caveat rides on the LINE, not only in this comment: a transcript
+			# reader sees the output and never the source, and the sentence claims
+			# less than it appears to. The rail matches on command TEXT, so a
+			# re-attempt bundled with a second deletion is a different signature and
+			# leaves the first one listed even though it ran.
+			note "destructive advisories fired and never re-attempted under this exact text (a bundled or reworded rerun still counts as never):"
+			# The signature is the rail's identity for a target set: a command kind,
+			# then each operand `%q`-quoted and joined. Printed with the joiner
+			# trimmed, because this line is read by a person and the trailing `|`
+			# says nothing to one. Nothing parses it back.
+			printf '%s\n' "$unresolved" | sed -e 's/ *|$//' -e 's/^/         /'
 		fi
 	fi
 	[ "$WARNS" = 0 ] && ok "nothing to flag"
