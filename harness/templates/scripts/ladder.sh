@@ -63,7 +63,7 @@ LEDGER_BASENAME=LEDGER
 LEDGER_LINE_CAP=800
 LEDGER_ROW_SENTENCE_CAP=6
 # A backstop against runaway sentences, not the working limit — LEDGER_ROW_SENTENCE_CAP is.
-LEDGER_ROW_CHAR_CAP=1600
+LEDGER_ROW_CHAR_CAP=2000
 CITATION_SCAN_PATHS='scripts .github'
 CITATION_EXCLUDE=''
 POISON_TOKENS='[skip ci]|[ci skip]'
@@ -156,8 +156,13 @@ count_sentences() { # <file> — the sentences awk can see, one number on stdout
 	n=$(LC_ALL=C awk '
 		{ buf = buf $0 " " }
 		END {
-			gsub(/[Ee]\.g\./, "eg", buf)
-			gsub(/[Ii]\.e\./, "ie", buf)
+			gsub(/[Ee]\.[Gg]\./, "eg", buf)
+			gsub(/[Ii]\.[Ee]\./, "ie", buf)
+			# Common titles and initialisms are not sentence ends. Prefer an
+			# undercount here: a false boundary rejects honest prose, while a missed
+			# boundary merely leaves the byte half of the limit to do its job.
+			gsub(/(^|[ \t])(Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|No)\./, " title", buf)
+			while (gsub(/[A-Z]\.[A-Z]\./, "initials", buf)) { }
 			# A sentinel so a terminator at end of file counts like any other.
 			buf = buf "X"
 			print gsub(/[.!?][*"`_)]*[ \t][ \t]*[A-Z*"`(]/, "", buf)

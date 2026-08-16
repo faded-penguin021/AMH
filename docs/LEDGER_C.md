@@ -136,3 +136,13 @@
   abandoned, which is the one fact about compliance the rail actually holds. Building it found
   the brace hole in `split_segments` — an unquoted `${d}` operand records the target `$`, so two
   unrelated deletions clear each other.
+
+- DC-005: **A lenient counting heuristic must be tested for false positives, not only known
+  exclusions.** The sentence counter promised to undercount rather than reject honest prose,
+  yet its fixtures covered only the two abbreviations its implementation already named; a
+  title or initialism created phantom sentences. The same adversarial pass found two lockstep
+  defects outside that fixture's frame: fd duplication was split before redirections were
+  stripped, hiding a destructive push, and the ladder's no-config byte backstop disagreed with
+  both shipped configs. Each repair pins the boundary that made the promise false: titles and
+  initialisms, a duplication before operands, and an otherwise-valid row between the old and
+  adopted defaults.

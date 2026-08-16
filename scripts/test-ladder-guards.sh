@@ -828,6 +828,19 @@ printf -- '- D-003: One sentence, e.g. This clause and i.e. That one stay inside
 expect_pass_saying "e.g. and i.e. do not end a sentence even before a capital" "$d" \
 	"D-003=2 sentence(s)"
 
+d=$(mk ledger_row_counting_titles)
+printf -- '- D-003: Dr. Smith records one sentence. U.S. Policy opens the second. E.G. This clause stays within it. A third sentence closes.\n' >>"$d/docs/LEDGER.md"
+expect_pass_saying "titles and initialisms do not create phantom sentences" "$d" \
+	"D-003=2 sentence(s)"
+
+# The no-config path must enforce the same shipped fallback as the configuration template.
+# A 1700-byte row is above the former 1600-byte fallback but below the adopted 2000-byte
+# backstop, and carries fewer than six sentences so no other row limit decides the verdict.
+d=$(mk ledger_row_default_cap_lockstep)
+rm "$d/amh.conf"
+printf -- '- D-003: One sentence. %*s\n' 1660 '' >>"$d/docs/LEDGER.md"
+expect_pass "the no-config ledger backstop matches the shipped 2000-byte default" "$d"
+
 # A count that cannot be produced at all is a FAILURE, never a quiet pass. The row is fine;
 # awk is what is missing, and the rung must say it judged nothing rather than print a
 # green line with a blank number in it.

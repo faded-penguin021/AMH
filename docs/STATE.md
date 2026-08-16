@@ -53,17 +53,14 @@ sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**. The l
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
 
-**OPEN — `split_segments` cuts two spellings that hide or blur a command.** (a) The `&` of
-`2>&1`: `git 2>&1 push --mirror origin` splits into `git 2>` and `1 push --mirror origin`, the
-second leads with `1`, which is no command, and bash runs the push. (b) `{` and `}`: unquoted
+**OPEN — `split_segments` cuts braces that blur a destructive target.** Unquoted
 `rm -rf ${d}/build` becomes `rm -rf $`, so every unquoted-brace deletion records the same target
 `$` and clears the advisory for every other one — the cross-target silence the per-target rearm
 exists to stop. Quoting records the real target and the advisory recommends the quoted spelling,
-so (b) is a hole rather than a live wound; both are in the guard header's "does NOT catch"
-block. One fix closes both: teach that splitter about `N>&M` and `${...}`. It is the function
-every scanner in the script is built on, so it is its own unit with its own review pass. Check:
-`scripts/command-guard.sh --command 'git 2>&1 push --mirror origin'` exits 0 while
-`… --command 'git push --mirror origin'` exits 2; and `… --command 'rm -rf ${a}/x'` then
+so this is a hole rather than a live wound and remains in the guard header's "does NOT catch"
+block. Closing it means teaching the splitter about `${...}`. It is the function every scanner
+in the script is built on, so it is its own unit with its own review pass. Check:
+`scripts/command-guard.sh --command 'rm -rf ${a}/x'` then
 `… --command 'rm -rf ${b}/y'` — the second exits 0.
 
 **WATCH — the macOS rail self-test failure has a repair, but not a proven cause.** The
@@ -122,6 +119,11 @@ re-litigate from.
   file, and the advisory tier is the answer instead — **DB-027**.
 
 ## Changelog
+
+- 2026-08-16 — **The caps unit's adversarial review closed three enforcement defects.**
+  File-descriptor duplication no longer blinds the command rail; titles and initialisms no
+  longer create phantom sentence boundaries; and the ladder's no-config row backstop matches
+  the shipped configuration. The unquoted-brace splitter hole remains queued. **DC-005**.
 
 - 2026-08-16 — **The caps an agent writes toward gained a second unit (8.0.0, same release).**
   `STATE_COMPRESS_TO_SENTENCES` joins the KB floor and a landing meets both; `LEDGER_ROW_SENTENCE_CAP`

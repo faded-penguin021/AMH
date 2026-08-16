@@ -72,17 +72,8 @@
 #     advisory recommends) records the real target. It costs the strongest PARAGRAPH too, not
 #     just the target: the surviving operand is a bare `$` with no `/` in it, so
 #     `DESTRUCTIVE_ROOTISH` never sets and the empty-variable warning — the one this rail
-#     exists for — is suppressed on the very spelling that needs it. Same root as the
-#     fd-duplication miss below, and the same fix: `split_segments` has to learn these
-#     spellings.
-#   * AN fd-DUPLICATING REDIRECTION BEFORE THE OPERANDS. Redirections are removed before
-#     any word is judged, in every position — but `split_segments` treats the `&` of
-#     `2>&1` as a segment operator, so `git 2>&1 push --mirror origin` is split into `git
-#     2>` and `1 push --mirror origin`, and the second segment leads with `1`, which is no
-#     command. Bash still runs the push. `2>&1` written AFTER the operands, the common
-#     form, is judged normally; only a dup placed before them hides what follows. Closing
-#     it means teaching the splitter that `N>&M` is one token, which is a change to the
-#     function every scanner here is built on.
+#     exists for — is suppressed on the very spelling that needs it. Closing it means
+#     teaching `split_segments` that `${...}` is one expansion.
 #   * HEREDOCS AND LONG LINES. `cmd <<EOF` hides its body until the delimiter, and the
 #     window-based scanners give up past `CHAR_LOOKAHEAD` characters — a variable name or
 #     redirection target longer than the window is not classified.
@@ -181,7 +172,20 @@ split_segments() { # sets SEGMENTS
 		case $c in
 		"'" | '"') q=$c ;;
 		\\) i=$((i + 1)) ;;
-		';' | '&' | '|' | $'\n' | '(' | ')' | '{' | '}' | '`')
+		'&')
+			# In an fd-duplication redirection (`2>&1`, `<&0`, `>&-`), `&` is
+			# syntax inside the redirection rather than a command separator. Splitting
+			# here blinds the next segment by leaving the duplicated fd as its first
+			# word (`1 push ...`). strip_redirections judges the whole construct later.
+			if [ "$i" -gt 0 ]; then
+				case ${s:i-1:1}${s:i+1:1} in
+				'>'[0-9-] | '<'[0-9-]) i=$((i + 1)); continue ;;
+				esac
+			fi
+			out+=("${s:start:i-start}")
+			start=$((i + 1))
+			;;
+		';' | '|' | $'\n' | '(' | ')' | '{' | '}' | '`')
 			out+=("${s:start:i-start}")
 			start=$((i + 1))
 			;;
@@ -1940,6 +1944,7 @@ printenv'
 	st_blocked "git push origin +HEAD:$DEFAULT_BRANCH"
 	st_blocked 'git push origin +feature'
 	st_blocked 'git push --mirror origin'
+	st_blocked 'git 2>&1 push --mirror origin'
 	st_blocked 'git push --all origin'
 	# Sourcing loads the values into the shell.
 	st_blocked 'source .env'
