@@ -161,3 +161,15 @@
   pointer that stops the search. Reopening needs a mechanism that acts on the window itself,
   which no agent-neutral substrate exposes — a session cannot read its own token count, and
   prose cannot evict what a host already injected.
+
+- DC-007: **Same script does not mean same verification input, and an opaque editing style is
+  not a rail-shaped hazard.** A downstream comment-budget guard used `git ls-files`, so its
+  local run omitted a new untracked test and CI counted the file only after it was staged; the
+  runbook's claim that local-green/CI-red could only be environmental directed diagnosis away
+  from the index state that caused it. In the same report an agent used an interpreter heredoc
+  for a multi-site replacement instead of its host's structured edit tool, making review
+  needlessly opaque, but AMH cannot prefer a built-in tool agent-neutrally and cannot infer
+  arbitrary interpreter writes without inspecting heredoc program text that the command rail
+  deliberately treats as data. Correct the false CI claim and leave editing-tool choice to
+  host guidance and reviewer judgement; a Python-write advisory would block ordinary
+  interpreter use while still missing equivalent writes in every other language.

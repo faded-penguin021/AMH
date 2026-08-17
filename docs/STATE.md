@@ -112,6 +112,11 @@ re-litigate from.
 - **A byte cap on the constitution (`CONSTITUTION_WARN_KB`)**, refused while adding the
   current-state rule that would have motivated it — the defect is kind, not size, and a cap over
   all-live legislation makes shaving a rule the cheapest compliance (**DB-038**).
+- **A block-once rail for Python file writes**, declined after a downstream agent used a
+  Python heredoc for an opaque text replacement. The reviewability problem is real, but the
+  proposed rail is not agent-neutral or artifact-triggered: AMH cannot assume a host provides
+  structured edit tools, and recognizing arbitrary interpreter writes means treating heredoc
+  program text as commands while missing equivalent writes in other languages (**DC-007**).
 - **The 2026-08-10 review's two refusals** — **DB-024**.
 - **A guard that opens files to classify them** (owner, 2026-08-11). Reading a `.pem`'s first
   line would separate a private key from a certificate, and it is refused: no rail here opens a
@@ -121,6 +126,10 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-17 — Corrected the local-green/CI-red playbook to account for index-dependent guard
+  inputs, and declined an agent-specific Python-write rail whose false positives and language
+  gaps would exceed its reviewability benefit (**DC-007**).
 
 - 2026-08-15 through 2026-08-17 — **The 8.0.0 train, folded, tagged and published**
   (`amh-v8.0.0` at 6d447b6). The constitution bounded by kind rather than bytes; green verdicts
