@@ -28,14 +28,14 @@ The AMH meta-repository: both the **source of truth** for the Agentic Maintenanc
 reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
 **reference instance**, running byte-identical copies of the scripts it ships. The product is
 `harness/` (prose source, templates, generated bundle); this repo's instance is `AGENTS.md` +
-`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 8.0.0** — see `harness/VERSION`,
+`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 9.0.0** — see `harness/VERSION`,
 the copy that counts.
 
 ## Current state
 
 AMH **8.0.0** is tagged and published on origin (`amh-v8.0.0` at 6d447b6, confirmed by
-`git ls-remote --tags` on 2026-08-17): the seed constitution states that it describes the system
-as currently built, and adoption history now belongs in the ledger and the state changelog.
+`git ls-remote --tags` on 2026-08-17). This branch prepares **9.0.0**, correcting CI triage and
+closing the version-lockstep hole that let an `Unreleased` entry sit above the published version.
 
 Committed ledger rows are append-only, enforced against `HEAD` by a repo-local guard whose
 sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**. The live volume is
@@ -52,6 +52,9 @@ sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**. The l
 > thing that lives here: **`Check:` is deliberately NOT a required field**, so its absence is
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
+
+**OPEN — tag and publish AMH 9.0.0.** Create and push `amh-v9.0.0` after this branch merges. No
+check: only the owner may tag or publish.
 
 **OPEN — `split_segments` cuts braces that blur a destructive target.** Unquoted
 `rm -rf ${d}/build` becomes `rm -rf $`, so every unquoted-brace deletion records the same target
@@ -127,9 +130,9 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-08-17 — Corrected the local-green/CI-red playbook to account for index-dependent guard
-  inputs, and declined an agent-specific Python-write rail whose false positives and language
-  gaps would exceed its reviewability benefit (**DC-007**).
+- 2026-08-17 — Prepared 9.0.0: corrected the local-green/CI-red playbook to account for
+  index-dependent guard inputs; declined an agent-specific Python-write rail; and made the
+  version lockstep reject an unversioned top changelog entry (**DC-007**, **DC-008**).
 
 - 2026-08-15 through 2026-08-17 — **The 8.0.0 train, folded, tagged and published**
   (`amh-v8.0.0` at 6d447b6). The constitution bounded by kind rather than bytes; green verdicts

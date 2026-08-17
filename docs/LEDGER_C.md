@@ -173,3 +173,11 @@
   deliberately treats as data. Correct the false CI claim and leave editing-tool choice to
   host guidance and reviewer judgement; a Python-write advisory would block ordinary
   interpreter use while still missing equivalent writes in every other language.
+
+- DC-008: **An `Unreleased` heading must not hide a missing version bump from the lockstep
+  guard.** A release was described as PATCH impact and placed under an
+  `Unreleased` changelog heading while all five hand-maintained copies still named the
+  published 8.0.0; `version-lockstep.sh` skipped nonnumeric headings, found 8.0.0 below, and
+  passed. The guard now requires the first changelog entry itself to name `harness/VERSION`,
+  with a fixture that reproduces that exact green omission; it does not infer release impact
+  from arbitrary prose added beneath an already-current numeric entry.

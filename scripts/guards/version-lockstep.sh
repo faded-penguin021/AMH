@@ -36,6 +36,16 @@ case $VERSION in
 *) note "harness/VERSION is '$VERSION', which is not MAJOR.MINOR.PATCH" ;;
 esac
 
+# The first changelog entry is part of the release lockstep, not merely the first heading that
+# happens to contain digits. Skipping an `Unreleased` heading let a seed change advertise PATCH
+# adopter impact while every version-bearing file still named the already-published release.
+# That is a green check over the exact omission this guard exists to catch.
+first_changelog_entry=$(sed -n 's/^## //p' harness/CHANGELOG.md 2>/dev/null | head -1)
+case $first_changelog_entry in
+"$VERSION "*) ;;
+*) note "changelog top entry is '${first_changelog_entry:-missing}', expected version $VERSION — replace an Unreleased top entry and align every lockstep copy" ;;
+esac
+
 # <label> <file> <sed extraction script>
 check() {
 	local label=$1 file=$2 script=$3 found
@@ -51,7 +61,6 @@ check() {
 	fi
 }
 
-check "changelog top entry" harness/CHANGELOG.md 's/^## \([0-9][0-9.]*\).*/\1/p'
 check "constitution" AGENTS.md 's/.*Adopted harness version: \*\*AMH \([0-9][0-9.]*\)\*\*.*/\1/p'
 check "state file" docs/STATE.md 's/.*Adopted harness version: \*\*AMH \([0-9][0-9.]*\)\*\*.*/\1/p'
 check "amh.conf" amh.conf 's/^AMH_VERSION=\([0-9][0-9.]*\).*/\1/p'
