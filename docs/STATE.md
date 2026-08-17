@@ -120,6 +120,12 @@ re-litigate from.
 
 ## Changelog
 
+- 2026-08-17 — **Managing the model's context window closed as a non-item.** An
+  external-harness comparison observed that this repo budgets stored context and not the
+  window; a byte budget, a closed read set and a curated read floor were each worked through
+  and each died — the last because every host harness already does it unprompted. Nothing
+  shipped. **DC-006**.
+
 - 2026-08-16 — **The caps unit's adversarial review closed three enforcement defects.**
   File-descriptor duplication no longer blinds the command rail; titles and initialisms no
   longer create phantom sentence boundaries; and the ladder's no-config row backstop matches

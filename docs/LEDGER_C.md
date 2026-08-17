@@ -146,3 +146,18 @@
   both shipped configs. Each repair pins the boundary that made the promise false: titles and
   initialisms, a duplication before operands, and an otherwise-valid row between the old and
   adopted defaults.
+
+- DC-006: **"AMH manages stored context but not the model's window" is a true observation with
+  no agent-neutral mechanism behind it — it closes as a non-item, not a backlog entry.** An
+  external-harness comparison raised it, and three candidates died in turn: a byte budget over a
+  declared read set cannot reach source code, which is where a real project's window actually
+  goes and whose read set is discovered by grepping toward a bug rather than declared in
+  advance. A closed read set breaks fixes across hidden coupling — the invariant sits in a file
+  nothing in the changed one names, so the list is weakest exactly where it matters — and it
+  contradicts session discipline 9, which requires establishing that a search COULD have seen
+  the thing before reporting its absence. A curated read floor survives both objections but is
+  already what every host harness does unprompted, so it buys no behaviour this repo lacks, and
+  an index that goes stale is then a net loss: it replaces "look around" with a confident wrong
+  pointer that stops the search. Reopening needs a mechanism that acts on the window itself,
+  which no agent-neutral substrate exposes — a session cannot read its own token count, and
+  prose cannot evict what a host already injected.
