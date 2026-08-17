@@ -501,12 +501,16 @@ lines; read the function when it and this disagree.
 
 ## When CI fails (workflow vs code)
 
-Local and CI run the same script, so CI-red with local-green means environment, not code.
-Triage: (1) read the failing log — a real failure (fix the code), a toolchain mismatch (fix
-the workflow, in the same change), or a flake (re-run once; never "fix" code for a flake).
-(2) Never weaken a gate to get green. (3) Real but out of scope: say so, with the log excerpt.
-The most likely environment difference here is `shellcheck`, which CI installs and this
-container does not have — `verify.sh` deliberately FAILS rather than skips when it is missing
+Local and CI run the same script, so first compare what that script could see: the commit,
+index and worktree are inputs too. A guard built on `git ls-files` may omit an untracked file;
+staging it after the local run changes the input CI receives and can turn local-green into
+CI-red without any environment difference. Triage: (1) read the failing log; (2) reproduce
+from the exact tree state CI checked, staging new files before the local ladder when a guard's
+file discovery is index-dependent; then classify a real failure (fix the code), a toolchain
+mismatch (fix the workflow, in the same change), or a flake (re-run once; never "fix" code for
+a flake). (3) Never weaken a gate to get green. (4) Real but out of scope: say so, with the log
+excerpt. A common environment difference here is `shellcheck`, which CI installs and a local
+container may not have — `verify.sh` deliberately FAILS rather than skips when it is missing
 under `CI`.
 
 ## Self-adaptation — keep this runbook useful

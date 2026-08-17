@@ -28,14 +28,14 @@ The AMH meta-repository: both the **source of truth** for the Agentic Maintenanc
 reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
 **reference instance**, running byte-identical copies of the scripts it ships. The product is
 `harness/` (prose source, templates, generated bundle); this repo's instance is `AGENTS.md` +
-`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 8.0.0** — see `harness/VERSION`,
+`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 9.0.0** — see `harness/VERSION`,
 the copy that counts.
 
 ## Current state
 
-AMH 7.0.2 is tagged and published on origin (confirmed by `git ls-remote --tags` on 2026-08-15).
-This branch is **8.0.0** (MAJOR): the seed constitution states that it describes the system as
-currently built, and adoption history now belongs in the ledger and the state changelog.
+AMH **8.0.0** is tagged and published on origin (`amh-v8.0.0` at 6d447b6, confirmed by
+`git ls-remote --tags` on 2026-08-17). This branch prepares **9.0.0**, correcting CI triage and
+closing the version-lockstep hole that let an `Unreleased` entry sit above the published version.
 
 Committed ledger rows are append-only, enforced against `HEAD` by a repo-local guard whose
 sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**. The live volume is
@@ -53,6 +53,9 @@ sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**. The l
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
 
+**OPEN — tag and publish AMH 9.0.0.** Create and push `amh-v9.0.0` after this branch merges. No
+check: only the owner may tag or publish.
+
 **OPEN — `split_segments` cuts braces that blur a destructive target.** Unquoted
 `rm -rf ${d}/build` becomes `rm -rf $`, so every unquoted-brace deletion records the same target
 `$` and clears the advisory for every other one — the cross-target silence the per-target rearm
@@ -69,15 +72,14 @@ That is the whole of the repair. The fail-closed arm added beside it cannot fire
 parsers — every non-blank string yields a word and a segment — so it is a tripwire for a future
 transport and not a second line of defence here; do not read a green macOS run as proof it
 works. If the same eighteen fixtures go red again, the diagnosis was wrong and the mechanism is
-still open. Close this item after several green macOS runs. Check: the
-`portability (macos-latest)` job on this branch.
-
-**OPEN — tag and publish AMH 8.0.0.** Create and push `amh-v8.0.0` after this branch merges. No
-check: only the owner may tag or publish. (`amh-v7.0.2` is published — `git ls-remote --tags
-origin 'refs/tags/amh-v*'` on 2026-08-15 — which closed the previous item.)
+still open. **Close after 9 consecutive green `portability (macos-latest)` runs on merged
+commits**, replacing a "several" nobody counts — a stand-in for evidence and never evidence,
+since no number of green runs disproves an intermittent fault; the 9 is the README's own N+9
+rediscovery horizon, and a recurrence inside the count resets it and marks the diagnosis wrong.
+Check: the `portability (macos-latest)` job on this branch.
 
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
-6.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
+8.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -113,6 +115,11 @@ re-litigate from.
 - **A byte cap on the constitution (`CONSTITUTION_WARN_KB`)**, refused while adding the
   current-state rule that would have motivated it — the defect is kind, not size, and a cap over
   all-live legislation makes shaving a rule the cheapest compliance (**DB-038**).
+- **A block-once rail for Python file writes**, declined after a downstream agent used a
+  Python heredoc for an opaque text replacement. The reviewability problem is real, but the
+  proposed rail is not agent-neutral or artifact-triggered: AMH cannot assume a host provides
+  structured edit tools, and recognizing arbitrary interpreter writes means treating heredoc
+  program text as commands while missing equivalent writes in other languages (**DC-007**).
 - **The 2026-08-10 review's two refusals** — **DB-024**.
 - **A guard that opens files to classify them** (owner, 2026-08-11). Reading a `.pem`'s first
   line would separate a private key from a certificate, and it is refused: no rail here opens a
@@ -120,68 +127,28 @@ re-litigate from.
 
 ## Changelog
 
-- 2026-08-16 — **The caps unit's adversarial review closed three enforcement defects.**
-  File-descriptor duplication no longer blinds the command rail; titles and initialisms no
-  longer create phantom sentence boundaries; and the ladder's no-config row backstop matches
-  the shipped configuration. The unquoted-brace splitter hole remains queued. **DC-005**.
-
-- 2026-08-16 — **The caps an agent writes toward gained a second unit (8.0.0, same release).**
-  `STATE_COMPRESS_TO_SENTENCES` joins the KB floor and a landing meets both; `LEDGER_ROW_SENTENCE_CAP`
-  becomes the working row limit over a raised byte backstop. Each unit blocks the cheap move that
-  satisfies the other, which is what the declined top-decile warning could not do. **DC-003**.
-
-- 2026-08-16 — **Redirections are stripped before the command guard judges any word (8.0.0,
-  same release).** Closed the queue item's false denial of `git push … 2>&1`, and — found by
-  the mandatory pass, not by the report — two silent bypasses as old as the rails themselves:
-  a redirection between `git` and `push` hid `--force` and `--mirror`, one before the command
-  word hid the command. Thirteen fixtures, each shown to fail against a broken implementation.
-  One miss stays open below. The ledger rolled over to `docs/LEDGER_C.md`. **DC-001**.
-
-- 2026-08-16 — **The guard's parsers stopped piping through subshells (8.0.0, same release).**
-  The repair for the intermittent macOS self-test failure, whose cause is inferred rather than
-  proven — the queue carries a WATCH. A fail-closed arm now denies non-blank text that parses
-  to nothing, unreachable against these parsers and kept as a tripwire. **DC-002**.
-
-- 2026-08-15 — **Green verdicts stopped printing thresholds (8.0.0, same release).** The size
-  line reports the measurement, the landing line reports bytes clear of the floor, and the
-  new-row rung reports each row's length; warns and fails still quote the cap they turn on.
-  Three `expect_pass_not_saying` fixtures fail if a number returns to a green line. The
-  inverted-gradient warning the same report proposed was declined — a second threshold is a
-  second number to hug. **DB-040**.
-
-- 2026-08-15 — **Owner: the release is MAJOR, and both units ship inside 8.0.0** (owner,
-  2026-08-15, answering the version question raised in this queue and closing it).
-
-- 2026-08-15 — **The constitution is bounded by kind, not by bytes, as 8.0.0.** The seed and
-  this instance now say they state the system as currently built, and route supersession
-  history, adoption narratives and per-version sanction records to the ledger with a changelog
-  pointer. A `CONSTITUTION_WARN_KB` was considered and refused; the `RULE_FILES` tripwire is the
-  enforcement, described at its real strength. Existing adopters relocate by hand — the
-  changelog's Upgrading notes carry the steps and what the move does to their tripwire. The
-  review pass added the routing's limit (a live rule never leaves) and the owner-queue escalation
-  of the version call. **DB-038**, **DB-039**.
-
-- 2026-08-15 — **The macOS release-tag failure is repaired as 7.0.2.** Destructive-advisory
-  signature sorting and joining now stay inside Bash, with reversed-order target-set coverage.
-  The immutable 7.0.1 tag is an assetless prerelease whose verification failed, so the corrected
-  artifact requires a new patch tag.
-
-- 2026-08-15 — **AMH 7.0.1 covers the supported macOS, Linux, and Windows toolchains.**
-  Fixed the initializer's BSD-`chmod` failure and cleanup, Bash 3.2 heredoc parsing and BSD sed
-  redaction and citation-row programs; removed GNU `sed -i` and Bash 4 dependencies from verification; documented
-  the runtime floor for macOS, GNU/Linux, and Windows Git Bash; and added shipped-guard plus
-  installer CI smoke jobs for macOS and Windows Git Bash alongside Linux's full ladder. Prepared
-  as 7.0.1.
-
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-08-11 through 2026-08-14 — **The 6.0.0–7.0.0 train, folded.** Private-key read rails
-  and block-body redaction; portable working-memory prose; per-operand destructive advisories;
-  maximum-not-target ledger guidance; Codex lifecycle hooks and project rule reviewer;
-  deterministic bearer-fixture construction; session-namespace push enforcement; required PR
-  template use; and full base-to-head branch-train descriptions. **DB-026**…**DB-037** are the
-  record.
+- 2026-08-17 — Prepared 9.0.0: corrected the local-green/CI-red playbook to account for
+  index-dependent guard inputs; declined an agent-specific Python-write rail; and made the
+  version lockstep reject an unversioned top changelog entry (**DC-007**, **DC-008**).
+
+- 2026-08-15 through 2026-08-17 — **The 8.0.0 train, folded, tagged and published**
+  (`amh-v8.0.0` at 6d447b6). The constitution bounded by kind rather than bytes; green verdicts
+  stopped printing thresholds; the guard's parsers left subshells; redirections stripped before
+  any word is judged; the caps an agent writes toward gained a second unit; an adversarial pass
+  closed three enforcement defects; and the context-window question closed as a non-item with
+  nothing shipped. **DB-038**…**DB-040** and **DC-001**…**DC-006** are the record; the
+  unquoted-brace splitter hole and the macOS WATCH stay queued above.
+
+- 2026-08-11 through 2026-08-15 — **The 6.0.0 through 7.0.2 train, folded.** Private-key read
+  rails and block-body redaction; portable working-memory prose; per-operand destructive
+  advisories; maximum-not-target ledger guidance; Codex lifecycle hooks and project rule
+  reviewer; deterministic bearer-fixture construction; session-namespace push enforcement;
+  required PR template use; full base-to-head branch-train descriptions; and cross-platform
+  support for the macOS, GNU/Linux and Windows Git Bash toolchains closing with the macOS
+  release-tag repair. **DB-026**…**DB-037** are the record.
 
 - 2026-07-25 through 2026-08-10 — **Everything up to 5.2.1, folded.** Founding, self-hosting,
   releases through 5.2.1, the rejected and reduced RFCs, conformance scenarios, lifecycle and

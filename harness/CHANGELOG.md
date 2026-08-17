@@ -11,6 +11,27 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 9.0.0 — 2026-08-17
+
+- **The seed CI-triage playbook no longer claims that local-green/CI-red can only be an
+  environment difference.** A downstream guard discovered files through `git ls-files`, so a
+  new file was invisible during the local ladder and visible in CI after staging. The same
+  script can receive different commit, index and worktree inputs; the playbook now says to
+  reproduce the exact tree state CI checked and to stage new files before verification when
+  discovery is index-dependent. MAJOR because an adopter following the existing binding triage
+  procedure must replace it; PATCH cannot carry a required hand edit under this changelog's
+  version semantics.
+- **The version lockstep guard now rejects an unversioned top changelog entry.** The first
+  draft of this patch called itself a PATCH in its PR impact and added an `Unreleased` entry,
+  but left all five hand-maintained version copies at the already-published release; the guard
+  skipped that heading, found the older numeric entry below it, and passed. The top entry must
+  now name `harness/VERSION`, so that specific omission fails before review or push.
+
+### Upgrading
+
+Replace the **When CI fails (workflow vs code)** paragraph in your `docs/RUNBOOK.md` with the
+wording from `harness/templates/seed/docs/RUNBOOK.md`.
+
 ## 8.0.0 — 2026-08-15
 
 - **The constitution now says that it states the system as currently built — and where history

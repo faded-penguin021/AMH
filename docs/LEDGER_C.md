@@ -146,3 +146,38 @@
   both shipped configs. Each repair pins the boundary that made the promise false: titles and
   initialisms, a duplication before operands, and an otherwise-valid row between the old and
   adopted defaults.
+
+- DC-006: **"AMH manages stored context but not the model's window" is a true observation with
+  no agent-neutral mechanism behind it — it closes as a non-item, not a backlog entry.** An
+  external-harness comparison raised it, and three candidates died in turn: a byte budget over a
+  declared read set cannot reach source code, which is where a real project's window actually
+  goes and whose read set is discovered by grepping toward a bug rather than declared in
+  advance. A closed read set breaks fixes across hidden coupling — the invariant sits in a file
+  nothing in the changed one names, so the list is weakest exactly where it matters — and it
+  contradicts session discipline 9, which requires establishing that a search COULD have seen
+  the thing before reporting its absence. A curated read floor survives both objections but is
+  already what every host harness does unprompted, so it buys no behaviour this repo lacks, and
+  an index that goes stale is then a net loss: it replaces "look around" with a confident wrong
+  pointer that stops the search. Reopening needs a mechanism that acts on the window itself,
+  which no agent-neutral substrate exposes — a session cannot read its own token count, and
+  prose cannot evict what a host already injected.
+
+- DC-007: **Same script does not mean same verification input, and an opaque editing style is
+  not a rail-shaped hazard.** A downstream comment-budget guard used `git ls-files`, so its
+  local run omitted a new untracked test and CI counted the file only after it was staged; the
+  runbook's claim that local-green/CI-red could only be environmental directed diagnosis away
+  from the index state that caused it. In the same report an agent used an interpreter heredoc
+  for a multi-site replacement instead of its host's structured edit tool, making review
+  needlessly opaque, but AMH cannot prefer a built-in tool agent-neutrally and cannot infer
+  arbitrary interpreter writes without inspecting heredoc program text that the command rail
+  deliberately treats as data. Correct the false CI claim and leave editing-tool choice to
+  host guidance and reviewer judgement; a Python-write advisory would block ordinary
+  interpreter use while still missing equivalent writes in every other language.
+
+- DC-008: **An `Unreleased` heading must not hide a missing version bump from the lockstep
+  guard.** A release was described as PATCH impact and placed under an
+  `Unreleased` changelog heading while all five hand-maintained copies still named the
+  published 8.0.0; `version-lockstep.sh` skipped nonnumeric headings, found 8.0.0 below, and
+  passed. The guard now requires the first changelog entry itself to name `harness/VERSION`,
+  with a fixture that reproduces that exact green omission; it does not infer release impact
+  from arbitrary prose added beneath an already-current numeric entry.

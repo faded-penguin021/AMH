@@ -497,6 +497,12 @@ d=$(snapshot ver_bump)
 printf '1.9.0\n' >"$d/harness/VERSION"
 expect fail "version-lockstep: VERSION bumped alone" "$d" version-lockstep.sh "harness/VERSION says 1.9.0"
 
+d=$(snapshot ver_unreleased)
+sed_in_place '1a\
+\
+## Unreleased' "$d/harness/CHANGELOG.md"
+expect fail "version-lockstep: an Unreleased entry cannot hide a missing version bump" "$d" version-lockstep.sh "changelog top entry is 'Unreleased'"
+
 d=$(snapshot ver_conf)
 sed_in_place 's/^AMH_VERSION=.*/AMH_VERSION=1.7.0/' "$d/amh.conf"
 expect fail "version-lockstep: amh.conf drifted" "$d" version-lockstep.sh "amh.conf"
