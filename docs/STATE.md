@@ -63,16 +63,6 @@ mutations — bypasses every local rail. Not machinery yet: an adversarial test 
 earning a narrow rail only if a real session crosses that boundary. No check — nobody but a
 session actually crossing it settles this.
 
-**OPEN — `split_segments` cuts braces that blur a destructive target.** Unquoted
-`rm -rf ${d}/build` becomes `rm -rf $`, so every unquoted-brace deletion records the same target
-`$` and clears the advisory for every other one — the cross-target silence the per-target rearm
-exists to stop. Quoting records the real target and the advisory recommends the quoted spelling,
-so this is a hole rather than a live wound and remains in the guard header's "does NOT catch"
-block. Closing it means teaching the splitter about `${...}`. It is the function every scanner
-in the script is built on, so it is its own unit with its own review pass. Check:
-`scripts/command-guard.sh --command 'rm -rf ${a}/x'` then
-`… --command 'rm -rf ${b}/y'` — the second exits 0.
-
 **WATCH — the macOS rail self-test failure has a repair, but not a proven cause.** The
 subshell transport the failure rode is gone: the parsers fill arrays in-process (**DC-002**).
 That is the whole of the repair. The fail-closed arm added beside it cannot fire against these
@@ -137,6 +127,10 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-18 — Made `split_segments` preserve unquoted `${...}` parameter expansions, so
+  destructive advisories retain distinct targets and the empty-variable warning; nested
+  expansions are covered too (**DC-010**).
+
 - 2026-08-18 — Added the git-native pre-push rail (P13): a `command-guard.sh --pre-push` mode and
   a non-clobbering `.git/hooks/pre-push` wrapper installed by `session-start.sh` (every boot) and
   `amh-init.sh` (adoption). Rejects default-branch, force/non-fast-forward and delete pushes by
@@ -154,8 +148,8 @@ rows — this section is a pointer index, not a narrative.
   stopped printing thresholds; the guard's parsers left subshells; redirections stripped before
   any word is judged; the caps an agent writes toward gained a second unit; an adversarial pass
   closed three enforcement defects; and the context-window question closed as a non-item with
-  nothing shipped. **DB-038**…**DB-040** and **DC-001**…**DC-006** are the record; the
-  unquoted-brace splitter hole and the macOS WATCH stay queued above.
+  nothing shipped. **DB-038**…**DB-040** and **DC-001**…**DC-006** are the record; the macOS
+  WATCH stays queued above, while **DC-010** later closed the unquoted-brace splitter hole.
 
 - 2026-08-11 through 2026-08-15 — **The 6.0.0 through 7.0.2 train, folded.** Private-key read
   rails and block-body redaction; portable working-memory prose; per-operand destructive
