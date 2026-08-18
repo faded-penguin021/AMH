@@ -105,9 +105,13 @@ definition of that scope.
   extension point or requires a reviewed extension-point change.
 - Know which rails your own session actually has. An agent whose harness provides no
   pre-execution hook runs with **no command rail at all** — `scripts/command-guard.sh` is then
-  a script nobody calls, and these rules are the only layer. No script can detect this for you:
-  telling a hook invocation from a manual one requires one vendor's environment variables, which
-  the harness may not assume, so this stays prose on purpose (**DA-022**).
+  a script nobody calls, and these rules are the only layer. The one exception is the push: the
+  git-native `pre-push` rail (`command-guard.sh --pre-push`, installed into `.git/hooks/pre-push`
+  by `session-start.sh`) is invoked by git rather than by the agent, so it still guards the
+  publication invariants for a hook-less agent — a guardrail `--no-verify` bypasses, not a
+  boundary. No script can detect the hook-less state for you: telling a hook invocation from a
+  manual one requires one vendor's environment variables, which the harness may not assume, so
+  this stays prose on purpose (**DA-022**).
 - New guard behavior ships with a fixture that demonstrably fails without the behavior. Keep
   repo-local fixtures separate from the shipped fixture suite.
 - Add no dependency without owner approval; the distributed harness targets `bash`, `git`,

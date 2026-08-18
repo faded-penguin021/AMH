@@ -181,3 +181,20 @@
   passed. The guard now requires the first changelog entry itself to name `harness/VERSION`,
   with a fixture that reproduces that exact green omission; it does not infer release impact
   from arbitrary prose added beneath an already-current numeric entry.
+
+- DC-009: **A git-native pre-push rail earns its place — the publication invariants gain a
+  layer git invokes rather than the agent.** D-016 item 1 was the incident: a `<<<` here-string
+  defect voided command-guard's force-push and push-to-default rails, leaving server-side branch
+  protection as the only surviving layer, which earns a second independent enforcement point
+  instead of trusting one parser never to regress. The idea came from AGit
+  (github.com/hudishkin/agit), whose pre-push hook AMH borrows ONLY as Git-level enforcement of
+  invariants it already holds — rejecting AGit's human `finish`/token flow, worktree
+  concurrency, local mirror and doctor. `command-guard.sh --pre-push` judges git's per-ref stdin
+  by OUTCOME (default-branch, non-fast-forward as force-by-effect, deletion) and carries NO
+  branch-prefix check, because DA-022 established the harness assigns branch names the repository
+  does not prefix, so a prefix rail would reject the very branches it protects. It binds a
+  hook-less agent's pushes since git runs it whatever drives the shell, but it is a guardrail not
+  a boundary: `--no-verify` skips it, it sees git-CLI pushes only and never a forge-API push, and
+  `.git/hooks` is untracked so session-start.sh installs it non-clobbering every boot. The
+  forge/API mutation surface AGit also guards is left as an adversarial test vector, not
+  machinery, until a real session crosses that boundary (Owner queue).

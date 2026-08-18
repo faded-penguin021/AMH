@@ -461,6 +461,64 @@ install_file "$TPL/configs/codex-config.toml" .codex/config.toml keep 644
 install_file "$TPL/configs/codex-amh.rules" .codex/rules/amh.rules keep 644
 install_file "$TPL/configs/codex-agents/amh-rule-reviewer.toml" .codex/agents/amh-rule-reviewer.toml keep 644
 
+# --- git-native pre-push rail (P13) ----------------------------------------
+# A non-clobbering install of .git/hooks/pre-push, matching what scripts/session-start.sh
+# writes every session. amh-init runs ONCE, so this is the developer-machine convenience; the
+# session bootstrap is what keeps the rail present in ephemeral clones where .git/hooks does not
+# survive. Both write a hook carrying the 'AMH pre-push rail' marker, so neither clobbers the
+# other. Never touch a foreign hook, and step aside under core.hooksPath. Fails open — the rail
+# is a guardrail, not a reason to abort an install.
+printf '\n git-native pre-push rail (P13)\n'
+install_prepush_hook() {
+	local hooks_dir hook
+	git -C "$TARGET" rev-parse --git-dir >/dev/null 2>&1 || {
+		printf '   skip   pre-push hook (target is not a git repository)\n'
+		return 0
+	}
+	if [ -n "$(git -C "$TARGET" config --get core.hooksPath 2>/dev/null)" ]; then
+		printf '   skip   pre-push hook (core.hooksPath is set — your hooks are left alone; chain in scripts/command-guard.sh --pre-push to keep the rail)\n'
+		return 0
+	fi
+	hooks_dir=$(git -C "$TARGET" rev-parse --git-path hooks 2>/dev/null)
+	[ -n "$hooks_dir" ] || hooks_dir="$(git -C "$TARGET" rev-parse --git-dir 2>/dev/null)/hooks"
+	[ -n "$hooks_dir" ] || return 0
+	case $hooks_dir in /*) ;; *) hooks_dir="$TARGET/$hooks_dir" ;; esac
+	hook="$hooks_dir/pre-push"
+	if [ -e "$hook" ]; then
+		grep -q 'AMH pre-push rail' "$hook" 2>/dev/null && {
+			printf '   keep   pre-push hook (AMH rail already present)\n'
+			return 0
+		}
+		printf '   keep   pre-push hook (yours — left untouched; chain in scripts/command-guard.sh --pre-push to add the rail)\n'
+		return 0
+	fi
+	if [ "$DRY_RUN" = 1 ]; then
+		printf '   write  pre-push hook (dry run)\n'
+		return 0
+	fi
+	mkdir -p -- "$hooks_dir" 2>/dev/null || {
+		printf '   skip   pre-push hook (cannot create %s)\n' "$hooks_dir"
+		return 0
+	}
+	# The wrapper is literal text; its `$root`/`$@` must NOT expand here.
+	# shellcheck disable=SC2016
+	{
+		printf '%s\n' '#!/usr/bin/env bash' \
+			'# AMH pre-push rail (P13) — installed by scripts/amh-init.sh.' \
+			'# Git runs this on every push, whatever agent (or none) drives the shell.' \
+			'# A guardrail, not a boundary: --no-verify skips it. Delete this file to remove it.' \
+			'root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0' \
+			'[ -x "$root/scripts/command-guard.sh" ] || exit 0' \
+			'exec bash "$root/scripts/command-guard.sh" --pre-push "$@"'
+	} >"$hook" 2>/dev/null || {
+		printf '   skip   pre-push hook (cannot write %s)\n' "$hook"
+		return 0
+	}
+	chmod +x -- "$hook" 2>/dev/null
+	printf '   write  pre-push hook (%s)\n' "$hook"
+}
+install_prepush_hook
+
 # The adoption brief: the work this tool cannot do, addressed to the agent that can.
 #
 # FRESH INSTALLS ONLY, and that condition is the whole design. The brief ends by telling the

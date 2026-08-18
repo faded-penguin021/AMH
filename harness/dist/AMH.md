@@ -346,6 +346,27 @@ human already reads, as a line that no counter, exit code or gate consumes — i
 that anyone looked, only that the cheapest escape stopped being invisible, and P3 forbids any
 machinery that reads it as more.
 
+**One rail can be invoked by git itself rather than by the agent, and that is the point.** The
+command guard above binds only an agent whose harness runs a pre-execution hook; an agent
+without one has no command rail at all, the gap the paragraph before this one concedes. A git
+`pre-push` hook closes exactly that gap, because git runs it on every push whatever drives the
+shell. Install the SAME guard in a `--pre-push` mode there and judge git's per-ref stdin by
+OUTCOME, not by flag: reject a push to the default branch, a non-fast-forward (which is force by
+effect, so one ancestry test catches `--force`, `--force-with-lease` and a `+`-refspec alike
+wherever the ancestry is decidable — a shallow clone whose objects it cannot resolve fails open,
+the direction every rail here fails), and a branch deletion — the publication invariants the
+command rail already holds, though judged by effect the two are not identical (a fast-forward
+`--force` the flag rail blocks rewrites no history and passes here). It is a
+guardrail and not a boundary, and prose that overstates it is P20's companion failure:
+`--no-verify` skips it, it sees git-CLI pushes and never a push made through a forge API, and
+`.git/hooks` is untracked so it binds only where installed — install it from the boot sequence
+(P14), which every session runs, not only from the one-time initializer that a fresh clone never
+re-runs. Install it NON-CLOBBERING: write the hook only where none exists, never take over a
+pre-push hook the script did not write, and say how to chain the check in where one is already
+present — a reusable harness cannot own an arbitrary repository's hook lifecycle. Carry NO
+branch-prefix check: the harness assigns session branch names the repository may not itself
+prefix, so a prefix rail here rejects the very branches it exists to protect.
+
 Mirror the hardest rails **server-side** where the host supports it — branch protection on the
 default branch (PRs required; force-push and deletion blocked) and secret-scanning push
 protection — because the agent-side permission layer binds only agents that load it, while

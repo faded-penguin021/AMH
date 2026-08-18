@@ -495,6 +495,52 @@ out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash"
 rc=$?
 if [ "$rc" -eq 2 ]; then report ok "a Codex Bash payload is guarded without Python"; else report no "a Codex Bash payload is guarded without Python" "rc=$rc" "$out"; fi
 
+# --- command-guard.sh: the git-native pre-push rail (P13) --------------------
+# The `--self-test` matrix stubs the ancestry seam; this exercises the REAL `git merge-base`
+# glue over real commits, which is the part a string-only self-test cannot see (P12). Every
+# assertion fails against a command-guard with no `--pre-push` mode: the old script prints
+# `usage:` and exits 2, so the ALLOW cases fail on the exit code and the BLOCK cases fail on
+# the banner text they check for — the old exit-2 is not the rail's block.
+d=$(mk prepush_rail)
+c1=$(git -C "$d" rev-parse HEAD)
+git -C "$d" commit -q --allow-empty -m prepush-c2
+c2=$(git -C "$d" rev-parse HEAD)
+git -C "$d" checkout -q -b prepush-div "$c1"
+git -C "$d" commit -q --allow-empty -m prepush-divergent
+cdiv=$(git -C "$d" rev-parse HEAD)
+PP_ZERO=0000000000000000000000000000000000000000
+pp_block() { # <name> <stdin line> — must exit 2 AND name the pre-push rail
+	local out rc
+	out=$(cd "$d" && printf '%s\n' "$2" | scripts/command-guard.sh --pre-push 2>&1)
+	rc=$?
+	if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'AMH pre-push rail'; then
+		report ok "$1"
+	else
+		report no "$1" "rc=$rc" "$out"
+	fi
+}
+pp_allow() { # <name> <stdin line> — must exit 0
+	local out rc
+	out=$(cd "$d" && printf '%s\n' "$2" | scripts/command-guard.sh --pre-push 2>&1)
+	rc=$?
+	if [ "$rc" -eq 0 ]; then report ok "$1"; else report no "$1" "rc=$rc" "$out"; fi
+}
+pp_block "pre-push blocks a push to the default branch" "refs/heads/session/x $c2 refs/heads/$DEFAULT_BRANCH_FIXTURE $c1"
+pp_block "pre-push blocks a non-fast-forward (force by effect)" "refs/heads/session/x $c1 refs/heads/session/x $c2"
+pp_block "pre-push blocks a divergent-history force" "refs/heads/session/x $cdiv refs/heads/session/x $c2"
+pp_block "pre-push blocks a branch deletion" "(delete) $PP_ZERO refs/heads/session/x $c2"
+pp_allow "pre-push allows a fast-forward of a session ref" "refs/heads/session/x $c2 refs/heads/session/x $c1"
+pp_allow "pre-push allows a fast-forward of an assigned claude/ ref (no prefix check)" "refs/heads/claude/assigned $c2 refs/heads/claude/assigned $c1"
+pp_allow "pre-push allows creating a new branch (remote sha zero)" "refs/heads/session/x $c2 refs/heads/session/x $PP_ZERO"
+# Fail-open on a malformed (incomplete) line, and the input is chosen so the fixture is not
+# hollow: this line's fields would make prepush_verdict BLOCK (a zero local sha reads as a
+# delete) if run_prepush did not skip it first — so deleting the `|| continue` fail-open flips
+# this case from allow to block, which is what makes it a real test of that branch.
+pp_allow "pre-push fails open on an incomplete line" "refs/heads/session/x $PP_ZERO"
+out=$(cd "$d" && printf '' | scripts/command-guard.sh --pre-push 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ]; then report ok "pre-push fails open on empty stdin"; else report no "pre-push fails open on empty stdin" "rc=$rc" "$out"; fi
+
 # --- baseline
 d=$(mk baseline)
 started=$SECONDS

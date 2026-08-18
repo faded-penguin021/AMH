@@ -33,9 +33,12 @@ the copy that counts.
 
 ## Current state
 
-AMH **8.0.0** is tagged and published on origin (`amh-v8.0.0` at 6d447b6, confirmed by
-`git ls-remote --tags` on 2026-08-17). This branch prepares **9.0.0**, correcting CI triage and
-closing the version-lockstep hole that let an `Unreleased` entry sit above the published version.
+AMH **9.0.0** is tagged and published on origin (`amh-v9.0.0` at `9f57a46`, confirmed by
+`git ls-remote --tags` on 2026-08-18). This branch adds the **git-native pre-push rail** (P13): `command-guard.sh
+--pre-push`, invoked by git through `.git/hooks/pre-push`, independently rejects default-branch,
+force/non-fast-forward and delete pushes — the layer that would have backstopped D-016 item 1,
+binding even a hook-less agent. It carries no branch-prefix check (DA-022) and is a guardrail,
+not a boundary (`--no-verify` bypasses; git-CLI pushes only).
 
 Committed ledger rows are append-only, enforced against `HEAD` by a repo-local guard whose
 sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**. The live volume is
@@ -53,8 +56,12 @@ sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**. The l
 > information — it means no command settles this, which is worth knowing before you repeat the
 > item to a human (**D-014**).
 
-**OPEN — tag and publish AMH 9.0.0.** Create and push `amh-v9.0.0` after this branch merges. No
-check: only the owner may tag or publish.
+**OPEN — investigate the forge/API mutation surface as an escape around the local rails.** The
+pre-push rail (DC-009) guards git-CLI pushes only; an owner-reserved shared-side effect through a
+forge/API surface — `gh pr merge`, `gh release create`, `gh api -X POST`, `curl`/`wget`
+mutations — bypasses every local rail. Not machinery yet: an adversarial test vector per P3/P10,
+earning a narrow rail only if a real session crosses that boundary. No check — nobody but a
+session actually crossing it settles this.
 
 **OPEN — `split_segments` cuts braces that blur a destructive target.** Unquoted
 `rm -rf ${d}/build` becomes `rm -rf $`, so every unquoted-brace deletion records the same target
@@ -79,7 +86,7 @@ rediscovery horizon, and a recurrence inside the count resets it and marks the d
 Check: the `portability (macos-latest)` job on this branch.
 
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
-8.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
+9.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -129,6 +136,14 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-18 — Added the git-native pre-push rail (P13): a `command-guard.sh --pre-push` mode and
+  a non-clobbering `.git/hooks/pre-push` wrapper installed by `session-start.sh` (every boot) and
+  `amh-init.sh` (adoption). Rejects default-branch, force/non-fast-forward and delete pushes by
+  outcome, with no branch-prefix check (DA-022); deferred the forge/API surface to the Owner
+  queue (**DC-009**).
+
+- 2026-08-18 — `amh-v9.0.0` tagged and published on origin; the release is cut.
 
 - 2026-08-17 — Prepared 9.0.0: corrected the local-green/CI-red playbook to account for
   index-dependent guard inputs; declined an agent-specific Python-write rail; and made the

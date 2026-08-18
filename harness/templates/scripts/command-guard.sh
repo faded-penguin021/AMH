@@ -9,6 +9,14 @@
 # rules, and (server-side) branch protection + secret-scanning push protection. Those
 # layers bind actors that never load this script.
 #
+# The SAME script has a second entry point that is not driven by the agent at all:
+# `--pre-push` reads git's pre-push stdin and judges each ref (see the pre-push rail
+# below). Git invokes it through `.git/hooks/pre-push`, so it binds whatever agent — or
+# none — is driving the shell, closing the hole this script's hook mode leaves open for
+# an agent whose harness runs no pre-execution hook. It is a guardrail, not a boundary:
+# `--no-verify` skips it, and it sees git-CLI pushes only, never a push made through a
+# forge API. It carries NO branch-prefix check on purpose (AMH ledger row DA022).
+#
 # Design rules this guard is bound by — each one paid for in false positives:
 #   * Judge only the LEADING command of each simple-command segment, with quoting
 #     respected. Text that merely CONTAINS a forbidden command — a commit message, a
@@ -92,6 +100,7 @@
 # Usage:
 #   command-guard.sh                  read a hook payload (JSON) on stdin
 #   command-guard.sh --command 'CMD'  check one command directly
+#   command-guard.sh --pre-push       read git's pre-push stdin and judge each ref
 #   command-guard.sh --self-test      blocked + allowed fixture matrix
 #   command-guard.sh --advisory-report  destructive advisories fired but never re-attempted
 #
@@ -1543,6 +1552,73 @@ run_hook() {
 	exit 0
 }
 
+# --- pre-push rail (git-native, P13) ----------------------------------------
+# Git feeds a pre-push hook one line per ref on stdin:
+#   <local-ref> SP <local-sha> SP <remote-ref> SP <remote-sha>
+# The remote sha is all-zeros when the branch is being CREATED, and the local sha is
+# all-zeros when it is being DELETED. This rail guards the same publication invariants as the
+# `--command` push rail — default-branch, force and deletion — but judged by OUTCOME rather
+# than by flag, and with NO branch-prefix requirement. The two are therefore not identical:
+# judging effect not flag, the single non-fast-forward test catches `--force`,
+# `--force-with-lease` and a leading `+` refspec together, while a fast-forward `--force` the
+# flag rail blocks is allowed here because no history is rewritten; and where the ancestry
+# cannot be decided (a shallow clone's missing objects) the test fails OPEN, the direction
+# every rail here fails. The prefix check is deliberately absent (AMH ledger row DA022): the
+# harness assigns branch names the repository does not name, so a prefix rail here would reject
+# every legitimately-assigned branch.
+is_zero_sha() { # true when the arg is non-empty and entirely '0' (git's null sha, any width)
+	case $1 in "" | *[!0]*) return 1 ;; *) return 0 ;; esac
+}
+
+# Wrapped so the self-test can stub it: the real ancestry test needs commit objects a
+# string-only self-test does not have, so P12's glue concern wants the wiring pinned apart
+# from git's own behaviour. 0 = ancestor (fast-forward), 1 = not, 2 = undetermined.
+prepush_is_ancestor() { # <maybe-ancestor> <descendant>
+	git merge-base --is-ancestor "$1" "$2" 2>/dev/null
+	case $? in 0) return 0 ;; 1) return 1 ;; *) return 2 ;; esac
+}
+
+prepush_verdict() { # <local-ref> <local-sha> <remote-ref> <remote-sha> -> 0 allow, 1 block
+	local remote_ref=$3 local_sha=$2 remote_sha=$4
+	case $remote_ref in
+	"refs/heads/$DEFAULT_BRANCH" | "$DEFAULT_BRANCH")
+		# Checked before the delete case, so this reason must fit a delete of the default
+		# branch too — "targets", not "updates".
+		BLOCK_REASON="This push targets \`$DEFAULT_BRANCH\` on the remote, which is denied (AMH P13). Push your session branch instead and let the owner merge via squash PR."
+		return 1
+		;;
+	esac
+	if is_zero_sha "$local_sha"; then
+		BLOCK_REASON="This push DELETES the remote branch \`$remote_ref\`, which rewrites published history and is denied (AMH P7). Leave branch cleanup to the owner or the forge's post-merge pruning."
+		return 1
+	fi
+	# A non-zero remote sha means the remote branch already exists; only then can a push be
+	# a non-fast-forward. An undetermined result (missing objects, shallow clone) fails OPEN.
+	if ! is_zero_sha "$remote_sha"; then
+		prepush_is_ancestor "$remote_sha" "$local_sha"
+		if [ $? -eq 1 ]; then
+			BLOCK_REASON="This push to \`$remote_ref\` is not a fast-forward — it would overwrite commits the remote already has (a force / non-fast-forward push), and pushed checkpoints are immutable (AMH P7). If the branch diverged, merge the default branch in — never rewrite pushed history. A history rewrite is owner-executed and only for a leaked-credential incident."
+			return 1
+		fi
+	fi
+	return 0
+}
+
+run_prepush() {
+	local local_ref local_sha remote_ref remote_sha
+	# The trailing `_` absorbs any extra field so it is not folded into remote_sha.
+	while read -r local_ref local_sha remote_ref remote_sha _; do
+		# Fail OPEN on a malformed line (P13): a line missing any of the four fields was not
+		# understood, and an unparsed line is not a licence to block the push.
+		[ -n "$local_ref" ] && [ -n "$local_sha" ] && [ -n "$remote_ref" ] && [ -n "$remote_sha" ] || continue
+		if ! prepush_verdict "$local_ref" "$local_sha" "$remote_ref" "$remote_sha"; then
+			printf 'BLOCKED by the AMH pre-push rail.\n\n%s\n' "$BLOCK_REASON" >&2
+			exit 2
+		fi
+	done
+	exit 0
+}
+
 # --- self-test --------------------------------------------------------------
 ST_FAILS=0
 st_blocked() {
@@ -1559,6 +1635,32 @@ st_allowed() {
 		printf 'SELF-TEST FAIL: should have been ALLOWED WITHOUT WARNING: %s\n   warning given: %s\n' "$1" "$WARN_REASON" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	fi
+}
+st_prepush_blocked() { # <local-ref> <local-sha> <remote-ref> <remote-sha>
+	if prepush_verdict "$1" "$2" "$3" "$4"; then
+		printf 'SELF-TEST FAIL: pre-push should have been BLOCKED: %s %s %s %s\n' "$1" "$2" "$3" "$4" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+}
+st_prepush_allowed() { # <local-ref> <local-sha> <remote-ref> <remote-sha>
+	if ! prepush_verdict "$1" "$2" "$3" "$4"; then
+		printf 'SELF-TEST FAIL: pre-push should have been ALLOWED: %s %s %s %s\n   reason given: %s\n' "$1" "$2" "$3" "$4" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+}
+# Stub the ancestry seam to a fixed outcome so the fast-forward WIRING is pinned here without
+# commit objects; the real `git merge-base` glue is exercised end-to-end in
+# test-ladder-guards.sh (P12: glue a string-only fixture cannot see).
+st_prepush_ff() { # <ff|nonff|undetermined> <block|allow> <l-ref> <l-sha> <r-ref> <r-sha>
+	local mode=$1 expect=$2 saved
+	saved=$(declare -f prepush_is_ancestor)
+	case $mode in
+	ff) prepush_is_ancestor() { return 0; } ;;
+	nonff) prepush_is_ancestor() { return 1; } ;;
+	undetermined) prepush_is_ancestor() { return 2; } ;;
+	esac
+	if [ "$expect" = block ]; then st_prepush_blocked "$3" "$4" "$5" "$6"; else st_prepush_allowed "$3" "$4" "$5" "$6"; fi
+	eval "$saved"
 }
 st_parse_integration() { # st_parse_integration <parser to blind: words|segments>
 	# The predicate fixtures above pin a truth table; this one pins the WIRING, which is
@@ -2257,6 +2359,29 @@ git push --force origin main
 	st_allowed ''
 	st_allowed '   '
 
+	# --- the pre-push rail (git-native, P13). prepush_verdict is pure over four fields.
+	local pp_zero=0000000000000000000000000000000000000000
+	local pp_a=1111111111111111111111111111111111111111
+	local pp_b=2222222222222222222222222222222222222222
+	# Push to the default branch is denied whatever the shas.
+	st_prepush_blocked "refs/heads/$DEFAULT_BRANCH" "$pp_a" "refs/heads/$DEFAULT_BRANCH" "$pp_b"
+	st_prepush_blocked "refs/heads/x" "$pp_a" "refs/heads/$DEFAULT_BRANCH" "$pp_zero"
+	# Deleting a remote branch (local sha all-zero) is denied.
+	st_prepush_blocked '(delete)' "$pp_zero" "refs/heads/$BRANCH_PREFIX/x" "$pp_a"
+	# Creating a branch (remote sha all-zero) runs no ancestry test and is allowed.
+	st_prepush_allowed "refs/heads/$BRANCH_PREFIX/x" "$pp_a" "refs/heads/$BRANCH_PREFIX/x" "$pp_zero"
+	st_prepush_allowed 'refs/heads/feature' "$pp_a" 'refs/heads/feature' "$pp_zero"
+	# Fast-forward passes; non-fast-forward (force by effect) is denied; undetermined (missing
+	# objects / shallow clone) fails OPEN. The ancestry seam is stubbed; real glue is in
+	# test-ladder-guards.sh.
+	st_prepush_ff ff allow "refs/heads/$BRANCH_PREFIX/x" "$pp_b" "refs/heads/$BRANCH_PREFIX/x" "$pp_a"
+	st_prepush_ff nonff block "refs/heads/$BRANCH_PREFIX/x" "$pp_a" "refs/heads/$BRANCH_PREFIX/x" "$pp_b"
+	st_prepush_ff undetermined allow "refs/heads/$BRANCH_PREFIX/x" "$pp_a" "refs/heads/$BRANCH_PREFIX/x" "$pp_b"
+	# No branch-prefix check (AMH ledger row DA022): an assigned name the repo does not prefix
+	# passes a fast-forward and a create exactly like a session ref.
+	st_prepush_ff ff allow 'refs/heads/claude/assigned-name' "$pp_b" 'refs/heads/claude/assigned-name' "$pp_a"
+	st_prepush_allowed 'refs/heads/claude/assigned-name' "$pp_a" 'refs/heads/claude/assigned-name' "$pp_zero"
+
 	rm -f -- "$self_keymaterial_advisory_state"
 	if [ -n "$old_keymaterial_advisory_state_set" ]; then
 		KEYMATERIAL_ADVISORY_STATE=$old_keymaterial_advisory_state
@@ -2316,10 +2441,11 @@ case "${1:-}" in
 	printf 'BLOCKED by the AMH command guard.\n\n%s\n' "$BLOCK_REASON" >&2
 	exit 2
 	;;
+--pre-push) run_prepush ;;
 --self-test) self_test ;;
 --advisory-report) advisory_report ;;
 *)
-	printf 'usage: %s [--command CMD|--self-test|--advisory-report]\n' "$0" >&2
+	printf 'usage: %s [--command CMD|--pre-push|--self-test|--advisory-report]\n' "$0" >&2
 	exit 2
 	;;
 esac
