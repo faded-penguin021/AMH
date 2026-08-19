@@ -63,30 +63,36 @@ mutations — bypasses every local rail. Not machinery yet: an adversarial test 
 earning a narrow rail only if a real session crosses that boundary. No check — nobody but a
 session actually crossing it settles this.
 
-**OPEN — the ledger preamble tells you to correct a stale row; the guard forbids it.** Every
+**DECIDE — the ledger preamble tells you to correct a stale row; the guard forbids it.** Every
 volume preamble says "Code and fixtures are ground truth: if an entry conflicts with the current
 code, trust the code and **correct** the entry — never delete it." But
 `scripts/guards/ledger-append-only.sh` rejects any edit to a committed row except adding
-`[cited]` or a final `Superseded by D-NNN.` line. Hit while recording **DC-011**: DB-014's
-sentence enumerating the rail's commands is now false, the preamble's remedy is a correction,
-and the guard refused it. Supersession is the wrong marker — DB-014's principle stands, only its
-enumeration went stale. Either the preamble should stop promising a correction route, or the
-guard should permit an appended, clearly-marked correction note. Prose currently claims an
+`[cited]` or a final `Superseded by D-NNN.` line. Hit for real while recording **DC-011**:
+DB-014's sentence enumerating the destructive rail's commands became false, the preamble's
+remedy is a correction, and the guard refused it. Supersession is the wrong marker — DB-014's
+principle stands and only its enumeration went stale, so the row is now knowingly stale in the
+tree. **What is needed is one choice, not a discussion:** (a) let the guard accept an appended
+line matching a fixed correction form, keeping every existing byte immutable — recommended,
+since it preserves append-only while honouring what the preamble already promises; or (b) delete
+the correction promise from all four volume preambles and say supersession is the only route.
+Either is a rule change and takes the rule-review protocol. Until then prose claims an
 affordance the enforcement layer denies, which is the **D-010** class.
-Check: `sed -i 's/$/x/' docs/LEDGER_B.md` on a committed row, then
-`scripts/guards/ledger-append-only.sh` — resolved when preamble and guard agree.
+Check: append a line to a committed row in `docs/LEDGER_B.md`, run
+`scripts/guards/ledger-append-only.sh`, then `git checkout -- docs/LEDGER_B.md` — open while the
+guard still exits 1.
 
-**WATCH — the macOS rail self-test failure has a repair, but not a proven cause.** The
-subshell transport the failure rode is gone: the parsers fill arrays in-process (**DC-002**).
-That is the whole of the repair. The fail-closed arm added beside it cannot fire against these
-parsers — every non-blank string yields a word and a segment — so it is a tripwire for a future
-transport and not a second line of defence here; do not read a green macOS run as proof it
-works. If the same eighteen fixtures go red again, the diagnosis was wrong and the mechanism is
-still open. **Close after 9 consecutive green `portability (macos-latest)` runs on merged
-commits**, replacing a "several" nobody counts — a stand-in for evidence and never evidence,
-since no number of green runs disproves an intermittent fault; the 9 is the README's own N+9
-rediscovery horizon, and a recurrence inside the count resets it and marks the diagnosis wrong.
-Check: the `portability (macos-latest)` job on this branch.
+**DECIDE — do you want a PR for `claude/cli-repo-deletion-risk-g4inf2`?** Two units are
+committed and pushed there (`bec5220`, `1397097`); the branch is green and the owner merges. No
+PR has been opened, because none was asked for. This is the only item blocking the branch.
+Check: `git log --oneline origin/main..claude/cli-repo-deletion-risk-g4inf2`.
+
+**WATCH — the guard's parser changed substantially and has not yet run on stock macOS Bash.**
+The macOS eighteen-fixture watch closed on its own terms (see the Changelog line citing
+**DC-002**), but it closed on the parser as it stood BEFORE this branch. `DC-011` and `DC-012`
+add a git subcommand dispatch, a new operand collector and a third entry point, none of which
+has seen bash 3.2 — no 3.2 is available in the session container, so both commits disclose the
+gap rather than claim coverage. This is a watch, not a question: it settles itself when the
+branch merges. Check: the `portability (macos-latest)` job on the merge commit.
 
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
 9.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
@@ -139,6 +145,12 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-19 — Closed the macOS rail self-test watch on its stated terms: the nine newest
+  merged-commit `ladder` runs on `main` (308, 301, 290, 287, 276, 246, 241, 223, 220) are green,
+  and `portability (macos-latest)` on `9f57a46` is green at job level with its stock-Bash
+  assertion passing. The DC-002 diagnosis stands; nine green runs are the agreed horizon, never
+  proof against an intermittent fault (**DC-002**).
 
 - 2026-08-19 — Added a subagent-spawn speed bump: a `--pre-task` entry point on the command
   guard, wired to the Claude adapter's `Task` matcher, advising every spawn with the
