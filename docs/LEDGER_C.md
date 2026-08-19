@@ -198,3 +198,12 @@
   `.git/hooks` is untracked so session-start.sh installs it non-clobbering every boot. The
   forge/API mutation surface AGit also guards is left as an adversarial test vector, not
   machinery, until a real session crosses that boundary (Owner queue).
+
+- DC-010: **A shell-syntax splitter must distinguish command-group braces from parameter-
+  expansion braces.** `split_segments` treated every unquoted `{` and `}` as a command
+  separator, so `rm -rf ${a}/x` reached the destructive advisory as `rm -rf $`. Every such
+  target therefore shared one signature: clearing the advisory for `${a}/x` silently cleared
+  it for `${b}/y`, and the truncated operand also lost the rootish empty-variable warning.
+  The splitter now counts `${...}` nesting while leaving ordinary command-group braces as
+  separators. Fixtures pin both cross-target rearming and the stronger warning, including a
+  nested expansion; the old splitter fails all three.
