@@ -63,6 +63,19 @@ mutations — bypasses every local rail. Not machinery yet: an adversarial test 
 earning a narrow rail only if a real session crosses that boundary. No check — nobody but a
 session actually crossing it settles this.
 
+**OPEN — the ledger preamble tells you to correct a stale row; the guard forbids it.** Every
+volume preamble says "Code and fixtures are ground truth: if an entry conflicts with the current
+code, trust the code and **correct** the entry — never delete it." But
+`scripts/guards/ledger-append-only.sh` rejects any edit to a committed row except adding
+`[cited]` or a final `Superseded by D-NNN.` line. Hit while recording **DC-011**: DB-014's
+sentence enumerating the rail's commands is now false, the preamble's remedy is a correction,
+and the guard refused it. Supersession is the wrong marker — DB-014's principle stands, only its
+enumeration went stale. Either the preamble should stop promising a correction route, or the
+guard should permit an appended, clearly-marked correction note. Prose currently claims an
+affordance the enforcement layer denies, which is the **D-010** class.
+Check: `sed -i 's/$/x/' docs/LEDGER_B.md` on a committed row, then
+`scripts/guards/ledger-append-only.sh` — resolved when preamble and guard agree.
+
 **WATCH — the macOS rail self-test failure has a repair, but not a proven cause.** The
 subshell transport the failure rode is gone: the parsers fill arrays in-process (**DC-002**).
 That is the whole of the repair. The fail-closed arm added beside it cannot fire against these
@@ -126,6 +139,13 @@ re-litigate from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-08-19 — Extended the destructive-command advisory beyond `rm -rf`/`git clean -fd` to
+  `git rm -r -f` and the tree-mutating git verbs (`worktree add|remove|move`, `reset --hard`,
+  `checkout|switch --force`, `restore`), armed only when the target is unknown at scan time.
+  Closed the escape hatch where dropping an operand bought silence for a worse command, stopped
+  the rootish paragraph asserting an absolute-path mechanism revision operands cannot have, and
+  made the advisory's wording follow the verb (**DC-011**, extending **DB-014**).
 
 - 2026-08-19 — Rewrote the pre-push malformed-line guard as an explicit conditional, clearing
   ShellCheck SC2015 without changing its fail-open behavior.

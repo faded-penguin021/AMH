@@ -207,3 +207,24 @@
   The splitter now counts `${...}` nesting while leaving ordinary command-group braces as
   separators. Fixtures pin both cross-target rearming and the stronger warning, including a
   nested expansion; the old splitter fails all three.
+- DC-011: **A destructive rail scoped by verb has a blast-radius blind spot, and gating it on
+  "the target is a variable" alone rewards the more dangerous spelling.** A public incident
+  report showed `git worktree add -q --detach "$TEMP_WT" HEAD` run with `$TEMP_WT` unset and
+  the repository directory emptied — a shape the rail already detected via
+  `DESTRUCTIVE_ROOTISH` but only ever computed for `rm -r -f` and `git clean -f -d`, so
+  `rm -rf "$TEMP_WT"` was advised while the worktree spelling was not. The dispatch now
+  extends DB-014's category to `git rm -r -f` and the tree-mutating verbs
+  `worktree add|remove|move`, `reset --hard`, `checkout|switch --force` and `restore`. Three
+  durable lessons from the review pass, none of them specific to git: (a) gating on an
+  unexpanded `$` alone left the escape hatch STRICTLY worse than the block, since bare
+  `git reset --hard` discards every uncommitted change and was silent, so an empty operand
+  list and the whole-tree pathspecs (dot and `:/`) must arm it too; (b) a rail may not assert
+  a mechanism the command lacks, because "an empty variable becomes an absolute path" is
+  false for a revision operand where `git reset --hard /main` is merely an unknown-revision
+  error, so that paragraph is suppressed there; (c) the advisory said "delete" against verbs
+  that overwrite, handing a reader a correct reason to file the whole rail as a false
+  positive, so its lead and non-compliance clauses now follow the verb. A path arriving via
+  `-C`, `--git-dir` or `--work-tree` is collected as an operand: git treats an empty `-C` as
+  a no-op, so an empty value silently redirects the command at the current repository.
+  Literal spellings stay silent by design, since the rail's credibility for `rm -rf` is the
+  budget being protected, and negative fixtures pin that direction.
