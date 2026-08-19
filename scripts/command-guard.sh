@@ -89,6 +89,14 @@
 #     deliberately silent; and `git checkout -- "$f"` carries no force flag and is not
 #     recognised at all. The rail is a speed bump on the shapes an agent actually
 #     mistypes, never an inventory of ways to lose a file.
+#   * THE SUBAGENT RAIL SEES ONE SPAWN, NEVER THE FLEET. `--pre-task` fires per spawn and holds
+#     no view of what is already running, so it cannot tell a second spawn beside a live first
+#     from a second after the first finished — it advises every spawn and records the ones that
+#     proceeded, which is a COUNT and a rate, never an overlap. Nothing here reads that record,
+#     and a count is not a measurement of whether the rule was honoured. It also exists only
+#     where the host matches hooks on tool NAME: an agent whose harness has no such matcher has
+#     no subagent rail at all, exactly as an agent with no pre-execution hook has no command
+#     rail, and neither state is detectable from inside this script.
 #
 # None of this is a defect list. This guard exists to make the honest mistake expensive
 # and instructive; the deny rails beneath it add the spellings a prefix matcher can
@@ -100,8 +108,10 @@
 #   command-guard.sh                  read a hook payload (JSON) on stdin
 #   command-guard.sh --command 'CMD'  check one command directly
 #   command-guard.sh --pre-push       read git's pre-push stdin and judge each ref
+#   command-guard.sh --pre-task       one-time advisory before a subagent spawn
 #   command-guard.sh --self-test      blocked + allowed fixture matrix
 #   command-guard.sh --advisory-report  destructive advisories fired but never re-attempted
+#   command-guard.sh --spawn-report     count of subagent spawns that proceeded past the advisory
 #
 # Exit codes: 0 = allowed (or fail-open; warnings may print on stderr), 2 = blocked (reason on stderr).
 #
@@ -404,6 +414,7 @@ advisory_state_file() { # advisory_state_file <name>
 	dotenv) [ -n "${DOTENV_ADVISORY_STATE+x}" ] && { printf '%s' "$DOTENV_ADVISORY_STATE"; return 0; } ;;
 	keymaterial) [ -n "${KEYMATERIAL_ADVISORY_STATE+x}" ] && { printf '%s' "$KEYMATERIAL_ADVISORY_STATE"; return 0; } ;;
 	destructive) [ -n "${DESTRUCTIVE_ADVISORY_STATE+x}" ] && { printf '%s' "$DESTRUCTIVE_ADVISORY_STATE"; return 0; } ;;
+	subagent) [ -n "${SUBAGENT_ADVISORY_STATE+x}" ] && { printf '%s' "$SUBAGENT_ADVISORY_STATE"; return 0; } ;;
 	*) return 1 ;;
 	esac
 	slug=${ROOT//\//_}
@@ -413,7 +424,7 @@ advisory_state_file() { # advisory_state_file <name>
 }
 
 needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
-	local name=$1 cmd=$2 state sig
+	local name=$1 cmd=$2 state sig when
 	case $name in
 	dotenv) case $cmd in *.env*) ;; *) return 1 ;; esac ;;
 	# `.pem` and `.key` must be followed by a non-alphanumeric character or end the word.
@@ -428,6 +439,9 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 	*) return 1 ;;
 	esac ;;
 	destructive) is_destructive_command "$cmd" || return 1 ;;
+	# No condition to test: the caller only invokes this category when a subagent spawn is
+	# actually about to happen, and the spawn itself is the whole trigger.
+	subagent) ;;
 	*) return 1 ;;
 	esac
 	state=$(advisory_state_file "$name")
@@ -460,6 +474,31 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# right direction — at the cost of a duplicate line per attempt. Bounded by the
 		# session, and the bootstrap deletes the file; not worth a second mechanism.
 		printf '%s\n' "$sig" >>"$state" 2>/dev/null || return 1
+	elif [ "$name" = subagent ]; then
+		# Rearm per SPAWN, not per session — the same correction AMH ledger row DC004 forced on the
+		# destructive rail, for the same reason. A per-session one-shot is spent at exactly
+		# the moment the guarded failure happens: the recorded incident is a BURST of three
+		# spawns in immediate succession, so a rail that stands down after the first leaves
+		# "spawning three is as easy as spawning one" fully intact and merely moves it one
+		# spawn to the right. It also fails that row's second half — the sidestep left no
+		# trace at all, because the `.resumed` marker above is scoped to the destructive
+		# category.
+		#
+		# So the state file holds an OUTSTANDING advisory rather than a spent one: every
+		# spawn is advised once and proceeds on the rerun, which costs the compliant
+		# sequential use exactly one turn per spawn and costs a fan-out of three the same
+		# turn three times over, with a line recorded for each. Nothing reads that file as
+		# evidence of anything (P3): it says a prompt fired and a spawn went ahead, never
+		# that anyone thought about it.
+		if [ -e "$state" ]; then
+			rm -f -- "$state" 2>/dev/null || :
+			if [ "$HOOK_INVOCATION" -eq 1 ]; then
+				when=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null) || when='unknown-time'
+				printf '%s spawn proceeded past the advisory\n' "$when" >>"$state.resumed" 2>/dev/null || :
+			fi
+			return 1
+		fi
+		: >"$state" 2>/dev/null || return 1
 	else
 		[ -e "$state" ] && return 1
 		: >"$state" 2>/dev/null || return 1
@@ -469,6 +508,19 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# shellcheck disable=SC2016 # the presence-check example must print literally.
 		ADVISORY_REASON='This command mentions `.env`. Those files commonly contain live credentials, and even lengths, hashes, excerpts, copies or interpreter reads can disclose or spread secrets. The command guard is stopping this once so you can reconsider: prefer presence-only checks (for example, `[ -n "${MY_KEY:-}" ] && echo set`) or let the tool that needs credentials read them directly. If this warning is not applicable, or this is a false positive such as prose or a template-safe operation, run the same command again; this one-time advisory will not rearm during this session.'
 		DOTENV_ADVISORY_REASON=$ADVISORY_REASON
+		;;
+	subagent)
+		# What this rail can and cannot do, stated here because the gap is the whole reason
+		# the text reads the way it does. A pre-spawn hook fires once per spawn and holds no
+		# view of what else is running, so it CANNOT see concurrency and must not imply it
+		# does — prose claiming a check nobody performs is the failure class this harness has
+		# a row about. What it can do is make the first spawn of a session deliberate, which
+		# is exactly where the recorded failure happens: the rule against fanning out was
+		# already written at the point of temptation, in prose, and a session read it and
+		# fanned out anyway because spawning three is as cheap as spawning one. A speed bump
+		# costs one turn and puts the rule in front of the agent at the moment it is being
+		# broken (AMH ledger row DC012).
+		ADVISORY_REASON='A subagent spawn is about to happen and the command guard is stopping it once. The harness permits ONE fresh-context reviewer at a time and it BLOCKS: you do not keep editing while it runs, and fanning out several because the tooling makes it easy is the exact failure the session-discipline rule names. If this is the single blocking reviewer the rule-review protocol mandates, or another genuinely sequential use, run the same spawn again and it will proceed. EVERY spawn is advised, not just the first, and each one that proceeds is recorded: a burst of three costs this turn three times over and leaves three lines behind, which is the point — the failure this exists for is three spawns in immediate succession, and a rail that stood down after the first would be spent at exactly the moment it was needed. What it can see is that a spawn was advised and that one went ahead; it cannot see whether anything was already running, and nothing may read its record as evidence that a decision was thought about. If you were about to spawn several at once: spawn one, wait for it, and read what it reports before deciding whether a second is needed.'
 		;;
 	keymaterial)
 		# shellcheck disable=SC2016 # the backticked file names are markdown, not substitutions.
@@ -2167,6 +2219,87 @@ st_destructive_reason_lacks() { # st_destructive_reason_lacks <substring> <comma
 	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
 }
 
+# The subagent rail's fixtures. It takes no command, so it needs its own helpers rather than
+# the command-shaped ones above: what is asserted is that the FIRST spawn is advised and the
+# second is not, which is the whole contract.
+st_subagent_advisory_once() {
+	local state old_set old_state
+	old_set=${SUBAGENT_ADVISORY_STATE+x}
+	old_state=${SUBAGENT_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-subagent-advisory-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	SUBAGENT_ADVISORY_STATE=$state
+	# Three directions, and the third is the one AMH ledger row DC004 forced. The rerun of a spawn must
+	# proceed, or the rail blocks the reviewer the rule-review protocol mandates. But the NEXT
+	# spawn must be advised again, or the rail is spent at exactly the moment the guarded
+	# failure — a burst — happens. And the spawn that proceeded must leave a line, or the
+	# sidestep is invisible.
+	local old_hook=$HOOK_INVOCATION
+	HOOK_INVOCATION=1
+	if ! needs_one_time_advisory subagent ''; then
+		printf 'SELF-TEST FAIL: the first subagent spawn should have been advised\n' >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif needs_one_time_advisory subagent ''; then
+		printf 'SELF-TEST FAIL: rerunning the SAME spawn should proceed — otherwise the rail blocks the mandated blocking reviewer\n' >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif ! needs_one_time_advisory subagent ''; then
+		printf 'SELF-TEST FAIL: a LATER spawn must be advised too; a per-session one-shot is spent exactly when a burst happens\n' >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif [ ! -s "$state.resumed" ]; then
+		printf 'SELF-TEST FAIL: a spawn that proceeded left no trace; the sidestep must be visible\n' >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	HOOK_INVOCATION=$old_hook
+	rm -f -- "$state.resumed"
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then SUBAGENT_ADVISORY_STATE=$old_state; else unset SUBAGENT_ADVISORY_STATE; fi
+}
+
+st_subagent_reason_names() { # st_subagent_reason_names <substring>
+	local want=$1 state old_set old_state
+	old_set=${SUBAGENT_ADVISORY_STATE+x}
+	old_state=${SUBAGENT_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-subagent-reason-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	SUBAGENT_ADVISORY_STATE=$state
+	if needs_one_time_advisory subagent ''; then
+		case $ADVISORY_REASON in
+		*"$want"*) ;;
+		*)
+			printf 'SELF-TEST FAIL: subagent advisory did not mention %s\n   reason given: %s\n' "$want" "$ADVISORY_REASON" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+			;;
+		esac
+	else
+		printf 'SELF-TEST FAIL: should have been advised: subagent spawn\n' >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then SUBAGENT_ADVISORY_STATE=$old_state; else unset SUBAGENT_ADVISORY_STATE; fi
+}
+
+st_subagent_reason_lacks() { # st_subagent_reason_lacks <substring>
+	local unwanted=$1 state old_set old_state
+	old_set=${SUBAGENT_ADVISORY_STATE+x}
+	old_state=${SUBAGENT_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-subagent-lacks-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	SUBAGENT_ADVISORY_STATE=$state
+	if needs_one_time_advisory subagent ''; then
+		case $ADVISORY_REASON in
+		*"$unwanted"*)
+			printf 'SELF-TEST FAIL: subagent advisory claimed a check it cannot perform: %s\n   reason given: %s\n' "$unwanted" "$ADVISORY_REASON" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+			;;
+		esac
+	else
+		printf 'SELF-TEST FAIL: should have been advised: subagent spawn\n' >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then SUBAGENT_ADVISORY_STATE=$old_state; else unset SUBAGENT_ADVISORY_STATE; fi
+}
+
 st_warn_allowed() {
 	if ! check_command "$1"; then
 		printf 'SELF-TEST FAIL: should have been ALLOWED WITH WARNING: %s\n   reason given: %s\n' "$1" "$BLOCK_REASON" >&2
@@ -2479,6 +2612,25 @@ printenv'
 	# The report distinguishes the two outcomes the rail can actually observe.
 	st_advisory_report 'rm -rf /tmp/abandoned' 'rm -rf /tmp/resumed'
 
+	# The subagent-spawn speed bump: fires once, then stands down for the session. The second
+	# direction is the load-bearing one — the rule permits ONE blocking reviewer, so a rail
+	# that kept firing would block the very thing the rule-review protocol mandates.
+	st_subagent_advisory_once
+	# The advisory must not claim a check it cannot perform. A pre-spawn hook sees one spawn
+	# and knows nothing about what else is running; prose asserting otherwise is the class
+	# this harness keeps a row about, and the negative fixture is what keeps a later edit from
+	# quietly upgrading the claim.
+	st_subagent_reason_names 'it cannot see whether anything was already running'
+	st_subagent_reason_names 'ONE fresh-context reviewer at a time'
+	# The rearm promise is part of the text now, so it is pinned: an edit that reverts the
+	# rail to a per-session one-shot has to make this sentence false first.
+	st_subagent_reason_names 'EVERY spawn is advised, not just the first'
+	st_subagent_reason_lacks 'concurrent spawn detected'
+	# The rail must not volunteer its own bypass. The earlier wording told the agent outright
+	# that the second and third spawn were unguarded, which is an invitation rather than the
+	# honesty AMH ledger row D010 asks for — and after the per-spawn rearm it is simply untrue.
+	st_subagent_reason_lacks 'will not stop the second spawn'
+
 	# A substitution is not a variable, and an always-set variable has no empty case. Both
 	# still get the advisory — just not the paragraph that names a check they cannot make.
 	st_destructive_reason_lacks 'BEGINS with a variable' 'rm -rf "$(pwd)/x"'
@@ -2784,6 +2936,46 @@ advisory_report() {
 	return 0
 }
 
+# The subagent-spawn speed bump. A THIRD entry point, and the one with the least vendor
+# coupling of the three: it reads no field of the payload and makes no claim about which tool
+# fired it, because the only fact it needs is that a spawn is about to happen — the adapter
+# that wires it has already established that by matching. Parsing a spawn payload would tie
+# this rail to one vendor's JSON for nothing, and an adapter for a host that spells the spawn
+# differently can point at the same entry point unchanged.
+#
+# The payload is drained rather than ignored so a host writing to this process does not take
+# EPIPE, and the drain is skipped on a terminal so an interactive invocation does not hang.
+run_pretask() {
+	HOOK_INVOCATION=1
+	[ -t 0 ] || cat >/dev/null 2>&1 || :
+	if needs_one_time_advisory subagent ''; then
+		printf 'BLOCKED by the AMH command guard.\n\n%s\n' "$ADVISORY_REASON" >&2
+		exit 2
+	fi
+	exit 0
+}
+
+# The subagent rail's trace, kept separate from advisory_report on purpose: that function's
+# output is printed under a heading naming DESTRUCTIVE advisories, and folding a spawn count
+# into it would put a true line under a false label. Prints nothing when no spawn proceeded,
+# which is the ordinary case in a session that spawned nothing.
+#
+# Same bounded claim as its sibling, and it matters more here because a count LOOKS like a
+# measurement: this says a spawn was advised and went ahead. It does not say the spawns
+# overlapped, that any of them was unnecessary, or that anyone weighed the rule. No guard,
+# gate, CI step or decision procedure may read it as evidence of a check (P3, AMH ledger row
+# D014).
+spawn_report() {
+	local state count
+	state=$(advisory_state_file subagent) || return 0
+	[ -n "$state" ] || return 0
+	[ -e "$state.resumed" ] || return 0
+	count=$(LC_ALL=C grep -c '' "$state.resumed" 2>/dev/null) || return 0
+	[ "$count" -gt 0 ] || return 0
+	printf '%s\n' "$count"
+	return 0
+}
+
 case "${1:-}" in
 "") run_hook ;;
 --command)
@@ -2795,10 +2987,12 @@ case "${1:-}" in
 	exit 2
 	;;
 --pre-push) run_prepush ;;
+--pre-task) run_pretask ;;
 --self-test) self_test ;;
 --advisory-report) advisory_report ;;
+--spawn-report) spawn_report ;;
 *)
-	printf 'usage: %s [--command CMD|--pre-push|--self-test|--advisory-report]\n' "$0" >&2
+	printf 'usage: %s [--command CMD|--pre-push|--pre-task|--self-test|--advisory-report|--spawn-report]\n' "$0" >&2
 	exit 2
 	;;
 esac

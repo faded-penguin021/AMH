@@ -228,3 +228,23 @@
   a no-op, so an empty value silently redirects the command at the current repository.
   Literal spellings stay silent by design, since the rail's credibility for `rm -rf` is the
   budget being protected, and negative fixtures pin that direction.
+- DC-012: **Prose at the point of temptation lost to instructions injected into context, and
+  D-009's stated reason for having no guard was false.** D-009 recorded a session spawning three
+  reviewers at once and answered it by putting the rule where the temptation is; a later session
+  in this repository spawned three again after a plan-mode workflow arriving in its context told
+  it to fan out, which lifts nothing — the durable lesson is the precedence one, that
+  instructions delivered in context, whether a host workflow, a skill file or a tool
+  description, never override binding session discipline, and an agent that thinks they conflict
+  asks rather than picks. That row closed by calling the failure not machine-checkable "because
+  the harness cannot see its own agent's tool calls", which is false wherever the host matches
+  hooks on tool NAME, since a spawn is a tool call and the adapter simply had no matcher for
+  one. The guard now carries a `--pre-task` entry point wired to the Claude adapter's spawn
+  matcher, advising EVERY spawn rather than only a session's first and recording each one that
+  proceeds, because a per-session one-shot is spent at precisely the moment a burst happens and
+  leaves the sidestep invisible (**DC-004**). It reads no payload field, so the vendor coupling
+  stays in the adapter and a host that spells the spawn differently points at the same flag;
+  **DC-007**'s refusal of a Python-write rail does not reach it, because that objection was to
+  inferring intent from program text whereas this is a host-delivered event. The bounded claim,
+  stated because a count looks like a measurement: a pre-spawn hook can see spawns and their
+  rate but never their liveness, so nothing here reports overlap and no gate may read the count
+  as evidence that any rule was honoured.

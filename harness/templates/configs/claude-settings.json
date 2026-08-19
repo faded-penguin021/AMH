@@ -1,5 +1,5 @@
 {
-  "$comment": "AMH adapter for Claude Code — wiring only, no logic. All behaviour lives in AGENTS.md and scripts/. Layers this adapter provides: an instructive pre-execution command guard, static deny rails, and pre-allowed verification commands. It does NOT provide output redaction: Claude Code has no output-filter hook, so scripts/redact.sh stays available for manual piping and is what the ladder's secret scan uses. Be honest about this per adapter. The owner mirrors the hardest rails server-side (branch protection, secret-scanning push protection) — these rules bind only agents that load them.",
+  "$comment": "AMH adapter for Claude Code — wiring only, no logic. All behaviour lives in AGENTS.md and scripts/. Layers this adapter provides: an instructive pre-execution command guard, a one-time subagent-spawn speed bump on the Task tool, static deny rails, and pre-allowed verification commands. It does NOT provide output redaction: Claude Code has no output-filter hook, so scripts/redact.sh stays available for manual piping and is what the ladder's secret scan uses. Be honest about this per adapter. The owner mirrors the hardest rails server-side (branch protection, secret-scanning push protection) — these rules bind only agents that load them.",
   "permissions": {
     "allow": [
       "Bash(scripts/ladder.sh)",
@@ -80,6 +80,15 @@
           {
             "type": "command",
             "command": "scripts/command-guard.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "scripts/command-guard.sh --pre-task"
           }
         ]
       }

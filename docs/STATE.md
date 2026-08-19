@@ -140,6 +140,13 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-19 — Added a subagent-spawn speed bump: a `--pre-task` entry point on the command
+  guard, wired to the Claude adapter's `Task` matcher, advising every spawn with the
+  one-blocking-reviewer rule as its reason and recording each that proceeds (`--spawn-report`,
+  surfaced by the ladder). It reads no payload field and can see spawn count and rate but never
+  liveness, and says so. Earned by a recurrence of **D-009** in this session, whose "not
+  machine-checkable" clause it also corrects (**DC-012**).
+
 - 2026-08-19 — Extended the destructive-command advisory beyond `rm -rf`/`git clean -fd` to
   `git rm -r -f` and the tree-mutating git verbs (`worktree add|remove|move`, `reset --hard`,
   `checkout|switch --force`, `restore`), armed only when the target is unknown at scan time.
