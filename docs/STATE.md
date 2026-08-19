@@ -127,6 +127,9 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-19 — Rewrote the pre-push malformed-line guard as an explicit conditional, clearing
+  ShellCheck SC2015 without changing its fail-open behavior.
+
 - 2026-08-18 — Made `split_segments` preserve unquoted `${...}` parameter expansions, so
   destructive advisories retain distinct targets and the empty-variable warning; nested
   expansions are covered too (**DC-010**).

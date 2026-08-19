@@ -1618,7 +1618,9 @@ run_prepush() {
 	while read -r local_ref local_sha remote_ref remote_sha _; do
 		# Fail OPEN on a malformed line (P13): a line missing any of the four fields was not
 		# understood, and an unparsed line is not a licence to block the push.
-		[ -n "$local_ref" ] && [ -n "$local_sha" ] && [ -n "$remote_ref" ] && [ -n "$remote_sha" ] || continue
+		if [ -z "$local_ref" ] || [ -z "$local_sha" ] || [ -z "$remote_ref" ] || [ -z "$remote_sha" ]; then
+			continue
+		fi
 		if ! prepush_verdict "$local_ref" "$local_sha" "$remote_ref" "$remote_sha"; then
 			printf 'BLOCKED by the AMH pre-push rail.\n\n%s\n' "$BLOCK_REASON" >&2
 			exit 2
