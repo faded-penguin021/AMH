@@ -78,6 +78,25 @@
 #     proposed, because it would block ordinary use to catch a shape the harness does not
 #     run. The identity rules are likewise prose here — an identity not yet committed is
 #     not on disk to check.
+#   * THE DESTRUCTIVE RAIL IS A VERB LIST, and a short one: `rm -r -f`, `git clean -f -d`,
+#     `git rm -r -f`, and the tree-mutating git verbs `worktree add|remove|move`,
+#     `reset --hard`, `checkout|switch --force`, `restore`. Anything else that empties a
+#     path reaches the filesystem unadvised — `mv` over a target, `truncate`, `dd`, `find
+#     -delete`, `shred`, a `>` redirection, and every one of these run through an
+#     interpreter. Two further limits INSIDE the list: the git verbs added after
+#     `git clean` are armed only when the target is unknown at scan time (see
+#     `operands_unknown_target`), so a fully literal `git reset --hard origin/main` is
+#     deliberately silent; and `git checkout -- "$f"` carries no force flag and is not
+#     recognised at all. The rail is a speed bump on the shapes an agent actually
+#     mistypes, never an inventory of ways to lose a file.
+#   * THE SUBAGENT RAIL SEES ONE SPAWN, NEVER THE FLEET. `--pre-task` fires per spawn and holds
+#     no view of what is already running, so it cannot tell a second spawn beside a live first
+#     from a second after the first finished — it advises every spawn and records the ones that
+#     proceeded, which is a COUNT and a rate, never an overlap. Nothing here reads that record,
+#     and a count is not a measurement of whether the rule was honoured. It also exists only
+#     where the host matches hooks on tool NAME: an agent whose harness has no such matcher has
+#     no subagent rail at all, exactly as an agent with no pre-execution hook has no command
+#     rail, and neither state is detectable from inside this script.
 #
 # None of this is a defect list. This guard exists to make the honest mistake expensive
 # and instructive; the deny rails beneath it add the spellings a prefix matcher can
@@ -89,8 +108,10 @@
 #   command-guard.sh                  read a hook payload (JSON) on stdin
 #   command-guard.sh --command 'CMD'  check one command directly
 #   command-guard.sh --pre-push       read git's pre-push stdin and judge each ref
+#   command-guard.sh --pre-task       one-time advisory before a subagent spawn
 #   command-guard.sh --self-test      blocked + allowed fixture matrix
 #   command-guard.sh --advisory-report  destructive advisories fired but never re-attempted
+#   command-guard.sh --spawn-report     count of subagent spawns that proceeded past the advisory
 #
 # Exit codes: 0 = allowed (or fail-open; warnings may print on stderr), 2 = blocked (reason on stderr).
 #
@@ -393,6 +414,7 @@ advisory_state_file() { # advisory_state_file <name>
 	dotenv) [ -n "${DOTENV_ADVISORY_STATE+x}" ] && { printf '%s' "$DOTENV_ADVISORY_STATE"; return 0; } ;;
 	keymaterial) [ -n "${KEYMATERIAL_ADVISORY_STATE+x}" ] && { printf '%s' "$KEYMATERIAL_ADVISORY_STATE"; return 0; } ;;
 	destructive) [ -n "${DESTRUCTIVE_ADVISORY_STATE+x}" ] && { printf '%s' "$DESTRUCTIVE_ADVISORY_STATE"; return 0; } ;;
+	subagent) [ -n "${SUBAGENT_ADVISORY_STATE+x}" ] && { printf '%s' "$SUBAGENT_ADVISORY_STATE"; return 0; } ;;
 	*) return 1 ;;
 	esac
 	slug=${ROOT//\//_}
@@ -402,7 +424,7 @@ advisory_state_file() { # advisory_state_file <name>
 }
 
 needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
-	local name=$1 cmd=$2 state sig
+	local name=$1 cmd=$2 state sig when
 	case $name in
 	dotenv) case $cmd in *.env*) ;; *) return 1 ;; esac ;;
 	# `.pem` and `.key` must be followed by a non-alphanumeric character or end the word.
@@ -417,6 +439,9 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 	*) return 1 ;;
 	esac ;;
 	destructive) is_destructive_command "$cmd" || return 1 ;;
+	# No condition to test: the caller only invokes this category when a subagent spawn is
+	# actually about to happen, and the spawn itself is the whole trigger.
+	subagent) ;;
 	*) return 1 ;;
 	esac
 	state=$(advisory_state_file "$name")
@@ -449,6 +474,31 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# right direction — at the cost of a duplicate line per attempt. Bounded by the
 		# session, and the bootstrap deletes the file; not worth a second mechanism.
 		printf '%s\n' "$sig" >>"$state" 2>/dev/null || return 1
+	elif [ "$name" = subagent ]; then
+		# Rearm per SPAWN, not per session — the same correction AMH ledger row DC004 forced on the
+		# destructive rail, for the same reason. A per-session one-shot is spent at exactly
+		# the moment the guarded failure happens: the recorded incident is a BURST of three
+		# spawns in immediate succession, so a rail that stands down after the first leaves
+		# "spawning three is as easy as spawning one" fully intact and merely moves it one
+		# spawn to the right. It also fails that row's second half — the sidestep left no
+		# trace at all, because the `.resumed` marker above is scoped to the destructive
+		# category.
+		#
+		# So the state file holds an OUTSTANDING advisory rather than a spent one: every
+		# spawn is advised once and proceeds on the rerun, which costs the compliant
+		# sequential use exactly one turn per spawn and costs a fan-out of three the same
+		# turn three times over, with a line recorded for each. Nothing reads that file as
+		# evidence of anything (P3): it says a prompt fired and a spawn went ahead, never
+		# that anyone thought about it.
+		if [ -e "$state" ]; then
+			rm -f -- "$state" 2>/dev/null || :
+			if [ "$HOOK_INVOCATION" -eq 1 ]; then
+				when=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null) || when='unknown-time'
+				printf '%s spawn proceeded past the advisory\n' "$when" >>"$state.resumed" 2>/dev/null || :
+			fi
+			return 1
+		fi
+		: >"$state" 2>/dev/null || return 1
 	else
 		[ -e "$state" ] && return 1
 		: >"$state" 2>/dev/null || return 1
@@ -458,6 +508,19 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# shellcheck disable=SC2016 # the presence-check example must print literally.
 		ADVISORY_REASON='This command mentions `.env`. Those files commonly contain live credentials, and even lengths, hashes, excerpts, copies or interpreter reads can disclose or spread secrets. The command guard is stopping this once so you can reconsider: prefer presence-only checks (for example, `[ -n "${MY_KEY:-}" ] && echo set`) or let the tool that needs credentials read them directly. If this warning is not applicable, or this is a false positive such as prose or a template-safe operation, run the same command again; this one-time advisory will not rearm during this session.'
 		DOTENV_ADVISORY_REASON=$ADVISORY_REASON
+		;;
+	subagent)
+		# What this rail can and cannot do, stated here because the gap is the whole reason
+		# the text reads the way it does. A pre-spawn hook fires once per spawn and holds no
+		# view of what else is running, so it CANNOT see concurrency and must not imply it
+		# does — prose claiming a check nobody performs is the failure class this harness has
+		# a row about. What it can do is make every spawn deliberate, which
+		# is exactly where the recorded failure happens: the rule against fanning out was
+		# already written at the point of temptation, in prose, and a session read it and
+		# fanned out anyway because spawning three is as cheap as spawning one. A speed bump
+		# costs one turn and puts the rule in front of the agent at the moment it is being
+		# broken (AMH ledger row DC012).
+		ADVISORY_REASON='A subagent spawn is about to happen and the command guard is stopping it once. The harness permits ONE fresh-context reviewer at a time and it BLOCKS: you do not keep editing while it runs, and fanning out several because the tooling makes it easy is the exact failure the session-discipline rule names. If this is the single blocking reviewer the rule-review protocol mandates, or another genuinely sequential use, run the same spawn again and it will proceed. EVERY spawn is advised, not just the first, and each one that proceeds is recorded: a burst of three costs this turn three times over and leaves three lines behind, which is the point — the failure this exists for is three spawns in immediate succession, and a rail that stood down after the first would be spent at exactly the moment it was needed. What it can see is that a spawn was advised and that one went ahead; it cannot see whether anything was already running, and nothing may read its record as evidence that a decision was thought about. If you were about to spawn several at once: spawn one, wait for it, and read what it reports before deciding whether a second is needed.'
 		;;
 	keymaterial)
 		# shellcheck disable=SC2016 # the backticked file names are markdown, not substitutions.
@@ -471,17 +534,39 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# all — "I routed around the trigger to save a turn." An advisory that names a
 		# sidestep gets the sidestep. This one asks for the check instead, and says what
 		# the check is (owner, 2026-08-12).
+		# The lead sentence follows the VERB. Said of `git worktree add` or `git reset
+		# --hard`, "may delete ... source files" is false, and a reader who notices has
+		# been handed a correct reason to file the whole advisory as a false positive and
+		# rerun without checking — the "cries wolf" failure delivered by the rail's own
+		# words. What those verbs do instead is overwrite or discard, which git cannot undo
+		# for anything uncommitted.
 		# shellcheck disable=SC2016 # the examples must print literally, unexpanded.
-		ADVISORY_REASON='This destructive filesystem command may delete guard fixtures, source files, or untracked evidence. The command guard is stopping this ONCE, for this target, so you can spend one turn on the check rather than the deletion.'
+		if [ "$DESTRUCTIVE_DELETES" -eq 1 ]; then
+			ADVISORY_REASON='This destructive filesystem command may delete guard fixtures, source files, or untracked evidence. The command guard is stopping this ONCE, for this target, so you can spend one turn on the check rather than the deletion.'
+		else
+			ADVISORY_REASON='This command overwrites or discards working-tree state — uncommitted edits, source files, or untracked evidence — and for anything not already committed there is nothing to recover it from. The command guard is stopping this ONCE, for this target, so you can spend one turn on the check rather than the overwrite.'
+		fi
 		if [ "$DESTRUCTIVE_ROOTISH" -eq 1 ]; then
 			# shellcheck disable=SC2016 # the examples must print literally, unexpanded.
 			ADVISORY_REASON="$ADVISORY_REASON"' A path here BEGINS with a variable and contains a `/`, which is the failure mode this rail is shaped for: if that variable is empty the command addresses an absolute path instead. `rm -rf "$S/base"` with an unset `S` is `rm -rf /base`. The rerun that removes that failure mode rather than merely surviving it is the GUARDED spelling — `rm -rf -- "${S:?}/base"` — because the shell itself aborts on an unset or empty `S`, and this guard treats the guarded and bare spellings as the same target, so rewriting it does not arm a second prompt. Use it IN ADDITION to `printf %s=[%s] S "$S"`, not instead of: the guarded spelling closes the unset-or-empty case and nothing else, so a set-but-wrong `S` — `/` above all, which makes this exact command `rm -rf /base` again — still reaches the filesystem, and only looking catches that one.'
 		elif [ "$DESTRUCTIVE_UNEXPANDED" -eq 1 ]; then
 			# shellcheck disable=SC2016 # the guarded spelling must print literally.
-			ADVISORY_REASON="$ADVISORY_REASON"' A path here still contains a variable. The guard sees the command before the shell expands it, so what actually gets deleted is only knowable on your side: print the expansion before you rerun, and prefer the guarded spelling `"${VAR:?}"` in the rerun, which makes an empty value abort the command instead of widening it. The guarded and bare spellings count as the same target here, so the rewrite is the rerun and not a second prompt.'
+			ADVISORY_REASON="$ADVISORY_REASON"' A path here still contains a variable. The guard sees the command before the shell expands it, so what the command actually addresses is only knowable on your side: print the expansion before you rerun, and prefer the guarded spelling `"${VAR:?}"` in the rerun, which makes an empty value abort the command instead of widening it. The guarded and bare spellings count as the same target here, so the rewrite is the rerun and not a second prompt.'
+		fi
+		# The non-compliance clause follows the verb too. "Renaming or relocating the
+		# target" is the sidestep an agent reaches for when the command DELETES a path;
+		# for an overwrite there is no target to move, and the sidestep with the same
+		# shape — clearing the way and calling the rail satisfied — is a different
+		# sentence. Naming the wrong one is how the paragraph that exists to close a
+		# Goodhart route becomes noise.
+		# shellcheck disable=SC2016 # the example must print literally, unexpanded.
+		if [ "$DESTRUCTIVE_DELETES" -eq 1 ]; then
+			ADVISORY_REASON="$ADVISORY_REASON"' Then rerun the same command to proceed if the deletion is intentional. Two things that are NOT compliance: renaming or relocating the target so the deletion is no longer needed, and rerunning without having looked — both leave the rail spent and the check unmade. Deciding not to delete is a fine answer; arriving at it to avoid the prompt is not.'
+		else
+			ADVISORY_REASON="$ADVISORY_REASON"' Then rerun the same command to proceed if the overwrite is intentional. Two things that are NOT compliance: committing or stashing the work only to clear the way, without reading what would otherwise have been lost, and rerunning without having looked — both leave the rail spent and the check unmade. Deciding not to run it is a fine answer; arriving at that to avoid the prompt is not.'
 		fi
 		# shellcheck disable=SC2016 # the example must print literally, unexpanded.
-		ADVISORY_REASON="$ADVISORY_REASON"' Then rerun the same command to proceed if the deletion is intentional. Two things that are NOT compliance: renaming or relocating the target so the deletion is no longer needed, and rerunning without having looked — both leave the rail spent and the check unmade. Deciding not to delete is a fine answer; arriving at it to avoid the prompt is not. Rerunning clears this advisory for this command TEXT only, and a deletion aimed somewhere else gets its own. Two limits of that, both worth knowing: the guard keys on the operands AS WRITTEN, so clearing `rm -rf "$S/base"` clears it for every later value of `S` — the rerun is your check, not the guard'"'"'s — and `${S:?}` folds to `$S` for that purpose in both directions. What this rail can see is that a prompt fired and whether the command came back; it cannot see whether you looked, and `scripts/ladder.sh` prints the ones that never came back.'
+		ADVISORY_REASON="$ADVISORY_REASON"' Rerunning clears this advisory for this command TEXT only, and a command aimed somewhere else gets its own. Two limits of that, both worth knowing: the guard keys on the operands AS WRITTEN, so clearing `rm -rf "$S/base"` clears it for every later value of `S` — the rerun is your check, not the guard'"'"'s — and `${S:?}` folds to `$S` for that purpose in both directions. What this rail can see is that a prompt fired and whether the command came back; it cannot see whether you looked, and `scripts/ladder.sh` prints the ones that never came back.'
 		;;
 	esac
 	return 0
@@ -1279,6 +1364,26 @@ NORMALIZED=''
 record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 	local kind=$1 w bare name entry
 	shift
+	# Whether this verb's operands are filesystem PATHS or git REVISIONS decides whether the
+	# rootish paragraph is allowed to fire, and it is a correctness question rather than a
+	# stylistic one. That paragraph asserts a specific mechanism — "if that variable is empty
+	# the command addresses an absolute path instead" — and for a revision operand the
+	# assertion is simply false: `git reset --hard "$UPSTREAM/main"` with `$UPSTREAM` unset is
+	# `git reset --hard /main`, which git rejects with `fatal: ambiguous argument '/main':
+	# unknown revision`. No absolute path is ever addressed. The exclusion list this joins
+	# exists for exactly this reason — a rail whose whole value is being believed may not hand
+	# the agent a false instruction to check.
+	local revision_operands=1
+	case $kind in
+	git-reset-hard | git-checkout-force | git-switch-force) revision_operands=0 ;;
+	esac
+	# Whether the verb DELETES or merely overwrites decides the advisory's lead sentence. The
+	# shared text was written for `rm` and says "delete" seven times; against `git worktree
+	# add`, which deletes nothing, every one of those is false, and an agent that notices is
+	# entitled to classify the whole advisory as a false positive and rerun without looking.
+	case $kind in
+	rm | git-clean | git-rm | git-worktree-remove) DESTRUCTIVE_DELETES=1 ;;
+	esac
 	for w in "$@"; do
 		case $w in *'$'*) DESTRUCTIVE_UNEXPANDED=1 ;; esac
 		# `${S}/base` and `$S/base` are the same question; `$(cmd)/base` is not a
@@ -1296,7 +1401,7 @@ record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 		case ${bare#"$name"} in [:=?+-]*) continue ;; esac
 		case $name in HOME | PWD | TMPDIR | ROOT) continue ;; esac
 		# Only the spellings that carry a path separator can become an absolute path.
-		case $bare in *'/'*) DESTRUCTIVE_ROOTISH=1 ;; esac
+		case $bare in *'/'*) [ "$revision_operands" -eq 1 ] && DESTRUCTIVE_ROOTISH=1 ;; esac
 	done
 	# One entry per destructive SEGMENT, and the entry names the command kind as well as
 	# the operands. Without the kind, `git clean -fdx` and a literal `rm -rf '<work tree>'`
@@ -1319,8 +1424,51 @@ record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 	DESTRUCTIVE_TARGETS+=("$entry")
 }
 
+# True when the guard cannot see what a tree-mutating git verb is about to address. The verbs
+# added after `git clean` are armed ONLY on this condition, and the narrowing is the whole
+# reason they can ship at all.
+#
+# `git reset --hard HEAD~1`, `git checkout -f main` and `git worktree add wt HEAD` are ordinary,
+# correct, high-frequency commands. A rail that advises on every one of them is exactly the
+# "alarm that cries wolf" this file's own comment warns about: an agent learns to skim the
+# advisory, and it then stops working for `rm -rf` too. So the rail costs its false-positive
+# budget only where the target is genuinely unknown at scan time — the shape a public incident
+# report showed, where `git worktree add -q --detach "$TEMP_WT" HEAD` ran with `$TEMP_WT` unset
+# and the tree did not survive it (AMH ledger row DC011).
+#
+# TWO ways the target is unknown, and the second one is not optional. Gating on `$` ALONE ships
+# a rail whose escape hatch is strictly more destructive than the thing it stops: `git reset
+# --hard "$BASE"` is advised, and an agent that drops the operand to silence the complaint gets
+# `git reset --hard`, which discards every uncommitted change in the tree. Dropping an argument
+# is the first thing anyone tries when a rail objects to an argument, so a gate that rewards it
+# is worse than no gate. `.` and `:/` are the same proposition spelled explicitly: the target is
+# everything. Neither addition costs a false positive, because every common correct spelling of
+# these verbs names a literal ref (`HEAD~1`, `origin/main`, a branch).
+#
+# `rm` and `git clean` are deliberately NOT gated this way and must not become so. Their
+# operands name a deletion whatever they expand to, so a fully literal one still earns its one
+# turn of thought; that is the older contract and its fixtures pin it.
+#
+# Accepted miss, stated because the gate's name over-promises otherwise: this is a WORD-level
+# test and cannot tell a path operand from a revision one, so `git worktree add wt "$REF"`
+# arms on a commit-ish whose destination is literal and safe. Separating them needs a git
+# query, which no rail here may make.
+operands_unknown_target() { # operands_unknown_target <whole-tree-when-empty> <operand>...
+	local empty_is_whole_tree=$1
+	shift
+	[ "$#" -eq 0 ] && return "$empty_is_whole_tree"
+	local w
+	for w in "$@"; do
+		case $w in
+		*'$'* | '.' | ':/') return 0 ;;
+		esac
+	done
+	return 1
+}
+
 is_destructive_segment() {
 	local raw=$1 w cmd recursive=1 force=1 descend=1 i=0
+	local sub kind='' hard=1 staged=1 worktree_target=1
 	local words=()
 	local operands=() end_of_options=1
 	split_words "$raw"
@@ -1366,40 +1514,187 @@ is_destructive_segment() {
 		record_destructive_targets rm ${operands[@]+"${operands[@]}"}
 		;;
 	git)
-		# Skip git's global options, then require the clean subcommand and short
-		# options containing both -f and -d. Clusters may be ordered or split.
+		# Skip git's global options, then dispatch on the subcommand.
+		#
+		# `-C`, `--git-dir` and `--work-tree` take their value as the NEXT word, and that
+		# value is a PATH the whole command is then aimed at — so it is collected as an
+		# operand instead of being thrown away. Discarding it hid the incident's own class
+		# in the one place the guard deliberately drops words: git treats `-C ''` as a
+		# no-op, so `git -C "$ROOT_DIR" reset --hard HEAD` with `ROOT_DIR` unset silently
+		# hard-resets the CURRENT repository rather than the intended one.
 		while [ "$i" -lt "${#words[@]}" ]; do
 			w=${words[$i]}
-			case $w in -C | -c | --git-dir | --work-tree) i=$((i + 2)) ;; -*) i=$((i + 1)) ;; *) break ;; esac
-		done
-		[ "$i" -lt "${#words[@]}" ] && [ "${words[$i]}" = clean ] || return 1
-		i=$((i + 1))
-		for w in "${words[@]:i}"; do
-			if [ "$end_of_options" -eq 0 ]; then
-				operands+=("$w")
-				continue
-			fi
 			case $w in
-			-n | --dry-run) return 1 ;;
-			--force) force=0 ;;
-			--) end_of_options=0 ;;
-			[^-]*) operands+=("$w") ;;
-			--*) ;;
-			-*)
-				case ${w#-} in *n*) return 1 ;; esac
-				case ${w#-} in *f*) force=0 ;; esac
-				case ${w#-} in *d*) descend=0 ;; esac
+			-C | --git-dir | --work-tree)
+				[ $((i + 1)) -lt "${#words[@]}" ] && operands+=("${words[$((i + 1))]}")
+				i=$((i + 2))
 				;;
+			--git-dir=* | --work-tree=*) operands+=("${w#*=}"); i=$((i + 1)) ;;
+			-c) i=$((i + 2)) ;;
+			-*) i=$((i + 1)) ;;
+			*) break ;;
 			esac
-			done
-		[ "$force" -eq 0 ] && [ "$descend" -eq 0 ] || return 1
-		# `git clean -fdx` names no pathspec and means "the whole work tree". The kind
-		# prefix is what keeps that distinct from a pathspec-scoped clean and from an
-		# operand-less `rm`, so no spellable sentinel is needed.
-		record_destructive_targets git-clean ${operands[@]+"${operands[@]}"}
+		done
+		[ "$i" -lt "${#words[@]}" ] || return 1
+		sub=${words[$i]}
+		i=$((i + 1))
+		case $sub in
+		clean)
+			# Require the short options containing both -f and -d. Clusters may be
+			# ordered or split.
+			for w in "${words[@]:i}"; do
+				if [ "$end_of_options" -eq 0 ]; then
+					operands+=("$w")
+					continue
+				fi
+				case $w in
+				-n | --dry-run) return 1 ;;
+				--force) force=0 ;;
+				--) end_of_options=0 ;;
+				[^-]*) operands+=("$w") ;;
+				--*) ;;
+				-*)
+					case ${w#-} in *n*) return 1 ;; esac
+					case ${w#-} in *f*) force=0 ;; esac
+					case ${w#-} in *d*) descend=0 ;; esac
+					;;
+				esac
+				done
+			[ "$force" -eq 0 ] && [ "$descend" -eq 0 ] || return 1
+			# `git clean -fdx` names no pathspec and means "the whole work tree". The
+			# kind prefix is what keeps that distinct from a pathspec-scoped clean and
+			# from an operand-less `rm`, so no spellable sentinel is needed.
+			record_destructive_targets git-clean ${operands[@]+"${operands[@]}"}
+			;;
+		worktree)
+			# `add` populates a path, `remove` deletes one, and `move` takes a bare
+			# destination path — all three carry the incident's shape. `list`, `prune`,
+			# `lock` and `repair` take no destination an empty variable could redirect.
+			case ${words[$i]:-} in add | remove | move) ;; *) return 1 ;; esac
+			kind=git-worktree-${words[$i]}
+			i=$((i + 1))
+			for w in "${words[@]:i}"; do
+				if [ "$end_of_options" -eq 0 ]; then
+					operands+=("$w")
+					continue
+				fi
+				case $w in
+				--) end_of_options=0 ;;
+				[^-]*) operands+=("$w") ;;
+				-*) ;;
+				esac
+				done
+			;;
+		reset)
+			# Only `--hard` discards the worktree. `--soft` and `--mixed` move a ref
+			# and leave every file on disk, so they are not this rail's business.
+			for w in "${words[@]:i}"; do
+				if [ "$end_of_options" -eq 0 ]; then
+					operands+=("$w")
+					continue
+				fi
+				case $w in
+				--hard) hard=0 ;;
+				--) end_of_options=0 ;;
+				[^-]*) operands+=("$w") ;;
+				-*) ;;
+				esac
+				done
+			[ "$hard" -eq 0 ] || return 1
+			kind=git-reset-hard
+			;;
+		checkout | switch)
+			# Accepted miss, stated rather than patched: `git checkout -- "$f"`
+			# overwrites the worktree copy with no force flag at all, and is not caught
+			# here. Reading a bare `--` as the destructive marker would collide with
+			# the end-of-options handling every branch above shares, and the flagged
+			# spellings are the ones an agent reaches for when it means to discard.
+			for w in "${words[@]:i}"; do
+				if [ "$end_of_options" -eq 0 ]; then
+					operands+=("$w")
+					continue
+				fi
+				case $w in
+				--force | --discard-changes) force=0 ;;
+				--) end_of_options=0 ;;
+				[^-]*) operands+=("$w") ;;
+				--*) ;;
+				-*) case ${w#-} in *f*) force=0 ;; esac ;;
+				esac
+				done
+			[ "$force" -eq 0 ] || return 1
+			kind=git-$sub-force
+			;;
+		restore)
+			# `git restore <path>` overwrites the worktree copy by default, so no flag
+			# is required. `--staged` ALONE only unstages and leaves the file on disk;
+			# that one is not destructive to the tree and must not be advised.
+			for w in "${words[@]:i}"; do
+				if [ "$end_of_options" -eq 0 ]; then
+					operands+=("$w")
+					continue
+				fi
+				case $w in
+				--staged | -S) staged=0 ;;
+				--worktree | -W) worktree_target=0 ;;
+				--) end_of_options=0 ;;
+				[^-]*) operands+=("$w") ;;
+				-*) ;;
+				esac
+				done
+			[ "$staged" -eq 0 ] && [ "$worktree_target" -ne 0 ] && return 1
+			kind=git-restore
+			;;
+		rm)
+			# The closest sibling the founding case has: `git rm -r -f "$X"` deletes
+			# worktree files unconditionally, and before this dispatch existed its
+			# absence was explained by the arm only knowing `clean`. It is not any more.
+			for w in "${words[@]:i}"; do
+				if [ "$end_of_options" -eq 0 ]; then
+					operands+=("$w")
+					continue
+				fi
+				case $w in
+				-n | --dry-run) return 1 ;;
+				--force) force=0 ;;
+				-r) recursive=0 ;;
+				--) end_of_options=0 ;;
+				[^-]*) operands+=("$w") ;;
+				--*) ;;
+				-*)
+					case ${w#-} in *n*) return 1 ;; esac
+					case ${w#-} in *r*) recursive=0 ;; esac
+					case ${w#-} in *f*) force=0 ;; esac
+					;;
+				esac
+				done
+			[ "$recursive" -eq 0 ] && [ "$force" -eq 0 ] || return 1
+			kind=git-rm
+			;;
+		*) return 1 ;;
+		esac
+		# Every verb added after `clean` is armed only when the target is unknown at scan
+		# time — see `operands_unknown_target` for why that narrowing is what lets them
+		# ship, and why `$` alone was not enough.
+		#
+		# The argument is whether an EMPTY operand list means "everything". It does for
+		# `git reset --hard`, which discards the whole worktree when given no revision;
+		# every other verb here fails with a usage error instead, and arming on those
+		# would spend the budget on a command that cannot do damage.
+		if [ -n "$kind" ]; then
+			case $kind in
+			git-reset-hard) operands_unknown_target 0 ${operands[@]+"${operands[@]}"} || return 1 ;;
+			*) operands_unknown_target 1 ${operands[@]+"${operands[@]}"} || return 1 ;;
+			esac
+			record_destructive_targets "$kind" ${operands[@]+"${operands[@]}"}
+		fi
 		;;
 	*) return 1 ;;
 	esac
+	# `clean` and `rm` return through their own `record_destructive_targets`; the shared
+	# `if` above yields 0 when `kind` is empty. Saying so explicitly keeps that from being
+	# a puzzle a later reader has to re-derive.
+	return 0
 }
 
 is_destructive_command() {
@@ -1407,6 +1702,7 @@ is_destructive_command() {
 	DESTRUCTIVE_TARGETS=()
 	DESTRUCTIVE_UNEXPANDED=0
 	DESTRUCTIVE_ROOTISH=0
+	DESTRUCTIVE_DELETES=0
 	cmd=$(strip_heredocs "$cmd")
 	# Every destructive segment is scanned, not just the first. A command that deletes two
 	# path sets is two decisions, and the advisory should be able to name both — stopping
@@ -1923,6 +2219,87 @@ st_destructive_reason_lacks() { # st_destructive_reason_lacks <substring> <comma
 	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
 }
 
+# The subagent rail's fixtures. It takes no command, so it needs its own helpers rather than
+# the command-shaped ones above: what is asserted is that the FIRST spawn is advised and the
+# second is not, which is the whole contract.
+st_subagent_advisory_once() {
+	local state old_set old_state
+	old_set=${SUBAGENT_ADVISORY_STATE+x}
+	old_state=${SUBAGENT_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-subagent-advisory-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	SUBAGENT_ADVISORY_STATE=$state
+	# Three directions, and the third is the one AMH ledger row DC004 forced. The rerun of a spawn must
+	# proceed, or the rail blocks the reviewer the rule-review protocol mandates. But the NEXT
+	# spawn must be advised again, or the rail is spent at exactly the moment the guarded
+	# failure — a burst — happens. And the spawn that proceeded must leave a line, or the
+	# sidestep is invisible.
+	local old_hook=$HOOK_INVOCATION
+	HOOK_INVOCATION=1
+	if ! needs_one_time_advisory subagent ''; then
+		printf 'SELF-TEST FAIL: the first subagent spawn should have been advised\n' >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif needs_one_time_advisory subagent ''; then
+		printf 'SELF-TEST FAIL: rerunning the SAME spawn should proceed — otherwise the rail blocks the mandated blocking reviewer\n' >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif ! needs_one_time_advisory subagent ''; then
+		printf 'SELF-TEST FAIL: a LATER spawn must be advised too; a per-session one-shot is spent exactly when a burst happens\n' >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif [ ! -s "$state.resumed" ]; then
+		printf 'SELF-TEST FAIL: a spawn that proceeded left no trace; the sidestep must be visible\n' >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	HOOK_INVOCATION=$old_hook
+	rm -f -- "$state.resumed"
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then SUBAGENT_ADVISORY_STATE=$old_state; else unset SUBAGENT_ADVISORY_STATE; fi
+}
+
+st_subagent_reason_names() { # st_subagent_reason_names <substring>
+	local want=$1 state old_set old_state
+	old_set=${SUBAGENT_ADVISORY_STATE+x}
+	old_state=${SUBAGENT_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-subagent-reason-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	SUBAGENT_ADVISORY_STATE=$state
+	if needs_one_time_advisory subagent ''; then
+		case $ADVISORY_REASON in
+		*"$want"*) ;;
+		*)
+			printf 'SELF-TEST FAIL: subagent advisory did not mention %s\n   reason given: %s\n' "$want" "$ADVISORY_REASON" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+			;;
+		esac
+	else
+		printf 'SELF-TEST FAIL: should have been advised: subagent spawn\n' >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then SUBAGENT_ADVISORY_STATE=$old_state; else unset SUBAGENT_ADVISORY_STATE; fi
+}
+
+st_subagent_reason_lacks() { # st_subagent_reason_lacks <substring>
+	local unwanted=$1 state old_set old_state
+	old_set=${SUBAGENT_ADVISORY_STATE+x}
+	old_state=${SUBAGENT_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-subagent-lacks-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	SUBAGENT_ADVISORY_STATE=$state
+	if needs_one_time_advisory subagent ''; then
+		case $ADVISORY_REASON in
+		*"$unwanted"*)
+			printf 'SELF-TEST FAIL: subagent advisory claimed a check it cannot perform: %s\n   reason given: %s\n' "$unwanted" "$ADVISORY_REASON" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+			;;
+		esac
+	else
+		printf 'SELF-TEST FAIL: should have been advised: subagent spawn\n' >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then SUBAGENT_ADVISORY_STATE=$old_state; else unset SUBAGENT_ADVISORY_STATE; fi
+}
+
 st_warn_allowed() {
 	if ! check_command "$1"; then
 		printf 'SELF-TEST FAIL: should have been ALLOWED WITH WARNING: %s\n   reason given: %s\n' "$1" "$BLOCK_REASON" >&2
@@ -2117,6 +2494,77 @@ printenv'
 	rm -f -- "$self_destructive_advisory_state"
 	# `--` ends the options: the path after it is an operand even when it looks like a flag.
 	st_destructive_advisory_once 'rm -rf -- -weird-name'
+	rm -f -- "$self_destructive_advisory_state"
+
+	# The tree-mutating git verbs, armed only on an unexpanded operand. The first is the
+	# reported incident's command verbatim (AMH ledger row DC011).
+	st_destructive_advisory_once 'git worktree add -q --detach "$TEMP_WT" HEAD'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git worktree remove --force "$TEMP_WT"'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git reset --hard "$BASE"'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git checkout -f "$REF"'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git switch --discard-changes "$BRANCH"'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git restore "$D"'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git restore --staged --worktree "$D"'
+	rm -f -- "$self_destructive_advisory_state"
+	# A global option before the subcommand must not hide it.
+	st_destructive_advisory_once 'git -C "$ROOT_DIR" reset --hard "$BASE"'
+	rm -f -- "$self_destructive_advisory_state"
+	# The rootish paragraph must reach the new verbs too — this is the incident's own shape,
+	# and the advisory is worth little if it names the failure mode only for `rm`.
+	st_destructive_reason_names 'is empty the command addresses an absolute path' \
+		'git worktree add --detach "$TEMP_WT/wt" HEAD'
+	st_destructive_reason_names 'print the expansion before you rerun' 'git reset --hard "$BASE"'
+	# Distinct verbs are distinct targets: clearing one must not clear another.
+	st_destructive_rearms_per_target 'git reset --hard "$A"' 'git checkout -f "$A"'
+	st_destructive_rearms_per_target 'git worktree add "$A" HEAD' 'git worktree remove "$A"'
+
+	# The escape hatch, and the reason the gate is not `$` alone. Dropping the operand to
+	# silence a complaint about the operand must NOT buy silence for a STRICTLY more
+	# destructive command: bare `git reset --hard` discards every uncommitted change.
+	st_destructive_advisory_once 'git reset --hard'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git restore .'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git checkout -f .'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git restore :/'
+	rm -f -- "$self_destructive_advisory_state"
+	# A path arriving through a global option is still the target the command is aimed at.
+	# git treats `-C ''` as a no-op, so an empty variable here silently redirects the whole
+	# command at the CURRENT repository.
+	st_destructive_advisory_once 'git -C "$ROOT_DIR" reset --hard HEAD'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git --work-tree="$W" checkout -f main'
+	rm -f -- "$self_destructive_advisory_state"
+	# The two verbs the dispatch table left out once it stopped being `clean`-only.
+	st_destructive_advisory_once 'git rm -r -f "$X"'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git worktree move "$A" "$B"'
+	rm -f -- "$self_destructive_advisory_state"
+
+	# The advisory must not assert a mechanism the command does not have. A REVISION
+	# operand cannot become an absolute path: `git reset --hard /main` is an unknown-revision
+	# error, not a deletion of `/main`. The rootish paragraph is therefore forbidden here and
+	# required for a real path operand — both directions, or the exclusion is untested.
+	st_destructive_reason_lacks 'is empty the command addresses an absolute path' \
+		'git reset --hard "$UPSTREAM/main"'
+	st_destructive_reason_lacks 'is empty the command addresses an absolute path' \
+		'git checkout -f "$REMOTE/branch"'
+	st_destructive_reason_names 'print the expansion before you rerun' 'git reset --hard "$UPSTREAM/main"'
+	st_destructive_reason_names 'is empty the command addresses an absolute path' 'rm -rf "$S/base"'
+	# A verb that deletes nothing must not be described as deleting. `git worktree add` is
+	# the incident's own command, and it is the one most able to teach an agent that this
+	# rail lies.
+	st_destructive_reason_lacks 'may delete guard fixtures' 'git worktree add "$TEMP_WT" HEAD'
+	st_destructive_reason_lacks 'renaming or relocating the target' 'git reset --hard "$BASE"'
+	st_destructive_reason_names 'overwrites or discards working-tree state' 'git reset --hard "$BASE"'
+	st_destructive_reason_names 'may delete guard fixtures' 'rm -rf "$S/base"'
 
 	# The downstream incident, in three fixtures. A spent advisory must NOT cover a new
 	# target; the same target twice must still proceed; and the advisory must name the
@@ -2164,6 +2612,25 @@ printenv'
 	# The report distinguishes the two outcomes the rail can actually observe.
 	st_advisory_report 'rm -rf /tmp/abandoned' 'rm -rf /tmp/resumed'
 
+	# The subagent-spawn speed bump blocks once, allows the deliberate rerun, then rearms for
+	# the next spawn. That direction is load-bearing: a burst must not inherit silence from
+	# the first spawn, while the immediate rerun still permits the ONE blocking reviewer.
+	st_subagent_advisory_once
+	# The advisory must not claim a check it cannot perform. A pre-spawn hook sees one spawn
+	# and knows nothing about what else is running; prose asserting otherwise is the class
+	# this harness keeps a row about, and the negative fixture is what keeps a later edit from
+	# quietly upgrading the claim.
+	st_subagent_reason_names 'it cannot see whether anything was already running'
+	st_subagent_reason_names 'ONE fresh-context reviewer at a time'
+	# The rearm promise is part of the text now, so it is pinned: an edit that reverts the
+	# rail to a per-session one-shot has to make this sentence false first.
+	st_subagent_reason_names 'EVERY spawn is advised, not just the first'
+	st_subagent_reason_lacks 'concurrent spawn detected'
+	# The rail must not volunteer its own bypass. The earlier wording told the agent outright
+	# that the second and third spawn were unguarded, which is an invitation rather than the
+	# honesty AMH ledger row D010 asks for — and after the per-spawn rearm it is simply untrue.
+	st_subagent_reason_lacks 'will not stop the second spawn'
+
 	# A substitution is not a variable, and an always-set variable has no empty case. Both
 	# still get the advisory — just not the paragraph that names a check they cannot make.
 	st_destructive_reason_lacks 'BEGINS with a variable' 'rm -rf "$(pwd)/x"'
@@ -2189,6 +2656,35 @@ printenv'
 	st_allowed 'rm file.txt'
 	st_allowed 'git clean --force --dry-run'
 	st_allowed 'git clean -nfd'
+	# The false-positive budget for the tree-mutating git verbs, and the whole reason they
+	# could be added: a LITERAL operand names a target the agent has already written down, so
+	# it gets no advisory. Widen the gate to fire on these and the rail starts crying wolf on
+	# the commonest correct commands in the repository — which is how an agent learns to skim
+	# past it for `rm -rf` as well.
+	st_allowed 'git reset --hard HEAD~1'
+	st_allowed 'git reset --hard origin/main'
+	st_allowed 'git checkout -f main'
+	st_allowed 'git switch --discard-changes main'
+	st_allowed 'git worktree add wt HEAD'
+	st_allowed 'git worktree remove wt'
+	st_allowed 'git restore src/main.c'
+	# Non-destructive modes of the same verbs, with a variable, must stay silent: the gate is
+	# the operand shape, never a licence to advise on the whole verb.
+	st_allowed 'git reset --soft "$BASE"'
+	st_allowed 'git reset "$BASE"'
+	st_allowed 'git restore --staged "$D"'
+	st_allowed 'git checkout "$REF"'
+	st_allowed 'git switch "$BRANCH"'
+	st_allowed 'git worktree list'
+	st_allowed 'git worktree prune'
+	st_allowed 'git worktree repair'
+	# The whole-tree widening must not swallow the ordinary literal spellings, and a global
+	# option with a LITERAL value is still a known target.
+	st_allowed 'git -C build reset --hard HEAD~1'
+	st_allowed 'git rm -r -f build/'
+	st_allowed 'git worktree move wt other'
+	st_allowed 'git rm --cached "$X"'
+	st_allowed 'git rm -r -n "$X"'
 	# Prose naming a forbidden path.
 	st_allowed 'grep -rn "force-push" docs/RUNBOOK.md'
 	# Ordinary correct usage.
@@ -2440,6 +2936,46 @@ advisory_report() {
 	return 0
 }
 
+# The subagent-spawn speed bump. A THIRD entry point, and the one with the least vendor
+# coupling of the three: it reads no field of the payload and makes no claim about which tool
+# fired it, because the only fact it needs is that a spawn is about to happen — the adapter
+# that wires it has already established that by matching. Parsing a spawn payload would tie
+# this rail to one vendor's JSON for nothing, and an adapter for a host that spells the spawn
+# differently can point at the same entry point unchanged.
+#
+# The payload is drained rather than ignored so a host writing to this process does not take
+# EPIPE, and the drain is skipped on a terminal so an interactive invocation does not hang.
+run_pretask() {
+	HOOK_INVOCATION=1
+	[ -t 0 ] || cat >/dev/null 2>&1 || :
+	if needs_one_time_advisory subagent ''; then
+		printf 'BLOCKED by the AMH command guard.\n\n%s\n' "$ADVISORY_REASON" >&2
+		exit 2
+	fi
+	exit 0
+}
+
+# The subagent rail's trace, kept separate from advisory_report on purpose: that function's
+# output is printed under a heading naming DESTRUCTIVE advisories, and folding a spawn count
+# into it would put a true line under a false label. Prints nothing when no spawn proceeded,
+# which is the ordinary case in a session that spawned nothing.
+#
+# Same bounded claim as its sibling, and it matters more here because a count LOOKS like a
+# measurement: this says a spawn was advised and went ahead. It does not say the spawns
+# overlapped, that any of them was unnecessary, or that anyone weighed the rule. No guard,
+# gate, CI step or decision procedure may read it as evidence of a check (P3, AMH ledger row
+# D014).
+spawn_report() {
+	local state count
+	state=$(advisory_state_file subagent) || return 0
+	[ -n "$state" ] || return 0
+	[ -e "$state.resumed" ] || return 0
+	count=$(LC_ALL=C grep -c '' "$state.resumed" 2>/dev/null) || return 0
+	[ "$count" -gt 0 ] || return 0
+	printf '%s\n' "$count"
+	return 0
+}
+
 case "${1:-}" in
 "") run_hook ;;
 --command)
@@ -2451,10 +2987,12 @@ case "${1:-}" in
 	exit 2
 	;;
 --pre-push) run_prepush ;;
+--pre-task) run_pretask ;;
 --self-test) self_test ;;
 --advisory-report) advisory_report ;;
+--spawn-report) spawn_report ;;
 *)
-	printf 'usage: %s [--command CMD|--pre-push|--self-test|--advisory-report]\n' "$0" >&2
+	printf 'usage: %s [--command CMD|--pre-push|--pre-task|--self-test|--advisory-report|--spawn-report]\n' "$0" >&2
 	exit 2
 	;;
 esac

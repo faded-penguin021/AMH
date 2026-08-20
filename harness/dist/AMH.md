@@ -1710,6 +1710,20 @@ rather than the command.
   the prose is the only layer. Nothing can detect that state for the agent — distinguishing a
   hook invocation from a manual one requires vendor-specific environment variables the harness
   will not assume — so it is stated in the constitution rather than warned about at boot.
+- **Subagent-spawn speed bump** (where the agent's pre-tool-use hooks match on tool NAME): wire
+  `scripts/command-guard.sh --pre-task` to the spawn tool (Claude Code: a `Task` matcher) so a
+  subagent spawn is stopped once with the one-blocking-reviewer rule as its reason, and proceeds
+  on the rerun. The rule against fanning out was prose at the point of temptation for two
+  releases and a session still spawned three at once, which is what earned this layer
+  (**DC-012**). It advises EVERY spawn rather than only a session's first: the guarded failure is
+  a burst, so a one-shot would be spent at the moment it was needed, and each spawn that proceeds
+  is recorded (`--spawn-report`, which the ladder prints). Note what it is honest about: a
+  pre-spawn hook never observes liveness, so it can report a count and a rate but **cannot** say
+  two spawns overlapped, and neither its reason text nor that line claims otherwise — describing
+  the count as a concurrency check would be the false-enforcement class, and nothing may read it
+  as evidence a rule was honoured. The entry point reads no field of the payload, so the vendor
+  coupling stays in the adapter and a host that spells the spawn differently points at the same
+  flag.
 - **Output redaction** (where supported): if the agent exposes an output-filter hook, pipe tool
   and terminal output through `scripts/redact.sh` so known token shapes are scrubbed before
   they reach the context window. Codex hooks can block a shell call before it runs, but cannot
@@ -1725,7 +1739,7 @@ A worked adapter, for Claude Code:
 
 ``````
 {
-  "$comment": "AMH adapter for Claude Code — wiring only, no logic. All behaviour lives in AGENTS.md and scripts/. Layers this adapter provides: an instructive pre-execution command guard, static deny rails, and pre-allowed verification commands. It does NOT provide output redaction: Claude Code has no output-filter hook, so scripts/redact.sh stays available for manual piping and is what the ladder's secret scan uses. Be honest about this per adapter. The owner mirrors the hardest rails server-side (branch protection, secret-scanning push protection) — these rules bind only agents that load them.",
+  "$comment": "AMH adapter for Claude Code — wiring only, no logic. All behaviour lives in AGENTS.md and scripts/. Layers this adapter provides: an instructive pre-execution command guard, a per-spawn speed bump on the Task tool, static deny rails, and pre-allowed verification commands. It does NOT provide output redaction: Claude Code has no output-filter hook, so scripts/redact.sh stays available for manual piping and is what the ladder's secret scan uses. Be honest about this per adapter. The owner mirrors the hardest rails server-side (branch protection, secret-scanning push protection) — these rules bind only agents that load them.",
   "permissions": {
     "allow": [
       "Bash(scripts/ladder.sh)",
@@ -1806,6 +1820,15 @@ A worked adapter, for Claude Code:
           {
             "type": "command",
             "command": "scripts/command-guard.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "scripts/command-guard.sh --pre-task"
           }
         ]
       }

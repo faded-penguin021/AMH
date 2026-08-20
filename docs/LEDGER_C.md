@@ -207,3 +207,44 @@
   The splitter now counts `${...}` nesting while leaving ordinary command-group braces as
   separators. Fixtures pin both cross-target rearming and the stronger warning, including a
   nested expansion; the old splitter fails all three.
+- DC-011: **A destructive rail scoped by verb has a blast-radius blind spot, and gating it on
+  "the target is a variable" alone rewards the more dangerous spelling.** A public incident
+  report showed `git worktree add -q --detach "$TEMP_WT" HEAD` run with `$TEMP_WT` unset and
+  the repository directory emptied — a shape the rail already detected via
+  `DESTRUCTIVE_ROOTISH` but only ever computed for `rm -r -f` and `git clean -f -d`, so
+  `rm -rf "$TEMP_WT"` was advised while the worktree spelling was not. The dispatch now
+  extends DB-014's category to `git rm -r -f` and the tree-mutating verbs
+  `worktree add|remove|move`, `reset --hard`, `checkout|switch --force` and `restore`. Three
+  durable lessons from the review pass, none of them specific to git: (a) gating on an
+  unexpanded `$` alone left the escape hatch STRICTLY worse than the block, since bare
+  `git reset --hard` discards every uncommitted change and was silent, so an empty operand
+  list and the whole-tree pathspecs (dot and `:/`) must arm it too; (b) a rail may not assert
+  a mechanism the command lacks, because "an empty variable becomes an absolute path" is
+  false for a revision operand where `git reset --hard /main` is merely an unknown-revision
+  error, so that paragraph is suppressed there; (c) the advisory said "delete" against verbs
+  that overwrite, handing a reader a correct reason to file the whole rail as a false
+  positive, so its lead and non-compliance clauses now follow the verb. A path arriving via
+  `-C`, `--git-dir` or `--work-tree` is collected as an operand: git treats an empty `-C` as
+  a no-op, so an empty value silently redirects the command at the current repository.
+  Literal spellings stay silent by design, since the rail's credibility for `rm -rf` is the
+  budget being protected, and negative fixtures pin that direction.
+- DC-012: **Prose at the point of temptation lost to instructions injected into context, and
+  D-009's stated reason for having no guard was false.** D-009 recorded a session spawning three
+  reviewers at once and answered it by putting the rule where the temptation is; a later session
+  in this repository spawned three again after a plan-mode workflow arriving in its context told
+  it to fan out, which lifts nothing — the durable lesson is the precedence one, that
+  instructions delivered in context, whether a host workflow, a skill file or a tool
+  description, never override binding session discipline, and an agent that thinks they conflict
+  asks rather than picks. That row closed by calling the failure not machine-checkable "because
+  the harness cannot see its own agent's tool calls", which is false wherever the host matches
+  hooks on tool NAME, since a spawn is a tool call and the adapter simply had no matcher for
+  one. The guard now carries a `--pre-task` entry point wired to the Claude adapter's spawn
+  matcher, advising EVERY spawn rather than only a session's first and recording each one that
+  proceeds, because a per-session one-shot is spent at precisely the moment a burst happens and
+  leaves the sidestep invisible (**DC-004**). It reads no payload field, so the vendor coupling
+  stays in the adapter and a host that spells the spawn differently points at the same flag;
+  **DC-007**'s refusal of a Python-write rail does not reach it, because that objection was to
+  inferring intent from program text whereas this is a host-delivered event. The bounded claim,
+  stated because a count looks like a measurement: a pre-spawn hook can see spawns and their
+  rate but never their liveness, so nothing here reports overlap and no gate may read the count
+  as evidence that any rule was honoured.

@@ -63,17 +63,32 @@ mutations — bypasses every local rail. Not machinery yet: an adversarial test 
 earning a narrow rail only if a real session crosses that boundary. No check — nobody but a
 session actually crossing it settles this.
 
-**WATCH — the macOS rail self-test failure has a repair, but not a proven cause.** The
-subshell transport the failure rode is gone: the parsers fill arrays in-process (**DC-002**).
-That is the whole of the repair. The fail-closed arm added beside it cannot fire against these
-parsers — every non-blank string yields a word and a segment — so it is a tripwire for a future
-transport and not a second line of defence here; do not read a green macOS run as proof it
-works. If the same eighteen fixtures go red again, the diagnosis was wrong and the mechanism is
-still open. **Close after 9 consecutive green `portability (macos-latest)` runs on merged
-commits**, replacing a "several" nobody counts — a stand-in for evidence and never evidence,
-since no number of green runs disproves an intermittent fault; the 9 is the README's own N+9
-rediscovery horizon, and a recurrence inside the count resets it and marks the diagnosis wrong.
-Check: the `portability (macos-latest)` job on this branch.
+**DECIDE — the ledger preamble tells you to correct a stale row; the guard forbids it.** Every
+volume preamble says "Code and fixtures are ground truth: if an entry conflicts with the current
+code, trust the code and **correct** the entry — never delete it." But
+`scripts/guards/ledger-append-only.sh` rejects any edit to a committed row except adding
+`[cited]` or a final `Superseded by D-NNN.` line. Hit for real while recording **DC-011**:
+DB-014's sentence enumerating the destructive rail's commands became false, the preamble's
+remedy is a correction, and the guard refused it. Supersession is the wrong marker — DB-014's
+principle stands and only its enumeration went stale, so the row is now knowingly stale in the
+tree. **What is needed is one choice, not a discussion:** (a) let the guard accept an appended
+line matching a fixed correction form, keeping every existing byte immutable — recommended,
+since it preserves append-only while honouring what the preamble already promises; or (b) delete
+the correction promise from all four volume preambles and say supersession is the only route.
+Either is a rule change and takes the rule-review protocol. Until then prose claims an
+affordance the enforcement layer denies, which is the **D-010** class.
+Check: append a line to a committed row in `docs/LEDGER_B.md`, run
+`scripts/guards/ledger-append-only.sh`, then `git checkout -- docs/LEDGER_B.md` — open while the
+guard still exits 1.
+
+
+**WATCH — the guard's parser changed substantially and has not yet run on stock macOS Bash.**
+The macOS eighteen-fixture watch closed on its own terms (see the Changelog line citing
+**DC-002**), but it closed on the parser as it stood BEFORE this branch. `DC-011` and `DC-012`
+add a git subcommand dispatch, a new operand collector and a third entry point, none of which
+has seen bash 3.2 — no 3.2 is available in the session container, so both commits disclose the
+gap rather than claim coverage. This is a watch, not a question: it settles itself when the
+branch merges. Check: the `portability (macos-latest)` job on the merge commit.
 
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
 9.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
@@ -84,89 +99,32 @@ A pointer index, not an argument: **read the cited row before reopening any of t
 the row is where the reasoning that settled it lives and this line is deliberately too short to
 re-litigate from.
 
-- **Settled before the 3.0.0 release, each with its row.** Rendered or templated shipped
-  scripts in any form, assurance levels as configuration, and a packaged CLI (**D-002**,
-  **DA-001**). Doc-fact guards and a markdown link checker beyond the narrow
-  `version-lockstep.sh` and `path-refs.sh`, with the incident bar standing (**D-010**,
-  **D-023**). Section-granular `RULE_FILES` — path-granular is the tripwire
-  (`docs/RUNBOOK.md`). Self-reported checklists in commits or YAML, permanently; the operative
-  test is **does anything downstream consume it?** (P3, **D-014**). A pre-execution rail on
-  `git log` under branch-train, where the banner line is the accepted form (**DA-003**). A
-  *failing* byte cap on the ledger, hook-invocation detection in the boot banner and a *shipped*
-  config-schema guard, whose intents were adopted in other forms (**DA-022**). A guard checking
-  the session branch against `BRANCH_PREFIX`, which would fail every legitimately-assigned
-  branch (**DA-022**).
-- **The RFC-era refusals, three rows, each carrying an argument this line does not reproduce.**
-  A runtime capability manifest, the script to write it, the lifecycle probe layer, runtime
-  profiles, a second setup extension point and "gates consume observed facts" — **DA-024**.
-  RFC2's run-receipt format, its transport, the CI artifact and a status tool — **DA-025**,
-  which also scopes what a record may still be. Five of RFC3's seven scenarios, per-scenario YAML, an oracle directory and in-tree
-  reports — **DA-026**, whose five failed provenance three DIFFERENT ways.
-- **A warning when a ledger row or a compression pass lands in the top decile below its cap**
-  (the inverted-gradient guard), declined with the anchor removal that shipped instead: it
-  invents a second threshold to hug, and a guard accretes after an incident, not ahead of one
-  (**DB-040**). Cap-hugging then survived the removal, and the owner settled the reopening the
-  other way: the aim-points gained a second UNIT instead (**DC-003**), which is not a second
-  threshold in the same unit and so does not answer to this objection. The objection stands
-  unchanged for any future proposal of the top-decile shape.
-- **A byte cap on the constitution (`CONSTITUTION_WARN_KB`)**, refused while adding the
-  current-state rule that would have motivated it — the defect is kind, not size, and a cap over
-  all-live legislation makes shaving a rule the cheapest compliance (**DB-038**).
-- **A block-once rail for Python file writes**, declined after a downstream agent used a
-  Python heredoc for an opaque text replacement. The reviewability problem is real, but the
-  proposed rail is not agent-neutral or artifact-triggered: AMH cannot assume a host provides
-  structured edit tools, and recognizing arbitrary interpreter writes means treating heredoc
-  program text as commands while missing equivalent writes in other languages (**DC-007**).
-- **The 2026-08-10 review's two refusals** — **DB-024**.
-- **A guard that opens files to classify them** (owner, 2026-08-11). Reading a `.pem`'s first
-  line would separate a private key from a certificate, and it is refused: no rail here opens a
-  file, and the advisory tier is the answer instead — **DB-027**.
+- **Pre-3.0.0 refusals:** rendered or templated shipped scripts, assurance-level configuration,
+  a packaged CLI, broad doc-fact/link guards, section-granular `RULE_FILES`, machine-consumed
+  self-attestations, a `git log` rail under branch-train, failing ledger caps, hook-invocation
+  detection, a shipped config-schema guard, and a `BRANCH_PREFIX` push check (**D-002**,
+  **D-010**, **D-014**, **D-023**, **DA-001**, **DA-003**, **DA-022**).
+- **RFC refusals:** runtime capability/profile/probe machinery and a second setup extension
+  (**DA-024**); run receipts, transport, CI artifact and status tool (**DA-025**); and five
+  provenance-defective scenarios plus their YAML/oracle/report machinery (**DA-026**).
+- **Later refusals:** the top-decile/inverted-gradient warning (**DB-040**, with **DC-003** the
+  adopted two-unit alternative); a constitution byte cap (**DB-038**); a Python-write advisory
+  (**DC-007**); the two 2026-08-10 review proposals (**DB-024**); and any guard that opens a file
+  to classify it (**DB-027**).
 
 ## Changelog
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-08-20 — Replaced GNU-specific `sort -V` in the adopter upgrade command with a POSIX Awk
-  numeric comparison of strict `amh-vMAJOR.MINOR.PATCH` release tags.
-
-- 2026-08-19 — Rewrote the pre-push malformed-line guard as an explicit conditional, clearing
-  ShellCheck SC2015 without changing its fail-open behavior.
-
-- 2026-08-18 — Made `split_segments` preserve unquoted `${...}` parameter expansions, so
-  destructive advisories retain distinct targets and the empty-variable warning; nested
-  expansions are covered too (**DC-010**).
-
-- 2026-08-18 — Added the git-native pre-push rail (P13): a `command-guard.sh --pre-push` mode and
-  a non-clobbering `.git/hooks/pre-push` wrapper installed by `session-start.sh` (every boot) and
-  `amh-init.sh` (adoption). Rejects default-branch, force/non-fast-forward and delete pushes by
-  outcome, with no branch-prefix check (DA-022); deferred the forge/API surface to the Owner
-  queue (**DC-009**).
-
-- 2026-08-18 — `amh-v9.0.0` tagged and published on origin; the release is cut.
-
-- 2026-08-17 — Prepared 9.0.0: corrected the local-green/CI-red playbook to account for
-  index-dependent guard inputs; declined an agent-specific Python-write rail; and made the
-  version lockstep reject an unversioned top changelog entry (**DC-007**, **DC-008**).
-
-- 2026-08-15 through 2026-08-17 — **The 8.0.0 train, folded, tagged and published**
-  (`amh-v8.0.0` at 6d447b6). The constitution bounded by kind rather than bytes; green verdicts
-  stopped printing thresholds; the guard's parsers left subshells; redirections stripped before
-  any word is judged; the caps an agent writes toward gained a second unit; an adversarial pass
-  closed three enforcement defects; and the context-window question closed as a non-item with
-  nothing shipped. **DB-038**…**DB-040** and **DC-001**…**DC-006** are the record; the macOS
-  WATCH stays queued above, while **DC-010** later closed the unquoted-brace splitter hole.
-
-- 2026-08-11 through 2026-08-15 — **The 6.0.0 through 7.0.2 train, folded.** Private-key read
-  rails and block-body redaction; portable working-memory prose; per-operand destructive
-  advisories; maximum-not-target ledger guidance; Codex lifecycle hooks and project rule
-  reviewer; deterministic bearer-fixture construction; session-namespace push enforcement;
-  required PR template use; full base-to-head branch-train descriptions; and cross-platform
-  support for the macOS, GNU/Linux and Windows Git Bash toolchains closing with the macOS
-  release-tag repair. **DB-026**…**DB-037** are the record.
-
-- 2026-07-25 through 2026-08-10 — **Everything up to 5.2.1, folded.** Founding, self-hosting,
-  releases through 5.2.1, the rejected and reduced RFCs, conformance scenarios, lifecycle and
-  command rails, ledger chaining and limits, shipped citations, and the prose repairs leading
-  into 6.0.0. **D-001**…**D-035**, **DA-001**…**DA-026**, and **DB-001**…**DB-025** are the
-  record.
+- 2026-08-18 through 2026-08-20 — **The post-9.0 train, folded.** Git-native pre-push enforcement;
+  parameter-expansion-safe segment splitting; broader destructive-git advisories; a Claude
+  spawn speed bump with bounded reporting; the SC2015 repair; closure of the original macOS
+  watch and opening of the new parser watch; and POSIX-Awk upgrade-tag selection (**DC-009**…
+  **DC-012**; **DC-002** is the closed watch record).
+- 2026-08-15 through 2026-08-17 — **The 8.0.0–9.0.0 train, folded and published.** Constitution
+  boundaries, value-free verdicts, parser/redirection repairs, two-unit compression floors,
+  index-aware CI triage and strict top-entry version lockstep are recorded by **DB-038**…
+  **DB-040**, **DC-001**…**DC-008**; the Python-write rail stayed declined.
+- 2026-07-25 through 2026-08-15 — **Everything through 7.0.2, folded:** founding through portable
+  adapters/toolchains (**D-001**…**D-035**, **DA-001**…**DA-026**, **DB-001**…**DB-037**).
