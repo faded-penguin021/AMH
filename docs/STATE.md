@@ -127,6 +127,9 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-20 — Replaced GNU-specific `sort -V` in the adopter upgrade command with a POSIX Awk
+  numeric comparison of strict `amh-vMAJOR.MINOR.PATCH` release tags.
+
 - 2026-08-19 — Rewrote the pre-push malformed-line guard as an explicit conditional, clearing
   ShellCheck SC2015 without changing its fail-open behavior.
 
