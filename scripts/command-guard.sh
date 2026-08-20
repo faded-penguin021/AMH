@@ -70,18 +70,6 @@
 #     coverage the self-test asserts.
 #   * CONSTRUCTED AND ENCODED COMMANDS. `eval`, base64/hex payloads decoded at runtime,
 #     and any command assembled from variables are text at scan time, not commands.
-#   * AN UNQUOTED `${VAR}` IN A DESTRUCTIVE OPERAND. `split_segments` treats `{` and `}`
-#     as segment operators, so `rm -rf ${d}/build` is cut into `rm -rf $`, `d` and
-#     `/build` before any scanner sees it. The advisory still fires — the first piece is
-#     still an `rm -rf` — but its TARGET is recorded as the bare `$`, which every other
-#     unquoted-brace deletion also produces. So `rm -rf ${scratch}/x` clears the advisory
-#     for `rm -rf ${root}/y`, which is the cross-target silence the per-target rearm
-#     exists to prevent. Quoting the operand (`rm -rf "${d}/build"`, the spelling the
-#     advisory recommends) records the real target. It costs the strongest PARAGRAPH too, not
-#     just the target: the surviving operand is a bare `$` with no `/` in it, so
-#     `DESTRUCTIVE_ROOTISH` never sets and the empty-variable warning — the one this rail
-#     exists for — is suppressed on the very spelling that needs it. Closing it means
-#     teaching `split_segments` that `${...}` is one expansion.
 #   * HEREDOCS AND LONG LINES. `cmd <<EOF` hides its body until the delimiter, and the
 #     window-based scanners give up past `CHAR_LOOKAHEAD` characters — a variable name or
 #     redirection target longer than the window is not classified.
@@ -162,7 +150,7 @@ CHAR_LOOKAHEAD=512
 # locale, above). Splitting on index boundaries copies each segment exactly once.
 split_segments() { # sets SEGMENTS
 	local s=$1
-	local i=0 n=${#s} c q='' start=0
+	local i=0 n=${#s} c q='' start=0 parameter_depth=0
 	SEGMENTS=()
 	local wbase=0 wbuf='' wsafe=0
 	local out=()
@@ -194,15 +182,35 @@ split_segments() { # sets SEGMENTS
 			out+=("${s:start:i-start}")
 			start=$((i + 1))
 			;;
-		';' | '|' | $'\n' | '(' | ')' | '{' | '}' | '`')
+		';' | '|' | $'\n' | '(' | ')' | '`')
 			out+=("${s:start:i-start}")
 			start=$((i + 1))
+			;;
+		'{')
+			# A `{` immediately consumed by the `$` arm below opens a parameter
+			# expansion, not a command group. Nested `${...}` expansions are counted.
+			# Other braces remain simple-command separators.
+			if [ "$parameter_depth" -eq 0 ]; then
+				out+=("${s:start:i-start}")
+				start=$((i + 1))
+			fi
+			;;
+		'}')
+			if [ "$parameter_depth" -gt 0 ]; then
+				parameter_depth=$((parameter_depth - 1))
+			else
+				out+=("${s:start:i-start}")
+				start=$((i + 1))
+			fi
 			;;
 		'$')
 			if [ "${wbuf:i-wbase+1:1}" = '(' ]; then
 				out+=("${s:start:i-start}")
 				i=$((i + 1))
 				start=$((i + 1))
+			elif [ "${wbuf:i-wbase+1:1}" = '{' ]; then
+				parameter_depth=$((parameter_depth + 1))
+				i=$((i + 1))
 			fi
 			;;
 		esac
@@ -1610,7 +1618,9 @@ run_prepush() {
 	while read -r local_ref local_sha remote_ref remote_sha _; do
 		# Fail OPEN on a malformed line (P13): a line missing any of the four fields was not
 		# understood, and an unparsed line is not a licence to block the push.
-		[ -n "$local_ref" ] && [ -n "$local_sha" ] && [ -n "$remote_ref" ] && [ -n "$remote_sha" ] || continue
+		if [ -z "$local_ref" ] || [ -z "$local_sha" ] || [ -z "$remote_ref" ] || [ -z "$remote_sha" ]; then
+			continue
+		fi
 		if ! prepush_verdict "$local_ref" "$local_sha" "$remote_ref" "$remote_sha"; then
 			printf 'BLOCKED by the AMH pre-push rail.\n\n%s\n' "$BLOCK_REASON" >&2
 			exit 2
@@ -2140,14 +2150,13 @@ printenv'
 	st_destructive_same_target_set 'rm -rf $d/build' 'rm -rf -- "${d:?}/build"'
 	st_destructive_same_target_set 'rm -rf "${d}/build"' 'rm -rf $d/build'
 	st_destructive_same_target_set 'rm -rf "${d:?set d}/build"' 'rm -rf $d/build'
-	# Quoted on purpose, and the reason is a hole this unit found rather than closed:
-	# `split_segments` treats `{` and `}` as segment operators, so an UNQUOTED `${d}/build`
-	# is cut into `rm -rf $`, `d` and `/build` before any of this runs. The first piece
-	# carries the operand `$`, which every other unquoted brace deletion also produces — so
-	# they share one signature and clear each other. The advisory recommends the quoted
-	# spelling, the header's does-NOT-catch block records the hole, and closing it means
-	# teaching that splitter about `${...}`, which is the same change the fd-duplication
-	# item is waiting on.
+	# Unquoted brace expansions stay intact too: two different variable targets must not
+	# share the bare `$` signature and silence one another, and the rootish paragraph must
+	# survive on the spelling most exposed to an empty-variable expansion.
+	st_destructive_rearms_per_target 'rm -rf ${scratch}/x' 'rm -rf ${root}/y'
+	st_destructive_reason_names 'BEGINS with a variable' 'rm -rf ${d}/build'
+	# Parameter expansion nesting does not turn its braces into command separators.
+	st_destructive_rearms_per_target 'rm -rf ${scratch:-${fallback}}/x' 'rm -rf ${root}/y'
 	# ...and the SUBSTITUTING forms must not fold, because they can address a path the bare
 	# variable never would. `${d:-/tmp}` with an empty `d` deletes `/tmp`, not `$d`.
 	st_destructive_rearms_per_target 'rm -rf "${d:-/tmp}/x"' 'rm -rf $d/x'
