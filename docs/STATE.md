@@ -28,13 +28,13 @@ The AMH meta-repository: both the **source of truth** for the Agentic Maintenanc
 reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
 **reference instance**, running byte-identical copies of the scripts it ships. The product is
 `harness/` (prose source, templates, generated bundle); this repo's instance is `AGENTS.md` +
-`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 9.0.0** — see `harness/VERSION`,
+`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 9.1.0** — see `harness/VERSION`,
 the copy that counts.
 
 ## Current state
 
-AMH **9.0.0** is tagged and published on origin (`amh-v9.0.0` at `9f57a46`, confirmed by
-`git ls-remote --tags` on 2026-08-18). This branch adds the **git-native pre-push rail** (P13): `command-guard.sh
+AMH **9.1.0** is prepared on this branch but not yet tagged or published. It adds the
+**git-native pre-push rail** (P13): `command-guard.sh
 --pre-push`, invoked by git through `.git/hooks/pre-push`, independently rejects default-branch,
 force/non-fast-forward and delete pushes — the layer that would have backstopped D-016 item 1,
 binding even a hook-less agent. It carries no branch-prefix check (DA-022) and is a guardrail,
@@ -90,6 +90,9 @@ has seen bash 3.2 — no 3.2 is available in the session container, so both comm
 gap rather than claim coverage. This is a watch, not a question: it settles itself when the
 branch merges. Check: the `portability (macos-latest)` job on the merge commit.
 
+**OPEN — tag and publish AMH 9.1.0 after this branch merges.** Check:
+`git ls-remote --tags origin refs/tags/amh-v9.1.0` — resolved when it prints the tag.
+
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
 9.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
 
@@ -117,7 +120,7 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-08-18 through 2026-08-20 — **The post-9.0 train, folded.** Git-native pre-push enforcement;
+- 2026-08-18 through 2026-08-20 — **Prepared AMH 9.1.0.** Git-native pre-push enforcement;
   parameter-expansion-safe segment splitting; broader destructive-git advisories; a Claude
   spawn speed bump with bounded reporting; the SC2015 repair; closure of the original macOS
   watch and opening of the new parser watch; and POSIX-Awk upgrade-tag selection (**DC-009**…
