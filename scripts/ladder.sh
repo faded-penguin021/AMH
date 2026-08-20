@@ -1354,6 +1354,16 @@ advisories() {
 			# says nothing to one. Nothing parses it back.
 			printf '%s\n' "$unresolved" | sed -e 's/ *|$//' -e 's/^/         /'
 		fi
+		# The subagent rail's trace, printed separately because the heading above names
+		# destructive advisories and this is not one. Same bounded claim: a spawn was
+		# advised and went ahead. It does NOT say the spawns overlapped or that any was
+		# unnecessary — the rail cannot see either — and nothing reads this line
+		# (AMH ledger row D014).
+		local spawns
+		spawns=$(bash scripts/command-guard.sh --spawn-report 2>/dev/null)
+		if [ -n "$spawns" ] && [ "$spawns" != 0 ]; then
+			note "subagent spawns that proceeded past the advisory this session: $spawns (the rule permits ONE reviewer at a time, blocking; this line says a spawn went ahead, never that any two overlapped)"
+		fi
 	fi
 	[ "$WARNS" = 0 ] && ok "nothing to flag"
 }

@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 9.0.0.** Repos that adopt it record the version they took
+**Harness version 9.1.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -345,6 +345,27 @@ that a prompt fired, and whether the command ever came back. Print the unresolve
 human already reads, as a line that no counter, exit code or gate consumes — it is not evidence
 that anyone looked, only that the cheapest escape stopped being invisible, and P3 forbids any
 machinery that reads it as more.
+
+**One rail can be invoked by git itself rather than by the agent, and that is the point.** The
+command guard above binds only an agent whose harness runs a pre-execution hook; an agent
+without one has no command rail at all, the gap the paragraph before this one concedes. A git
+`pre-push` hook closes exactly that gap, because git runs it on every push whatever drives the
+shell. Install the SAME guard in a `--pre-push` mode there and judge git's per-ref stdin by
+OUTCOME, not by flag: reject a push to the default branch, a non-fast-forward (which is force by
+effect, so one ancestry test catches `--force`, `--force-with-lease` and a `+`-refspec alike
+wherever the ancestry is decidable — a shallow clone whose objects it cannot resolve fails open,
+the direction every rail here fails), and a branch deletion — the publication invariants the
+command rail already holds, though judged by effect the two are not identical (a fast-forward
+`--force` the flag rail blocks rewrites no history and passes here). It is a
+guardrail and not a boundary, and prose that overstates it is P20's companion failure:
+`--no-verify` skips it, it sees git-CLI pushes and never a push made through a forge API, and
+`.git/hooks` is untracked so it binds only where installed — install it from the boot sequence
+(P14), which every session runs, not only from the one-time initializer that a fresh clone never
+re-runs. Install it NON-CLOBBERING: write the hook only where none exists, never take over a
+pre-push hook the script did not write, and say how to chain the check in where one is already
+present — a reusable harness cannot own an arbitrary repository's hook lifecycle. Carry NO
+branch-prefix check: the harness assigns session branch names the repository may not itself
+prefix, so a prefix rail here rejects the very branches it exists to protect.
 
 Mirror the hardest rails **server-side** where the host supports it — branch protection on the
 default branch (PRs required; force-push and deletion blocked) and secret-scanning push
@@ -1689,6 +1710,20 @@ rather than the command.
   the prose is the only layer. Nothing can detect that state for the agent — distinguishing a
   hook invocation from a manual one requires vendor-specific environment variables the harness
   will not assume — so it is stated in the constitution rather than warned about at boot.
+- **Subagent-spawn speed bump** (where the agent's pre-tool-use hooks match on tool NAME): wire
+  `scripts/command-guard.sh --pre-task` to the spawn tool (Claude Code: a `Task` matcher) so a
+  subagent spawn is stopped once with the one-blocking-reviewer rule as its reason, and proceeds
+  on the rerun. The rule against fanning out was prose at the point of temptation for two
+  releases and a session still spawned three at once, which is what earned this layer
+  (**DC-012**). It advises EVERY spawn rather than only a session's first: the guarded failure is
+  a burst, so a one-shot would be spent at the moment it was needed, and each spawn that proceeds
+  is recorded (`--spawn-report`, which the ladder prints). Note what it is honest about: a
+  pre-spawn hook never observes liveness, so it can report a count and a rate but **cannot** say
+  two spawns overlapped, and neither its reason text nor that line claims otherwise — describing
+  the count as a concurrency check would be the false-enforcement class, and nothing may read it
+  as evidence a rule was honoured. The entry point reads no field of the payload, so the vendor
+  coupling stays in the adapter and a host that spells the spawn differently points at the same
+  flag.
 - **Output redaction** (where supported): if the agent exposes an output-filter hook, pipe tool
   and terminal output through `scripts/redact.sh` so known token shapes are scrubbed before
   they reach the context window. Codex hooks can block a shell call before it runs, but cannot
@@ -1704,7 +1739,7 @@ A worked adapter, for Claude Code:
 
 ``````
 {
-  "$comment": "AMH adapter for Claude Code — wiring only, no logic. All behaviour lives in AGENTS.md and scripts/. Layers this adapter provides: an instructive pre-execution command guard, static deny rails, and pre-allowed verification commands. It does NOT provide output redaction: Claude Code has no output-filter hook, so scripts/redact.sh stays available for manual piping and is what the ladder's secret scan uses. Be honest about this per adapter. The owner mirrors the hardest rails server-side (branch protection, secret-scanning push protection) — these rules bind only agents that load them.",
+  "$comment": "AMH adapter for Claude Code — wiring only, no logic. All behaviour lives in AGENTS.md and scripts/. Layers this adapter provides: an instructive pre-execution command guard, a per-spawn speed bump on the Task tool, static deny rails, and pre-allowed verification commands. It does NOT provide output redaction: Claude Code has no output-filter hook, so scripts/redact.sh stays available for manual piping and is what the ladder's secret scan uses. Be honest about this per adapter. The owner mirrors the hardest rails server-side (branch protection, secret-scanning push protection) — these rules bind only agents that load them.",
   "permissions": {
     "allow": [
       "Bash(scripts/ladder.sh)",
@@ -1785,6 +1820,15 @@ A worked adapter, for Claude Code:
           {
             "type": "command",
             "command": "scripts/command-guard.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "scripts/command-guard.sh --pre-task"
           }
         ]
       }

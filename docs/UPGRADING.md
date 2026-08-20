@@ -19,7 +19,14 @@ If those two disagree, believe amh.conf and tell me.
 Then resolve the newest release tag and clone exactly that tag — never a branch:
 
     git ls-remote --tags --refs https://github.com/faded-penguin021/AMH.git 'refs/tags/amh-v*' \
-      | sed 's|.*refs/tags/||' | sort -V | tail -1
+      | awk '$2 ~ /^refs\/tags\/amh-v[0-9]+\.[0-9]+\.[0-9]+$/ {
+          version = $2; sub(/^refs\/tags\/amh-v/, "", version); split(version, part, ".")
+          if (!found || part[1] > major || (part[1] == major && part[2] > minor) ||
+              (part[1] == major && part[2] == minor && part[3] > patch)) {
+            found = 1; major = part[1]; minor = part[2]; patch = part[3]; latest = $2
+          }
+        }
+        END { if (found) { sub(/^refs\/tags\//, "", latest); print latest } }'
     git clone --depth 1 --branch <that tag> https://github.com/faded-penguin021/AMH.git /tmp/amh
 
 Read /tmp/amh/harness/CHANGELOG.md forward, from our version to that one, oldest first. Each

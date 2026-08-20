@@ -11,6 +11,37 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 9.1.0 — 2026-08-20
+
+- **Git now invokes an independent publication rail.** `command-guard.sh --pre-push` rejects
+  pushes targeting the default branch, branch deletions and non-fast-forward updates by outcome;
+  `session-start.sh` installs its wrapper without clobbering foreign hooks or `core.hooksPath`.
+- **Destructive advisories retain parameter expansions and cover risky Git tree mutations.**
+  Unquoted and nested `${...}` no longer collapse to a shared target, and variable/whole-tree
+  forms of `git rm`, `worktree`, `reset`, `checkout`, `switch` and `restore` receive the same
+  deliberate speed bump as destructive filesystem commands without advising ordinary literals.
+- **Claude's adapter can put the existing sequential-subagent rule at the spawn boundary.** Its
+  `Task` hook maps to the agent-neutral `--pre-task` entry point, which advises every spawn,
+  rearms after the deliberate rerun and reports only how many proceeded — never concurrency.
+- **The adopter upgrade command no longer needs GNU version sort.** POSIX Awk selects the latest
+  strict `amh-vMAJOR.MINOR.PATCH` tag numerically.
+
+These are additive rails and corrections: no previously-permitted workflow becomes forbidden by
+the binding rules, so this is MINOR rather than MAJOR.
+
+### Upgrading
+
+1. Copy the whole `harness/templates/scripts/` directory into `scripts/`, including the manifest,
+   and keep the shipped scripts executable.
+2. Run `scripts/session-start.sh`. Where no foreign pre-push hook or `core.hooksPath` owns the
+   lifecycle, it installs the Git-native wrapper; otherwise follow its message to chain
+   `scripts/command-guard.sh --pre-push` manually if you want this additive rail.
+3. If you use Claude Code and want the per-spawn speed bump, copy the `Task` matcher block from
+   `harness/templates/configs/claude-settings.json` into your owned `.claude/settings.json`.
+   Other hosts may map their spawn event to `scripts/command-guard.sh --pre-task`.
+4. No new `amh.conf` keys ship. Record `AMH_VERSION=9.1.0` and update the version named by your
+   constitution after the copied scripts and any chosen adapter wiring are in place.
+
 ## 9.0.0 — 2026-08-17
 
 - **The seed CI-triage playbook no longer claims that local-green/CI-red can only be an
