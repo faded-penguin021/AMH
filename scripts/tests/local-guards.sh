@@ -156,6 +156,51 @@ awk '/^- D-002 / && !done { print "  Superseded by DB-999."; done = 1 } { print 
 	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
 expect pass "ledger-append-only: strict superseded pointer is allowed" "$d" ledger-append-only.sh
 
+# The second pointer verb (owner, 2026-08-25). `Corrected by` is for the DB-014 shape: one
+# detail stale under a principle that still stands, where supersession would misdirect the
+# reader. The guard checks the FORM only — these fixtures pin the form, and nothing pins the
+# choice of verb, which is reviewer territory by construction.
+d=$(snapshot ledger_append_only_corrected)
+awk '/^- D-002 / && !done { print "  Corrected by DB-999."; done = 1 } { print }' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect pass "ledger-append-only: strict corrected pointer is allowed" "$d" ledger-append-only.sh
+
+d=$(snapshot ledger_append_only_corrected_and_cited)
+awk '/^- D-004: / { sub(":", " [cited]:") } /^- D-005/ { print "  Corrected by DB-999." } { print }' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect pass "ledger-append-only: cited marker and strict corrected pointer may be added together" "$d" ledger-append-only.sh
+
+d=$(snapshot ledger_append_only_corrected_not_last)
+awk '/^- D-002 / && !done { print "  Corrected by DB-999."; print "  trailing prose after the pointer."; done = 1 } { print }' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect fail "ledger-append-only: a corrected pointer that is not the final line is a rewrite" "$d" \
+	ledger-append-only.sh "existed at HEAD and was edited"
+
+d=$(snapshot ledger_append_only_corrected_plus_prose)
+awk '/^- D-002 / && !done { print "  Corrected by DB-999."; done = 1 } { sub(/harness/, "HARNESS"); print }' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect fail "ledger-append-only: a corrected pointer cannot smuggle a prose edit alongside it" "$d" \
+	ledger-append-only.sh "existed at HEAD and was edited"
+
+# The one-pointer limit, at the shape that used to evade it: the base row's pointer is not its
+# last line, so a `tail -n 1` check saw no pointer and let the row gain a second one.
+d=$(snapshot ledger_append_only_second_pointer_midrow)
+awk '/^- D-002 / && !done { print "  Superseded by DB-998."; print "  prose keeping the pointer off the end."; done = 1 } { print }' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+(cd "$d" && git add -A && git commit -qm "row whose pointer is not last")
+# Same anchor as above on purpose: both appends land at the end of the SAME row, which is what
+# makes this a second pointer rather than a first one on a neighbour.
+awk '/^- D-002 / && !done { print "  Corrected by DB-999."; done = 1 } { print }' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect fail "ledger-append-only: a row already carrying a mid-row pointer cannot gain a second" "$d" \
+	ledger-append-only.sh "existed at HEAD and was edited"
+
+d=$(snapshot ledger_append_only_corrected_malformed)
+awk '/^- D-002 / && !done { print "  Corrected by DB-999"; done = 1 } { print }' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+expect fail "ledger-append-only: a corrected pointer missing its period is a rewrite" "$d" \
+	ledger-append-only.sh "existed at HEAD and was edited"
+
 d=$(snapshot ledger_append_only_cited)
 sed '0,/^- D-004: /s//- D-004 [cited]: /' \
 	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
@@ -263,7 +308,7 @@ expect warn "ledger-append-only: a new row whose prefix names another volume war
 	ledger-append-only.sh "its prefix names docs/LEDGER.md"
 
 # The metadata transitions the owner asked to keep working: an existing row in a CLOSED
-# volume may still gain `[cited]` and a supersession pointer without tripping the warning,
+# volume may still gain `[cited]` and a supersession or correction pointer without tripping the warning,
 # because neither makes it a new row.
 d=$(snapshot ledger_append_only_closed_volume_metadata)
 sed '0,/^- D-004: /s//- D-004 [cited]: /' \
@@ -389,6 +434,17 @@ d=$(snapshot doc_navigation_session_pointer_missing)
 sed_in_place '/^- Session execution, checkpoints, recovery, and owner forks:/d' "$d/AGENTS.md"
 sed_in_place 's/Follow \*\*Session discipline\*\* every/Follow the runbook every/' "$d/AGENTS.md"
 expect fail "doc-navigation: Session discipline routing was removed" "$d" doc-navigation.sh "missing navigation pointer"
+
+# The state file's rule preambles moved into the runbook and left pointers behind. DB-029
+# recorded the first such pointer as prose only; these two fixtures are why the second and
+# third are not. Deleting either line is an edit the size and structure rungs cannot see.
+d=$(snapshot doc_navigation_state_pointer_missing)
+sed_in_place '/Working-memory compression\*\*, and they bind whether or not you follow/d' "$d/docs/STATE.md"
+expect fail "doc-navigation: the state file's compression-rule pointer was deleted" "$d" doc-navigation.sh "missing navigation pointer in docs/STATE.md"
+
+d=$(snapshot doc_navigation_state_queue_pointer_missing)
+sed_in_place '/final chat message must:/d' "$d/docs/STATE.md"
+expect fail "doc-navigation: the Owner-queue pointer into Session discipline was deleted" "$d" doc-navigation.sh "missing navigation pointer in docs/STATE.md"
 
 d=$(snapshot drift_script)
 printf '# local edit\n' >>"$d/scripts/redact.sh"

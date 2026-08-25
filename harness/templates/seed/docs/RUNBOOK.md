@@ -9,7 +9,9 @@ simplification — split it out when the playbooks multiply.
 
 Entry point for changing the system. Pick the playbook matching your task, read the reference
 docs it names, then do the work. **Code + {{IMMUTABLE_FIXTURES}} are ground truth**; where any
-doc disagrees with the code, trust the code (and fix the doc).
+doc disagrees with the code, trust the code (and fix the doc) — except the append-only ledger,
+whose rows are never edited in place: a correction is a new row plus one appended pointer on
+the old one.
 
 ## Where logic lives
 
@@ -20,6 +22,7 @@ doc disagrees with the code, trust the code (and fix the doc).
 | Question | Doc |
 |---|---|
 | {{QUESTION}} | {{DOC_PATH}} |
+| How do I compress `docs/STATE.md`? | this runbook → **Working-memory compression** |
 
 ## Change-type playbooks
 
@@ -78,7 +81,10 @@ cut (version invariants; the owner does the tagging), etc.}}
    resolution the item states, not its exit status (a check written to detect the unresolved
    condition exits 0 exactly when the item is still open). Resolved means done in this session:
    delete it and record the outcome, rather than restating it with a caveat. An item with no
-   check is restated as *unverified*, naming who settles it. Nothing enforces this and nothing
+   check is restated as *unverified*, naming who settles it — **`Check:` is deliberately not a
+   required field**: an item that must carry one will get one, "the owner says so" is a check
+   the way a checkbox is evidence, and its absence is information rather than an omission.
+   Nothing enforces this and nothing
    may: a gate that consumes "I checked" is a self-report.
 8. **Verification disclosure.** Every commit body states what was actually verified (which
    ladder rungs and tests ran) and names what could NOT be verified locally. Disclosure of
@@ -125,8 +131,9 @@ same fresh-context pass at the **strongest tier regardless of diff size**: a thr
 edit can carry a semantic bomb, and a bad rule manufactures defects in every future session
 that obeys it. **No self-review fallback:** a harness that cannot spawn a fresh context parks
 the rule change for the human rather than reviewing its own legislation. Routine state-file
-edits are exempt, EXCEPT the state file's rule-bearing sections (its length-guard preamble,
-its decided non-items).
+edits are exempt, EXCEPT the state file's rule-bearing sections (its Owner-queue preamble, its
+length-guard pointer, its decided non-items). The compression rules themselves live in
+**Working-memory compression** below, which is in this runbook and therefore in scope already.
 
 The reviewer hunts these rule bug classes (seed the exemplars from your own ledger as they
 occur):
@@ -219,10 +226,80 @@ prints your state file's size **against the soft cap**, deliberately: it is read
 writes, where knowing you are near the cap is the whole point, and it names the cap rather than
 the floor that compression aims at. And the `ok` for a small edit above the cap names
 `STATE_EDIT_DELTA_BYTES`, which is the threshold that verdict turns on. This paragraph lives here
-rather than in `docs/STATE.md`'s length-guard preamble, which carries the RULES: a description of
-a guard's output is not working memory and should not be charged to that file's byte cap. It
+rather than in `docs/STATE.md`: a description of a guard's output is not working memory and
+should not be charged to that file's byte cap. The rules that governed that file have since
+followed it here — see **Working-memory compression** below. It
 describes the three size verdicts and the landing `ok`, not the rung's other lines; read
 `guard_state_size` when it and this disagree.
+
+## Working-memory compression
+
+The rules for compressing `docs/STATE.md`. They live here rather than in the file they govern,
+and that placement is the point: these rules change only under the rule-review protocol, while
+the byte cap on `docs/STATE.md` exists to force *volatile* content out. A block of permanent
+rules sitting inside that cap spends the budget every compression pass is fighting for, and it
+cannot itself be compressed — folding a live rule is repeal. Measure it in your own repository
+rather than trusting a proportion: in the harness's own, the two preambles were 2,499 bytes of
+a 9,216-byte compression floor, and in this scaffold they were 4,859 bytes of 6,045 before the
+adopter had written a line.
+
+**Relocating a live rule is legislation, not tidying — and the destination decides whether it
+is repeal.** This runbook is read on demand and every playbook routes into it, so a rule here
+still reaches the session that needs it. The ledger and `docs/history/` do not: they are
+retrieval storage nobody reads whole, and a live rule there binds nothing. If your ladder
+carries a documentation-navigation guard, give this section's heading AND the pointer left
+behind in `docs/STATE.md` a row in it — a guard that checks only the heading leaves the pointer
+deletable in silence, which is how a relocation quietly finishes becoming a repeal. Without
+such a guard the pointer is prose only; say so rather than implying a check you do not have.
+Moving any further passage out of working memory stays the owner's call, one grant at a time.
+
+**Thresholds.** `STATE_WARN_KB`, both compression-floor keys and `STATE_HARD_KB` live in
+`amh.conf` and are deliberately **not** restated here as numbers: nothing checks this prose
+against the config, so a copied number drifts silently the first time a threshold moves. Which
+of them the size rung prints, and why a number it printed is never a value to copy back into
+prose, are in **Acceptance ladder** above.
+
+**When to compress.** Grow freely to the soft cap; no trimming below that line. Over it, ONE
+deep pass landing at or below the compression floor — a ceiling, not a target: anywhere below
+is fine, and you do not keep shaving once under. Never trim to just under the soft cap, because
+micro-trims re-arm the warning a session later and the wide band IS the debounce, statelessly.
+Fail above the hard cap, which is byte-only like the soft cap: those two say WHEN to compress,
+and read cost is bytes. A typo fix above the cap is allowed and still owes the pass.
+
+**How far.** The floor is a byte size **AND** a sentence count, and a landing satisfies both.
+That is what keeps "a ceiling, not a target" from depending on your restraint: shaving words
+cannot move the sentence count, repunctuating cannot move the bytes, and folding whole
+completed stages is the only move that clears both. Land short and you fold MORE stages.
+
+**How.** Collapse each completed work stage into one Changelog line, fold changelog clusters,
+move durable gotchas into the append-only ledger, and delete narrative prose. Never shave
+clauses until the guard goes quiet, and never cut text into another file — that is not
+compression, it is the relocation the second paragraph above makes the owner's call.
+**Project**, **Current state** and **Owner queue** must always survive it: compress an
+Owner-queue item's prose, never drop an open one — closing them is the owner's call.
+
+**What the ladder checks, and what it does not.** `scripts/ladder.sh` machine-checks the band,
+the required sections and their non-empty bodies, that no level-2 heading appears twice, that
+the Owner-queue heading is still there (a warning, not a failure — the section is the owner's),
+and that a compression pass lands on the floor rather than just clearing the warning; above the
+cap it tells a pass from an ordinary edit by how much the file shrank
+(`STATE_EDIT_DELTA_BYTES`), so the ladder will not fail you for fixing a typo up there — which
+is a statement about the guard, not a release: the size warning stays armed and the pass is
+still owed. **And that list is the whole of it** — a claim about `guard_state_size` and
+`guard_state_structure` in `scripts/ladder.sh`, a file that upgrades independently of this one,
+so those two functions are the authority and this sentence is what goes stale when a version
+adds a rung, with nothing checking it against the script. Everything else here — what to fold,
+what to move to the ledger, whether what survived is any good, and whether you dropped an open
+Owner-queue item — is prose no guard will catch you breaking. Never drop one.
+
+**One consequence, since silence reads as approval: the landing check never runs below the soft
+cap.** Only a file that started above it reaches that check, though the structure checks run at
+every size. So a deep pass on a file already under the cap draws a plain size line and nothing
+more: the absence of a check, not a verdict that the edit was right, and exactly the pass the
+paragraphs above forbid. Do not reach for a threshold to cover it. It is the SHRINK that is
+measured, never the band, and a check treating any large shrink as a compression pass fails a
+session for deleting one resolved Owner-queue item from a healthy file — leaving padding the
+file back as the only way to pass.
 
 ## When CI fails (workflow vs code)
 

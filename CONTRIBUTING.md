@@ -58,7 +58,8 @@ so never edit the bundle by hand. Run `build-dist.sh` and let the drift guard co
 
 ## Every legislation diff gets a fresh-context review
 
-Changing `AGENTS.md`, this file, the runbook's protocols, guard semantics *or their fixtures*,
+Changing `AGENTS.md`, this file, the runbook's protocols **and its rule sections**, guard
+semantics *or their fixtures*,
 the rail scripts, the session bootstrap, ledger preambles, permission rails, or anything under
 `harness/src/` or `templates/` requires the rule-review protocol in `RUNBOOK.md`: one fresh-context reviewer, at
 the strongest tier available, **regardless of diff size**, blocking, and exactly one pass. A

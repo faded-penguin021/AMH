@@ -1,7 +1,7 @@
 # AMH meta-repository — maintenance guide
 
 This repository is the source of truth for the **Agentic Maintenance Harness** (AMH) and its
-reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 9.1.0**
+reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 10.0.0**
 (`harness/VERSION`).
 
 This file states the harness and this repository as they are now. Rules are rewritten in place
@@ -27,7 +27,8 @@ courtesy that says the protocol applies; the reviewer is the enforcement.
   this instance's current configuration.
 
 Code and guard fixtures settle what the harness currently does; when descriptive prose
-conflicts with them, correct the prose. They do not settle what the harness *should* do:
+conflicts with them, correct the prose — but never a committed ledger row, which is immutable:
+write a new row and append one `Superseded by` or `Corrected by` pointer to the old one. They do not settle what the harness *should* do:
 changing a binding value or rule is legislation, not documentation repair, and must follow
 the rule-review protocol.
 
@@ -40,8 +41,8 @@ the rule-review protocol.
    read everything it names before editing.
 4. Work sequentially in a small, shippable unit with binary acceptance.
 5. Follow `docs/RUNBOOK.md` → **Acceptance ladder** and review the command's actual output.
-6. Update `docs/STATE.md`; improve the runbook in the same change if its procedure proved
-   insufficient.
+6. Update `docs/STATE.md`; over its soft cap, follow **Working-memory compression** before
+   editing. Improve the runbook in the same change if its procedure proved insufficient.
 7. Commit with an honest verification disclosure, then push the permitted
    `BRANCH_PREFIX/<codename>` session branch.
 
@@ -84,6 +85,7 @@ definition of that scope.
 - Change procedures: `docs/RUNBOOK.md` → **Change-type playbooks**.
 - Binding-rule changes: `docs/RUNBOOK.md` → **Rule-review protocol**.
 - Verification and locally unverifiable coverage: `docs/RUNBOOK.md` → **Acceptance ladder**.
+- Compressing working memory: `docs/RUNBOOK.md` → **Working-memory compression**.
 - Current values, branch policy, rule-file scope, thresholds, and extension configuration:
   `amh.conf`.
 - Durable rationale, deviations, and discoveries: `docs/LEDGER.md` and the live ledger volume

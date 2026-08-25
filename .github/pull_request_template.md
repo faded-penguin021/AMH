@@ -48,7 +48,7 @@
 
 ## Ledger rows
 
-<!-- New or amended D-NNN rows, one line each. Rows are append-only and never renumbered;
+<!-- New D-NNN rows, and any pointer appended to an existing row, one line each. Rows are append-only and never renumbered;
      corrections go in a later row that points back. -->
 
 ## Owner actions after merge

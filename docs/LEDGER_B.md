@@ -10,9 +10,18 @@
 > machine-checked (`CITATION_SCAN_PATHS`), citations from **prose are not checked at all** —
 > docs are deliberately out of scan scope, because prose mentions IDs without citing them. A
 > dangling ID in a doc will not fail the build; that one is on the reviewer. Append new
-> entries at the bottom, one continuous sequence. Code and fixtures are ground truth: if an
-> entry conflicts with the current code, trust the code and **correct** the entry — never
-> delete it.
+> entries at the bottom, one continuous sequence.
+> Code and fixtures are ground truth: where an entry conflicts with the current code, the code
+> wins and the entry stays exactly as written. **Rows are immutable — never edit one in
+> place.** A correction is a NEW row plus one appended pointer line on the old one, and there
+> are two verbs: `Superseded by D-NNN.` when the whole row is replaced, `Corrected by D-NNN.`
+> when one detail went stale under a principle that still stands. Both are append-only and
+> mechanically identical; the guard checks the FORM and cannot check which verb is honest, so
+> that half is the reviewer's. **Appending the pointer is required, not optional, whenever a
+> change knowingly falsifies part of a committed row** — nothing can detect an omitted one,
+> which is exactly why it is written here. A row carries at most one pointer, ever, and the
+> first is FINAL: the guard refuses a second pointer and refuses to rewrite the first, so a
+> wrong verb is unrepairable.
 >
 > **This file is RETRIEVAL storage: grep it and cite it, never read it whole.** A `DB-NNN`
 > citation resolves to one row, and one row is what you read. A volume at its cap is tens of
@@ -25,7 +34,7 @@
 >
 > **Search before appending.** Grep ALL volumes for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
-> so ("supersedes DA-NNN") and the old row gets a correction pointer, never deletion.
+> so ("supersedes DA-NNN") and the old row gets a `Superseded by` pointer, never deletion.
 > **Keep new rows concise and at or below `LEDGER_ROW_SENTENCE_CAP`.** The working limit counts
 > SENTENCES (**DC-003**), beneath a `LEDGER_ROW_CHAR_CAP` backstop, and a new row satisfies both:
 > shaving words cannot move the sentence count, and repunctuating cannot move the bytes. Write
@@ -441,6 +450,7 @@
   words would satisfy the machine while defeating the point. The fixture suite pins unstaged deletion, staged deletion, arbitrary rewrite, strict
   supersession and draft-row freedom separately; staged deletion is the bypass the blocking pass
   caught before commit.
+  Corrected by DC-014.
 
 - DB-009: **Scenario 02's first agent-backed runs found a defect in the evaluator, not in the
   prose rule it watches — and the obvious fix made it worse.** Six runs, one model, one fixture,
@@ -522,6 +532,7 @@
   per character; non-ASCII UTF-8 pays by encoded bytes. The tradeoff is conservative but
   reviewable: future authors can always shorten a draft row before commit, while committed
   historical verbosity remains exempt instead of forcing forbidden ledger surgery.
+  Corrected by DC-014.
 
 - DB-013: **Append-only means immutable prose, not frozen machine-checked metadata.** The first
   row-length implementation inherited DB-008's supersession exception but overlooked the other
@@ -532,8 +543,9 @@
   addition or both together, while marker removal, pointer replacement, and prose edits still
   fail. Because the row id already exists at `HEAD`, neither metadata addition reclassifies the
   historical row as new or subjects it retroactively to `LEDGER_ROW_CHAR_CAP`.
+  Corrected by DC-014.
 
-- DB-014: **A broad destructive-command rail should be a category-scoped speed bump, not a
+- DB-014 [cited]: **A broad destructive-command rail should be a category-scoped speed bump, not a
   permanent deny.** Recursive forced removal is sometimes necessary, but an accidental run can
   erase the guard fixtures, source files, or untracked evidence needed to understand the work.
   The command guard therefore recognizes leading `rm` invocations combining recursive and force
@@ -543,6 +555,7 @@
   the precise rails. Category-specific state also prevents acknowledging the `.env` advisory from
   silently acknowledging destructive deletion, while one shared mechanism prevents each new
   advisory from inventing its own session-state implementation.
+  Corrected by DC-011.
 
 - DB-016: **A shared one-time-advisory mechanism needs a shared rearm, or the bootstrap keeps
   the session-local promise for one category only.** DB-014 made the command guard's advisory
@@ -707,7 +720,7 @@
   interpolation falsifies. The mandatory pass caught it; restoring cost most of the saving. Fold
   what repeats; a sentence naming a guard's OUTPUT is not repetition.
 
-- DB-029: **A description of a guard's output is not working memory — do not charge it to a byte
+- DB-029 [cited]: **A description of a guard's output is not working memory — do not charge it to a byte
   cap.** Compressing the length-guard preamble hit a floor: a quarter of this instance's copy and
   an eighth of the seed's was not a rule but an account of what `guard_state_size` prints (DB-025,
   the subject of release 5.2.1). Owner, 2026-08-11: move it to `docs/RUNBOOK.md` -> Acceptance

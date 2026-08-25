@@ -4,49 +4,16 @@
 SEED TEMPLATE (AMH). Yours from the moment it is copied. Working memory: rewritten freely,
 but capacity-bounded — the cap is what forces compaction, and compaction is what keeps every
 session's first read cheap.
+
+Keep this file's permanent content to the pointers below. The rules that govern it live in
+docs/RUNBOOK.md → Working-memory compression, because rules that change only under the
+rule-review protocol would otherwise spend the budget the cap exists to protect — and cannot
+be compressed to make room, since folding a live rule is repeal.
 -->
 
-> **Length guard (read before editing — hysteresis).** The thresholds `STATE_WARN_KB`,
-> `STATE_COMPRESS_TO_KB`, `STATE_COMPRESS_TO_SENTENCES` and `STATE_HARD_KB` live in `amh.conf`, named here and deliberately
-> **not** restated as numbers: nothing checks this prose against the config, so a copied number
-> drifts silently the first time a threshold moves. Which of them `scripts/ladder.sh` prints, and
-> why a number it printed is never a value to copy back into prose, are in `docs/RUNBOOK.md` →
-> **Acceptance ladder** — a description of the guard's output, deliberately kept out of the one
-> file the guard measures.
->
-> Grow freely to the soft cap; no trimming below that line. When the guard warns, run ONE deep
-> compression pass landing at or below the compression floor — never trim to just under the soft
-> cap, because micro-trims re-arm the warning a session later and the wide band IS the debounce,
-> statelessly. **The floor counts SENTENCES, not bytes**, and that is what keeps "a ceiling, not
-> a target" from depending on your restraint: shaving words moves the count by nothing, so the
-> only way down is to delete whole sentences — which is what compressing this file means anyway.
-> Aim comfortably below the floor; if the pass lands short, fold MORE completed stages. Fail
-> above the hard cap, which is in bytes like the soft cap: those two say WHEN to compress, and
-> read cost is bytes. Compressing
-> means collapsing each completed work stage into one Changelog line, folding changelog clusters,
-> moving durable gotchas into the append-only ledger and deleting narrative prose. **Project**,
-> **Current state** and **Owner queue** must always survive it: compress an Owner-queue item's
-> prose, never drop an open one — closing them is the owner's call.
->
-> `scripts/ladder.sh` machine-checks the band, the required sections and their non-empty bodies,
-> that no level-2 heading appears twice, that the Owner-queue heading is still there (a warning,
-> not a failure — the section is the owner's), and that a compression pass lands on the floor
-> rather than just clearing the warning; above the cap it tells a pass from an ordinary edit by
-> how much the file shrank (`STATE_EDIT_DELTA_BYTES`), so fixing a typo up here obliges you
-> neither to compress the file nor to revert. **And that list is the whole of it** — a claim
-> about `guard_state_size` and `guard_state_structure` in `scripts/ladder.sh`, a file that
-> upgrades independently of this one, so those two functions are the authority and this sentence
-> is what goes stale when a version adds a rung, with nothing checking it against the script. Everything else here — what to fold, what to move to the ledger, whether
-> to compress at all — is prose no guard will catch you breaking.
->
-> One consequence, since silence reads as approval: **the landing check never runs below the soft
-> cap** — only a file that started above it reaches that check, though the structure checks run
-> at every size. So a deep pass on a file already under the cap draws a plain size line and
-> nothing more: the absence of a check, not a verdict that the edit was right, and exactly the
-> pass the paragraph above forbids. Do not reach for a threshold to cover it. It is the SHRINK
-> that is measured, never the band, and a check treating any large shrink as a compression pass
-> fails a session for deleting one resolved Owner-queue item from a healthy file — leaving
-> padding the file back as the only way to pass.
+> **Length guard.** Thresholds are in `amh.conf`; the rules for compressing this file are
+> `docs/RUNBOOK.md` → **Working-memory compression**, and they bind whether or not you follow
+> this pointer. Read them before any edit that takes this file over the soft cap.
 
 ## Project
 
@@ -61,16 +28,10 @@ its checklist / "no active work".}}
 
 > **Protected section.** Never delete it, and never silently drop items during compression (a
 > ladder guard warns if the header vanishes). Items leave only when done, answered or triaged
-> — then delete the item and record the outcome as a Changelog line or a ledger row. Every
-> session's final chat message restates this queue.
+> — then delete the item and record the outcome as a Changelog line or a ledger row.
 >
-> **Test each item before you restate it.** Where an item's truth is observable from a session,
-> it carries a **Check:** line with the command — run it, read its OUTPUT against the resolution
-> the item states (not its exit status), and if the item is resolved it is done: delete it and
-> record the outcome in the same session, never restate it with a caveat. Where it is not
-> observable, the item says so and names who settles it; restate that as *unverified*.
-> **`Check:` is deliberately not a required field** — an item that must carry one will get one,
-> and "the owner says so" is a check the way a checkbox is evidence. Its absence is information.
+> How to test an item before restating it, and why every session's final chat message must:
+> `docs/RUNBOOK.md` → **Session discipline** 7.
 >
 > The form, with the resolution spelled out so the next session is not guessing at it:
 >
