@@ -9,7 +9,9 @@ simplification — split it out when the playbooks multiply.
 
 Entry point for changing the system. Pick the playbook matching your task, read the reference
 docs it names, then do the work. **Code + {{IMMUTABLE_FIXTURES}} are ground truth**; where any
-doc disagrees with the code, trust the code (and fix the doc).
+doc disagrees with the code, trust the code (and fix the doc) — except the append-only ledger,
+whose rows are never edited in place: a correction is a new row plus one appended pointer on
+the old one.
 
 ## Where logic lives
 

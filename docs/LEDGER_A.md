@@ -10,8 +10,18 @@
 > (`CITATION_SCAN_PATHS`), citations from **prose are not checked at all** — docs are
 > deliberately out of scan scope, because prose mentions IDs without citing them. A dangling
 > ID in a doc will not fail the build; that one is on the reviewer. Append new entries at the
-> bottom, one continuous sequence. Code and fixtures are ground truth: if an entry conflicts
-> with the current code, trust the code and **correct** the entry — never delete it.
+> bottom, one continuous sequence.
+> Code and fixtures are ground truth: where an entry conflicts with the current code, the code
+> wins and the entry stays exactly as written. **Rows are immutable — never edit one in
+> place.** A correction is a NEW row plus one appended pointer line on the old one, and there
+> are two verbs: `Superseded by D-NNN.` when the whole row is replaced, `Corrected by D-NNN.`
+> when one detail went stale under a principle that still stands. Both are append-only and
+> mechanically identical; the guard checks the FORM and cannot check which verb is honest, so
+> that half is the reviewer's. **Appending the pointer is required, not optional, whenever a
+> change knowingly falsifies part of a committed row** — nothing can detect an omitted one,
+> which is exactly why it is written here. A row carries at most one pointer, ever, and the
+> first is FINAL: the guard refuses a second pointer and refuses to rewrite the first, so a
+> wrong verb is unrepairable.
 >
 > **This file is RETRIEVAL storage: grep it and cite it, never read it whole.** A `DA-NNN`
 > citation resolves to one row, and one row is what you read. A volume at its cap is tens of
@@ -24,7 +34,7 @@
 >
 > **Search before appending.** Grep BOTH volumes for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
-> so ("supersedes D-NNN") and the old row gets a correction pointer, never deletion.
+> so ("supersedes D-NNN") and the old row gets a `Superseded by` pointer, never deletion.
 > **Keep new rows concise and at or below `LEDGER_ROW_SENTENCE_CAP`.** The working limit counts
 > SENTENCES (**DC-003**), beneath a `LEDGER_ROW_CHAR_CAP` backstop, and a new row satisfies both:
 > shaving words cannot move the sentence count, and repunctuating cannot move the bytes. Write

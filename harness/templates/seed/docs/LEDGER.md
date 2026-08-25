@@ -10,9 +10,18 @@ shipped bug teaches session N+9's review pass.
 > **Append-only registry — NEVER archived, compressed or truncated.** This is the canonical,
 > permanent home for every numbered deviation and discovery. Code and docs cite entries as
 > bare `D-NNN` and those citations must always resolve here; no entry is ever deleted or
-> summarised away. Append new entries at the bottom, one continuous sequence. Code and
-> fixtures are ground truth: if an entry conflicts with the current code, trust the code and
-> **correct** the entry — never delete it.
+> summarised away. Append new entries at the bottom, one continuous sequence.
+> Code and fixtures are ground truth: where an entry conflicts with the current code, the code
+> wins and the entry stays exactly as written. **Rows are immutable — never edit one in
+> place.** A correction is a NEW row plus one appended pointer line on the old one, and there
+> are two verbs: `Superseded by D-NNN.` when the whole row is replaced, `Corrected by D-NNN.`
+> when one detail went stale under a principle that still stands. Both are append-only and
+> mechanically identical. **Appending the pointer is required, not optional, whenever a change
+> knowingly falsifies part of a committed row** — nothing can detect an omitted one, which is
+> why it is written here. If your ladder carries an append-only guard, it can check the FORM
+> and never which verb is honest, so that half is the reviewer's; if you have no such guard,
+> all of this is prose only for you and worth saying so out loud. A row should carry at most
+> one pointer, and treat the first as final.
 >
 > **This file is RETRIEVAL storage: grep it and cite it, never read it whole.** A `D-NNN`
 > citation resolves to one row, and one row is what you read. A volume at its cap is tens of
@@ -24,7 +33,7 @@ shipped bug teaches session N+9's review pass.
 >
 > **Search before appending.** Grep the ledger for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
-> so ("supersedes D-NNN") and the old row gets a correction pointer, never deletion.
+> so ("supersedes D-NNN") and the old row gets a `Superseded by` pointer, never deletion.
 > **Keep new rows concise and at or below `LEDGER_ROW_SENTENCE_CAP`.** The working limit counts
 > SENTENCES, which is what stops "a maximum, not a target" depending on restraint: a draft over
 > it cannot be reworded into compliance, only shortened by a whole sentence. It is not a claim

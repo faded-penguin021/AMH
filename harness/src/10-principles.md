@@ -18,6 +18,15 @@ document. Docs describe the system as-built and *will* drift; the standing order
 doc conflicts with the code, trust the code and correct the doc." Without this rule, agents
 oscillate between conflicting sources, or "fix" correct code to match a stale doc.
 
+The append-only ledger is the one exception, and it has to be stated or the two rules collide:
+its rows are immutable, so a stale row is never edited in place. The code still wins — the
+reader is told so by the volume preamble — and the correction is a NEW row plus one appended
+pointer on the old one, saying either that it is superseded whole or that one detail went stale
+under a principle that still holds. That second verb exists because the first misdirects a
+reader when only a detail died. Both are the same append; which is honest is a judgement no
+guard can check, so it is the reviewer's. "Correct the doc" governs descriptive prose, never
+permanent memory.
+
 **P2. Tier memory like a computer's memory hierarchy — and bound every tier an agent must
 read.** Long-context repos die by unbounded accumulation; the fix is the one hardware already
 uses — distinct storage tiers, each with the mutability and size discipline its role demands.

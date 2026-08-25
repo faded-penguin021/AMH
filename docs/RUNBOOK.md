@@ -2,7 +2,9 @@
 
 Entry point for changing this repository. Pick the playbook matching your task, read what it
 names, then do the work. **Code + the guard fixture suite are ground truth**; where any doc
-disagrees with the code, trust the code and fix the doc.
+disagrees with the code, trust the code and fix the doc — except the append-only ledger, whose
+rows are never edited in place: a correction is a new row plus one appended pointer on the old
+one (see any volume preamble for the two verbs).
 
 ## Where logic lives
 
@@ -414,7 +416,9 @@ inside `RULE_FILES`, which the sections left behind still are not.
 
 The reviewer hunts these rule bug classes:
 
-- **rule contradiction** — the new rule against an existing binding rule;
+- **rule contradiction** — the new rule against an existing binding rule; and, for a ledger
+  pointer, whether the verb describes the real relationship — `Superseded by` on a row whose
+  principle still stands misdirects every later reader, and the guard checks only the form;
 - **prose/guard lockstep drift** — a number or behaviour in prose diverging from the constant
   or logic that enforces it;
 - **Goodhart-ability** — the rule can be satisfied while defeating its intent (the STATE

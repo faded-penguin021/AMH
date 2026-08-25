@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 9.2.0.** Repos that adopt it record the version they took
+**Harness version 10.0.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -51,6 +51,15 @@ exactly the forks it must escalate.
 document. Docs describe the system as-built and *will* drift; the standing order is "when a
 doc conflicts with the code, trust the code and correct the doc." Without this rule, agents
 oscillate between conflicting sources, or "fix" correct code to match a stale doc.
+
+The append-only ledger is the one exception, and it has to be stated or the two rules collide:
+its rows are immutable, so a stale row is never edited in place. The code still wins — the
+reader is told so by the volume preamble — and the correction is a NEW row plus one appended
+pointer on the old one, saying either that it is superseded whole or that one detail went stale
+under a principle that still holds. That second verb exists because the first misdirects a
+reader when only a detail died. Both are the same append; which is honest is a judgement no
+guard can check, so it is the reviewer's. "Correct the doc" governs descriptive prose, never
+permanent memory.
 
 **P2. Tier memory like a computer's memory hierarchy — and bound every tier an agent must
 read.** Long-context repos die by unbounded accumulation; the fix is the one hardware already
@@ -584,7 +593,9 @@ their keep only in combination.
 {{REFERENCE_SYSTEM}}
 
 > **Ground truth:** code + {{IMMUTABLE_FIXTURES}}. Docs describe the system as-built and may
-> drift — when a doc conflicts with the code, trust the code and correct the doc.
+> drift — when a doc conflicts with the code, trust the code and correct the doc. The
+> append-only ledger is the exception: its rows are immutable, so a stale row is never edited
+> in place — write a new row and append one pointer line to the old one.
 
 Long-term memory: numbered deviations and discoveries live in `docs/LEDGER.md` — a
 **permanent, append-only registry** (code cites bare `D-NN`; code-cited rows carry a
@@ -1118,7 +1129,9 @@ simplification — split it out when the playbooks multiply.
 
 Entry point for changing the system. Pick the playbook matching your task, read the reference
 docs it names, then do the work. **Code + {{IMMUTABLE_FIXTURES}} are ground truth**; where any
-doc disagrees with the code, trust the code (and fix the doc).
+doc disagrees with the code, trust the code (and fix the doc) — except the append-only ledger,
+whose rows are never edited in place: a correction is a new row plus one appended pointer on
+the old one.
 
 ## Where logic lives
 
@@ -1447,9 +1460,18 @@ shipped bug teaches session N+9's review pass.
 > **Append-only registry — NEVER archived, compressed or truncated.** This is the canonical,
 > permanent home for every numbered deviation and discovery. Code and docs cite entries as
 > bare `D-NNN` and those citations must always resolve here; no entry is ever deleted or
-> summarised away. Append new entries at the bottom, one continuous sequence. Code and
-> fixtures are ground truth: if an entry conflicts with the current code, trust the code and
-> **correct** the entry — never delete it.
+> summarised away. Append new entries at the bottom, one continuous sequence.
+> Code and fixtures are ground truth: where an entry conflicts with the current code, the code
+> wins and the entry stays exactly as written. **Rows are immutable — never edit one in
+> place.** A correction is a NEW row plus one appended pointer line on the old one, and there
+> are two verbs: `Superseded by D-NNN.` when the whole row is replaced, `Corrected by D-NNN.`
+> when one detail went stale under a principle that still stands. Both are append-only and
+> mechanically identical. **Appending the pointer is required, not optional, whenever a change
+> knowingly falsifies part of a committed row** — nothing can detect an omitted one, which is
+> why it is written here. If your ladder carries an append-only guard, it can check the FORM
+> and never which verb is honest, so that half is the reviewer's; if you have no such guard,
+> all of this is prose only for you and worth saying so out loud. A row should carry at most
+> one pointer, and treat the first as final.
 >
 > **This file is RETRIEVAL storage: grep it and cite it, never read it whole.** A `D-NNN`
 > citation resolves to one row, and one row is what you read. A volume at its cap is tens of
@@ -1461,7 +1483,7 @@ shipped bug teaches session N+9's review pass.
 >
 > **Search before appending.** Grep the ledger for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
-> so ("supersedes D-NNN") and the old row gets a correction pointer, never deletion.
+> so ("supersedes D-NNN") and the old row gets a `Superseded by` pointer, never deletion.
 > **Keep new rows concise and at or below `LEDGER_ROW_SENTENCE_CAP`.** The working limit counts
 > SENTENCES, which is what stops "a maximum, not a target" depending on restraint: a draft over
 > it cannot be reworded into compliance, only shortened by a whole sentence. It is not a claim

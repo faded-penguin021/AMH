@@ -10,9 +10,18 @@
 > machine-checked (`CITATION_SCAN_PATHS`), citations from **prose are not checked at all** —
 > docs are deliberately out of scan scope, because prose mentions IDs without citing them. A
 > dangling ID in a doc will not fail the build; that one is on the reviewer. Append new
-> entries at the bottom, one continuous sequence. Code and fixtures are ground truth: if an
-> entry conflicts with the current code, trust the code and **correct** the entry — never
-> delete it.
+> entries at the bottom, one continuous sequence.
+> Code and fixtures are ground truth: where an entry conflicts with the current code, the code
+> wins and the entry stays exactly as written. **Rows are immutable — never edit one in
+> place.** A correction is a NEW row plus one appended pointer line on the old one, and there
+> are two verbs: `Superseded by D-NNN.` when the whole row is replaced, `Corrected by D-NNN.`
+> when one detail went stale under a principle that still stands. Both are append-only and
+> mechanically identical; the guard checks the FORM and cannot check which verb is honest, so
+> that half is the reviewer's. **Appending the pointer is required, not optional, whenever a
+> change knowingly falsifies part of a committed row** — nothing can detect an omitted one,
+> which is exactly why it is written here. A row carries at most one pointer, ever, and the
+> first is FINAL: the guard refuses a second pointer and refuses to rewrite the first, so a
+> wrong verb is unrepairable.
 >
 > **This file is RETRIEVAL storage: grep it and cite it, never read it whole.** A `DC-NNN`
 > citation resolves to one row, and one row is what you read. A volume at its cap is tens of
@@ -25,7 +34,7 @@
 >
 > **Search before appending.** Grep ALL volumes for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
-> so ("supersedes DB-NNN") and the old row gets a correction pointer, never deletion.
+> so ("supersedes DB-NNN") and the old row gets a `Superseded by` pointer, never deletion.
 > **Keep new rows concise and at or below `LEDGER_ROW_SENTENCE_CAP`.** The working limit counts
 > SENTENCES (**DC-003**), which is what stops "a maximum, not a target" depending on restraint:
 > a draft over it cannot be reworded into compliance, only shortened by a whole sentence. It is
@@ -207,7 +216,7 @@
   The splitter now counts `${...}` nesting while leaving ordinary command-group braces as
   separators. Fixtures pin both cross-target rearming and the stronger warning, including a
   nested expansion; the old splitter fails all three.
-- DC-011: **A destructive rail scoped by verb has a blast-radius blind spot, and gating it on
+- DC-011 [cited]: **A destructive rail scoped by verb has a blast-radius blind spot, and gating it on
   "the target is a variable" alone rewards the more dangerous spelling.** A public incident
   report showed `git worktree add -q --detach "$TEMP_WT" HEAD` run with `$TEMP_WT` unset and
   the repository directory emptied — a shape the rail already detected via
@@ -268,3 +277,20 @@
   edited, which is why each relocation stays the owner's call rather than a tidying an agent
   performs; the seed scaffold carried the defect worse at 4,859 bytes of 6,045, and the instance
   file fell 9,292 → 7,174 with no rule repealed.
+
+- DC-014: **A preamble promising a correction the guard refuses is the D-010 class, and the fix
+  is a second pointer verb rather than a wider guard.** All five volume preambles said "trust the
+  code and **correct** the entry" while `ledger-append-only.sh` rejected every edit to a committed
+  row except `[cited]` and `Superseded by D-NNN.`, and DC-011 hit it for real: DB-014's
+  enumeration of the destructive rail's commands went INCOMPLETE rather than false, the remedy the preamble named was a
+  correction, and the guard refused. Supersession was the wrong marker because DC-011 *extends*
+  DB-014's category rather than carrying its rule, so the pointer would have sent a reader to a
+  row without what they came for — which is why the owner's answer (2026-08-25) deletes the
+  correction promise AND adds `Corrected by D-NNN.` beside `Superseded by D-NNN.`, both strictly
+  append-only. The distinction is linguistic and is labelled as such in the guard, the preambles
+  and the changelog: the two forms are mechanically identical, so the guard checks the FORM and
+  cannot check which verb is honest, and a guard that appeared to police it would be the D-014
+  shape. One limit is left deliberately unbuilt under the **D-010**/**D-023** incident bar — a row
+  carries at most one pointer and the first is final, so a wrong verb is unrepairable — while
+  the review pass showed the limit was not even true as first written, since new rows are never
+  form-checked and a pointer committed off the end of a row left the row exempt forever.

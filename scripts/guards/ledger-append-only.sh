@@ -4,7 +4,8 @@
 # Baseline is HEAD, deliberately: rows created in the current uncommitted unit are draft
 # material until commit, but any row already committed at HEAD must remain present and
 # byte-identical except for the two sanctioned metadata additions: adding `[cited]` to
-# the row header and appending a strict standalone supersession pointer. Rows absent from
+# the row header and appending a strict standalone pointer line (see POINTER_RE below for
+# the two verbs and why the distinction is unenforceable). Rows absent from
 # HEAD are new rows and are length-checked before commit — against LEDGER_ROW_CHAR_CAP,
 # which since DC-003 is the runaway BACKSTOP and not the working limit. The
 # working limit counts sentences and lives in the ladder's own rung; nothing is duplicated
@@ -20,7 +21,20 @@ LEDGER_BASENAME=LEDGER
 LEDGER_ROW_CHAR_CAP=0
 # shellcheck source=/dev/null
 [ -f amh.conf ] && . ./amh.conf
-SUPERSEDED_RE='^[[:space:]]*Superseded by D[A-Z]*-[0-9]+[.]$'
+# Two sanctioned pointer verbs, and the difference between them is LINGUISTIC, not mechanical:
+# both append exactly one line and mutate nothing. `Superseded by` says the whole row is
+# replaced — read the new one instead. `Corrected by` says one detail went stale while the
+# row's principle stands, which is the DB-014 case: DC-011 extends its category rather than
+# replacing its rule, so supersession would send a reader to a row that does not carry what
+# they came for. This guard checks the FORM and cannot check the CHOICE — writing `Corrected
+# by` where you meant superseded passes here, and only a reviewer catches it. Stated because a
+# guard that appears to police the distinction would be the D-014 shape.
+#
+# A row carries at most ONE pointer, and the first is FINAL: a second is refused and so is
+# rewriting the first, so a wrong verb cannot be repaired. Leaving that unrepairable is
+# deliberate under the D-010/D-023 incident bar — nothing has needed the repair yet — but it
+# is a real cost, not a mere inconvenience, and the preambles say so where an author reads.
+POINTER_RE='^[[:space:]]*(Superseded|Corrected) by D[A-Z]*-[0-9]+[.]$'
 
 fail() { printf '%s\n' "$*"; exit 1; }
 
@@ -176,8 +190,8 @@ validate_row_cap() { # validate_row_cap <row-file> <id>
 allowed_metadata_only() { # allowed_metadata_only <base-row> <current-row>
 	local base=$1 current=$2 trimmed without_pointer base_cited=0
 	# Normalize only the two sanctioned, additive metadata transitions before comparing:
-	# an uncited header may gain `[cited]`, and one strict supersession sentence may be
-	# appended. Removing `[cited]`, changing prose, or altering an existing pointer remains
+	# an uncited header may gain `[cited]`, and one strict pointer sentence (supersession or
+	# correction) may be appended. Removing `[cited]`, changing prose, or altering an existing pointer remains
 	# a rewrite because normalization is deliberately one-way from current back to HEAD.
 	trimmed=$(mktemp "$TMPDIR/ledger-row.XXXXXX") || exit 1
 	cp "$current" "$trimmed" || { rm -f "$trimmed"; return 1; }
@@ -190,11 +204,15 @@ allowed_metadata_only() { # allowed_metadata_only <base-row> <current-row>
 		rm -f "$trimmed"
 		return 0
 	fi
-	# A baseline that already ends in a pointer cannot gain a second one. The comparison
-	# above still permits that row to gain `[cited]` while preserving its committed pointer.
-	LC_ALL=C tail -n 1 "$base" | LC_ALL=C grep -Eq "$SUPERSEDED_RE" && { rm -f "$trimmed"; return 1; }
+	# A baseline that already carries a pointer ANYWHERE cannot gain a second one. This scans
+	# the whole row rather than its last line, and the difference is not theoretical: new rows
+	# are never form-checked, so a row committed with a pointer line that is not last was
+	# exempt from the one-pointer limit forever — two pointers, guard green, reproduced. The
+	# comparison above still permits such a row to gain `[cited]`, because that path returns at
+	# `cmp -s` before reaching here.
+	LC_ALL=C grep -Eq "$POINTER_RE" "$base" && { rm -f "$trimmed"; return 1; }
 	without_pointer=$(mktemp "$TMPDIR/ledger-row.XXXXXX") || exit 1
-	awk -v re="$SUPERSEDED_RE" '
+	awk -v re="$POINTER_RE" '
 		{ lines[NR] = $0 }
 		END {
 			if (NR == 0 || lines[NR] !~ re) exit 1
@@ -238,7 +256,7 @@ for base_row in "$TMPDIR"/head-rows/D*-*; do
 		fail "ledger append-only: $id existed at HEAD but is missing from the working tree"
 	fi
 	if ! cmp -s "$base_row" "$current_row" && ! allowed_metadata_only "$base_row" "$current_row"; then
-		fail "ledger append-only: $id existed at HEAD and was edited; only adding '[cited]' to its header and/or appending 'Superseded by D-NNN.' as a standalone final line is allowed"
+		fail "ledger append-only: $id existed at HEAD and was edited; only adding '[cited]' to its header and/or appending 'Superseded by D-NNN.' or 'Corrected by D-NNN.' as a standalone final line is allowed"
 	fi
 done
 
@@ -289,7 +307,7 @@ done
 # adopter switches off rather than reads. The append-only rules above stay hard failures:
 # this one is about WHERE a new row was filed, not whether history was rewritten.
 if [ -n "$misfiled" ]; then
-	warn_exit "ledger append-only: new row(s) filed where a reader following the ledger's own rules will not look —${misfiled}. New rows belong at the end of the live volume, and a D<prefix>-NNN id resolves in the volume its prefix names. Move the row, or say in the commit why this one belongs where it is. Adding [cited] or a supersession pointer to an existing row anywhere in the chain is unaffected. Checked $checked committed and $new_checked new row(s) against HEAD."
+	warn_exit "ledger append-only: new row(s) filed where a reader following the ledger's own rules will not look —${misfiled}. New rows belong at the end of the live volume, and a D<prefix>-NNN id resolves in the volume its prefix names. Move the row, or say in the commit why this one belongs where it is. Adding [cited] or a supersession/correction pointer to an existing row anywhere in the chain is unaffected. Checked $checked committed and $new_checked new row(s) against HEAD."
 fi
 
 printf 'checked %d committed ledger row(s) and %d new ledger row(s) against HEAD' "$checked" "$new_checked"

@@ -11,6 +11,53 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 10.0.0 — 2026-08-25
+
+- **Ledger rows are immutable, and a correction is a new row plus a pointer.** Every volume
+  preamble said "if an entry conflicts with the current code, trust the code and **correct**
+  the entry." Nothing ever honoured that: `ledger-append-only.sh` rejects any edit to a
+  committed row. The prose claimed an affordance the enforcement denied — the D-010 class —
+  and it was hit for real while recording DC-011. The promise is gone; in its place, a
+  correction is what it should always have been: write the new row, append one pointer line to
+  the old one, mutate nothing.
+- **Two pointer verbs, and the distinction is linguistic on purpose.** `Superseded by D-NNN.`
+  says the whole row is replaced. `Corrected by D-NNN.` says one detail went stale under a
+  principle that still stands. Mechanically they are the same append; the difference is only
+  what the word tells a future reader, and the guard checks the FORM and cannot check which
+  verb is honest. That half is the reviewer's, and saying so is the point — a guard that
+  appeared to police the distinction would be a self-report dressed as a gate.
+- **Why the second verb exists.** DB-014 is the case: its principle (a destructive rail is a
+  category-scoped speed bump) still stands, and only its sentence enumerating `rm -rf` and
+  `git clean -f -d` went stale. DC-011 says in its own words that it *extends* DB-014's
+  category — it does not carry DB-014's rule. `Superseded by DC-011.` would have sent a reader
+  to a row that does not contain what they came for. DB-014 now carries `Corrected by DC-011.`
+- **Known limit, deliberately unbuilt:** a row carries at most one pointer, ever, so a
+  corrected row cannot later gain a supersession line. Nothing has hit that; when something
+  does, it earns the change.
+
+**Why MAJOR:** the append-only guard is repo-local and is **not** among the five shipped
+scripts, so an adopter has no mechanism forbidding an in-place correction, and their seed
+preamble told them to make one. Deleting that clause makes a practice they may be following
+today wrong, which is CONTRIBUTING.md's own MAJOR test. An adopter who never edited a row in
+place is unaffected and need do nothing.
+
+### Upgrading
+
+1. Replace **two** sentences in your `docs/LEDGER.md` preamble — and in **every** rolled volume
+   — with the wording in `harness/templates/seed/docs/LEDGER.md`: the ground-truth sentence,
+   and the one under "Search before appending" that says the old row "gets a correction
+   pointer" (it means the `Superseded by` one, and now reads as the wrong verb). Do every volume: the
+   5.0.0 cap change already left three preambles contradicting the guard once.
+2. Add the same carve-out wherever your **constitution and your runbook** state the ground-truth
+   rule — both usually do; the seed's are in `harness/templates/seed/AGENTS.md` and
+   `harness/templates/seed/docs/RUNBOOK.md`. Without it, "trust the code and correct the doc" and
+   "never edit a row" contradict each other, since the ledger is a doc.
+3. If you have an append-only guard, teach it the two pointer forms. The regex in
+   `scripts/guards/ledger-append-only.sh` is a working example, not a shipped artifact — if you
+   have no such guard, all of this is prose only for you, and worth saying so out loud.
+4. Rows you corrected in place in the past stay as they are. Nothing here asks you to rewrite
+   history, and this release is the reason not to start.
+
 ## 9.2.0 — 2026-08-25
 
 - **Working memory stops paying for its own rules.** The length-guard preamble that governed

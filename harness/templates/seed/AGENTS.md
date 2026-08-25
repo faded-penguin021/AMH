@@ -13,7 +13,9 @@ their keep only in combination.
 {{REFERENCE_SYSTEM}}
 
 > **Ground truth:** code + {{IMMUTABLE_FIXTURES}}. Docs describe the system as-built and may
-> drift — when a doc conflicts with the code, trust the code and correct the doc.
+> drift — when a doc conflicts with the code, trust the code and correct the doc. The
+> append-only ledger is the exception: its rows are immutable, so a stale row is never edited
+> in place — write a new row and append one pointer line to the old one.
 
 Long-term memory: numbered deviations and discoveries live in `docs/LEDGER.md` — a
 **permanent, append-only registry** (code cites bare `D-NN`; code-cited rows carry a
