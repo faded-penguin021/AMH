@@ -11,6 +11,50 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 10.0.1 — 2026-08-25
+
+- **The citation rung's collision with your own constants is documented where the keys are.**
+  A constant of yours wearing the ledger-id shape — a capital D, any run of capitals, a
+  hyphen, digits — is read as a citation and fails the rung with "no such ledger row" for an
+  id nobody ever cited. The shipped `amh.conf.example` now names the class beside
+  `CITATION_SCAN_PATHS` and `CITATION_EXCLUDE`, gives a locating command that honours both
+  keys, and states what each of the three ways out actually costs.
+- **Two of those costs were undocumented, and are why the note exists.** Excluding the file
+  drops the WHOLE file from the scan, so a row whose last citation lived there goes
+  stale-marker red the moment you exclude it. Emptying `CITATION_SCAN_PATHS` empties the
+  citation set, which turns EVERY `[cited]` row into a stale marker at once — so "just turn
+  the rung off" is a ledger-wide edit, not a one-line one. Each needs a second step nobody
+  had written down.
+- **No behaviour changed, and the note is careful about whose fault your red is.** The rung,
+  the pattern and both keys are byte-identical to 10.0.0. But the class splits in two and the
+  note says so: a one-capital constant collided before 8.0.0 as well, while a multi-capital
+  one is a genuine 8.0.0 regression — that release widened the pattern from at most one
+  capital to any run of them, which can redden a tree on a file nobody touched. That break
+  was recorded at the time and is why 8.0.0 was rated MAJOR; telling an adopter it was always
+  their standing cost would have been false.
+- **A `LEDGER_PREFIX` key stays refused** — on relocation, not on immutability. Any prefix
+  can collide with an adopter's own vocabulary exactly as this one did, so it moves the
+  collision into your taxonomy instead of removing it.
+
+**Why PATCH and not MINOR** — the harder half of the call, since this does add 50-odd lines to
+a template, and MINOR covers "templates you may take or leave". The operative test is whether
+skipping it changes a verdict, and 6.0.1 is the precedent: prose added to a seed preamble and
+to the config template beside a key, no threshold, guard, fixture or exit code touched, shipped
+as PATCH because the clarification was optional and changed no result. This is that shape. No
+key, rule, default or behaviour moved; an adopter who ignores this release gets the same ladder
+verdicts they get today. It is worth a release number at all only because the installer KEEPS
+an existing `amh.conf`, so template wording never reaches an established adopter except through
+the step below.
+
+### Upgrading
+
+1. Nothing is required. If you want the note in your own `amh.conf`, copy the comment block
+   that follows `CITATION_EXCLUDE` in `harness/templates/amh.conf.example`. It changes no
+   value, and an adopter who never meets the collision can skip it.
+2. No shipped script changed in this release. If you re-copy the scripts anyway, take
+   `MANIFEST.sha256` from the same release — its header carries the version, so a manifest
+   and scripts from different releases report drift that is not there.
+
 ## 10.0.0 — 2026-08-25
 
 - **Ledger rows are immutable, and a correction is a new row plus a pointer.** Every volume

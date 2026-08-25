@@ -9,9 +9,14 @@
 The AMH meta-repository — source of truth for the Agentic Maintenance Harness and its
 reference instance, which runs byte-identical copies of the scripts it ships. `AGENTS.md`
 describes both and is read in full every session.
-Adopted harness version: **AMH 10.0.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 10.0.1** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
+
+AMH **10.0.1** is prepared on this branch and untagged: a PATCH carrying the adopter-facing
+citation-collision note into `harness/templates/amh.conf.example`, with no key, rule or
+behaviour moved (**DC-016**). The manifest diff confirms it — only its header version changed,
+every shipped script hash identical.
 
 AMH **10.0.0** is merged and published: the train landed as squash commit `793c744` on `main`,
 and `amh-v10.0.0` points at it. It carried two changelog entries: 9.2.0, the working-memory
@@ -45,13 +50,9 @@ mutations — bypasses every local rail. Not machinery yet: an adversarial test 
 earning a narrow rail only if a real session crosses that boundary. No check — nobody but a
 session actually crossing it settles this.
 
-**OPEN — the adopter-facing citation-collision note is unwritten.** Nothing tells an adopter
-that a `DB-9`-shaped domain constant reddens their citation rung, and its first draft was cut by
-the review pass with five factual errors: two escapes described backwards, a detection command
-ignoring `CITATION_EXCLUDE`, and a `sed \+` the shipped fixtures forbid for BSD. The class, the
-real escape behaviour and the refusal all sit in **DC-015**; writing it needs its own unit and a
-review pass, and it reaches adopters only with a version bump. Check:
-`grep -c DC015 harness/templates/amh.conf.example` — resolved when it prints 1.
+**OPEN — `amh-v10.0.1` is unpublished.** The note, the changelog entry and all five lockstep
+copies are on this branch; tagging and publishing are owner steps and were not attempted. Check:
+`git ls-remote --tags origin refs/tags/amh-v10.0.1` — resolved when it prints a ref.
 
 **OPEN — the command guard's push rail rejects the branch names a harness assigns.**
 `command-guard.sh` requires exactly one ref under `$BRANCH_PREFIX/`, so it blocked this
@@ -62,6 +63,18 @@ The owner's answer (2026-08-25) was to push `session/citation-guard-collisions` 
 the command rail should lose its check too is a rail change owed its own unit and review pass.
 Check: `grep -c 'requires one explicit session ref' scripts/command-guard.sh` — resolved when it
 prints 0.
+
+**OPEN — the ladder's subagent-spawn line says "this session" and counts every session that
+shared the container.** `session-start.sh`'s cleanup glob ends at `$slug`
+(`/tmp/amh-command-guard-*-advisory-$uid-$slug`), so it deletes each advisory state file but
+never its `.resumed` sibling, which is the file `--spawn-report` counts. Reproduced: the trace
+survived a bootstrap run with its mtime untouched and the count unchanged, and it opened this
+session already holding a spawn from the previous one at 17:20:41Z — so this session's own
+reviewer reads as the second of two. Not machinery yet; the fix is a shipped-script change
+(a trailing `*`, or counting only traces newer than the bootstrap) owed its own unit and review
+pass, and the wrong direction would be widening the glob into something that erases more than
+it should. Check: `grep -c 'advisory-"$uid"-"$slug"\*' scripts/session-start.sh` — resolved
+when it prints 1.
 
 **OPEN — `path-refs.sh` may report specific false failures when its file listing comes back
 short.** One full ladder run this session failed it on `` `session-start.sh` `` — a file that
@@ -102,6 +115,13 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-25 — **The adopter-facing citation-collision note is written, and ships as PATCH
+  10.0.1.** `amh.conf.example` now names the class beside the two citation keys, gives a
+  locating command that honours both, and prices all three escapes — including the two second
+  steps **DC-015** found undocumented. The shape is named in words and never shown: an example
+  id would be read as a citation by the very scan the note describes. The review pass caught
+  the one claim the draft inherited from DC-015 instead of deriving it — a multi-capital
+  constant IS an 8.0.0 regression, as **DB-007**(d) recorded (**DC-016**).
 - 2026-08-25 — **A citation-guard collision was reported, reproduced, and found to have no clean
   escape.** `DB-9`-shaped domain constants fail the citation rung in an adopter tree; the class
   predates the 8.0.0 widening, and two of the three apparent hatches need an undocumented second

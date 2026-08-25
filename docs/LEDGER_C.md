@@ -309,3 +309,20 @@
   `DA-`, `DB-` and `DC-` at once with nothing renumbered, the patterns being a union. The
   adopter-facing note this earns is still unwritten: its first draft carried five factual errors
   and the review pass cut it.
+- DC-016: **The adopter-facing note DC-015 earned is written, and the claim that nearly shipped
+  false is the one INHERITED from a ledger row rather than derived from the code.** DC-015
+  scoped its non-regression finding to four single-capital ids, the draft restated it as a
+  property of the whole class, and DB-007(d) had already recorded that as false — 8.0.0's
+  widening from one capital to any run of them can redden a tree on a file nobody touched,
+  which is why that release was MAJOR. Everything the draft took straight from
+  `guard_citations` survived the pass intact, so the lesson is not "verify claims" but that a
+  citation FEELS verified precisely because a row is standing behind it, and the pass is the
+  only thing checking that the row says what the sentence says. The shape is named in words
+  and never shown, an example id in `amh.conf.example` being a real citation for any adopter
+  who widens their scan paths to the repository root — `shipped-citations.sh`'s own trap one
+  file further out, and its globs do not reach this one. Shipped as PATCH 10.0.1 on 6.0.1's
+  precedent: optional prose beside a key, changing no verdict for an adopter who skips it.
+  The owner lifted this session's standing no-subagent instruction (2026-08-25) so the
+  mandatory pass could run and directed that forks be settled rather than queued, being
+  asleep; the PATCH call and carrying the version bump inside this unit are both that, noted
+  because nothing else would show they were decided unilaterally.

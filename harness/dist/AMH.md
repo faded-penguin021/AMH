@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 10.0.0.** Repos that adopt it record the version they took
+**Harness version 10.0.1.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -910,6 +910,67 @@ CITATION_SCAN_PATHS='{{CITATION_SCAN_PATHS}}'
 # If you drop this key, the shipped fixture suite's synthetic IDs come into scope and your
 # ladder will report them as unresolved citations in a file you are told never to edit.
 CITATION_EXCLUDE='scripts/test-ladder-guards.sh scripts/tests'
+#
+# WHEN A CONSTANT OF YOURS WEARS THE LEDGER-ID SHAPE. The rung reads every whole-word match
+# of that shape in a scanned file as a citation: a capital D, any run of capitals, a hyphen,
+# digits. Nothing tells that apart from a constant of your own that happens to share it — a
+# register or connector from a datasheet, a part number, a debug label numbered with a
+# hyphen — so one of those in your code fails the rung with "no such ledger row" for an id
+# nobody ever cited. (Named in words rather than shown: an example of the shape, written
+# here, would be read as a citation by exactly the scan being described.)
+#
+# Whether an UPGRADE caused your red depends on how many capitals your constant carries, and
+# the honest answer is not the same for both halves of the class. One capital: it collided
+# before 8.0.0 too, so the shape has always cost you this. More than one: 8.0.0 widened the
+# pattern from at most one capital to any run of them, so a tree that was green can go red on
+# a file nobody touched. That second case is a real adopter-visible break, it is recorded as
+# one, and it is why 8.0.0 was rated MAJOR rather than MINOR.
+#
+# The rung names the id, not the file holding it. To find it, mirroring what the rung scans:
+#
+#   . ./amh.conf && ex=; for e in $CITATION_EXCLUDE; do ex="$ex :(exclude)$e"; done
+#   git grep --untracked -nwE 'D[A-Z]*-[0-9]+' -- $CITATION_SCAN_PATHS $ex
+#
+# It is close, not identical, and the gap is glob characters in EITHER key. The rung splits
+# both lists on whitespace with globbing off, then matches an exclusion literally; git splits
+# them the same way but reads each as a pathspec. So an entry holding `*` or `?` can make the
+# two disagree — and in the scan-paths key the disagreement runs the dangerous way, since a
+# path the rung never matches makes it scan nothing and report a cheerful green. Off a git
+# tree, walk CITATION_SCAN_PATHS with find instead.
+#
+# Three ways out, and NONE of them is free:
+#
+#   1. RENAME the token. The only one that costs the ladder nothing, and available only when
+#      the name is yours — a constant named by a datasheet, a standard or a wire protocol is
+#      not, and bending it to please a scanner is how code stops matching the document it
+#      implements. The smallest rename that works is a case change or a trailing letter,
+#      since the match wants capitals and a whole word. What does NOT work is putting your
+#      own namespace in front: a hyphen is not a word character, so the tail still matches
+#      on its own.
+#
+#   2. EXCLUDE the file, with the key above. This does not exempt the one token — it drops
+#      the WHOLE FILE from the scan, so every real citation in it stops counting too. If
+#      that file held the last citation of a row marked [cited], the marker goes stale the
+#      moment you exclude it and your ladder goes red naming that row. The rung tells you
+#      the second step at that point — drop the marker, never the row — but nothing tells
+#      you in advance, which is why it is written here. Know what dropping it buys: the
+#      code still cites the row, you have only stopped looking, so the marker's whole job
+#      (warning the next reader that an implementation artifact depends on this row) is
+#      what you are trading away. Prefer excluding the narrowest path that holds the
+#      collision, never a directory that also holds real citations.
+#
+#   3. EMPTY CITATION_SCAN_PATHS, switching the rung off. It does not go quiet: with nothing
+#      scanned the citation set is empty, so EVERY [cited] row becomes a stale marker at
+#      once and the ladder stays red until you strip every marker from the ledger. That
+#      ledger-wide edit is the real price of the "just turn it off" route.
+#
+# What not to do: narrow the pattern in the shipped ladder. It re-opens the traps whole-word
+# matching closes, and you will not get as far as your next upgrade — the shipped scripts are
+# hashed in the install manifest, so the integrity rung fails on the edited file immediately.
+#
+# A LEDGER_PREFIX key, to move the harness's ids out of your namespace, was proposed and
+# refused: whatever prefix you pick can collide with your own vocabulary exactly as this one
+# did, so it relocates the collision instead of removing it. See AMH ledger row DC015.
 
 # --- Commit hygiene ---------------------------------------------------------
 # Fixed strings that must never reach a commit message: a squash merge would fold them
