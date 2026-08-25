@@ -53,6 +53,16 @@ real escape behaviour and the refusal all sit in **DC-015**; writing it needs it
 review pass, and it reaches adopters only with a version bump. Check:
 `grep -c DC015 harness/templates/amh.conf.example` — resolved when it prints 1.
 
+**OPEN — the command guard's push rail rejects the branch names a harness assigns.**
+`command-guard.sh` requires exactly one ref under `$BRANCH_PREFIX/`, so it blocked this
+session's push to its assigned `claude/<codename>` branch — while the git-native `--pre-push`
+rail in the SAME script deliberately carries no prefix check and has a fixture pinning a
+`claude/` ref, because P13 says a prefix rail "rejects the very branches it exists to protect".
+The owner's answer (2026-08-25) was to push `session/citation-guard-collisions` instead; whether
+the command rail should lose its check too is a rail change owed its own unit and review pass.
+Check: `grep -c 'requires one explicit session ref' scripts/command-guard.sh` — resolved when it
+prints 0.
+
 **OPEN — `path-refs.sh` may report specific false failures when its file listing comes back
 short.** One full ladder run this session failed it on `` `session-start.sh` `` — a file that
 exists — and it did not reproduce on two clean runs. The guard builds `basenames` from
