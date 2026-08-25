@@ -48,14 +48,6 @@ session actually crossing it settles this.
 **OPEN — tag and publish AMH 10.0.0 after this branch merges.** Check:
 `git ls-remote --tags origin refs/tags/amh-v10.0.0` — resolved when it prints the tag.
 
-**DECIDE — confirm 10.0.0 is MAJOR before the tag is cut.** This train deletes the ledger
-preamble's in-place-correction clause. The append-only guard is repo-local and NOT shipped, so
-an adopter has no mechanism forbidding the practice their seed preamble told them to use —
-which makes it CONTRIBUTING.md's MAJOR test ("deleting one clause that adopters relied on"),
-and that is how it is written. Read as "nothing an adopter successfully does today breaks" it
-is MINOR instead. One read; overrule it and the five lockstep copies move together (the README tag is one
-of them). No check — version semantics are a judgement, not an observable.
-
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
 9.1.0 are cut and published, and `main`'s protection is repointed at `ladder`.
 
@@ -83,11 +75,14 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-25 — **10.0.0 confirmed MAJOR by the owner.** The session's reading stands: the
+  append-only guard is repo-local and unshipped, so deleting the in-place-correction clause
+  makes a practice adopters could legitimately be following wrong. No version change followed;
+  the item closed on the answer, not on a command.
 - 2026-08-25 — **Ledger rows are immutable; a correction is a new row plus a pointer.** The
   preamble promise the guard never honoured is deleted from all five preambles, and a second
   pointer verb `Corrected by` joins `Superseded by` for the case where a principle stands and
-  one detail died — DB-014's, which now carries one. Owner decision; MAJOR, queued for
-  confirmation (**DC-014**).
+  one detail died — DB-014's, which now carries one. Owner decision; MAJOR (**DC-014**).
 - 2026-08-25 — **Prepared AMH 9.2.0: working memory stops paying for its own rules.** This
   file's length-guard and Owner-queue preambles moved to the runbook behind guard-checked
   pointers, the Project section shrank to the lockstep sentence, and the seed scaffold got the

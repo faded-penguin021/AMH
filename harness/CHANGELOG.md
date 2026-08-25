@@ -35,11 +35,11 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   corrected row cannot later gain a supersession line. Nothing has hit that; when something
   does, it earns the change.
 
-**Why MAJOR:** the append-only guard is repo-local and is **not** among the five shipped
-scripts, so an adopter has no mechanism forbidding an in-place correction, and their seed
-preamble told them to make one. Deleting that clause makes a practice they may be following
-today wrong, which is CONTRIBUTING.md's own MAJOR test. An adopter who never edited a row in
-place is unaffected and need do nothing.
+**Why MAJOR** (owner-confirmed, 2026-08-25)**:** the append-only guard is repo-local and is
+**not** among the five shipped scripts, so an adopter has no mechanism forbidding an in-place
+correction, and their seed preamble told them to make one. Deleting that clause makes a
+practice they may be following today wrong, which is CONTRIBUTING.md's own MAJOR test. An
+adopter who never edited a row in place is unaffected and need do nothing.
 
 ### Upgrading
 
