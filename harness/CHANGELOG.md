@@ -11,6 +11,73 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 10.1.0 — 2026-08-25
+
+- **The push rail stops checking the branch NAMESPACE, and checks the push instead.** Since
+  7.0.0 `git push` had to name one ref under `<BRANCH_PREFIX>/`, and that rail blocked a
+  correctly assigned `claude/<codename>` branch in this repository. P13 tells the `--pre-push`
+  rail to "carry NO branch-prefix check: the harness assigns session branch names the
+  repository may not itself prefix, so a prefix rail here rejects the very branches it exists
+  to protect", and **DA-022** had already declined a prefix guard on that same reasoning
+  before 7.0.0 built one for `git push` anyway. The two rails in one script have contradicted
+  each other ever since, both self-tests green.
+- **What the rail denies now is what it can actually read.** The default branch in each of the
+  three spellings git resolves to it (`main`, `heads/main`, `refs/heads/main`, on either side
+  of a colon); force; deletion (`--delete` and the `:branch` refspec alike); an explicit
+  `refs/tags/` push; the two unresolvable destinations `HEAD` and `@`; and a second ref. Each
+  is a fact of the command in front of it. "Is this branch name the one the repository
+  sanctions" is not: the rail cannot tell a name the harness assigned from one the agent
+  invented, and P13's answer when a rail asks for something it cannot see is to change what it
+  asks for.
+- **The coverage this loses is enumerated, not summarised.** The namespace test had been
+  stopping several things as a side effect of stopping everything unfamiliar. Three survive as
+  accepted misses, listed in the guard's own "what this guard does NOT catch" block: one
+  explicitly named off-convention branch (`git push -u origin work` — a real incident from a
+  real session, and why 7.0.0 built the check), a tag named without the `refs/` prefix
+  (`git push origin v1`, `tags/v1`), and malformed refspecs, which fail open like every odd
+  command. Only the first is new policy; the tag case is covered instead by the `--pre-push`
+  rail, which sees git's resolved ref and therefore catches every spelling.
+- **Tagging gained a rail it never had.** Both rails now deny a tag push outright, because
+  release and tag actions are owner steps in the constitution and were previously stopped only
+  by the namespace test, by accident. The flag rail reads `refs/tags/…` only; the git-native
+  `--pre-push` rail catches the bare and `tags/…` spellings too.
+- **A fixture that had never tested its own comment was found by the removal.** `st_blocked
+  "git push -u origin <default>tenance"`, commented as the check that a branch merely
+  CONTAINING the default branch name is not the default branch, was denied by the namespace
+  test before the default-branch patterns were ever consulted about the substring. It is now
+  an allow case, and the block direction is pinned separately. That is the durable half: a
+  fixture can pass for the wrong reason for as long as a broader check sits upstream of it.
+
+**Why MINOR and not MAJOR** — 7.0.0 shipped this same rail as a MAJOR with an Upgrading step
+("rename or recreate in-flight branches"), so symmetry argues for MAJOR here. It does not
+hold: the number promises an adopter's workload, and the two directions are not symmetric.
+7.0.0 made branches un-pushable, which is work. This makes nothing un-pushable — measured, not
+asserted: 844 push spellings were run through both versions and no command allowed at 10.0.1
+is denied at 10.1.0. No rule an adopter follows becomes wrong, and the naming discipline is
+unchanged and still binding in their constitution. Nothing to do is the MINOR/PATCH bar, and a
+shipped rail's verdict changing for a real class of commands is more than the "clarification or
+fix" PATCH covers. Read the honest objection too: MINOR's definition is *additive*, and
+removing guard behaviour fits MINOR by its consequence column rather than its meaning column.
+`CONTRIBUTING.md` routes an ambiguous major-vs-minor call to the Owner queue rather than
+letting a session settle it; this one was settled by the session under a standing owner mandate
+to decide rather than queue, and it is the owner's to overturn before the tag is cut
+(**DC-017**).
+
+### Upgrading
+
+1. Copy the shipped scripts and regenerated manifest.
+2. Nothing is required of you. But if you were relying on the rail to hold your branch naming,
+   note that it no longer does: an agent that pushes one explicitly named off-convention branch
+   is now stopped by your constitution and your reviewer, not by a block. Check that your
+   constitution still carries the clause — in the shipped seed it reads "Develop and push
+   **only** on your session's assigned `{{BRANCH_PREFIX}}/<codename>` branch", which in your
+   instantiated copy has your own prefix substituted in.
+3. If your harness assigns branch names outside your `BRANCH_PREFIX`, this release is the one
+   that stops blocking them, and you can drop any local workaround you cut for that.
+4. If your adopted constitution left `{{TAGGING_RULE}}` unfilled, fill it now. Tag pushes were
+   being stopped by the namespace test as a side effect; they are stopped by a real rail from
+   this release, but the prose that says *why* is yours to write.
+
 ## 10.0.1 — 2026-08-25
 
 - **The citation rung's collision with your own constants is documented where the keys are.**

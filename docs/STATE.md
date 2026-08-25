@@ -9,14 +9,21 @@
 The AMH meta-repository — source of truth for the Agentic Maintenance Harness and its
 reference instance, which runs byte-identical copies of the scripts it ships. `AGENTS.md`
 describes both and is read in full every session.
-Adopted harness version: **AMH 10.0.1** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 10.1.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-AMH **10.0.1** is prepared on this branch and untagged: a PATCH carrying the adopter-facing
-citation-collision note into `harness/templates/amh.conf.example`, with no key, rule or
-behaviour moved (**DC-016**). The manifest diff confirms it — only its header version changed,
-every shipped script hash identical.
+AMH **10.1.0** is prepared on this branch and untagged: a MINOR removing the command rail's
+branch-namespace check, which had blocked a correctly assigned `claude/<codename>` branch —
+the shape **DA-022** declined to guard, and which P13 states as standing instruction for the
+`--pre-push` rail in the same script (**DC-017**). The rail now denies every spelling git
+resolves to the default branch, force, deletion, an explicit `refs/tags/` push, the two
+unresolvable destinations `HEAD` and `@`, and a second ref. Three misses are enumerated in the
+guard header, **DB-035**'s `git push -u origin work` among them. The review pass earned its
+keep: the first draft opened `heads/main` as a live path to the default branch while claiming
+in prose that the default branch was denied. 10.0.1 rides inside this train: a PATCH carrying
+the adopter-facing citation-collision note into `harness/templates/amh.conf.example`, with no
+key, rule or behaviour moved (**DC-016**).
 
 AMH **10.0.0** is merged and published: the train landed as squash commit `793c744` on `main`,
 and `amh-v10.0.0` points at it. It carried two changelog entries: 9.2.0, the working-memory
@@ -50,19 +57,19 @@ mutations — bypasses every local rail. Not machinery yet: an adversarial test 
 earning a narrow rail only if a real session crosses that boundary. No check — nobody but a
 session actually crossing it settles this.
 
-**OPEN — `amh-v10.0.1` is unpublished.** The note, the changelog entry and all five lockstep
-copies are on this branch; tagging and publishing are owner steps and were not attempted. Check:
-`git ls-remote --tags origin refs/tags/amh-v10.0.1` — resolved when it prints a ref.
-
-**OPEN — the command guard's push rail rejects the branch names a harness assigns.**
-`command-guard.sh` requires exactly one ref under `$BRANCH_PREFIX/`, so it blocked this
-session's push to its assigned `claude/<codename>` branch — while the git-native `--pre-push`
-rail in the SAME script deliberately carries no prefix check and has a fixture pinning a
-`claude/` ref, because P13 says a prefix rail "rejects the very branches it exists to protect".
-The owner's answer (2026-08-25) was to push `session/citation-guard-collisions` instead; whether
-the command rail should lose its check too is a rail change owed its own unit and review pass.
-Check: `grep -c 'requires one explicit session ref' scripts/command-guard.sh` — resolved when it
-prints 0.
+**OPEN — `amh-v10.1.0` is unpublished, and the version call inside it is unconfirmed.** The
+rail change, the changelog entry, the ledger row and all five lockstep copies are on this
+branch; tagging and publishing are owner steps and were not attempted. Two things need the
+owner, not a command. (a) The tag. Check: `git ls-remote --tags origin refs/tags/amh-v10.1.0` —
+resolved when it prints a ref. (b) **MINOR is a call this session made unilaterally**, under
+the standing mandate to decide rather than queue, on a change that removes a rail 7.0.0 shipped
+as MAJOR. This is not an ordinary judgement call: `CONTRIBUTING.md` singles out an ambiguous
+major-vs-minor call as the one place where "guessing is worse than waiting" and routes it here.
+The argument for MINOR, and the honest objection to it, are both in the changelog's "Why MINOR
+and not MAJOR"; the review pass agreed MINOR is the right number and still recorded the process
+override as a finding. Overturn it before tagging if the reasoning does not hold — after the
+tag it is a published promise. 10.0.1 never got its own tag and now rides inside this train,
+the same way 9.2.0 rode inside 10.0.0.
 
 **OPEN — the ladder's subagent-spawn line says "this session" and counts every session that
 shared the container.** `session-start.sh`'s cleanup glob ends at `$slug`
@@ -115,6 +122,15 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-25 — **The push rail stops policing the branch name and polices the push; shipped as
+  MINOR 10.1.0.** The namespace check blocked a correctly assigned `claude/<codename>` branch,
+  which is what **DA-022** refused before 7.0.0 built it and what P13 tells the `--pre-push`
+  rail in the same script to avoid — the two rails had disagreed for four majors with both
+  self-tests green. What replaces it is the readable facts, and a differential over 844 push
+  spellings is what proved the swap complete: the first draft had opened `heads/main`, which
+  the review pass caught. Tag pushes gained a real rail, three misses are enumerated in the
+  guard header, and **DB-035**/**DB-036** each carry `Corrected by DC-017.` A fixture that had
+  never tested its own comment was found by the removal (**DC-017**).
 - 2026-08-25 — **The adopter-facing citation-collision note is written, and ships as PATCH
   10.0.1.** `amh.conf.example` now names the class beside the two citation keys, gives a
   locating command that honours both, and prices all three escapes — including the two second

@@ -773,6 +773,7 @@
   not the equivalent fix for the missing Owner-queue summary: it sees every response, not a
   trustworthy “delivery complete” artifact, so gating on final-looking prose would consume a
   heuristic about the agent's own message.
+  Corrected by DC-017.
 
 - DB-036: **Correction to DB-035: only the push destination is a sound command-rail fact.**
   `gh` makes `--template` and a filled `--body-file` mutually exclusive in non-interactive use,
@@ -780,6 +781,7 @@
   reject valid filled-template flows and accept an untouched template. Keep template use binding
   in the constitution. The session namespace, deletion and explicit destination remain visible
   before `git push` and stay mechanically enforced. The Stop-hook conclusion is unchanged.
+  Corrected by DC-017.
 
 - DB-037: **A branch-train PR describes the base-to-head artifact, not the current session's
   contribution.** PR #45 used every template heading but still described only its last unit;

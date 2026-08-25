@@ -15,7 +15,7 @@
 # none — is driving the shell, closing the hole this script's hook mode leaves open for
 # an agent whose harness runs no pre-execution hook. It is a guardrail, not a boundary:
 # `--no-verify` skips it, and it sees git-CLI pushes only, never a push made through a
-# forge API. It carries NO branch-prefix check on purpose (AMH ledger row DA022).
+# forge API. NEITHER rail carries a branch-prefix check (AMH ledger row DA022).
 #
 # Design rules this guard is bound by — each one paid for in false positives:
 #   * Judge only the LEADING command of each simple-command segment, with quoting
@@ -89,6 +89,31 @@
 #     deliberately silent; and `git checkout -- "$f"` carries no force flag and is not
 #     recognised at all. The rail is a speed bump on the shapes an agent actually
 #     mistypes, never an inventory of ways to lose a file.
+#   * THE PUSH RAIL READS THE PUSH, NOT THE BRANCH NAME. It denies the default branch in each
+#     of the three spellings git resolves to it (`main`, `heads/main`, `refs/heads/main`, on
+#     either side of a colon), force, deletion, an explicit `refs/tags/` push, exactly two
+#     unresolvable destinations (`HEAD` and `@`), and a second ref. Every one of those is a
+#     fact of the command standing in front of it. It does NOT check that the branch sits
+#     under `BRANCH_PREFIX`: the harness assigns session branch names the repository may not
+#     itself prefix, so a namespace rail rejects the very branches it exists to protect (AMH
+#     P13, AMH ledger row DA022) — and this one did, blocking a correctly assigned branch.
+#     Read the loss that bought, because the namespace test had been stopping these as a side
+#     effect of stopping everything unfamiliar, and nothing stops them here now:
+#       - ONE explicitly named off-convention ref. `git push -u origin work` is allowed, and
+#         that is a real incident from a real session — the naming rule that forbids it is
+#         prose the agent is bound by, not a rail.
+#       - A tag named without the `refs/` prefix. `git push origin v1` and `git push origin
+#         tags/v1` both reach `refs/tags/v1`, and both are indistinguishable from a branch
+#         push at scan time, so only the explicit `refs/tags/v1` is judged. Widening to
+#         `tags/*` would deny a branch legitimately named `tags/…` — the same mistake as the
+#         namespace test, one directory down. The `--pre-push` rail below does NOT share this
+#         miss: git resolves the ref before handing it over, so every spelling arrives there
+#         as `refs/tags/…`.
+#       - Malformed refspecs (`''`, `x:y:z`, `session/x:`, `refs/heads/HEAD`) fail open, the
+#         direction every rail here fails.
+#     The trade was made knowingly: a rail that cannot tell an assigned name from an invented
+#     one blocks both, and the two-item unresolvable list is the honest size of what this
+#     scanner can decide rather than a claim to cover the category.
 #   * THE SUBAGENT RAIL SEES ONE SPAWN, NEVER THE FLEET. `--pre-task` fires per spawn and holds
 #     no view of what is already running, so it cannot tell a second spawn beside a live first
 #     from a second after the first finished — it advises every spawn and records the ones that
@@ -1089,7 +1114,7 @@ check_segment() {
 			esac
 		done
 		[ "$j" -lt "${#args[@]}" ] && [ "${args[$j]}" = push ] || return 0
-		local session_ref_count=0 saw_other_ref=0 positional=0 delete_push=0 skip_option_arg=0
+		local ref_count=0 implicit_ref=0 positional=0 delete_push=0 skip_option_arg=0
 		for a in "${args[@]:$((j + 1))}"; do
 			if [ "$skip_option_arg" -eq 1 ]; then skip_option_arg=0; continue; fi
 			case $a in
@@ -1110,7 +1135,7 @@ check_segment() {
 				# `git push origin main`, which the very next rail denies. One-step
 				# self-correction is the whole point of an instructive guard.
 				case ${a#+} in
-				"$DEFAULT_BRANCH" | "refs/heads/$DEFAULT_BRANCH" | *:"$DEFAULT_BRANCH" | *:"refs/heads/$DEFAULT_BRANCH")
+				"$DEFAULT_BRANCH" | "refs/heads/$DEFAULT_BRANCH" | "heads/$DEFAULT_BRANCH" | *:"$DEFAULT_BRANCH" | *:"refs/heads/$DEFAULT_BRANCH" | *:"heads/$DEFAULT_BRANCH")
 					BLOCK_REASON="\`$a\` is denied twice over: the leading \`+\` force-pushes (AMH P7, pushed checkpoints are immutable) and the target is \`$DEFAULT_BRANCH\` (AMH P13). Push your session branch instead: \`git push -u origin $BRANCH_PREFIX/<codename>\`. The owner merges via squash PR."
 					;;
 				*)
@@ -1123,21 +1148,44 @@ check_segment() {
 			-o | --push-option | --receive-pack | --exec) skip_option_arg=1 ;;
 			--push-option=* | --receive-pack=* | --exec=*) ;;
 			-*) ;;
-			"$DEFAULT_BRANCH" | "refs/heads/$DEFAULT_BRANCH" | *:"$DEFAULT_BRANCH" | *:"refs/heads/$DEFAULT_BRANCH")
+			# Every spelling git resolves to the default branch, not just the two obvious
+			# ones. Git's DWIM for a bare name is `refs/<name>`, `refs/tags/<name>`,
+			# `refs/heads/<name>`, so `main`, `heads/main` and `refs/heads/main` are the
+			# complete set that reaches `refs/heads/main` — and `heads/` was the spelling
+			# the retired namespace test had been catching by accident.
+			"$DEFAULT_BRANCH" | "refs/heads/$DEFAULT_BRANCH" | "heads/$DEFAULT_BRANCH" | *:"$DEFAULT_BRANCH" | *:"refs/heads/$DEFAULT_BRANCH" | *:"heads/$DEFAULT_BRANCH")
 				BLOCK_REASON="Pushing to \`$DEFAULT_BRANCH\` is denied (AMH P13). Push your session branch instead: \`git push -u origin $BRANCH_PREFIX/<codename>\`. The owner merges via squash PR."
+				return 1
+				;;
+			# Tagging and publishing a release are owner steps, and the namespace test used
+			# to stop a tag push as a side effect of stopping everything else. Accepted
+			# miss, deliberately not spelled out in the reason an agent reads: a BARE tag
+			# name (`git push origin v1`) is a branch name as far as this scanner can tell,
+			# so only the explicit `refs/tags/` spelling is judged here.
+			refs/tags/* | *:refs/tags/*)
+				BLOCK_REASON="\`$a\` publishes a tag. Release and tag actions are owner steps (AMH P13) — record the tag you want in the Owner queue rather than pushing it."
 				return 1
 				;;
 			*)
 				# The first positional is the remote; every later positional is a refspec.
+				# What this arm judges is the DESTINATION each refspec names, never the
+				# namespace it sits in — see the push-rail bullet in the header block.
 				positional=$((positional + 1))
 				if [ "$positional" -gt 1 ]; then
+					ref_count=$((ref_count + 1))
 					case $a in
-					:"$BRANCH_PREFIX"/* | :refs/heads/"$BRANCH_PREFIX"/*) saw_other_ref=1 ;;
-					*:*)
-						case ${a#*:} in "$BRANCH_PREFIX"/* | refs/heads/"$BRANCH_PREFIX"/*) session_ref_count=$((session_ref_count + 1)) ;; *) saw_other_ref=1 ;; esac
-						;;
-					"$BRANCH_PREFIX"/* | refs/heads/"$BRANCH_PREFIX"/*) session_ref_count=$((session_ref_count + 1)) ;;
-					*) saw_other_ref=1 ;;
+					# An empty source side deletes the destination: `git push origin :b`.
+					# Caught here rather than by the flag arm, which sees only `--delete`.
+					:*) delete_push=1 ;;
+					# A `HEAD` destination names no branch this rail can read: bare
+					# `HEAD` resolves against the worktree, `src:HEAD` against the
+					# REMOTE's HEAD symref, and either can land on the default branch.
+					# Those are two different mechanisms, so the reason below says only
+					# what they share — an unreadable destination — and asserts neither.
+					# `HEAD` as the SOURCE (`HEAD:$BRANCH_PREFIX/x`) names an explicit
+					# destination and is fine. This list is exactly two spellings long;
+					# every other unresolvable destination fails open.
+					HEAD | @ | *:HEAD | *:@) implicit_ref=1 ;;
 					esac
 				fi
 				;;
@@ -1147,8 +1195,16 @@ check_segment() {
 			BLOCK_REASON="Deleting a pushed branch rewrites published history and is denied (AMH P7). Leave it for the owner or the forge's post-merge cleanup."
 			return 1
 		fi
-		if [ "$saw_other_ref" -eq 1 ] || [ "$session_ref_count" -ne 1 ]; then
-			BLOCK_REASON="AMH requires one explicit session ref under \`$BRANCH_PREFIX/<codename>\`; this push names another branch or leaves the ref implicit. Create or switch to a descriptive \`$BRANCH_PREFIX/<codename>\` branch, then run \`git push -u origin $BRANCH_PREFIX/<codename>\`."
+		if [ "$implicit_ref" -eq 1 ]; then
+			BLOCK_REASON="This push names \`HEAD\` as its destination, so which branch it lands on is decided elsewhere — by the worktree, or by the remote's own HEAD — and either can be \`$DEFAULT_BRANCH\` (AMH P13). Name the destination branch: \`git push -u origin $BRANCH_PREFIX/<codename>\`."
+			return 1
+		fi
+		if [ "$ref_count" -eq 0 ]; then
+			BLOCK_REASON="This push leaves the ref implicit, so what it publishes is decided by remote and push configuration this rail cannot see — which can include \`$DEFAULT_BRANCH\` (AMH P13). Name the branch: \`git push -u origin $BRANCH_PREFIX/<codename>\`."
+			return 1
+		fi
+		if [ "$ref_count" -gt 1 ]; then
+			BLOCK_REASON="This push names $ref_count refs. AMH publishes one branch per push (AMH P13), so the extra ref is one you did not mean to send. Push them one at a time: \`git push -u origin $BRANCH_PREFIX/<codename>\`."
 			return 1
 		fi
 		;;
@@ -1862,14 +1918,15 @@ run_hook() {
 # The remote sha is all-zeros when the branch is being CREATED, and the local sha is
 # all-zeros when it is being DELETED. This rail guards the same publication invariants as the
 # `--command` push rail — default-branch, force and deletion — but judged by OUTCOME rather
-# than by flag, and with NO branch-prefix requirement. The two are therefore not identical:
+# than by flag. Neither rail checks the branch NAMESPACE; the two are still not identical:
 # judging effect not flag, the single non-fast-forward test catches `--force`,
 # `--force-with-lease` and a leading `+` refspec together, while a fast-forward `--force` the
 # flag rail blocks is allowed here because no history is rewritten; and where the ancestry
 # cannot be decided (a shallow clone's missing objects) the test fails OPEN, the direction
-# every rail here fails. The prefix check is deliberately absent (AMH ledger row DA022): the
-# harness assigns branch names the repository does not name, so a prefix rail here would reject
-# every legitimately-assigned branch.
+# every rail here fails. The prefix check is deliberately absent from BOTH (AMH ledger row
+# DA022): the harness assigns branch names the repository does not name, so a prefix rail
+# rejects every legitimately-assigned branch. This rail never had one; the command rail above
+# carried one until it blocked a correctly assigned branch, which is what DA022 predicted.
 is_zero_sha() { # true when the arg is non-empty and entirely '0' (git's null sha, any width)
 	case $1 in "" | *[!0]*) return 1 ;; *) return 0 ;; esac
 }
@@ -1889,6 +1946,14 @@ prepush_verdict() { # <local-ref> <local-sha> <remote-ref> <remote-sha> -> 0 all
 		# Checked before the delete case, so this reason must fit a delete of the default
 		# branch too — "targets", not "updates".
 		BLOCK_REASON="This push targets \`$DEFAULT_BRANCH\` on the remote, which is denied (AMH P13). Push your session branch instead and let the owner merge via squash PR."
+		return 1
+		;;
+	refs/tags/*)
+		# Git hands this rail the RESOLVED ref, so unlike the command rail above it sees
+		# `git push origin v1` as `refs/tags/v1` — the bare-name miss the flag rail has to
+		# accept does not exist here. Checked before the delete case: deleting a published
+		# tag is an owner step too.
+		BLOCK_REASON="This push publishes or moves the tag \`$remote_ref\`. Release and tag actions are owner steps (AMH P13) — record the tag you want in the Owner queue rather than pushing it."
 		return 1
 		;;
 	esac
@@ -2690,14 +2755,50 @@ printenv'
 	# Ordinary correct usage.
 	st_allowed "git push -u origin $BRANCH_PREFIX/some-codename"
 	st_allowed "git push -u origin $BRANCH_PREFIX/x && echo pushed"
-	st_blocked 'git push -u origin work'
+	# The namespace is NOT this rail's business (AMH ledger row DA022). One explicitly named
+	# ref passes whatever it is called, because the harness assigns names the repository does
+	# not prefix and the rail cannot tell an assigned name from an invented one. `claude/…` is
+	# the case that actually bit: the shipped rail blocked a correctly assigned branch.
+	st_allowed 'git push -u origin work'
+	st_allowed 'git push -u origin claude/some-codename'
+	st_allowed "git push origin $BRANCH_PREFIX/x:refs/heads/work"
+	# ...and dropping the namespace must not drop what the rail CAN read. Each of these was
+	# denied by the namespace test before and has to be denied on its own ground now, or the
+	# removal took real coverage with it.
 	st_blocked 'git push origin HEAD'
+	st_blocked 'git push origin @'
+	st_blocked "git push origin $BRANCH_PREFIX/x:HEAD"
 	st_blocked 'git push origin'
 	st_blocked "git push origin $BRANCH_PREFIX/x other"
 	st_blocked "git push origin $BRANCH_PREFIX/x $BRANCH_PREFIX/y"
-	st_blocked "git push origin $BRANCH_PREFIX/x:refs/heads/work"
+	st_blocked 'git push origin work other'
 	st_blocked "git push --delete origin $BRANCH_PREFIX/x"
 	st_blocked "git push origin :$BRANCH_PREFIX/x"
+	st_blocked 'git push origin :work'
+	# `HEAD` as the SOURCE names an explicit destination — a rail matching `HEAD` anywhere in
+	# the refspec would deny this one too.
+	st_allowed "git push -u origin HEAD:$BRANCH_PREFIX/x"
+	# Every spelling git resolves to the default branch. `heads/<default>` is the one the
+	# retired namespace test had been catching by accident, on BOTH sides of the colon, and
+	# git really does move the remote branch for each of these.
+	st_blocked "git push origin heads/$DEFAULT_BRANCH"
+	st_blocked "git push origin $BRANCH_PREFIX/x:heads/$DEFAULT_BRANCH"
+	st_blocked "git push origin refs/heads/$BRANCH_PREFIX/x:heads/$DEFAULT_BRANCH"
+	st_blocked "git push origin HEAD:heads/$DEFAULT_BRANCH"
+	# This one pins the VERDICT only: drop the alias from the `+*` arm and it stays blocked as
+	# a plain force push, losing the two-violations-at-once reason the arm exists to give. The
+	# self-test compares verdicts, so no fixture can hold that reason — it is a review concern.
+	st_blocked "git push origin +heads/$DEFAULT_BRANCH"
+	# ...and a branch whose name merely STARTS with `heads/` is not the default branch.
+	st_allowed "git push -u origin heads/$BRANCH_PREFIX-x"
+	# Tagging is an owner step. Only the explicit spelling is readable here; a bare tag name
+	# is a branch name as far as this scanner can tell, which is why the allow case below is
+	# in the suite rather than left to be discovered.
+	st_blocked 'git push origin refs/tags/amh-v1.2.3'
+	# Verdict-only again: this is a deletion too, so it stays blocked without the tag arm.
+	st_blocked 'git push origin :refs/tags/amh-v1.2.3'
+	st_blocked "git push origin $BRANCH_PREFIX/x:refs/tags/amh-v1.2.3"
+	st_allowed 'git push -u origin amh-v1.2.3'
 	# A redirection is syntax, not a second ref. Every one of these names ONE session
 	# branch, and the shipped rail denied all of them for naming another (AMH ledger row
 	# DC001) — the glued-on target, the detached one, and the `2>` that `split_segments`
@@ -2857,9 +2958,13 @@ git push --force origin main
 	st_allowed 'md5sum harness/dist/AMH.md'
 	st_allowed 'tr "a" "b" < README.md'
 	st_allowed 'sort docs/LEDGER.md'
-	# A branch whose name merely CONTAINS the default branch name.
-	st_blocked "git push -u origin ${DEFAULT_BRANCH}tenance"
+	# A branch whose name merely CONTAINS the default branch name. The first of these was
+	# `st_blocked` while the namespace test stood, and passed for the wrong reason — the
+	# namespace denied it before the default-branch patterns were ever asked about the
+	# substring. Now it tests what its comment always claimed.
+	st_allowed "git push -u origin ${DEFAULT_BRANCH}tenance"
 	st_allowed "git push -u origin $BRANCH_PREFIX/$DEFAULT_BRANCH-cleanup"
+	st_blocked "git push -u origin refs/heads/$DEFAULT_BRANCH"
 	# Fail-open on an empty or odd command.
 	st_allowed ''
 	st_allowed '   '
@@ -2886,6 +2991,15 @@ git push --force origin main
 	# passes a fast-forward and a create exactly like a session ref.
 	st_prepush_ff ff allow 'refs/heads/claude/assigned-name' "$pp_b" 'refs/heads/claude/assigned-name' "$pp_a"
 	st_prepush_allowed 'refs/heads/claude/assigned-name' "$pp_a" 'refs/heads/claude/assigned-name' "$pp_zero"
+	# Tagging is an owner step, and this rail sees the RESOLVED ref — so unlike the flag rail
+	# it also catches `git push origin v1`, which arrives here as `refs/tags/v1`. Creating,
+	# moving and deleting are all denied; the delete case is checked by the tag arm, which
+	# sits above the delete arm, so its reason has to fit a deletion too.
+	st_prepush_blocked 'refs/tags/amh-v1.2.3' "$pp_a" 'refs/tags/amh-v1.2.3' "$pp_zero"
+	st_prepush_blocked 'refs/tags/amh-v1.2.3' "$pp_a" 'refs/tags/amh-v1.2.3' "$pp_b"
+	st_prepush_blocked '(delete)' "$pp_zero" 'refs/tags/amh-v1.2.3' "$pp_a"
+	# A BRANCH whose name merely contains `tags` is not a tag.
+	st_prepush_allowed "refs/heads/$BRANCH_PREFIX/tags-cleanup" "$pp_a" "refs/heads/$BRANCH_PREFIX/tags-cleanup" "$pp_zero"
 
 	rm -f -- "$self_keymaterial_advisory_state"
 	if [ -n "$old_keymaterial_advisory_state_set" ]; then

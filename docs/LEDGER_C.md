@@ -326,3 +326,22 @@
   mandatory pass could run and directed that forks be settled rather than queued, being
   asleep; the PATCH call and carrying the version bump inside this unit are both that, noted
   because nothing else would show they were decided unilaterally.
+- DC-017: **A rail that asks for something it cannot see gets its question changed, not its
+  wording — and the row that predicted this one was already in the ledger.** The command
+  guard's push scanner required one ref under `BRANCH_PREFIX/` from 7.0.0 (DB-035, narrowed by
+  DB-036) and blocked a correctly assigned `claude/<codename>` branch, after DA-022 declined a
+  prefix guard elsewhere on reasoning that transfers verbatim and P13 made the same conclusion
+  standing instruction for the `--pre-push` rail in the SAME script — two rails contradicting
+  each other for four majors, both self-tests green. Fixtures cannot see that class: a
+  self-test matrix proves a rail does what its author asked, never that the question was
+  answerable. Swapping one broad test for narrow ones is where the cost lands and it has to be
+  measured rather than reasoned — a differential over 844 push spellings found the first draft
+  had opened `heads/main`, a live path to the default branch the retired namespace test was
+  closing by accident, in a draft whose own prose claimed the default branch was denied.
+  DB-035 and DB-036 carry `Corrected by DC-017.` meaning different things: DB-036's stale
+  detail is one clause, while DB-035's headline principle is what this row contradicts and only
+  its PR-template and Stop-hook halves still stand, so there the verb is the least-bad of the
+  two permitted rather than a fit. Shipped as MINOR 10.1.0, decided by the session under a
+  standing owner mandate over `CONTRIBUTING.md`'s clause reserving an ambiguous
+  major-vs-minor call to the owner, noted because the DC-016 precedent covered a PATCH and
+  stretching one silently is how a bar dissolves.
