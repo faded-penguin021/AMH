@@ -13,9 +13,9 @@ Adopted harness version: **AMH 10.0.0** — see `harness/VERSION`, the copy that
 
 ## Current state
 
-AMH **10.0.0** is prepared on this branch but not yet tagged or published. The train carries
-two changelog entries: 9.2.0, the working-memory relocation (**DC-013**), and 10.0.0, the
-ledger correction rules below.
+AMH **10.0.0** is merged and published: the train landed as squash commit `793c744` on `main`,
+and `amh-v10.0.0` points at it. It carried two changelog entries: 9.2.0, the working-memory
+relocation (**DC-013**), and 10.0.0, the ledger correction rules below.
 
 Ledger rows are immutable and are never edited in place. A correction is a new row plus one
 appended pointer on the old one — `Superseded by D-NNN.` when the whole row is replaced,
@@ -45,11 +45,26 @@ mutations — bypasses every local rail. Not machinery yet: an adversarial test 
 earning a narrow rail only if a real session crosses that boundary. No check — nobody but a
 session actually crossing it settles this.
 
-**OPEN — tag and publish AMH 10.0.0 after this branch merges.** Check:
-`git ls-remote --tags origin refs/tags/amh-v10.0.0` — resolved when it prints the tag.
+**OPEN — the adopter-facing citation-collision note is unwritten.** Nothing tells an adopter
+that a `DB-9`-shaped domain constant reddens their citation rung, and its first draft was cut by
+the review pass with five factual errors: two escapes described backwards, a detection command
+ignoring `CITATION_EXCLUDE`, and a `sed \+` the shipped fixtures forbid for BSD. The class, the
+real escape behaviour and the refusal all sit in **DC-015**; writing it needs its own unit and a
+review pass, and it reaches adopters only with a version bump. Check:
+`grep -c DC015 harness/templates/amh.conf.example` — resolved when it prints 1.
 
-Everything else currently asked has been answered in the rows the Changelog cites; tags through
-9.1.0 are cut and published, and `main`'s protection is repointed at `ladder`.
+**OPEN — `path-refs.sh` may report specific false failures when its file listing comes back
+short.** One full ladder run this session failed it on `` `session-start.sh` `` — a file that
+exists — and it did not reproduce on two clean runs. The guard builds `basenames` from
+`git ls-files` and never checks that the listing succeeded or is non-empty, so section (c) can
+name real citations as broken; its siblings refuse that zero-extraction case explicitly
+(`config-schema.sh`, `version-lockstep.sh`). Unverified — no reproducer yet, which is why this
+is a finding and not a fix.
+
+Everything else currently asked has been answered in the rows the Changelog cites, and `main`'s
+protection is repointed at `ladder`. Tags: 7.0.2, 8.0.0, 9.0.0, 9.1.0 and 10.0.0 are cut and
+published; **9.2.0 has a changelog entry and no tag** — it shipped inside the 10.0.0 train, and
+nothing checks that every changelog version got one.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -67,14 +82,24 @@ re-litigate from.
   provenance-defective scenarios plus their YAML/oracle/report machinery (**DA-026**).
 - **Later refusals:** the top-decile/inverted-gradient warning (**DB-040**, with **DC-003** the
   adopted two-unit alternative); a constitution byte cap (**DB-038**); a Python-write advisory
-  (**DC-007**); the two 2026-08-10 review proposals (**DB-024**); and any guard that opens a file
-  to classify it (**DB-027**).
+  (**DC-007**); the two 2026-08-10 review proposals (**DB-024**); any guard that opens a file
+  to classify it (**DB-027**); and a configurable ledger-id prefix to dodge domain-constant
+  collisions, which relocates the collision into the adopter's taxonomy rather than removing it
+  (**DC-015**).
 
 ## Changelog
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-25 — **A citation-guard collision was reported, reproduced, and found to have no clean
+  escape.** `DB-9`-shaped domain constants fail the citation rung in an adopter tree; the class
+  predates the 8.0.0 widening, and two of the three apparent hatches need an undocumented second
+  step. `LEDGER_PREFIX` is refused, on relocation and the incident bar rather than immutability.
+  The adopter-facing note stays unwritten — the review pass cut its first draft (**DC-015**).
+- 2026-08-25 — **10.0.0 is merged and tagged; that queue item closed on its own check.**
+  `git ls-remote --tags origin refs/tags/amh-v10.0.0` prints the tag at `793c744`, the squash
+  commit this branch is cut from, so the release window the banner reports is shut.
 - 2026-08-25 — **10.0.0 confirmed MAJOR by the owner.** The session's reading stands: the
   append-only guard is repo-local and unshipped, so deleting the in-place-correction clause
   makes a practice adopters could legitimately be following wrong. No version change followed;

@@ -294,3 +294,18 @@
   carries at most one pointer and the first is final, so a wrong verb is unrepairable — while
   the review pass showed the limit was not even true as first written, since new rows are never
   form-checked and a pointer committed off the end of a row left the row exempt forever.
+- DC-015: **A reported collision between the citation rung's id shape and hardware domain
+  constants is real, and none of the three apparent escapes is clean.** `DB-9`, `DA-100`,
+  `DC-12` and `DI-1` all reproduce as unresolved citations against the real ladder in an
+  adopter-shaped tree, and none is a regression — each matched the pre-8.0.0 `D[A-Z]?-[0-9]+`
+  pattern too. Checked again against a tree that HAS marked rows, two of the escapes need a
+  second step nobody documents: `CITATION_SCAN_PATHS=''` empties the citation set and converts
+  every `[cited]` row into a stale-marker failure, and a `CITATION_EXCLUDE` entry reddens the
+  ladder at once whenever the excluded file held the last citation of a marked row. A fixture
+  tree with no marked rows can see neither, so the first pass reported both working from the one
+  tree where they cannot fail. A `LEDGER_PREFIX` key stays refused on the sound legs — any
+  prefix relocates the collision into the adopter's own taxonomy rather than removing it, and
+  P3's incident bar is unmet — never on immutability, since this ledger already spans `D-`,
+  `DA-`, `DB-` and `DC-` at once with nothing renumbered, the patterns being a union. The
+  adopter-facing note this earns is still unwritten: its first draft carried five factual errors
+  and the review pass cut it.
