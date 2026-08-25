@@ -69,6 +69,19 @@ grep for it. Relocation out of the constitution is legislation — it takes the 
 and in bulk it is an owner decision, the same answer the working-memory tier reached when the
 question was asked one tier down.
 
+**One tier down that question has a second half, because the tiers differ in what they cost.**
+Working memory is capped, so a rule parked in it is charged against a budget that exists to
+evict *volatile* content, and it cannot be compressed to make room — folding a live rule is the
+repeal the clause above forbids. Rules therefore belong in the operational doc the tier's own
+guard output already points at: read on demand, and reachable from the constitution's
+disclosure list. Never the ledger or the archive, which are retrieval storage nobody reads
+whole. Guard the pointer left behind as well as the destination heading — checking only the
+heading leaves the pointer deletable in silence — and where the tripwire covering the
+destination is a WARN-only local courtesy, say that rather than calling the rule "better
+guarded". What the move costs is the read that used to be unavoidable because the rule sat in the
+file being edited; the pointer left behind is weaker than that, which is why each relocation is
+the owner's call rather than a tidying an agent may perform.
+
 **Spent narrative is not moved anywhere, and this is the corollary that gets misread.** A
 compression pass *folds* it: the durable content leaves as a ledger row, and what remains
 becomes a changelog line pointing at that row. Narrative whose durable content has already
@@ -237,8 +250,9 @@ can check — and agent-agnosticism regressions) and the strongest tier regardle
 a three-line rule edit can carry a semantic bomb. There is **no self-review fallback for rule
 diffs**: a harness that cannot spawn a fresh context parks the rule change for the human
 instead of reviewing its own legislation. Routine state-file edits are exempt — working memory,
-not legislation — but the state file's rule-bearing sections (its length-guard preamble, its
-decided non-items) count as legislation.
+not legislation — but every rule-bearing section still in it (its decided non-items, its
+owner-queue preamble, any pointer asserting its own binding force) counts as legislation, and
+P2 says where such rules are better kept.
 
 Three bounds keep the pass a gate rather than a process that eats the unit. **(a)
 Concurrency: one reviewer at a time, and it blocks.** A review is a gate, not a background

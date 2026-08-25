@@ -1,44 +1,27 @@
 # STATE — project state & session memory
 
-> **Length guard (hysteresis).** The thresholds `STATE_WARN_KB`, both compression-floor keys
-> and `STATE_HARD_KB` live in `amh.conf`, deliberately **not** restated here as numbers: nothing
-> checks this prose against the config, so a restated number is a drift class no guard here
-> covers (**DB-022**). Which of them the size rung prints, and why a number it printed is never a
-> copy to quote back, are in `docs/RUNBOOK.md` → **Acceptance ladder** — a description of the
-> guard's output, kept out of the file the guard measures (**DB-025**).
-> Grow freely to the soft cap; over it, ONE deep pass landing at or below the
-> compression floor — a ceiling, not a target: anywhere below is fine, and you do not keep
-> shaving once under (owner, 2026-07-27). **The floor is a byte size AND a sentence count, and a
-> landing satisfies both** (**DC-003**), which is what stops that rule depending on your
-> restraint: trimming words cannot move the sentence count, repunctuating cannot move the bytes,
-> and folding whole stages is the only move that clears both. Fail above the hard cap, which is
-> byte-only like the soft cap — those two say WHEN to compress. **Compress by folding whole
-> completed stages into Changelog pointer lines and moving durable lessons to the ledger** —
-> never by shaving clauses until the guard goes quiet, and never by cutting text into another
-> file: moving a passage OUT is not compression and is the owner's call — granted once, for the
-> guard-output description now in the runbook (owner, 2026-08-11).
-> Land short and you fold MORE stages. A typo fix above the cap is allowed and still owes
-> the pass (**D-027**). The ladder checks sizes, structure and repeated headings (**D-034**) and
-> nothing else — not whether what survived is any good, and not whether you dropped an open
-> owner-queue item. Never drop one.
+> **Length guard.** Thresholds are in `amh.conf`; the rules for compressing this file are
+> `docs/RUNBOOK.md` → **Working-memory compression**, and they bind whether or not you follow
+> this pointer. Read them before any edit that takes this file over the soft cap.
 
 ## Project
 
-The AMH meta-repository: both the **source of truth** for the Agentic Maintenance Harness — a
-reusable operating prompt plus scaffolds for repos maintained by agentic AI sessions — and its
-**reference instance**, running byte-identical copies of the scripts it ships. The product is
-`harness/` (prose source, templates, generated bundle); this repo's instance is `AGENTS.md` +
-`docs/` + `scripts/` + `amh.conf`. Adopted harness version: **AMH 9.1.0** — see `harness/VERSION`,
-the copy that counts.
+The AMH meta-repository — source of truth for the Agentic Maintenance Harness and its
+reference instance, which runs byte-identical copies of the scripts it ships. `AGENTS.md`
+describes both and is read in full every session.
+Adopted harness version: **AMH 9.2.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-AMH **9.1.0** is prepared on this branch but not yet tagged or published. It adds the
-**git-native pre-push rail** (P13): `command-guard.sh
---pre-push`, invoked by git through `.git/hooks/pre-push`, independently rejects default-branch,
-force/non-fast-forward and delete pushes — the layer that would have backstopped D-016 item 1,
-binding even a hook-less agent. It carries no branch-prefix check (DA-022) and is a guardrail,
-not a boundary (`--no-verify` bypasses; git-CLI pushes only).
+AMH **9.2.0** is prepared on this branch but not yet tagged or published. It moves this file's
+two rule preambles into `docs/RUNBOOK.md` → **Working-memory compression** and **Session
+discipline** 7, leaving pointers that `doc-navigation.sh` now checks. The rules are unchanged;
+what changes is that 2,499 bytes of them no longer spend a 9,216-byte budget that exists to
+evict volatile content. The seed scaffold gets the same shape, where the two preambles were
+4,859 bytes of 6,045 before an adopter had written a line.
+
+9.1.0 is tagged and published as `amh-v9.1.0`, and its `portability (macos-latest)` job passed
+on the merge commit with the stock-Bash assertion green — which closed the parser watch.
 
 Committed ledger rows are append-only, enforced against `HEAD` by a repo-local guard whose
 sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**. The live volume is
@@ -48,13 +31,8 @@ sanctioned exceptions and draft-row rule are in **DB-008** and **DB-013**. The l
 
 > **Protected section.** Never delete it, and never silently drop items during compression.
 > Items leave only when done, answered or triaged — then delete the item and record the outcome
-> as a Changelog line or a ledger row.
->
-> **How to test an item before restating it, and why the final chat message must:**
-> `docs/RUNBOOK.md` → Session discipline 7, which is binding and is not repeated here. The one
-> thing that lives here: **`Check:` is deliberately NOT a required field**, so its absence is
-> information — it means no command settles this, which is worth knowing before you repeat the
-> item to a human (**D-014**).
+> as a Changelog line or a ledger row. How to test an item before restating it, and why the
+> final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
 **OPEN — investigate the forge/API mutation surface as an escape around the local rails.** The
 pre-push rail (DC-009) guards git-CLI pushes only; an owner-reserved shared-side effect through a
@@ -81,20 +59,11 @@ Check: append a line to a committed row in `docs/LEDGER_B.md`, run
 `scripts/guards/ledger-append-only.sh`, then `git checkout -- docs/LEDGER_B.md` — open while the
 guard still exits 1.
 
-
-**WATCH — the guard's parser changed substantially and has not yet run on stock macOS Bash.**
-The macOS eighteen-fixture watch closed on its own terms (see the Changelog line citing
-**DC-002**), but it closed on the parser as it stood BEFORE this branch. `DC-011` and `DC-012`
-add a git subcommand dispatch, a new operand collector and a third entry point, none of which
-has seen bash 3.2 — no 3.2 is available in the session container, so both commits disclose the
-gap rather than claim coverage. This is a watch, not a question: it settles itself when the
-branch merges. Check: the `portability (macos-latest)` job on the merge commit.
-
-**OPEN — tag and publish AMH 9.1.0 after this branch merges.** Check:
-`git ls-remote --tags origin refs/tags/amh-v9.1.0` — resolved when it prints the tag.
+**OPEN — tag and publish AMH 9.2.0 after this branch merges.** Check:
+`git ls-remote --tags origin refs/tags/amh-v9.2.0` — resolved when it prints the tag.
 
 Everything else currently asked has been answered in the rows the Changelog cites; tags through
-9.0.0 are cut and published, and `main`'s protection is repointed at `ladder`.
+9.1.0 are cut and published, and `main`'s protection is repointed at `ladder`.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -120,6 +89,14 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-25 — **Prepared AMH 9.2.0: working memory stops paying for its own rules.** This
+  file's length-guard and Owner-queue preambles moved to the runbook behind guard-checked
+  pointers, the Project section shrank to the lockstep sentence, and the seed scaffold got the
+  same shape (**DC-013**, on the **DB-029** grant).
+- 2026-08-25 — **Two Owner-queue items closed on their own checks.** `amh-v9.1.0` is cut and
+  published at `172c868`, and the macOS parser watch closed: `portability (macos-latest)`
+  succeeded on that merge commit with "Assert stock macOS Bash" green rather than skipped, so
+  the DC-011/DC-012 parser has now run on bash 3.2.
 - 2026-08-18 through 2026-08-20 — **Prepared AMH 9.1.0.** Git-native pre-push enforcement;
   parameter-expansion-safe segment splitting; broader destructive-git advisories; a Claude
   spawn speed bump with bounded reporting; the SC2015 repair; closure of the original macOS

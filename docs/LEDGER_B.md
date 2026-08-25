@@ -707,7 +707,7 @@
   interpolation falsifies. The mandatory pass caught it; restoring cost most of the saving. Fold
   what repeats; a sentence naming a guard's OUTPUT is not repetition.
 
-- DB-029: **A description of a guard's output is not working memory — do not charge it to a byte
+- DB-029 [cited]: **A description of a guard's output is not working memory — do not charge it to a byte
   cap.** Compressing the length-guard preamble hit a floor: a quarter of this instance's copy and
   an eighth of the seed's was not a rule but an account of what `guard_state_size` prints (DB-025,
   the subject of release 5.2.1). Owner, 2026-08-11: move it to `docs/RUNBOOK.md` -> Acceptance

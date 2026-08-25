@@ -30,6 +30,7 @@ disagrees with the code, trust the code and fix the doc.
 | Why does mechanism X exist? | `harness/src/10-principles.md` |
 | What is pending for the owner? | `docs/STATE.md` → Owner queue |
 | Why was Y decided/rejected? | `docs/LEDGER.md`; `docs/STATE.md` → Decided non-items |
+| How do I compress `docs/STATE.md`? | this runbook → **Working-memory compression** |
 | How does an adopter move to a new version? | `docs/UPGRADING.md` |
 | What changed between versions? | `harness/CHANGELOG.md` |
 | How do I contribute a harness change? | `CONTRIBUTING.md` |
@@ -253,7 +254,10 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
    status, which is a property of the command and says nothing about the item (a check written
    to detect the unresolved condition exits 0 precisely when the item is still open). Resolved
    means done in this session: delete it and record the outcome, rather than restating it with a
-   caveat. An item with no check is restated as *unverified*, naming who settles it. Nothing
+   caveat. An item with no check is restated as *unverified*, naming who settles it —
+   **`Check:` is deliberately NOT a required field**, so its absence is information rather than
+   an omission: it means no command settles this, which is worth knowing before you repeat the
+   item to a human (**D-014**). Nothing
    enforces this and nothing may: a gate consuming "I checked" is the D-014 shape (DA-011).
 8. **Verification disclosure.** Every commit body states which ladder rungs actually ran and
    names what could NOT be verified locally. Disclosure of real actions, addressed to a human
@@ -402,8 +406,11 @@ checkpoint invariant budgets for losing exactly the unit in flight, and the ladd
 warning says the pass happens BEFORE the commit. The hold lifts the moment the pass reports:
 triage, apply, commit.
 
-Routine `docs/STATE.md` edits are exempt, EXCEPT its rule-bearing sections (the length-guard
-preamble, Decided non-items).
+Routine `docs/STATE.md` edits are exempt, EXCEPT its rule-bearing sections — Decided
+non-items, the Owner-queue **Protected section** preamble, and the length-guard pointer, which
+asserts its own binding force. Its compression rules moved to **Working-memory compression**
+below and its Owner-queue test rules to **Session discipline** 7 above; both destinations are
+inside `RULE_FILES`, which the sections left behind still are not.
 
 The reviewer hunts these rule bug classes:
 
@@ -490,14 +497,69 @@ it. A printed number is still
 never a value to copy into prose — quoting one back makes a fourth copy of a config key, the
 drift class **DB-022** names and no guard here catches (**DB-025**) — and the source to read a
 threshold from is `amh.conf`, which is now the answer for every threshold on a green run rather
-than for the floor alone. Two exceptions keep this honest rather than wider than it is: the boot
+than for the floor alone.  Two exceptions keep this honest rather than wider than it is: the boot
 banner still prints the state file's size against the **soft cap**, on purpose, because it is read
 before a session writes; and the small-edit-above-the-cap `ok` names `STATE_EDIT_DELTA_BYTES`,
-the threshold that verdict turns on. This paragraph lives here rather than in `docs/STATE.md`'s length-guard
-preamble, which carries the RULES, because a description of a guard's output is not working
-memory and should not be charged to a byte cap (owner, 2026-08-11). It describes four branches of
+the threshold that verdict turns on. This paragraph lives here rather than in `docs/STATE.md`
+because a description of a guard's output is not working memory and should not be charged to a
+byte cap (owner, 2026-08-11, **DB-029**). The rules it used to sit beside have since followed it
+here — see **Working-memory compression** below; what remains in the state file is a pointer.
+It describes four branches of
 `guard_state_size` — the three size verdicts and the landing `ok` — and not the rung's other
 lines; read the function when it and this disagree.
+
+## Working-memory compression
+
+The rules for compressing `docs/STATE.md`. They live here, and not in the file they govern,
+because they are legislation rather than working memory: a block that changes only by the
+rule-review protocol was being charged against a byte cap whose whole purpose is to force
+*volatile* content out. Measured rather than estimated, since the measurement is the half a
+later reader can audit (**DB-023**, **DB-025**): the length-guard preamble was 1,865 bytes and
+the Owner-queue preamble 634, so 2,499 of the compression floor's 9,216 went to text no
+compression pass may touch — a bit over a quarter, and the same defect **DB-028** measured at
+a fifth for the length-guard block alone. Owner, 2026-08-25, on the precedent of **DB-029**,
+which moved the guard-output description into **Acceptance ladder** above on 2026-08-11. This
+does not widen that grant: relocating a passage out of working memory stays the owner's call,
+one grant at a time.
+
+**The destination is what separates this from repeal.** The ledger and `docs/history/` would
+have been repeal — they are retrieval storage nobody reads whole, and a live rule there binds
+nothing (AMH P2). This runbook is read on demand, reachable from the constitution's
+progressive-disclosure list, and `scripts/guards/doc-navigation.sh` checks the pointer/heading
+pair — including the pointer left behind in `docs/STATE.md`, which is what **DB-029** could not
+say of the first relocation ("the pointer left behind is prose only"). Be exact about the rest,
+because overstating enforcement is itself the **D-010** class: this file is in `RULE_FILES` and
+`docs/STATE.md` is not, but that tripwire is a local, WARN-only, uncommitted-diff-only courtesy
+CI never runs — a reader, not a gate. And the move did cost something real: the read that used
+to be unavoidable because the rules sat in the file you were editing. The pointer is weaker
+than that. The guard keeps it from vanishing, not from being ignored.
+
+**Thresholds.** `STATE_WARN_KB`, both compression-floor keys and `STATE_HARD_KB` live in
+`amh.conf`, deliberately **not** restated here as numbers: nothing checks this prose against
+the config, so a restated number is a drift class no guard covers (**DB-022**). Which of them
+the size rung prints, and why a number it printed is never a copy to quote back, are in
+**Acceptance ladder** above.
+
+**When to compress.** Grow freely to the soft cap. Over it, ONE deep pass landing at or below
+the compression floor — a ceiling, not a target: anywhere below is fine, and you do not keep
+shaving once under (owner, 2026-07-27). Fail above the hard cap, which is byte-only like the
+soft cap; those two say WHEN to compress. A typo fix above the cap is allowed and still owes
+the pass (**D-027**).
+
+**How far.** The floor is a byte size **AND** a sentence count, and a landing satisfies both
+(**DC-003**). That is what stops the rule depending on your restraint: trimming words cannot
+move the sentence count, repunctuating cannot move the bytes, and folding whole stages is the
+only move that clears both. Land short and you fold MORE stages.
+
+**How.** Fold whole completed stages into Changelog pointer lines and move durable lessons to
+the ledger. Never shave clauses until the guard goes quiet, and never cut text into another
+file — moving a passage OUT is not compression, it is the owner's call, and it has now been
+granted exactly twice: the guard-output description (owner, 2026-08-11) and this section
+(owner, 2026-08-25).
+
+**What the ladder does not check.** It checks sizes, structure and repeated headings
+(**D-034**) and nothing else — not whether what survived is any good, and not whether you
+dropped an open Owner-queue item. Never drop one.
 
 ## When CI fails (workflow vs code)
 

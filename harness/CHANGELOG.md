@@ -11,6 +11,55 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 9.2.0 — 2026-08-25
+
+- **Working memory stops paying for its own rules.** The length-guard preamble that governed
+  `docs/STATE.md` now lives in `docs/RUNBOOK.md` under a new **Working-memory compression**
+  section, and the Owner-queue preamble's test rules fold into **Session discipline** 7. Both
+  files keep a pointer, and `doc-navigation.sh` now checks the pointers as well as the
+  headings. What changed is not the rules but where they are charged: 2,499 bytes of them were
+  spending a 9,216-byte compression floor that exists to evict volatile content, and could not
+  be compressed to make room, because folding a live rule is repeal.
+- **P2 states where a capped tier's rules belong.** Relocating them to the operational doc the
+  tier's guard output already points at is not repeal: it is read on demand and reachable from
+  the constitution's disclosure list. The ledger and the archive stay forbidden destinations —
+  a live rule in retrieval storage binds nothing. Guard the pointer left behind as well as the
+  destination heading; checking only the heading leaves the pointer deletable in silence, which
+  is a hole this release found and closed in its own guard. Each relocation remains the owner's
+  call, because the pointer is weaker than a rule sitting in the file being edited.
+- **The seed state file drops 6,045 → 2,564 bytes.** Its two preambles were 4,859 of those
+  6,045 before an adopter had written a line; the compression rules moved into the seed runbook.
+
+Additive: no previously-permitted workflow becomes forbidden, and an adopter who changes
+nothing keeps a working repository — every copied `ladder.sh` has enforced both floor units
+since 8.0.0. MINOR rather than MAJOR. Two seed clauses did move, and neither is a relocation:
+the seed said the floor "counts SENTENCES, not bytes", which had been false since 8.0.0 and is
+now corrected to bytes AND sentences; and the seed gained "a typo fix above the cap is allowed
+and still owes the pass", which its own guard has never enforced either way.
+
+### Upgrading
+
+Seeds are yours, so this arrives as a hand-applied note rather than a file you re-sync:
+
+1. Copy the **Working-memory compression** section from
+   `harness/templates/seed/docs/RUNBOOK.md` into your `docs/RUNBOOK.md`, placing it after
+   **Acceptance ladder**. It carries every clause your `docs/STATE.md` length-guard preamble
+   carried, plus the two named above — read the floor sentence before you copy it, since your
+   preamble may still describe the pre-8.0.0 single-unit floor.
+2. Replace that preamble in your `docs/STATE.md` with the three-line pointer from
+   `harness/templates/seed/docs/STATE.md`, and trim your Owner-queue preamble the same way —
+   the wording is in the same file.
+3. If your ladder has a documentation-navigation guard, give it a row for the new heading AND
+   one for the pointer left behind in `docs/STATE.md`. Checking only the heading leaves the
+   pointer deletable in silence, which is the hole this release closed in its own guard.
+   Without such a guard the pointer is prose only — say so rather than implying a check.
+4. Optional, and worth measuring first: anything else permanent in your state file (a project
+   blurb duplicating your constitution, a decided-non-items index) is spending the same budget.
+   Keep whatever your guards read — this repository had to keep one version sentence a lockstep
+   guard greps for.
+
+No script, config key or guard semantic changed, so there is nothing to copy under `scripts/`.
+
 ## 9.1.0 — 2026-08-20
 
 - **Git now invokes an independent publication rail.** `command-guard.sh --pre-push` rejects

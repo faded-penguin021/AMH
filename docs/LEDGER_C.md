@@ -248,3 +248,23 @@
   stated because a count looks like a measurement: a pre-spawn hook can see spawns and their
   rate but never their liveness, so nothing here reports overlap and no gate may read the count
   as evidence that any rule was honoured.
+
+- DC-013: **Working memory's byte cap was charging a quarter of its budget to rules no
+  compression pass may touch.** `docs/STATE.md`'s length-guard preamble (1,865 bytes) and
+  Owner-queue preamble (634) sat inside a 9,216-byte compression floor, so every pass folded
+  volatile stages to make room for text that changes only under the rule-review protocol — the
+  same defect **DB-028** measured at a fifth for the length-guard block alone, and the figure is
+  quoted rather than rounded because the measurement is the only part a later reader can audit.
+  Both moved into `docs/RUNBOOK.md` under **Working-memory compression** and **Session
+  discipline** 7 on the owner's second grant of the **DB-029** precedent, and `## Project` shrank
+  to three sentences carrying the one `version-lockstep.sh` greps. The destination is why this
+  is not the repeal **P2** warns about: the runbook is read on demand and its heading is
+  machine-checked, whereas the ledger would have been repeal, since a live rule in retrieval
+  storage binds nothing. **DB-029** had recorded its own relocated pointer as "prose only", and
+  a review pass proved the cost of leaving that true — deleting the new pointer from
+  `docs/STATE.md` left the whole guard suite green — so `doc-navigation.sh` gained a
+  pointer-file field and now checks both pointers where it had checked only the constitution's.
+  What no guard recovers is the read that was unavoidable while the rules sat in the file being
+  edited, which is why each relocation stays the owner's call rather than a tidying an agent
+  performs; the seed scaffold carried the defect worse at 4,859 bytes of 6,045, and the instance
+  file fell 9,292 → 7,174 with no rule repealed.

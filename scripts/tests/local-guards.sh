@@ -390,6 +390,17 @@ sed_in_place '/^- Session execution, checkpoints, recovery, and owner forks:/d' 
 sed_in_place 's/Follow \*\*Session discipline\*\* every/Follow the runbook every/' "$d/AGENTS.md"
 expect fail "doc-navigation: Session discipline routing was removed" "$d" doc-navigation.sh "missing navigation pointer"
 
+# The state file's rule preambles moved into the runbook and left pointers behind. DB-029
+# recorded the first such pointer as prose only; these two fixtures are why the second and
+# third are not. Deleting either line is an edit the size and structure rungs cannot see.
+d=$(snapshot doc_navigation_state_pointer_missing)
+sed_in_place '/Working-memory compression\*\*, and they bind whether or not you follow/d' "$d/docs/STATE.md"
+expect fail "doc-navigation: the state file's compression-rule pointer was deleted" "$d" doc-navigation.sh "missing navigation pointer in docs/STATE.md"
+
+d=$(snapshot doc_navigation_state_queue_pointer_missing)
+sed_in_place '/final chat message must:/d' "$d/docs/STATE.md"
+expect fail "doc-navigation: the Owner-queue pointer into Session discipline was deleted" "$d" doc-navigation.sh "missing navigation pointer in docs/STATE.md"
+
 d=$(snapshot drift_script)
 printf '# local edit\n' >>"$d/scripts/redact.sh"
 expect fail "copy-drift: an edited shipped script" "$d" copy-drift.sh "drift:"
