@@ -109,6 +109,11 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-26 — **CI stops running the whole matrix twice per commit.** `on.push` was `"**"`,
+  which every session branch matches, so each commit was verified once for the push and again
+  for the `pull_request` event; it is now `main` only. The cost is stated in the workflow: an
+  intermediate branch pushed without a PR gets no CI, and the ladder is the backstop. Owner's
+  call, repo-local — the shipped `harness/templates/configs/ci.yml` still carries `"**"`.
 - 2026-08-26 — **The owner confirmed 10.1.0's MINOR, and the train's PR is open.** The
   unilateral version call on a change removing a rail 7.0.0 shipped as MAJOR stands as MINOR,
   closing the half of the release item that needed a human; the tag is the remaining half.
