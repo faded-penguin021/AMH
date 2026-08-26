@@ -11,6 +11,70 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 10.2.0 — 2026-08-26
+
+- **`env` is judged by whether it was handed a command, not by whether an option follows it.**
+  The command rail strips `env` as a transparent prefix, and it decided which `env` was a
+  prefix by looking at one word: anything starting with `-` meant a dump. So
+  `env -u AMH_REMOTE bash scripts/session-start.sh` — a command that unsets one name and
+  prints nothing — was refused with a reason asserting it dumped the environment. POSIX
+  spells the real distinction: `env [-i] [name=value]... [utility [argument...]]` prints the
+  environment when, and only when, no utility operand follows. The rail now walks `env`'s own
+  options and assignments and asks that question instead.
+- **The false positive was in this repository's own shipped fixture suite**, which runs that
+  exact spelling to test the bootstrap. It escaped because the suite runs it in a subshell
+  rather than through the hook — a rail's false positive can be invisible to the very suite
+  that exercises the rail. The spelling is now pinned as an allow case.
+- **Two commands changed the other way, and both were holes.** `env FOO=1` is blocked: with no
+  utility it prints the environment with one name added, which is the dump the rail exists to
+  stop, and the old arm let it through because its dump signal was a leading `-` rather than
+  an absent utility. And `env -u FOO cat .env` was blocked as an `env` dump and is now blocked
+  as the `.env` read it is — which it would not have been at all had the option walk not
+  swallowed `-u`'s argument, since `FOO` would have become the command word.
+- **Long options are matched by ABBREVIATION, which is how `getopt_long` matches them.** This
+  was the review pass's blocker and it was a genuine hole, not a rough edge: the first draft
+  of the walk matched `--unset` and `--chdir` only, so `env --u FOO cat .env` had `--u` read
+  as a plain flag, `FOO` promoted to the command word, and the read behind it went unjudged —
+  while `env --unset FOO cat .env`, the same command three characters longer, blocked.
+  `env --u FOO printenv` defeated the dump arm itself. 10.1.1 blocked every one of these, so
+  shipping the draft would have opened a hole the release was cutting to close.
+- **The option walk's edges are enumerated in the guard header rather than summarised.** The
+  options taking a SEPARATE argument are a list, not a category — `-u`, `-C`, `-P`, `-a` and
+  abbreviations of `--unset`, `--chdir`, `--argv0` — so an `env` carrying one this list does
+  not model would have `env -X VALUE cat .env` judge `VALUE` and miss the read. `env -S 'cat
+  .env'` and `--split-string=` hide the utility inside a string this guard cannot split and
+  get past exactly as `bash -c` does. A missing option argument (`env -u`) is a usage error
+  that runs nothing and fails OPEN, the direction every rail here fails on odd input.
+  `--help` and `--version` print their own text and are not dumps; `--list-signal-handling`
+  prints the handling AND the environment, so it stays one.
+- **`env` with no command stays blocked in every remaining spelling**, `env -i` included — but
+  the reason no longer claims a leak it cannot make. `env -i` and `env -` print an EMPTIED
+  environment and expose nothing; the block reason now says they are stopped with the rest
+  rather than carved out, because carving them out would put the option walk in the business
+  of ruling which dumps come back harmless. 28 self-test rows: 13 fail against 10.1.1, 6 fail
+  if the short-cluster argument-swallowing branch alone is neutered, and 7 fail if the
+  abbreviation match is narrowed to exact spellings.
+
+**Why MINOR** — 10.1.0 is the governing precedent and it points here: it rated itself MINOR
+for "a shipped rail's verdict changes for a real class of commands", and this changes verdicts
+in both directions for real classes. PATCH was drafted first and does not survive its own
+Upgrading section — item 3 below tells an adopter to do something, and PATCH promises they
+need not. MAJOR is out on its own definition rather than by preference: it requires that a
+binding rule changed, and none did. P17, the constitution, the seed and every adopter
+obligation are byte-identical; the commands newly blocked were already forbidden by the rule
+the rail enforces, and the commands newly allowed never violated it. That leaves PATCH-vs-MINOR,
+which is not the ambiguous major-vs-minor call `CONTRIBUTING.md` reserves for the owner, and
+MINOR is the honest side of it: guard coverage grew (**DC-019**).
+
+### Upgrading
+
+1. Copy the shipped scripts and regenerated manifest.
+2. If any of your tooling worked around the old refusal — spelling `env -u FOO cmd` as
+   `FOO= cmd`, or dropping the hook for it — you can drop the workaround.
+3. If you run a bare `env FOO=1` or `env --u NAME` anywhere, it is now blocked, and that is
+   the one thing in this release that can cost you work. Both print the environment. Give
+   `env` the command it was meant to prefix and the guard judges that command instead.
+
 ## 10.1.1 — 2026-08-25
 
 - **The session bootstrap now clears the `.resumed` sibling it had been leaving behind.** The

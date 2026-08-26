@@ -9,9 +9,15 @@
 The AMH meta-repository — source of truth for the Agentic Maintenance Harness and its
 reference instance, which runs byte-identical copies of the scripts it ships. `AGENTS.md`
 describes both and is read in full every session.
-Adopted harness version: **AMH 10.1.1** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 10.2.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
+
+AMH **10.2.0** is prepared on this branch and untagged: a MINOR making the command rail read
+`env` as POSIX defines it — a prefix when handed a utility, a dump when handed none — closing
+the Owner-queue false positive on `env -u VAR cmd` and the `env FOO=1` hole in the same arm.
+The review pass caught a hole 10.1.1 did not have — `--u` IS `--unset` to `getopt_long`, and
+the draft matched only the full spelling (**DC-019**).
 
 AMH **10.1.1** is prepared on this branch and untagged: a PATCH making the bootstrap's advisory
 reset clear the guard's `.resumed` sibling, which it had been leaving behind — so
@@ -55,35 +61,22 @@ mutations — bypasses every local rail. Not machinery yet: an adversarial test 
 earning a narrow rail only if a real session crosses that boundary. No check — nobody but a
 session actually crossing it settles this.
 
-**OPEN — `amh-v10.1.1` is unpublished, and the version call inside 10.1.0 is unconfirmed.**
-The rail change, both changelog entries, the ledger rows and all five lockstep copies are on
-this branch; tagging and publishing are owner steps and were not attempted. Two things need the
-owner, not a command. (a) The tag. Check: `git ls-remote --tags origin refs/tags/amh-v10.1.1` —
-resolved when it prints a ref. (b) **MINOR is a call this session made unilaterally**, under
+**OPEN — `amh-v10.2.0` is unpublished, and the version call inside 10.1.0 is unconfirmed.**
+Every changelog entry, ledger row and lockstep copy is on this branch; tagging and publishing
+are owner steps and were not attempted. Two things need the owner, not a command. (a) The tag.
+Check: `git ls-remote --tags origin refs/tags/amh-v10.2.0` — resolved when it prints a ref.
+Verified 2026-08-26: origin carries `amh-v10.0.0` and nothing later, so 10.0.1, 10.1.0, 10.1.1
+and 10.2.0 all ride inside this train untagged, the way 9.2.0 rode inside 10.0.0 — only the
+head number needs a tag. (b) **10.1.0's MINOR is a call a session made unilaterally**, under
 the standing mandate to decide rather than queue, on a change that removes a rail 7.0.0 shipped
 as MAJOR. This is not an ordinary judgement call: `CONTRIBUTING.md` singles out an ambiguous
 major-vs-minor call as the one place where "guessing is worse than waiting" and routes it here.
 The argument for MINOR, and the honest objection to it, are both in the changelog's "Why MINOR
 and not MAJOR"; the review pass agreed MINOR is the right number and still recorded the process
 override as a finding. Overturn it before tagging if the reasoning does not hold — after the
-tag it is a published promise. 10.0.1 and 10.1.0 never got their own tags and now ride inside
-this train, the same way 9.2.0 rode inside 10.0.0.
-
-**OPEN — the command rail blocks `env -u VAR cmd`, which dumps nothing.** `env` with an
-assignment or a bare command is stripped as a transparent prefix, but the `-u` option is not
-recognised, so `env -u AMH_REMOTE bash scripts/session-start.sh` is refused as an environment
-dump. This repository's own shipped fixture suite uses that exact spelling — it only escapes
-because the suite runs it in a subshell rather than through the hook. Same class as **DC-017**:
-a rail rejecting a command it exists to permit. The fix is small (treat `-u NAME`/`-u` the way
-an assignment is treated, then judge what follows) but it is a rail change owed its own unit and
-review pass, and the direction to avoid is stripping `env` so eagerly that a bare `env` or
-`env -i` stops being read as the dump it is. Check:
-`scripts/command-guard.sh --command 'env -u FOO bash x.sh'; echo $?` — resolved when it prints
-0, with `env` and `env -i` still printing 2. **Next unit, startable cold:** edit
-`harness/templates/scripts/command-guard.sh` (never the `scripts/` copy) where `env` is stripped
-as a transparent prefix, add a shipped fixture that fails against today's script, copy down,
-`build-manifest.sh`, then RUNBOOK playbook 2 plus the rule-review pass. Verified still open
-2026-08-26: all four spellings return exactly the values stated above.
+tag it is a published promise. 10.2.0's own MINOR is NOT part of this question: it was decided
+against 10.1.0's precedent with MAJOR ruled out on its definition, so it is PATCH-vs-MINOR,
+which `CONTRIBUTING.md` does not reserve.
 
 **OPEN — `path-refs.sh` may report specific false failures when its file listing comes back
 short.** One full ladder run this session failed it on `` `session-start.sh` `` — a file that
@@ -124,6 +117,13 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-26 — **The command rail stops refusing `env -u VAR cmd` and starts catching
+  `env FOO=1`; shipped as MINOR 10.2.0.** One word after `env` had been deciding prefix-vs-dump,
+  which refused a command that prints nothing — the spelling this repo's own fixture suite runs,
+  escaping only in a subshell — and passed one that dumps. The walk now asks what POSIX asks:
+  was a utility operand supplied. The review pass found the draft's own hole, one 10.1.1 did not
+  have: `--u` is `--unset`, and only the full spelling was matched. Closed the Owner-queue item
+  on its own check (**DC-019**).
 - 2026-08-26 — **10.1.1's review pass landed after a rate-limit interruption; four findings
   applied, no blocker.** Resumed rather than respawned: a pass that never reported is not a pass,
   so this was the unit's FIRST. Two overstated claims corrected in prose and one dead fixture

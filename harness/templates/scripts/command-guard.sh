@@ -61,13 +61,24 @@
 #     hides the read inside the program text and is not.
 #   * WRAPPERS — but read which ones. `check_segment` STRIPS a set of transparent prefixes
 #     and judges what follows, so `sudo cat .env`, `nohup cat .env`, `nice`, `time`,
-#     `command`, `builtin`, `exec` and `env FOO=1 cat .env` ARE blocked (and a bare `env`
-#     or `env -i` is itself a dump, blocked on its own account). What gets past is every
-#     wrapper outside that set: `xargs cat .env`, `timeout 5 cat .env`, `ssh host cat
-#     .env`, `bash -c 'cat .env'`, and any shell function or alias standing in for the
-#     command. Do not read this bullet as "wrappers defeat the guard" — several do not,
-#     and deleting the strip loop because a comment said it was useless would remove real
-#     coverage the self-test asserts.
+#     `command`, `builtin`, `exec` and `env FOO=1 cat .env` ARE blocked. `env` is the one
+#     with an option list, and it is read the way POSIX defines it: given a utility to run
+#     it is a prefix, given none it PRINTS the environment and is blocked on its own
+#     account — so `env`, `env -i`, `env -0`, `env FOO=1` and `env -u FOO` are dumps while
+#     `env -u FOO cmd` and `env -i cmd` are prefixes whose `cmd` is judged. Three shapes of
+#     that option walk are worth naming because they are the honest edges rather than the
+#     rule: `env -S 'cat .env'` and `--split-string=` hide the utility inside a string this
+#     guard cannot split, so they get past exactly as `bash -c` does; `env -u` and the other
+#     missing-argument spellings are usage errors that run nothing and fail OPEN; and the
+#     options that take a SEPARATE argument are a LIST, not a category — `-u`, `-C`, `-P`,
+#     `-a` and long-option abbreviations of `--unset`, `--chdir` and `--argv0`. An option
+#     outside it is read as a flag, so an `env` implementation with one this list does not
+#     model would have `env -X VALUE cat .env` judge `VALUE` and miss the read. What gets
+#     past is otherwise every wrapper outside that set: `xargs cat .env`, `timeout 5 cat .env`,
+#     `ssh host cat .env`, `bash -c 'cat .env'`, and any shell function or alias standing in
+#     for the command. Do not read this bullet as "wrappers defeat the guard" — several do
+#     not, and deleting the strip loop because a comment said it was useless would remove
+#     real coverage the self-test asserts.
 #   * CONSTRUCTED AND ENCODED COMMANDS. `eval`, base64/hex payloads decoded at runtime,
 #     and any command assembled from variables are text at scan time, not commands.
 #   * HEREDOCS AND LONG LINES. `cmd <<EOF` hides its body until the delimiter, and the
@@ -990,6 +1001,105 @@ copies_env_operand() {
 	return 0
 }
 
+# GNU's `getopt_long` accepts any unambiguous ABBREVIATION of a long option, so `--u FOO`
+# IS `--unset FOO` and `--sp 'cat .env'` is `--split-string`. Matching the full spellings
+# alone is not a narrower rail, it is a hole: an abbreviation read as a plain flag hands the
+# option's ARGUMENT to the caller as the utility, so `env --u FOO cat .env` reached the file
+# unjudged while `env --unset FOO cat .env` was blocked — the same command, three characters
+# apart. True of `$1` when it is `--` plus a non-empty prefix of any name in `$2...`, with an
+# `=value` suffix optional. Whether the real `env` would call the abbreviation ambiguous is
+# not modelled: this list is short enough that no two names here share a first letter.
+is_long_opt() {
+	local word=${1#--} name
+	case $word in *=*) word=${word%%=*} ;; esac
+	[ -n "$word" ] || return 1
+	shift
+	for name in "$@"; do
+		case $name in "$word"*) return 0 ;; esac
+	done
+	return 1
+}
+
+# `env` is a transparent prefix only when it is handed a utility to RUN. Handed none it
+# prints the environment instead — POSIX spells it `env [-i] [name=value]... [utility
+# [argument...]]` — so which of the two a command is comes down to walking `env`'s own
+# options and assignments and seeing whether a utility operand is left behind them. The
+# first version of this arm skipped that walk and read any leading `-` as proof of a dump,
+# which refused `env -u AMH_REMOTE bash scripts/session-start.sh` — a command that unsets
+# one name and prints nothing, and the exact spelling the shipped fixture suite runs. Same
+# class as the branch-namespace test one rail over (AMH ledger row DC017): a rail rejecting
+# a command it exists to permit.
+#
+# Sets ENV_PREFIX_WIDTH to the number of leading words that belong to `env` itself, so the
+# caller can step over them. Returns 0 when what follows is something OTHER than the
+# environment — a utility to judge, or an informational option — and 1 when nothing follows,
+# which is the dump. Swallowing the argument of `-u NAME` and its friends is the half that
+# matters for coverage rather than for false positives: without it `env -u FOO cat .env`
+# reads as `env -u FOO` running `FOO`, and the `.env` read walks free.
+env_prefix_width() {
+	local rest takes_arg
+	ENV_PREFIX_WIDTH=0
+	while [ "$#" -gt 0 ]; do
+		takes_arg=1
+		case $1 in
+		--*)
+			# `--help` and `--version` print their own text and exit, never the
+			# environment, so a dump reason would be false about them.
+			# `--split-string` supplies the utility INSIDE its own string — in this
+			# word for the `=` form, in the next for the spaced one — which this guard
+			# cannot split: the accepted miss `bash -c 'cat .env'` already is, not a
+			# dump. Deliberately NOT here: `--list-signal-handling`, which prints the
+			# handling AND the environment, and the optional-argument signal options
+			# (`--block-signal` and friends), whose argument never consumes the next
+			# word. Both are plain flags below, and both are dumps with nothing to run.
+			if is_long_opt "$1" help version split-string; then
+				return 0
+			fi
+			case $1 in
+			*=*) ;; # the argument rides in this word
+			*) is_long_opt "$1" unset chdir argv0 && takes_arg=0 ;;
+			esac
+			;;
+		# A lone `-` (an alias for `-i`), `--`, and assignments.
+		- | *=*) ;;
+		-*)
+			# A short cluster, read left to right the way getopt reads it. The first
+			# letter that takes an argument swallows either the rest of the word
+			# (`-uFOO`) or the word after it (`-iu FOO`). `-u` is GNU's and BSD's,
+			# `-C` GNU's, `-P` BSD's; `-a`/`--argv0` is newer GNU and coreutils 9.4
+			# rejects it outright. Listing one that does not exist costs nothing — the
+			# command is a usage error that runs nothing either way — while omitting
+			# one that does hands its argument to the guard as the utility, so the
+			# list leans long on purpose. `-S` is out: read as a plain flag it leaves
+			# its command string as the next word, which is the answer above.
+			rest=${1#-}
+			while [ -n "$rest" ]; do
+				case $rest in
+				[uCPa])
+					takes_arg=0
+					break
+					;;
+				[uCPa]*) break ;;
+				*) rest=${rest#?} ;;
+				esac
+			done
+			;;
+		*) return 0 ;;
+		esac
+		ENV_PREFIX_WIDTH=$((ENV_PREFIX_WIDTH + 1))
+		shift
+		[ "$takes_arg" -eq 0 ] || continue
+		# The option's argument is the next word, never the utility. Nothing there is a
+		# usage error that runs nothing (`env -u`), which is the fail-OPEN direction:
+		# your input is strange, and a block reason claiming it printed the environment
+		# would be false about a command that printed nothing at all.
+		[ "$#" -gt 0 ] || return 0
+		ENV_PREFIX_WIDTH=$((ENV_PREFIX_WIDTH + 1))
+		shift
+	done
+	return 1
+}
+
 check_segment() {
 	local raw=$1
 	local words=() i=0 w
@@ -1039,17 +1149,19 @@ check_segment() {
 		*=*) i=$((i + 1)) ;;
 		sudo | nohup | nice | time | command | builtin | exec) i=$((i + 1)) ;;
 		env)
-			# `env` with an assignment or a command after it is a prefix, not a dump.
-			if [ $((i + 1)) -lt "${#words[@]}" ]; then
-				case ${words[$((i + 1))]} in
-				-*)
-					BLOCK_REASON="\`env\` dumps the session environment, which carries credentials (AMH P17). Report key PRESENCE only, e.g. \`[ -n \"\${MY_KEY:-}\" ] && echo set\`."
-					return 1
-					;;
-				*) i=$((i + 1)) ;;
-				esac
+			# `env` handed something to run is a prefix; handed nothing it is the dump.
+			# `env_prefix_width` above is where that distinction is drawn and argued.
+			local env_rest=("${words[@]:$((i + 1))}")
+			if env_prefix_width ${env_rest[@]+"${env_rest[@]}"}; then
+				i=$((i + 1 + ENV_PREFIX_WIDTH))
 			else
-				BLOCK_REASON="\`env\` dumps the session environment, which carries credentials (AMH P17). Report key PRESENCE only, e.g. \`[ -n \"\${MY_KEY:-}\" ] && echo set\`."
+				# `env -i` and `env -` print an EMPTIED environment and expose
+				# nothing, so the credentials clause would be false about them. They
+				# are still stopped, and the reason says why rather than asserting a
+				# leak: carving them out would put the option walk in the business of
+				# ruling which dumps happen to come back harmless, and nothing needs
+				# either spelling without a command after it.
+				BLOCK_REASON="\`env\` with no command to run prints the environment instead of prefixing one, and this session's carries credentials (AMH P17). Report key PRESENCE only, e.g. \`[ -n \"\${MY_KEY:-}\" ] && echo set\`. \`env -i\` and \`env -\` print an emptied one and are stopped with the rest rather than carved out. Give \`env\` the command it was meant to prefix — \`env -u FOO cmd\`, \`env FOO=1 cmd\` — and this guard judges \`cmd\`."
 				return 1
 			fi
 			;;
@@ -2431,6 +2543,33 @@ self_test() {
 	st_blocked "git push origin refs/heads/$DEFAULT_BRANCH"
 	st_blocked 'env'
 	st_blocked 'env -0'
+	# `env` handed no utility prints the environment WHATEVER its options did to it, so
+	# each of these is a dump: `-i` empties it first, `-u` drops one name, an assignment
+	# adds one. The last was allowed until 10.1.2 — the arm read a leading `-` as the
+	# dump signal, so a leading assignment was read as a prefix with nothing prefixed.
+	st_blocked 'env -i'
+	st_blocked 'env -u AMH_REMOTE'
+	st_blocked 'env FOO=1'
+	st_blocked 'env --unset AMH_REMOTE'
+	# ...and the argument of an option that takes one is never the utility. Read `-u`
+	# as a bare flag and `AMH_REMOTE` becomes the command word, which is a name this
+	# guard has nothing to say about — the `.env` read behind it would walk free.
+	st_blocked 'env -u AMH_REMOTE cat .env'
+	st_blocked 'env -C /tmp cat .env'
+	st_blocked 'env -iu AMH_REMOTE cat .env'
+	st_blocked 'env -uAMH_REMOTE cat .env'
+	st_blocked 'env --unset=AMH_REMOTE cat .env'
+	st_blocked 'env -u AMH_REMOTE sudo cat .env'
+	# An ABBREVIATED long option is the same option — `getopt_long` says so, and these
+	# were the hole in the first draft of the walk: read as plain flags they handed
+	# `AMH_REMOTE` to the guard as the command word, so the read and the force push
+	# behind it went unjudged while the unabbreviated spellings blocked.
+	st_blocked 'env --u AMH_REMOTE'
+	st_blocked 'env --u AMH_REMOTE cat .env'
+	st_blocked 'env --uns AMH_REMOTE cat .env'
+	st_blocked 'env --u AMH_REMOTE printenv'
+	st_blocked 'env --uns AMH_REMOTE git push --force origin x'
+	st_blocked 'env --chd /tmp cat .env'
 	st_blocked 'printenv'
 	st_blocked 'printenv AWS_SECRET_ACCESS_KEY'
 	st_blocked 'cat .env'
@@ -2840,6 +2979,24 @@ printenv'
 	st_allowed "git push -o ci.skip origin $BRANCH_PREFIX/x"
 	st_allowed "git push --receive-pack git-receive-pack origin $BRANCH_PREFIX/x"
 	st_allowed 'env FOO=1 make test'
+	# The rail's own false positive, and the reason this arm was rewritten: unsetting a
+	# name prints nothing, and this repository's shipped fixture suite runs that exact
+	# spelling. Every form of it was refused before 10.1.2.
+	st_allowed 'env -u AMH_REMOTE bash scripts/session-start.sh'
+	st_allowed 'env -uAMH_REMOTE make test'
+	st_allowed 'env --unset=AMH_REMOTE make test'
+	st_allowed 'env --unset AMH_REMOTE make test'
+	st_allowed 'env -i make test'
+	st_allowed 'env -i FOO=1 make test'
+	st_allowed 'env -C /tmp make test'
+	st_allowed 'env --u AMH_REMOTE make test'
+	st_allowed 'env --version'
+	st_allowed 'env --vers'
+	# An option whose argument is missing is a usage error that runs nothing. "Your input
+	# is strange" fails OPEN, and a block reason saying this printed the environment
+	# would be false about a command that printed nothing at all.
+	st_allowed 'env -u'
+	st_allowed 'env --unset'
 	st_allowed 'FOO=1 make test'
 	st_allowed 'cat .env.example'
 	st_allowed 'cat README.md'

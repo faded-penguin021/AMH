@@ -361,3 +361,19 @@
   fixture that exercises only the file the reset was written for cannot tell the two apart —
   which is why the shipped suite had been green throughout, and why the new fixtures run in
   hook mode, the only path on which the guard writes `.resumed` at all. Shipped as PATCH 10.1.1.
+- DC-019: **A rail that reads one word of a command is judging the spelling, not the command,
+  and both of its errors follow from that.** The command guard decided whether `env` was a
+  transparent prefix or an environment dump by looking at the single word after it: a leading
+  `-` meant dump. So `env -u AMH_REMOTE bash scripts/session-start.sh` was refused although it
+  prints nothing — the DC-017 shape, a rail rejecting a command it exists to permit, and this
+  repository's own shipped fixture suite ran that exact spelling, escaping only because the
+  suite runs it in a subshell rather than through the hook. The same one-word read let
+  `env FOO=1` through, which is a real dump, so the false positive and the hole were one
+  defect with two faces. What replaces it walks `env`'s options and assignments and asks the
+  question POSIX defines — was a utility operand supplied — and the durable lesson is the
+  review pass's blocker rather than the original bug: matching `--unset` but not `--u` left
+  `env --u FOO cat .env` reaching the file unjudged while the three-characters-longer spelling
+  blocked, because `getopt_long` accepts abbreviations and an enumerated option list that
+  models the option's NAME instead of its arity hands the option's argument to the guard as
+  the command word. Shipped as MINOR 10.2.0 on the 10.1.0 precedent for a rail whose verdicts
+  move for a real class of commands, MAJOR ruled out because no binding rule changed.
