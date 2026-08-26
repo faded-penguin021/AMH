@@ -1444,6 +1444,40 @@ else
 	report no "session-start rearms the one-time destructive advisory" "rc=$rc" "$out"
 fi
 
+# The `.resumed` sibling rearms too. The bootstrap's pattern stopped at the slug, so it deleted
+# the advisory state and left the ledger of what a session went ahead with — and both reports
+# built on that file then spanned every session sharing the container. Hook mode is required:
+# the guard writes `.resumed` only on the hook path, so a `--command` fixture cannot see this.
+#
+# Both directions matter and are separately silent. (a) `--advisory-report` must NAME a deletion
+# abandoned in the new session even when the same text was resumed in the old one — with the
+# stale sibling in place it printed nothing at all, which reads exactly like compliance.
+# (b) `--spawn-report` must count only this session's spawns.
+d=$(mk ss_rearms_resumed_sibling)
+hook_cmd() { printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$1"; }
+(cd "$d" && hook_cmd 'rm -rf tmp/build' | scripts/command-guard.sh >/dev/null 2>&1)
+(cd "$d" && hook_cmd 'rm -rf tmp/build' | scripts/command-guard.sh >/dev/null 2>&1) # resumed
+(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh >/dev/null 2>&1)
+(cd "$d" && hook_cmd 'rm -rf tmp/build' | scripts/command-guard.sh >/dev/null 2>&1) # advised, abandoned
+out=$(cd "$d" && scripts/command-guard.sh --advisory-report 2>&1)
+if grep -qF 'tmp/build' <<<"$out"; then
+	report ok "an advisory abandoned after the bootstrap is reported, not hidden by the old session"
+else
+	report no "an advisory abandoned after the bootstrap is reported, not hidden by the old session" "report was: [$out]"
+fi
+
+d=$(mk ss_rearms_spawn_count)
+(cd "$d" && printf '{"tool_name":"Task","tool_input":{}}' | scripts/command-guard.sh --pre-task >/dev/null 2>&1)
+(cd "$d" && printf '{"tool_name":"Task","tool_input":{}}' | scripts/command-guard.sh --pre-task >/dev/null 2>&1) # proceeds
+before=$(cd "$d" && scripts/command-guard.sh --spawn-report 2>/dev/null)
+(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh >/dev/null 2>&1)
+after=$(cd "$d" && scripts/command-guard.sh --spawn-report 2>/dev/null)
+if [ -n "$before" ] && [ -z "$after" ]; then
+	report ok "the spawn count is session-scoped: recorded before the bootstrap, gone after"
+else
+	report no "the spawn count is session-scoped: recorded before the bootstrap, gone after" "before=[$before] after=[$after]"
+fi
+
 # The rearm expands a pattern, and amh.conf is sourced before it runs — so an adopter's
 # `set -f` (or a GLOBIGNORE covering /tmp) would leave the pattern unexpanded and `rm -f`
 # would swallow the literal without a word. A rail switched off in silence by a config key

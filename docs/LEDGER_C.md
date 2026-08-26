@@ -294,3 +294,86 @@
   carries at most one pointer and the first is final, so a wrong verb is unrepairable — while
   the review pass showed the limit was not even true as first written, since new rows are never
   form-checked and a pointer committed off the end of a row left the row exempt forever.
+- DC-015: **A reported collision between the citation rung's id shape and hardware domain
+  constants is real, and none of the three apparent escapes is clean.** `DB-9`, `DA-100`,
+  `DC-12` and `DI-1` all reproduce as unresolved citations against the real ladder in an
+  adopter-shaped tree, and none is a regression — each matched the pre-8.0.0 `D[A-Z]?-[0-9]+`
+  pattern too. Checked again against a tree that HAS marked rows, two of the escapes need a
+  second step nobody documents: `CITATION_SCAN_PATHS=''` empties the citation set and converts
+  every `[cited]` row into a stale-marker failure, and a `CITATION_EXCLUDE` entry reddens the
+  ladder at once whenever the excluded file held the last citation of a marked row. A fixture
+  tree with no marked rows can see neither, so the first pass reported both working from the one
+  tree where they cannot fail. A `LEDGER_PREFIX` key stays refused on the sound legs — any
+  prefix relocates the collision into the adopter's own taxonomy rather than removing it, and
+  P3's incident bar is unmet — never on immutability, since this ledger already spans `D-`,
+  `DA-`, `DB-` and `DC-` at once with nothing renumbered, the patterns being a union. The
+  adopter-facing note this earns is still unwritten: its first draft carried five factual errors
+  and the review pass cut it.
+- DC-016: **The adopter-facing note DC-015 earned is written, and the claim that nearly shipped
+  false is the one INHERITED from a ledger row rather than derived from the code.** DC-015
+  scoped its non-regression finding to four single-capital ids, the draft restated it as a
+  property of the whole class, and DB-007(d) had already recorded that as false — 8.0.0's
+  widening from one capital to any run of them can redden a tree on a file nobody touched,
+  which is why that release was MAJOR. Everything the draft took straight from
+  `guard_citations` survived the pass intact, so the lesson is not "verify claims" but that a
+  citation FEELS verified precisely because a row is standing behind it, and the pass is the
+  only thing checking that the row says what the sentence says. The shape is named in words
+  and never shown, an example id in `amh.conf.example` being a real citation for any adopter
+  who widens their scan paths to the repository root — `shipped-citations.sh`'s own trap one
+  file further out, and its globs do not reach this one. Shipped as PATCH 10.0.1 on 6.0.1's
+  precedent: optional prose beside a key, changing no verdict for an adopter who skips it.
+  The owner lifted this session's standing no-subagent instruction (2026-08-25) so the
+  mandatory pass could run and directed that forks be settled rather than queued, being
+  asleep; the PATCH call and carrying the version bump inside this unit are both that, noted
+  because nothing else would show they were decided unilaterally.
+- DC-017: **A rail that asks for something it cannot see gets its question changed, not its
+  wording — and the row that predicted this one was already in the ledger.** The command
+  guard's push scanner required one ref under `BRANCH_PREFIX/` from 7.0.0 (DB-035, narrowed by
+  DB-036) and blocked a correctly assigned `claude/<codename>` branch, after DA-022 declined a
+  prefix guard elsewhere on reasoning that transfers verbatim and P13 made the same conclusion
+  standing instruction for the `--pre-push` rail in the SAME script — two rails contradicting
+  each other for four majors, both self-tests green. Fixtures cannot see that class: a
+  self-test matrix proves a rail does what its author asked, never that the question was
+  answerable. Swapping one broad test for narrow ones is where the cost lands and it has to be
+  measured rather than reasoned — a differential over 844 push spellings found the first draft
+  had opened `heads/main`, a live path to the default branch the retired namespace test was
+  closing by accident, in a draft whose own prose claimed the default branch was denied.
+  DB-035 and DB-036 carry `Corrected by DC-017.` meaning different things: DB-036's stale
+  detail is one clause, while DB-035's headline principle is what this row contradicts and only
+  its PR-template and Stop-hook halves still stand, so there the verb is the least-bad of the
+  two permitted rather than a fit. Shipped as MINOR 10.1.0, decided by the session under a
+  standing owner mandate over `CONTRIBUTING.md`'s clause reserving an ambiguous
+  major-vs-minor call to the owner, noted because the DC-016 precedent covered a PATCH and
+  stretching one silently is how a bar dissolves.
+- DC-018: **A cleanup that deletes a file but not its sibling turns a report into a lie, and the
+  lie is silence.** `session-start.sh` reset the command guard's advisory state with a pattern
+  ending at the repository slug, so the guard's `.resumed` ledger survived every bootstrap and
+  both reports built on it spanned the container rather than the session. The visible symptom
+  was `--spawn-report` counting spawns from sessions long gone; the one that mattered was
+  `--advisory-report`, which went SILENT about a deletion advised and abandoned in this session
+  whenever the same command text had been resumed in an earlier one — an empty report being
+  indistinguishable from compliance, which is the precise failure P13 built that report to end.
+  The fix enumerates the two names rather than widening the pattern to `<slug>*`, because this
+  function's own "erasing one too many is harmless" argument holds for the state file, where an
+  early rearm costs one extra prompt, and inverts for `.resumed`, where over-reach erases a
+  NEIGHBOURING repository's record — `/home/user/AMH*` matches `/home/user/AMH-fork`. Durable
+  lesson beyond the glob: when a mechanism writes a set of files, the reset owes the SET, and a
+  fixture that exercises only the file the reset was written for cannot tell the two apart —
+  which is why the shipped suite had been green throughout, and why the new fixtures run in
+  hook mode, the only path on which the guard writes `.resumed` at all. Shipped as PATCH 10.1.1.
+- DC-019: **A rail that reads one word of a command is judging the spelling, not the command,
+  and both of its errors follow from that.** The command guard decided whether `env` was a
+  transparent prefix or an environment dump by looking at the single word after it: a leading
+  `-` meant dump. So `env -u AMH_REMOTE bash scripts/session-start.sh` was refused although it
+  prints nothing — the DC-017 shape, a rail rejecting a command it exists to permit, and this
+  repository's own shipped fixture suite ran that exact spelling, escaping only because the
+  suite runs it in a subshell rather than through the hook. The same one-word read let
+  `env FOO=1` through, which is a real dump, so the false positive and the hole were one
+  defect with two faces. What replaces it walks `env`'s options and assignments and asks the
+  question POSIX defines — was a utility operand supplied — and the durable lesson is the
+  review pass's blocker rather than the original bug: matching `--unset` but not `--u` left
+  `env --u FOO cat .env` reaching the file unjudged while the three-characters-longer spelling
+  blocked, because `getopt_long` accepts abbreviations and an enumerated option list that
+  models the option's NAME instead of its arity hands the option's argument to the guard as
+  the command word. Shipped as MINOR 10.2.0 on the 10.1.0 precedent for a rail whose verdicts
+  move for a real class of commands, MAJOR ruled out because no binding rule changed.

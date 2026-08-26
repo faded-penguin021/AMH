@@ -1,8 +1,17 @@
 name: ladder
 
 on:
+  # `main` only, not `"**"`. Every session branch is also a PR branch here, so `"**"` ran the
+  # whole matrix TWICE for one commit — once for the push, once for the pull_request event —
+  # and the second run verified a tree the first had already verified. What this gives up is
+  # real and is the reason the narrowing is stated rather than assumed: a session branch pushed
+  # WITHOUT a PR now gets no CI at all. Under MERGE_MODE=branch-train that is most intermediate
+  # pushes, since one PR covers a whole train. The backstop is that the ladder is the single
+  # entrypoint (AMH P4) and every session runs it before committing — CI re-runs the same
+  # command, it does not add one. Prefer a concurrency group over this if that trade ever stops
+  # being worth it.
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
   # Called by release.yml rather than copied into it. The environment around the ladder —
   # full-history checkout, shellcheck — is as load-bearing as the ladder invocation itself,

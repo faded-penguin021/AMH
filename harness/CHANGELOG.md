@@ -11,6 +11,213 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 10.2.0 — 2026-08-26
+
+- **`env` is judged by whether it was handed a command, not by whether an option follows it.**
+  The command rail strips `env` as a transparent prefix, and it decided which `env` was a
+  prefix by looking at one word: anything starting with `-` meant a dump. So
+  `env -u AMH_REMOTE bash scripts/session-start.sh` — a command that unsets one name and
+  prints nothing — was refused with a reason asserting it dumped the environment. POSIX
+  spells the real distinction: `env [-i] [name=value]... [utility [argument...]]` prints the
+  environment when, and only when, no utility operand follows. The rail now walks `env`'s own
+  options and assignments and asks that question instead.
+- **The false positive was in this repository's own shipped fixture suite**, which runs that
+  exact spelling to test the bootstrap. It escaped because the suite runs it in a subshell
+  rather than through the hook — a rail's false positive can be invisible to the very suite
+  that exercises the rail. The spelling is now pinned as an allow case.
+- **Two commands changed the other way, and both were holes.** `env FOO=1` is blocked: with no
+  utility it prints the environment with one name added, which is the dump the rail exists to
+  stop, and the old arm let it through because its dump signal was a leading `-` rather than
+  an absent utility. And `env -u FOO cat .env` was blocked as an `env` dump and is now blocked
+  as the `.env` read it is — which it would not have been at all had the option walk not
+  swallowed `-u`'s argument, since `FOO` would have become the command word.
+- **Long options are matched by ABBREVIATION, which is how `getopt_long` matches them.** This
+  was the review pass's blocker and it was a genuine hole, not a rough edge: the first draft
+  of the walk matched `--unset` and `--chdir` only, so `env --u FOO cat .env` had `--u` read
+  as a plain flag, `FOO` promoted to the command word, and the read behind it went unjudged —
+  while `env --unset FOO cat .env`, the same command three characters longer, blocked.
+  `env --u FOO printenv` defeated the dump arm itself. 10.1.1 blocked every one of these, so
+  shipping the draft would have opened a hole the release was cutting to close.
+- **The option walk's edges are enumerated in the guard header rather than summarised.** The
+  options taking a SEPARATE argument are a list, not a category — `-u`, `-C`, `-P`, `-a` and
+  abbreviations of `--unset`, `--chdir`, `--argv0` — so an `env` carrying one this list does
+  not model would have `env -X VALUE cat .env` judge `VALUE` and miss the read. `env -S 'cat
+  .env'` and `--split-string=` hide the utility inside a string this guard cannot split and
+  get past exactly as `bash -c` does. A missing option argument (`env -u`) is a usage error
+  that runs nothing and fails OPEN, the direction every rail here fails on odd input.
+  `--help` and `--version` print their own text and are not dumps; `--list-signal-handling`
+  prints the handling AND the environment, so it stays one.
+- **`env` with no command stays blocked in every remaining spelling**, `env -i` included — but
+  the reason no longer claims a leak it cannot make. `env -i` and `env -` print an EMPTIED
+  environment and expose nothing; the block reason now says they are stopped with the rest
+  rather than carved out, because carving them out would put the option walk in the business
+  of ruling which dumps come back harmless. 28 self-test rows: 13 fail against 10.1.1, 6 fail
+  if the short-cluster argument-swallowing branch alone is neutered, and 7 fail if the
+  abbreviation match is narrowed to exact spellings.
+
+**Why MINOR** — 10.1.0 is the governing precedent and it points here: it rated itself MINOR
+for "a shipped rail's verdict changes for a real class of commands", and this changes verdicts
+in both directions for real classes. PATCH was drafted first and does not survive its own
+Upgrading section — item 3 below tells an adopter to do something, and PATCH promises they
+need not. MAJOR is out on its own definition rather than by preference: it requires that a
+binding rule changed, and none did. P17, the constitution, the seed and every adopter
+obligation are byte-identical; the commands newly blocked were already forbidden by the rule
+the rail enforces, and the commands newly allowed never violated it. That leaves PATCH-vs-MINOR,
+which is not the ambiguous major-vs-minor call `CONTRIBUTING.md` reserves for the owner, and
+MINOR is the honest side of it: guard coverage grew (**DC-019**).
+
+### Upgrading
+
+1. Copy the shipped scripts and regenerated manifest.
+2. If any of your tooling worked around the old refusal — spelling `env -u FOO cmd` as
+   `FOO= cmd`, or dropping the hook for it — you can drop the workaround.
+3. If you run a bare `env FOO=1` or `env --u NAME` anywhere, it is now blocked, and that is
+   the one thing in this release that can cost you work. Both print the environment. Give
+   `env` the command it was meant to prefix and the guard judges that command instead.
+
+## 10.1.1 — 2026-08-25
+
+- **The session bootstrap now clears the `.resumed` sibling it had been leaving behind.** The
+  command guard writes a state file for every advisory category and, for the two that keep one —
+  destructive and subagent — a `.resumed` ledger of what a session went ahead with; and
+  `session-start.sh`'s cleanup pattern stopped at the repository slug, so it deleted the state
+  and never the sibling. Both reports built on that file therefore spanned every session that
+  shared the container.
+- **The `--advisory-report` half is the one that mattered.** A deletion advised and then
+  ABANDONED in this session printed nothing at all whenever the same command text had been
+  resumed in an earlier one — and printing nothing is exactly what compliance looks like.
+  Reproduced end to end: with the old bootstrap the report came back empty, with the new one
+  it names the abandoned command. `--spawn-report` was the visible symptom: it counted spawns
+  from sessions long gone.
+- **The pattern was NOT widened to `<slug>*`, and the reason is worth keeping.** That would
+  have reached the sibling, and it also reaches a neighbouring repository — `/home/user/AMH*`
+  matches `/home/user/AMH-fork`. The "wide is safe" argument this function already carries
+  holds for the state file, where an early rearm costs one extra prompt, and INVERTS for
+  `.resumed`, where erasing another repository's copy destroys the record of what its sessions
+  did. The two names are enumerated instead, and the comment says a new sibling suffix in the
+  guard needs a new entry here.
+- **Two shipped fixtures, both in hook mode**, because the guard writes `.resumed` only on the
+  hook path and no `--command` fixture can see any of this.
+
+### Upgrading
+
+1. Copy the shipped scripts and regenerated manifest. Nothing else is required.
+2. Your existing `/tmp/amh-command-guard-*-advisory-*.resumed` files are stale from before this
+   fix; the first bootstrap after upgrading removes those belonging to your repository — there
+   may be two, one destructive and one subagent. Until then, treat a `--spawn-report` count as
+   spanning sessions.
+
+## 10.1.0 — 2026-08-25
+
+- **The push rail stops checking the branch NAMESPACE, and checks the push instead.** Since
+  7.0.0 `git push` had to name one ref under `<BRANCH_PREFIX>/`, and that rail blocked a
+  correctly assigned `claude/<codename>` branch in this repository. P13 tells the `--pre-push`
+  rail to "carry NO branch-prefix check: the harness assigns session branch names the
+  repository may not itself prefix, so a prefix rail here rejects the very branches it exists
+  to protect", and **DA-022** had already declined a prefix guard on that same reasoning
+  before 7.0.0 built one for `git push` anyway. The two rails in one script have contradicted
+  each other ever since, both self-tests green.
+- **What the rail denies now is what it can actually read.** The default branch in each of the
+  three spellings git resolves to it (`main`, `heads/main`, `refs/heads/main`, on either side
+  of a colon); force; deletion (`--delete` and the `:branch` refspec alike); an explicit
+  `refs/tags/` push; the two unresolvable destinations `HEAD` and `@`; and a second ref. Each
+  is a fact of the command in front of it. "Is this branch name the one the repository
+  sanctions" is not: the rail cannot tell a name the harness assigned from one the agent
+  invented, and P13's answer when a rail asks for something it cannot see is to change what it
+  asks for.
+- **The coverage this loses is enumerated, not summarised.** The namespace test had been
+  stopping several things as a side effect of stopping everything unfamiliar. Three survive as
+  accepted misses, listed in the guard's own "what this guard does NOT catch" block: one
+  explicitly named off-convention branch (`git push -u origin work` — a real incident from a
+  real session, and why 7.0.0 built the check), a tag named without the `refs/` prefix
+  (`git push origin v1`, `tags/v1`), and malformed refspecs, which fail open like every odd
+  command. Only the first is new policy; the tag case is covered instead by the `--pre-push`
+  rail, which sees git's resolved ref and therefore catches every spelling.
+- **Tagging gained a rail it never had.** Both rails now deny a tag push outright, because
+  release and tag actions are owner steps in the constitution and were previously stopped only
+  by the namespace test, by accident. The flag rail reads `refs/tags/…` only; the git-native
+  `--pre-push` rail catches the bare and `tags/…` spellings too.
+- **A fixture that had never tested its own comment was found by the removal.** `st_blocked
+  "git push -u origin <default>tenance"`, commented as the check that a branch merely
+  CONTAINING the default branch name is not the default branch, was denied by the namespace
+  test before the default-branch patterns were ever consulted about the substring. It is now
+  an allow case, and the block direction is pinned separately. That is the durable half: a
+  fixture can pass for the wrong reason for as long as a broader check sits upstream of it.
+
+**Why MINOR and not MAJOR** — 7.0.0 shipped this same rail as a MAJOR with an Upgrading step
+("rename or recreate in-flight branches"), so symmetry argues for MAJOR here. It does not
+hold: the number promises an adopter's workload, and the two directions are not symmetric.
+7.0.0 made branches un-pushable, which is work. This makes nothing un-pushable — measured, not
+asserted: 844 push spellings were run through both versions and no command allowed at 10.0.1
+is denied at 10.1.0. No rule an adopter follows becomes wrong, and the naming discipline is
+unchanged and still binding in their constitution. Nothing to do is the MINOR/PATCH bar, and a
+shipped rail's verdict changing for a real class of commands is more than the "clarification or
+fix" PATCH covers. Read the honest objection too: MINOR's definition is *additive*, and
+removing guard behaviour fits MINOR by its consequence column rather than its meaning column.
+`CONTRIBUTING.md` routes an ambiguous major-vs-minor call to the Owner queue rather than
+letting a session settle it; this one was settled by the session under a standing owner mandate
+to decide rather than queue, and it is the owner's to overturn before the tag is cut
+(**DC-017**).
+
+### Upgrading
+
+1. Copy the shipped scripts and regenerated manifest.
+2. Nothing is required of you. But if you were relying on the rail to hold your branch naming,
+   note that it no longer does: an agent that pushes one explicitly named off-convention branch
+   is now stopped by your constitution and your reviewer, not by a block. Check that your
+   constitution still carries the clause — in the shipped seed it reads "Develop and push
+   **only** on your session's assigned `{{BRANCH_PREFIX}}/<codename>` branch", which in your
+   instantiated copy has your own prefix substituted in.
+3. If your harness assigns branch names outside your `BRANCH_PREFIX`, this release is the one
+   that stops blocking them, and you can drop any local workaround you cut for that.
+4. If your adopted constitution left `{{TAGGING_RULE}}` unfilled, fill it now. Tag pushes were
+   being stopped by the namespace test as a side effect; they are stopped by a real rail from
+   this release, but the prose that says *why* is yours to write.
+
+## 10.0.1 — 2026-08-25
+
+- **The citation rung's collision with your own constants is documented where the keys are.**
+  A constant of yours wearing the ledger-id shape — a capital D, any run of capitals, a
+  hyphen, digits — is read as a citation and fails the rung with "no such ledger row" for an
+  id nobody ever cited. The shipped `amh.conf.example` now names the class beside
+  `CITATION_SCAN_PATHS` and `CITATION_EXCLUDE`, gives a locating command that honours both
+  keys, and states what each of the three ways out actually costs.
+- **Two of those costs were undocumented, and are why the note exists.** Excluding the file
+  drops the WHOLE file from the scan, so a row whose last citation lived there goes
+  stale-marker red the moment you exclude it. Emptying `CITATION_SCAN_PATHS` empties the
+  citation set, which turns EVERY `[cited]` row into a stale marker at once — so "just turn
+  the rung off" is a ledger-wide edit, not a one-line one. Each needs a second step nobody
+  had written down.
+- **No behaviour changed, and the note is careful about whose fault your red is.** The rung,
+  the pattern and both keys are byte-identical to 10.0.0. But the class splits in two and the
+  note says so: a one-capital constant collided before 8.0.0 as well, while a multi-capital
+  one is a genuine 8.0.0 regression — that release widened the pattern from at most one
+  capital to any run of them, which can redden a tree on a file nobody touched. That break
+  was recorded at the time and is why 8.0.0 was rated MAJOR; telling an adopter it was always
+  their standing cost would have been false.
+- **A `LEDGER_PREFIX` key stays refused** — on relocation, not on immutability. Any prefix
+  can collide with an adopter's own vocabulary exactly as this one did, so it moves the
+  collision into your taxonomy instead of removing it.
+
+**Why PATCH and not MINOR** — the harder half of the call, since this does add 50-odd lines to
+a template, and MINOR covers "templates you may take or leave". The operative test is whether
+skipping it changes a verdict, and 6.0.1 is the precedent: prose added to a seed preamble and
+to the config template beside a key, no threshold, guard, fixture or exit code touched, shipped
+as PATCH because the clarification was optional and changed no result. This is that shape. No
+key, rule, default or behaviour moved; an adopter who ignores this release gets the same ladder
+verdicts they get today. It is worth a release number at all only because the installer KEEPS
+an existing `amh.conf`, so template wording never reaches an established adopter except through
+the step below.
+
+### Upgrading
+
+1. Nothing is required. If you want the note in your own `amh.conf`, copy the comment block
+   that follows `CITATION_EXCLUDE` in `harness/templates/amh.conf.example`. It changes no
+   value, and an adopter who never meets the collision can skip it.
+2. No shipped script changed in this release. If you re-copy the scripts anyway, take
+   `MANIFEST.sha256` from the same release — its header carries the version, so a manifest
+   and scripts from different releases report drift that is not there.
+
 ## 10.0.0 — 2026-08-25
 
 - **Ledger rows are immutable, and a correction is a new row plus a pointer.** Every volume

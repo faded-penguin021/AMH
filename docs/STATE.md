@@ -9,13 +9,32 @@
 The AMH meta-repository — source of truth for the Agentic Maintenance Harness and its
 reference instance, which runs byte-identical copies of the scripts it ships. `AGENTS.md`
 describes both and is read in full every session.
-Adopted harness version: **AMH 10.0.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 10.2.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-AMH **10.0.0** is prepared on this branch but not yet tagged or published. The train carries
-two changelog entries: 9.2.0, the working-memory relocation (**DC-013**), and 10.0.0, the
-ledger correction rules below.
+AMH **10.2.0** is prepared on this branch and untagged: a MINOR making the command rail read
+`env` as POSIX defines it — a prefix when handed a utility, a dump when handed none — closing
+the Owner-queue false positive on `env -u VAR cmd` and the `env FOO=1` hole in the same arm.
+The review pass caught a hole 10.1.1 did not have — `--u` IS `--unset` to `getopt_long`, and
+the draft matched only the full spelling (**DC-019**).
+
+AMH **10.1.1** is prepared on this branch and untagged: a PATCH making the bootstrap's advisory
+reset clear the guard's `.resumed` sibling, which it had been leaving behind — so
+`--advisory-report` stops going silent about a deletion abandoned this session and
+`--spawn-report` stops counting the container (**DC-018**).
+
+AMH **10.1.0** is prepared on this branch and untagged: a MINOR removing the command rail's
+branch-namespace check, which had blocked a correctly assigned `claude/<codename>` branch —
+the shape **DA-022** declined to guard, and which P13 states as standing instruction for the
+`--pre-push` rail in the same script (**DC-017**). The rail now denies every spelling git
+resolves to the default branch, force, deletion, an explicit `refs/tags/` push, the two
+unresolvable destinations `HEAD` and `@`, and a second ref. Three misses are enumerated in the
+guard header, **DB-035**'s `git push -u origin work` among them. The review pass earned its
+keep: the first draft opened `heads/main` as a live path to the default branch while claiming
+in prose that the default branch was denied. 10.0.1 rides inside this train: a PATCH carrying
+the adopter-facing citation-collision note into `harness/templates/amh.conf.example`, with no
+key, rule or behaviour moved (**DC-016**).
 
 Ledger rows are immutable and are never edited in place. A correction is a new row plus one
 appended pointer on the old one — `Superseded by D-NNN.` when the whole row is replaced,
@@ -23,9 +42,6 @@ appended pointer on the old one — `Superseded by D-NNN.` when the whole row is
 the same append; which verb is honest is a judgement the guard cannot check, and that half is
 the reviewer's. The preamble promise to "correct the entry" is gone from all five preambles
 (owner, 2026-08-25). DB-014 now carries `Corrected by DC-011.`
-
-9.1.0 is tagged and published as `amh-v9.1.0`, and its `portability (macos-latest)` job passed
-on the merge commit with the stock-Bash assertion green — which closed the parser watch.
 
 The append-only guard's sanctioned exceptions and draft-row rule are in **DB-008** and
 **DB-013**. The live volume is
@@ -45,11 +61,27 @@ mutations — bypasses every local rail. Not machinery yet: an adversarial test 
 earning a narrow rail only if a real session crosses that boundary. No check — nobody but a
 session actually crossing it settles this.
 
-**OPEN — tag and publish AMH 10.0.0 after this branch merges.** Check:
-`git ls-remote --tags origin refs/tags/amh-v10.0.0` — resolved when it prints the tag.
+**OPEN — `amh-v10.2.0` is unpublished; the version numbers are settled.** Every changelog entry,
+ledger row and lockstep copy is on this branch; tagging and publishing are owner steps and were
+not attempted. Check: `git ls-remote --tags origin refs/tags/amh-v10.2.0` — resolved when it
+prints a ref. Verified 2026-08-26: origin carries `amh-v10.0.0` and nothing later, so 10.0.1,
+10.1.0, 10.1.1 and 10.2.0 all ride inside this train untagged, the way 9.2.0 rode inside 10.0.0
+— only the head number needs a tag. **10.1.0's MINOR was put to the owner** as a unilateral call
+on a change removing a rail 7.0.0 shipped as MAJOR, and the owner confirmed it stands
+(2026-08-26); the number is no longer a question, and the tag is all that is left.
 
-Everything else currently asked has been answered in the rows the Changelog cites; tags through
-9.1.0 are cut and published, and `main`'s protection is repointed at `ladder`.
+**OPEN — `path-refs.sh` may report specific false failures when its file listing comes back
+short.** One full ladder run this session failed it on `` `session-start.sh` `` — a file that
+exists — and it did not reproduce on two clean runs. The guard builds `basenames` from
+`git ls-files` and never checks that the listing succeeded or is non-empty, so section (c) can
+name real citations as broken; its siblings refuse that zero-extraction case explicitly
+(`config-schema.sh`, `version-lockstep.sh`). Unverified — no reproducer yet, which is why this
+is a finding and not a fix.
+
+Everything else currently asked has been answered in the rows the Changelog cites, and `main`'s
+protection is repointed at `ladder`. Tags: 7.0.2, 8.0.0, 9.0.0, 9.1.0 and 10.0.0 are cut and
+published; **9.2.0 has a changelog entry and no tag** — it shipped inside the 10.0.0 train, and
+nothing checks that every changelog version got one.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -67,14 +99,67 @@ re-litigate from.
   provenance-defective scenarios plus their YAML/oracle/report machinery (**DA-026**).
 - **Later refusals:** the top-decile/inverted-gradient warning (**DB-040**, with **DC-003** the
   adopted two-unit alternative); a constitution byte cap (**DB-038**); a Python-write advisory
-  (**DC-007**); the two 2026-08-10 review proposals (**DB-024**); and any guard that opens a file
-  to classify it (**DB-027**).
+  (**DC-007**); the two 2026-08-10 review proposals (**DB-024**); any guard that opens a file
+  to classify it (**DB-027**); and a configurable ledger-id prefix to dodge domain-constant
+  collisions, which relocates the collision into the adopter's taxonomy rather than removing it
+  (**DC-015**).
 
 ## Changelog
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-26 — **CI stops running the whole matrix twice per commit.** `on.push` was `"**"`,
+  which every session branch matches, so each commit was verified once for the push and again
+  for the `pull_request` event; it is now `main` only. The cost is stated in the workflow: an
+  intermediate branch pushed without a PR gets no CI, and the ladder is the backstop. Owner's
+  call, repo-local — the shipped `harness/templates/configs/ci.yml` still carries `"**"`.
+- 2026-08-26 — **The owner confirmed 10.1.0's MINOR, and the train's PR is open.** The
+  unilateral version call on a change removing a rail 7.0.0 shipped as MAJOR stands as MINOR,
+  closing the half of the release item that needed a human; the tag is the remaining half.
+- 2026-08-26 — **The command rail stops refusing `env -u VAR cmd` and starts catching
+  `env FOO=1`; shipped as MINOR 10.2.0.** One word after `env` had been deciding prefix-vs-dump,
+  which refused a command that prints nothing — the spelling this repo's own fixture suite runs,
+  escaping only in a subshell — and passed one that dumps. The walk now asks what POSIX asks:
+  was a utility operand supplied. The review pass found the draft's own hole, one 10.1.1 did not
+  have: `--u` is `--unset`, and only the full spelling was matched. Closed the Owner-queue item
+  on its own check (**DC-019**).
+- 2026-08-26 — **10.1.1's review pass landed after a rate-limit interruption; four findings
+  applied, no blocker.** Resumed rather than respawned: a pass that never reported is not a pass,
+  so this was the unit's FIRST. Two overstated claims corrected in prose and one dead fixture
+  line removed (**DC-018**). macOS Bash 3.2 stays unexecuted here.
+- 2026-08-25 — **The bootstrap stops leaving the guard's `.resumed` ledger behind; PATCH
+  10.1.1.** The advisory reset's pattern ended at the repository slug, so it cleared the state
+  file and never its sibling — and `--advisory-report`, whose job is to make an abandoned
+  deletion visible, printed NOTHING for one abandoned this session whenever the same command
+  text had been resumed in an earlier one. `--spawn-report` counting the container was the
+  visible half. Enumerated rather than widened to `<slug>*`, which reaches a neighbouring
+  repository; two fixtures, both in hook mode, the only path that writes the file. That closed
+  the Owner-queue item on the spawn count (**DC-018**).
+- 2026-08-25 — **The push rail stops policing the branch name and polices the push; shipped as
+  MINOR 10.1.0.** The namespace check blocked a correctly assigned `claude/<codename>` branch,
+  which is what **DA-022** refused before 7.0.0 built it and what P13 tells the `--pre-push`
+  rail in the same script to avoid — the two rails had disagreed for four majors with both
+  self-tests green. What replaces it is the readable facts, and a differential over 844 push
+  spellings is what proved the swap complete: the first draft had opened `heads/main`, which
+  the review pass caught. Tag pushes gained a real rail, three misses are enumerated in the
+  guard header, and **DB-035**/**DB-036** each carry `Corrected by DC-017.` A fixture that had
+  never tested its own comment was found by the removal (**DC-017**).
+- 2026-08-25 — **The adopter-facing citation-collision note is written, and ships as PATCH
+  10.0.1.** `amh.conf.example` now names the class beside the two citation keys, gives a
+  locating command that honours both, and prices all three escapes — including the two second
+  steps **DC-015** found undocumented. The shape is named in words and never shown: an example
+  id would be read as a citation by the very scan the note describes. The review pass caught
+  the one claim the draft inherited from DC-015 instead of deriving it — a multi-capital
+  constant IS an 8.0.0 regression, as **DB-007**(d) recorded (**DC-016**).
+- 2026-08-25 — **A citation-guard collision was reported, reproduced, and found to have no clean
+  escape.** `DB-9`-shaped domain constants fail the citation rung in an adopter tree; the class
+  predates the 8.0.0 widening, and two of the three apparent hatches need an undocumented second
+  step. `LEDGER_PREFIX` is refused, on relocation and the incident bar rather than immutability.
+  The adopter-facing note stays unwritten — the review pass cut its first draft (**DC-015**).
+- 2026-08-25 — **10.0.0 is merged and tagged; that queue item closed on its own check.**
+  `git ls-remote --tags origin refs/tags/amh-v10.0.0` prints the tag at `793c744`, the squash
+  commit this branch is cut from, so the release window the banner reports is shut.
 - 2026-08-25 — **10.0.0 confirmed MAJOR by the owner.** The session's reading stands: the
   append-only guard is repo-local and unshipped, so deleting the in-place-correction clause
   makes a practice adopters could legitimately be following wrong. No version change followed;
