@@ -61,22 +61,14 @@ mutations — bypasses every local rail. Not machinery yet: an adversarial test 
 earning a narrow rail only if a real session crosses that boundary. No check — nobody but a
 session actually crossing it settles this.
 
-**OPEN — `amh-v10.2.0` is unpublished, and the version call inside 10.1.0 is unconfirmed.**
-Every changelog entry, ledger row and lockstep copy is on this branch; tagging and publishing
-are owner steps and were not attempted. Two things need the owner, not a command. (a) The tag.
-Check: `git ls-remote --tags origin refs/tags/amh-v10.2.0` — resolved when it prints a ref.
-Verified 2026-08-26: origin carries `amh-v10.0.0` and nothing later, so 10.0.1, 10.1.0, 10.1.1
-and 10.2.0 all ride inside this train untagged, the way 9.2.0 rode inside 10.0.0 — only the
-head number needs a tag. (b) **10.1.0's MINOR is a call a session made unilaterally**, under
-the standing mandate to decide rather than queue, on a change that removes a rail 7.0.0 shipped
-as MAJOR. This is not an ordinary judgement call: `CONTRIBUTING.md` singles out an ambiguous
-major-vs-minor call as the one place where "guessing is worse than waiting" and routes it here.
-The argument for MINOR, and the honest objection to it, are both in the changelog's "Why MINOR
-and not MAJOR"; the review pass agreed MINOR is the right number and still recorded the process
-override as a finding. Overturn it before tagging if the reasoning does not hold — after the
-tag it is a published promise. 10.2.0's own MINOR is NOT part of this question: it was decided
-against 10.1.0's precedent with MAJOR ruled out on its definition, so it is PATCH-vs-MINOR,
-which `CONTRIBUTING.md` does not reserve.
+**OPEN — `amh-v10.2.0` is unpublished; the version numbers are settled.** Every changelog entry,
+ledger row and lockstep copy is on this branch; tagging and publishing are owner steps and were
+not attempted. Check: `git ls-remote --tags origin refs/tags/amh-v10.2.0` — resolved when it
+prints a ref. Verified 2026-08-26: origin carries `amh-v10.0.0` and nothing later, so 10.0.1,
+10.1.0, 10.1.1 and 10.2.0 all ride inside this train untagged, the way 9.2.0 rode inside 10.0.0
+— only the head number needs a tag. **10.1.0's MINOR was put to the owner** as a unilateral call
+on a change removing a rail 7.0.0 shipped as MAJOR, and the owner confirmed it stands
+(2026-08-26); the number is no longer a question, and the tag is all that is left.
 
 **OPEN — `path-refs.sh` may report specific false failures when its file listing comes back
 short.** One full ladder run this session failed it on `` `session-start.sh` `` — a file that
@@ -117,6 +109,9 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-26 — **The owner confirmed 10.1.0's MINOR, and the train's PR is open.** The
+  unilateral version call on a change removing a rail 7.0.0 shipped as MAJOR stands as MINOR,
+  closing the half of the release item that needed a human; the tag is the remaining half.
 - 2026-08-26 — **The command rail stops refusing `env -u VAR cmd` and starts catching
   `env FOO=1`; shipped as MINOR 10.2.0.** One word after `env` had been deciding prefix-vs-dump,
   which refused a command that prints nothing — the spelling this repo's own fixture suite runs,
