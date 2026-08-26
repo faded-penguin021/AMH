@@ -345,3 +345,19 @@
   standing owner mandate over `CONTRIBUTING.md`'s clause reserving an ambiguous
   major-vs-minor call to the owner, noted because the DC-016 precedent covered a PATCH and
   stretching one silently is how a bar dissolves.
+- DC-018: **A cleanup that deletes a file but not its sibling turns a report into a lie, and the
+  lie is silence.** `session-start.sh` reset the command guard's advisory state with a pattern
+  ending at the repository slug, so the guard's `.resumed` ledger survived every bootstrap and
+  both reports built on it spanned the container rather than the session. The visible symptom
+  was `--spawn-report` counting spawns from sessions long gone; the one that mattered was
+  `--advisory-report`, which went SILENT about a deletion advised and abandoned in this session
+  whenever the same command text had been resumed in an earlier one — an empty report being
+  indistinguishable from compliance, which is the precise failure P13 built that report to end.
+  The fix enumerates the two names rather than widening the pattern to `<slug>*`, because this
+  function's own "erasing one too many is harmless" argument holds for the state file, where an
+  early rearm costs one extra prompt, and inverts for `.resumed`, where over-reach erases a
+  NEIGHBOURING repository's record — `/home/user/AMH*` matches `/home/user/AMH-fork`. Durable
+  lesson beyond the glob: when a mechanism writes a set of files, the reset owes the SET, and a
+  fixture that exercises only the file the reset was written for cannot tell the two apart —
+  which is why the shipped suite had been green throughout, and why the new fixtures run in
+  hook mode, the only path on which the guard writes `.resumed` at all. Shipped as PATCH 10.1.1.

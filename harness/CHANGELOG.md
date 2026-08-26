@@ -11,6 +11,38 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 10.1.1 — 2026-08-25
+
+- **The session bootstrap now clears the `.resumed` sibling it had been leaving behind.** The
+  command guard writes a state file for every advisory category and, for the two that keep one —
+  destructive and subagent — a `.resumed` ledger of what a session went ahead with; and
+  `session-start.sh`'s cleanup pattern stopped at the repository slug, so it deleted the state
+  and never the sibling. Both reports built on that file therefore spanned every session that
+  shared the container.
+- **The `--advisory-report` half is the one that mattered.** A deletion advised and then
+  ABANDONED in this session printed nothing at all whenever the same command text had been
+  resumed in an earlier one — and printing nothing is exactly what compliance looks like.
+  Reproduced end to end: with the old bootstrap the report came back empty, with the new one
+  it names the abandoned command. `--spawn-report` was the visible symptom: it counted spawns
+  from sessions long gone.
+- **The pattern was NOT widened to `<slug>*`, and the reason is worth keeping.** That would
+  have reached the sibling, and it also reaches a neighbouring repository — `/home/user/AMH*`
+  matches `/home/user/AMH-fork`. The "wide is safe" argument this function already carries
+  holds for the state file, where an early rearm costs one extra prompt, and INVERTS for
+  `.resumed`, where erasing another repository's copy destroys the record of what its sessions
+  did. The two names are enumerated instead, and the comment says a new sibling suffix in the
+  guard needs a new entry here.
+- **Two shipped fixtures, both in hook mode**, because the guard writes `.resumed` only on the
+  hook path and no `--command` fixture can see any of this.
+
+### Upgrading
+
+1. Copy the shipped scripts and regenerated manifest. Nothing else is required.
+2. Your existing `/tmp/amh-command-guard-*-advisory-*.resumed` files are stale from before this
+   fix; the first bootstrap after upgrading removes those belonging to your repository — there
+   may be two, one destructive and one subagent. Until then, treat a `--spawn-report` count as
+   spanning sessions.
+
 ## 10.1.0 — 2026-08-25
 
 - **The push rail stops checking the branch NAMESPACE, and checks the push instead.** Since

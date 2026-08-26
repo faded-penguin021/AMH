@@ -9,9 +9,14 @@
 The AMH meta-repository — source of truth for the Agentic Maintenance Harness and its
 reference instance, which runs byte-identical copies of the scripts it ships. `AGENTS.md`
 describes both and is read in full every session.
-Adopted harness version: **AMH 10.1.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 10.1.1** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
+
+AMH **10.1.1** is prepared on this branch and untagged: a PATCH making the bootstrap's advisory
+reset clear the guard's `.resumed` sibling, which it had been leaving behind — so
+`--advisory-report` stops going silent about a deletion abandoned this session and
+`--spawn-report` stops counting the container (**DC-018**).
 
 AMH **10.1.0** is prepared on this branch and untagged: a MINOR removing the command rail's
 branch-namespace check, which had blocked a correctly assigned `claude/<codename>` branch —
@@ -25,19 +30,12 @@ in prose that the default branch was denied. 10.0.1 rides inside this train: a P
 the adopter-facing citation-collision note into `harness/templates/amh.conf.example`, with no
 key, rule or behaviour moved (**DC-016**).
 
-AMH **10.0.0** is merged and published: the train landed as squash commit `793c744` on `main`,
-and `amh-v10.0.0` points at it. It carried two changelog entries: 9.2.0, the working-memory
-relocation (**DC-013**), and 10.0.0, the ledger correction rules below.
-
 Ledger rows are immutable and are never edited in place. A correction is a new row plus one
 appended pointer on the old one — `Superseded by D-NNN.` when the whole row is replaced,
 `Corrected by D-NNN.` when one detail went stale under a principle that still stands. Both are
 the same append; which verb is honest is a judgement the guard cannot check, and that half is
 the reviewer's. The preamble promise to "correct the entry" is gone from all five preambles
 (owner, 2026-08-25). DB-014 now carries `Corrected by DC-011.`
-
-9.1.0 is tagged and published as `amh-v9.1.0`, and its `portability (macos-latest)` job passed
-on the merge commit with the stock-Bash assertion green — which closed the parser watch.
 
 The append-only guard's sanctioned exceptions and draft-row rule are in **DB-008** and
 **DB-013**. The live volume is
@@ -57,10 +55,10 @@ mutations — bypasses every local rail. Not machinery yet: an adversarial test 
 earning a narrow rail only if a real session crosses that boundary. No check — nobody but a
 session actually crossing it settles this.
 
-**OPEN — `amh-v10.1.0` is unpublished, and the version call inside it is unconfirmed.** The
-rail change, the changelog entry, the ledger row and all five lockstep copies are on this
-branch; tagging and publishing are owner steps and were not attempted. Two things need the
-owner, not a command. (a) The tag. Check: `git ls-remote --tags origin refs/tags/amh-v10.1.0` —
+**OPEN — `amh-v10.1.1` is unpublished, and the version call inside 10.1.0 is unconfirmed.**
+The rail change, both changelog entries, the ledger rows and all five lockstep copies are on
+this branch; tagging and publishing are owner steps and were not attempted. Two things need the
+owner, not a command. (a) The tag. Check: `git ls-remote --tags origin refs/tags/amh-v10.1.1` —
 resolved when it prints a ref. (b) **MINOR is a call this session made unilaterally**, under
 the standing mandate to decide rather than queue, on a change that removes a rail 7.0.0 shipped
 as MAJOR. This is not an ordinary judgement call: `CONTRIBUTING.md` singles out an ambiguous
@@ -68,20 +66,24 @@ major-vs-minor call as the one place where "guessing is worse than waiting" and 
 The argument for MINOR, and the honest objection to it, are both in the changelog's "Why MINOR
 and not MAJOR"; the review pass agreed MINOR is the right number and still recorded the process
 override as a finding. Overturn it before tagging if the reasoning does not hold — after the
-tag it is a published promise. 10.0.1 never got its own tag and now rides inside this train,
-the same way 9.2.0 rode inside 10.0.0.
+tag it is a published promise. 10.0.1 and 10.1.0 never got their own tags and now ride inside
+this train, the same way 9.2.0 rode inside 10.0.0.
 
-**OPEN — the ladder's subagent-spawn line says "this session" and counts every session that
-shared the container.** `session-start.sh`'s cleanup glob ends at `$slug`
-(`/tmp/amh-command-guard-*-advisory-$uid-$slug`), so it deletes each advisory state file but
-never its `.resumed` sibling, which is the file `--spawn-report` counts. Reproduced: the trace
-survived a bootstrap run with its mtime untouched and the count unchanged, and it opened this
-session already holding a spawn from the previous one at 17:20:41Z — so this session's own
-reviewer reads as the second of two. Not machinery yet; the fix is a shipped-script change
-(a trailing `*`, or counting only traces newer than the bootstrap) owed its own unit and review
-pass, and the wrong direction would be widening the glob into something that erases more than
-it should. Check: `grep -c 'advisory-"$uid"-"$slug"\*' scripts/session-start.sh` — resolved
-when it prints 1.
+**OPEN — the command rail blocks `env -u VAR cmd`, which dumps nothing.** `env` with an
+assignment or a bare command is stripped as a transparent prefix, but the `-u` option is not
+recognised, so `env -u AMH_REMOTE bash scripts/session-start.sh` is refused as an environment
+dump. This repository's own shipped fixture suite uses that exact spelling — it only escapes
+because the suite runs it in a subshell rather than through the hook. Same class as **DC-017**:
+a rail rejecting a command it exists to permit. The fix is small (treat `-u NAME`/`-u` the way
+an assignment is treated, then judge what follows) but it is a rail change owed its own unit and
+review pass, and the direction to avoid is stripping `env` so eagerly that a bare `env` or
+`env -i` stops being read as the dump it is. Check:
+`scripts/command-guard.sh --command 'env -u FOO bash x.sh'; echo $?` — resolved when it prints
+0, with `env` and `env -i` still printing 2. **Next unit, startable cold:** edit
+`harness/templates/scripts/command-guard.sh` (never the `scripts/` copy) where `env` is stripped
+as a transparent prefix, add a shipped fixture that fails against today's script, copy down,
+`build-manifest.sh`, then RUNBOOK playbook 2 plus the rule-review pass. Verified still open
+2026-08-26: all four spellings return exactly the values stated above.
 
 **OPEN — `path-refs.sh` may report specific false failures when its file listing comes back
 short.** One full ladder run this session failed it on `` `session-start.sh` `` — a file that
@@ -122,6 +124,18 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-26 — **10.1.1's review pass landed after a rate-limit interruption; four findings
+  applied, no blocker.** Resumed rather than respawned: a pass that never reported is not a pass,
+  so this was the unit's FIRST. Two overstated claims corrected in prose and one dead fixture
+  line removed (**DC-018**). macOS Bash 3.2 stays unexecuted here.
+- 2026-08-25 — **The bootstrap stops leaving the guard's `.resumed` ledger behind; PATCH
+  10.1.1.** The advisory reset's pattern ended at the repository slug, so it cleared the state
+  file and never its sibling — and `--advisory-report`, whose job is to make an abandoned
+  deletion visible, printed NOTHING for one abandoned this session whenever the same command
+  text had been resumed in an earlier one. `--spawn-report` counting the container was the
+  visible half. Enumerated rather than widened to `<slug>*`, which reaches a neighbouring
+  repository; two fixtures, both in hook mode, the only path that writes the file. That closed
+  the Owner-queue item on the spawn count (**DC-018**).
 - 2026-08-25 — **The push rail stops policing the branch name and polices the push; shipped as
   MINOR 10.1.0.** The namespace check blocked a correctly assigned `claude/<codename>` branch,
   which is what **DA-022** refused before 7.0.0 built it and what P13 tells the `--pre-push`
