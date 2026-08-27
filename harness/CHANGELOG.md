@@ -11,7 +11,7 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
-## 10.2.1 — 2026-08-27
+## 10.3.0 — 2026-08-27
 
 - **The seed ledger preamble and `amh.conf.example` stopped contradicting each other.** The seed
   said `**Rows are immutable — never edit one in place.**` and offered a correction only as a new
@@ -35,16 +35,17 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   the defect twice. The review pass is what counted them; no guard reaches preamble prose
   (**DC-021**).
 
-**Why PATCH** — no binding rule changed and nothing an adopter runs behaves differently: the
-shipped scripts are byte-identical, the manifest's hash lines are unchanged (only its version
-header moved), and the rule the seed now states completely is the rule it was already enforcing.
-10.2.0's test is the governing one — PATCH does not survive an Upgrading section that tells an
-adopter to do something — and the distinction is that 10.2.0's item imposed a NEW obligation
-(`env FOO=1` newly blocked) while nothing here does: the citation rung has always checked the
-marker in both directions, so a guard that refused the removal was already broken at 10.2.0 and
-item 2 below tells you where to look rather than what to start doing. MINOR was considered on
-"additive template" grounds and refused; this edits existing template prose to say what it
-always meant rather than adding anything you could take or leave (**DC-020**, **DC-021**).
+**Why MINOR — the owner's call, 2026-08-27, over a drafted PATCH.** The session argued PATCH and
+the reasoning is worth keeping because it is half right: no binding rule changed, the shipped
+scripts are byte-identical, the manifest's hash lines are unchanged (only its version header
+moved), and the rule the seed now states completely is the rule the ladder was already enforcing
+— so 10.2.0's governing test, that PATCH does not survive an Upgrading section telling an adopter
+to do something, is arguably survived here, since neither item below is a NEW obligation. What
+the owner weighed heavier is the other definition: the seed template gains a carve-out and a
+caution it did not carry, and template prose an adopter may take or leave is what MINOR names.
+The number a reader can act on beats the number a reader has to reconstruct an argument for, and
+between two defensible numbers the larger one costs an adopter a closer look and nothing else
+(**DC-020**, **DC-021**, **DC-022**).
 
 ### Upgrading
 

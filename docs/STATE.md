@@ -9,15 +9,16 @@
 The AMH meta-repository — source of truth for the Agentic Maintenance Harness and its
 reference instance, which runs byte-identical copies of the scripts it ships. `AGENTS.md`
 describes both and is read in full every session.
-Adopted harness version: **AMH 10.2.1** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 10.3.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-AMH **10.2.1** is this PR's number, picked from the latest tag `amh-v10.2.0` rather than assigned
-mid-branch: a PATCH giving the `[cited]` carve-out to the seed ledger preamble and to this
+AMH **10.3.0** is this PR's number, picked from the latest tag `amh-v10.2.0` rather than assigned
+mid-branch: a MINOR giving the `[cited]` carve-out to the seed ledger preamble and to this
 repository's own five rule-bearing places, so the seed and `harness/templates/amh.conf.example`
 stop giving adopters opposite instructions about the same edit and the reference instance stops
-shipping a correction it had not taken (**DC-020**, **DC-021**).
+shipping a correction it had not taken (**DC-020**, **DC-021**). Drafted as PATCH 10.2.1 and
+raised by the owner (**DC-022**).
 
 AMH **10.2.0** shipped and is tagged: a MINOR making the command rail read
 `env` as POSIX defines it — a prefix when handed a utility, a dump when handed none — closing
@@ -71,7 +72,7 @@ session actually crossing it settles this.
 **OPEN — versioning is decided at PR time against the latest tag, not per unit** (owner,
 2026-08-27). The three "prepared and untagged" paragraphs above — 10.1.0's carrying 10.0.1 as a
 clause — are what the old habit left behind: a version assigned by each unit mid-train, with no
-tag to anchor it. 10.2.1 is the first number picked the new way. No check, and the owner settles
+tag to anchor it. 10.3.0 is the first number picked the new way. No check, and the owner settles
 it: `docs/RUNBOOK.md` playbook 5, the per-unit "shipped as MINOR X.Y.Z" sentences ledger rows
 write, and `scripts/guards/version-lockstep.sh` all still assume the old shape, so this stays
 unverified until the unit that reconciles them lands.
@@ -116,7 +117,7 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-08-27 — **10.2.1: the seed ledger preamble stops contradicting `amh.conf.example`.** The
+- 2026-08-27 — **10.3.0: the seed ledger preamble stops contradicting `amh.conf.example`.** The
   seed said rows are immutable with no carve-out while the shipped config told adopters to drop
   a stale `[cited]` marker; the seed now names the marker as the one in-place edit the rule does
   not cover, and warns that an adopter's own append-only guard must permit it both ways. The tag

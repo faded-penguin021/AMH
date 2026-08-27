@@ -411,3 +411,16 @@
   set of five, which is how the "correct the entry" promise was removed. Nothing detects this,
   because preamble and rule-file prose sits outside every guard's reach and the ladder was green
   over the one-file version. Shipped as PATCH 10.2.1, one bump from the latest tag.
+
+- DC-022: **Between two defensible version numbers the owner takes the larger one, and the
+  drafted argument stays on the record.** The session drafted 10.2.1 as a PATCH — no binding rule
+  changed, the manifest's hash lines unchanged, and neither Upgrading item a new obligation, so
+  10.2.0's governing test was arguably survived. The owner called it MINOR: the seed template
+  gained a carve-out and a caution it had not carried, which is what the changelog's own MINOR
+  definition names, and a number a reader can act on beats one they must reconstruct an argument
+  for. `CONTRIBUTING.md` reserves only the ambiguous major-vs-minor call for the owner, so this
+  one was the session's to make and it made it; the correction cost nothing because the number
+  had not been tagged. The asymmetry is the durable part: the larger number costs an adopter a
+  closer look, the smaller one costs them a missed change, and those are not the same size of
+  mistake. Recorded so the next PATCH-vs-MINOR draft starts from the asymmetry rather than
+  re-deriving it.
