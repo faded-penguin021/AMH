@@ -59,19 +59,20 @@ incident bar usually accepts, and whether the siblings stay, shrink to supabase 
 the tools named as knowingly-absent in the guard header is the owner's call. No check — a list's
 right length is not a thing a command settles.
 
+**OPEN — decide whether the four `Shipped as` rows get a `Corrected by DC-026.` pointer.** The
+review pass called the omission the unit's blocker; the session declined it as the owner's, because
+a row's pointer slot is FINAL and spending four of them on a version number forecloses a later
+correction of the lesson each row carries (**DC-026** argues it, DC-022 is the precedent). The cost
+is real: a reader who greps a row id meets the old number and never reaches the rule. Check:
+`grep -c "Corrected by DC-026" docs/LEDGER_C.md` — four means the appends were made, zero means
+this still stands open.
+
 **OPEN — investigate the forge/API mutation surface as an escape around the local rails.** The
 pre-push rail (DC-009) guards git-CLI pushes only, so an owner-reserved side effect through a
 forge or API surface — `gh pr merge`, `gh release create`, `gh api -X POST`, `curl`/`wget`
 mutations — bypasses every local rail. Not machinery yet: an adversarial test vector per P3/P10,
 earning a narrow rail only if a real session crosses that boundary. No check — nobody but a
 session actually crossing it settles this.
-
-**OPEN — the per-unit version habit is half reconciled** (owner, 2026-08-27, deciding that the
-number is settled at PR time against the latest tag). The machine half is done: CI's
-`pull_request` event runs `scripts/guards/version-lockstep.sh --against-latest-tag`, and playbook
-5 states the rule (**DC-023**). Check: that command with tags fetched — resolved for this half
-when it prints the one-bump line. What is left is prose habit no check reaches — ledger rows
-still write "shipped as MINOR X.Y.Z" mid-train — and whether that wording changes is the owner's.
 
 **OPEN — `path-refs.sh` may report specific false failures when its file listing comes back
 short.** One full ladder run failed it on `` `session-start.sh` `` — a file that exists — and it
@@ -107,6 +108,10 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-27 — **A ledger row records the version it DRAFTED, never one it claims shipped.** The
+  owner closed the prose half of **DC-023**: rows saying "Shipped as" name numbers the remote's tag
+  list does not carry, so new rows assert no release, old ones are read as drafts, and the rule sits
+  in the live volume's preamble and release playbook 5 (**DC-026**).
 - 2026-08-27 — **10.4.0: the destructive rail learned the data plane.** Six database-destroying
   verb shapes across five tools now take the same one-time advisory as `rm -rf`, through a package
   runner as well as bare; the advisory asks for the resolved target because the command names

@@ -46,6 +46,15 @@
 > toward the cap, because shaving buys nothing here. Put larger narratives in `docs/history/`
 > and link them from the `docs/STATE.md` changelog.
 >
+> **A version inside a row is what the session DRAFTED.** Write the number as drafted — `Drafted
+> as MINOR X.Y.Z` — and assert no release: the number is settled at PR time against the latest
+> tag, so one written mid-train is routinely never published, and "shipped", "published" and
+> "released" are the same claim (**DC-023**, **DC-026**, owner 2026-08-27). Rows committed before
+> this rule say `Shipped as` for numbers no tag carries; they are immutable, and they were
+> deliberately left without a `Corrected by` pointer, so read the number in one as the draft it
+> was — **DC-026** carries that trade and its cost. What a train actually published is in the
+> `docs/STATE.md` changelog's train lines, which is the index to read when a row's number matters.
+>
 > **File cap & rollover.** This file holds at most `LEDGER_LINE_CAP` lines from `amh.conf` (the
 > cap bounds LINES, not rows — it is read cost that is being bounded). New rows are capped by
 > `LEDGER_ROW_SENTENCE_CAP`, and beneath that by `LEDGER_ROW_CHAR_CAP`; the guard counts bytes
@@ -473,3 +482,20 @@
   arm without one. This is the mutation discipline the playbook already requires, failing in the
   direction nobody checks — not "does the fixture fail when I break the feature" but "does it
   fail when I break each PART of it".
+
+- DC-026: **A row saying "shipped as X" when no `amh-vX` tag exists reports a session's draft as a
+  published release.** DC-023 moved the release number to PR time and left the prose habit open as
+  the owner's call; the owner closed it on 2026-08-27, and `git ls-remote --tags origin` — the
+  question to ask, a session clone routinely carrying no tags at all — answers it for four of the
+  five committed rows that say `Shipped as`: `amh-v10.0.1`, `amh-v10.1.0`, `amh-v10.1.1` and
+  `amh-v10.2.1` do not exist, while the fifth names 10.2.0, which does. New rows state the number
+  as drafted and assert no release at all, the ban being on the claim rather than on one word,
+  since "published" and "released" say the same thing. Those four keep their wording AND get no
+  `Corrected by` pointer: this change did not falsify them, they were never true, a row's single
+  pointer slot is FINAL, and each of the four carries a live principle that may yet need it — the
+  precedent is DC-022, which raised DC-021's number and appended nothing. The cost of that trade
+  is stated rather than hidden, because a reader who greps a row id meets the old number and never
+  reaches this rule, and only a grep for `Shipped as` reaches both — the owner's to overturn, and
+  queued as such. The seed is left alone for playbook 4's reason, that a seed edit reaches existing
+  adopters only as a hand-applied Upgrading step and their runbook has no release playbook to hold
+  the rule — never because adopters tag nothing, which is the population this serves best.
