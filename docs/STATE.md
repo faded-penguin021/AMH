@@ -9,22 +9,28 @@
 The AMH meta-repository — source of truth for the Agentic Maintenance Harness and its
 reference instance, which runs byte-identical copies of the scripts it ships. `AGENTS.md`
 describes both and is read in full every session.
-Adopted harness version: **AMH 10.2.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 10.2.1** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-AMH **10.2.0** is prepared on this branch and untagged: a MINOR making the command rail read
+AMH **10.2.1** is this PR's number, picked from the latest tag `amh-v10.2.0` rather than assigned
+mid-branch: a PATCH giving the `[cited]` carve-out to the seed ledger preamble and to this
+repository's own five rule-bearing places, so the seed and `harness/templates/amh.conf.example`
+stop giving adopters opposite instructions about the same edit and the reference instance stops
+shipping a correction it had not taken (**DC-020**, **DC-021**).
+
+AMH **10.2.0** shipped and is tagged: a MINOR making the command rail read
 `env` as POSIX defines it — a prefix when handed a utility, a dump when handed none — closing
 the Owner-queue false positive on `env -u VAR cmd` and the `env FOO=1` hole in the same arm.
 The review pass caught a hole 10.1.1 did not have — `--u` IS `--unset` to `getopt_long`, and
 the draft matched only the full spelling (**DC-019**).
 
-AMH **10.1.1** is prepared on this branch and untagged: a PATCH making the bootstrap's advisory
+AMH **10.1.1** shipped inside the 10.2.0 tag: a PATCH making the bootstrap's advisory
 reset clear the guard's `.resumed` sibling, which it had been leaving behind — so
 `--advisory-report` stops going silent about a deletion abandoned this session and
 `--spawn-report` stops counting the container (**DC-018**).
 
-AMH **10.1.0** is prepared on this branch and untagged: a MINOR removing the command rail's
+AMH **10.1.0** shipped inside the 10.2.0 tag: a MINOR removing the command rail's
 branch-namespace check, which had blocked a correctly assigned `claude/<codename>` branch —
 the shape **DA-022** declined to guard, and which P13 states as standing instruction for the
 `--pre-push` rail in the same script (**DC-017**). The rail now denies every spelling git
@@ -32,11 +38,12 @@ resolves to the default branch, force, deletion, an explicit `refs/tags/` push, 
 unresolvable destinations `HEAD` and `@`, and a second ref. Three misses are enumerated in the
 guard header, **DB-035**'s `git push -u origin work` among them. The review pass earned its
 keep: the first draft opened `heads/main` as a live path to the default branch while claiming
-in prose that the default branch was denied. 10.0.1 rides inside this train: a PATCH carrying
+in prose that the default branch was denied. 10.0.1 shipped inside the same tag: a PATCH carrying
 the adopter-facing citation-collision note into `harness/templates/amh.conf.example`, with no
 key, rule or behaviour moved (**DC-016**).
 
-Ledger rows are immutable and are never edited in place. A correction is a new row plus one
+Ledger rows are immutable and are never edited in place, except for the ` [cited]` marker, which
+is metadata and is synced in place in both directions. A correction is a new row plus one
 appended pointer on the old one — `Superseded by D-NNN.` when the whole row is replaced,
 `Corrected by D-NNN.` when one detail went stale under a principle that still stands. Both are
 the same append; which verb is honest is a judgement the guard cannot check, and that half is
@@ -61,14 +68,13 @@ mutations — bypasses every local rail. Not machinery yet: an adversarial test 
 earning a narrow rail only if a real session crosses that boundary. No check — nobody but a
 session actually crossing it settles this.
 
-**OPEN — `amh-v10.2.0` is unpublished; the version numbers are settled.** Every changelog entry,
-ledger row and lockstep copy is on this branch; tagging and publishing are owner steps and were
-not attempted. Check: `git ls-remote --tags origin refs/tags/amh-v10.2.0` — resolved when it
-prints a ref. Verified 2026-08-26: origin carries `amh-v10.0.0` and nothing later, so 10.0.1,
-10.1.0, 10.1.1 and 10.2.0 all ride inside this train untagged, the way 9.2.0 rode inside 10.0.0
-— only the head number needs a tag. **10.1.0's MINOR was put to the owner** as a unilateral call
-on a change removing a rail 7.0.0 shipped as MAJOR, and the owner confirmed it stands
-(2026-08-26); the number is no longer a question, and the tag is all that is left.
+**OPEN — versioning is decided at PR time against the latest tag, not per unit** (owner,
+2026-08-27). The three "prepared and untagged" paragraphs above — 10.1.0's carrying 10.0.1 as a
+clause — are what the old habit left behind: a version assigned by each unit mid-train, with no
+tag to anchor it. 10.2.1 is the first number picked the new way. No check, and the owner settles
+it: `docs/RUNBOOK.md` playbook 5, the per-unit "shipped as MINOR X.Y.Z" sentences ledger rows
+write, and `scripts/guards/version-lockstep.sh` all still assume the old shape, so this stays
+unverified until the unit that reconciles them lands.
 
 **OPEN — `path-refs.sh` may report specific false failures when its file listing comes back
 short.** One full ladder run this session failed it on `` `session-start.sh` `` — a file that
@@ -110,6 +116,12 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-27 — **10.2.1: the seed ledger preamble stops contradicting `amh.conf.example`.** The
+  seed said rows are immutable with no carve-out while the shipped config told adopters to drop
+  a stale `[cited]` marker; the seed now names the marker as the one in-place edit the rule does
+  not cover, and warns that an adopter's own append-only guard must permit it both ways. The tag
+  `amh-v10.2.0` is published, so the three untagged-version paragraphs and 10.0.1's clause inside
+  the third are corrected (**DC-020**, **DC-021**).
 - 2026-08-27 — **The append-only guard's HEAD baseline makes committing a bypass.** The citation
   rung orders a stale `[cited]` marker dropped and the guard refuses the removal, but only while
   it is uncommitted, so ledger immutability is a working-tree property and CI checks it not at

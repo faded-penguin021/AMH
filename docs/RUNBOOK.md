@@ -4,7 +4,8 @@ Entry point for changing this repository. Pick the playbook matching your task, 
 names, then do the work. **Code + the guard fixture suite are ground truth**; where any doc
 disagrees with the code, trust the code and fix the doc — except the append-only ledger, whose
 rows are never edited in place: a correction is a new row plus one appended pointer on the old
-one (see any volume preamble for the two verbs).
+one (see any volume preamble for the two verbs). Syncing a row's ` [cited]` marker is the one
+in-place edit that rule does not cover.
 
 ## Where logic lives
 

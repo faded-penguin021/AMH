@@ -13,8 +13,10 @@
 > entries at the bottom, one continuous sequence.
 > Code and fixtures are ground truth: where an entry conflicts with the current code, the code
 > wins and the entry stays exactly as written. **Rows are immutable — never edit one in
-> place.** A correction is a NEW row plus one appended pointer line on the old one, and there
-> are two verbs: `Superseded by D-NNN.` when the whole row is replaced, `Corrected by D-NNN.`
+> place**, with one exception named below: the ` [cited]` marker is metadata rather than
+> content, and syncing it — adding it or dropping it — is the one in-place edit this rule
+> does not cover. A correction is a NEW row plus one appended pointer line on the old
+> one, and there are two verbs: `Superseded by D-NNN.` when the whole row is replaced, `Corrected by D-NNN.`
 > when one detail went stale under a principle that still stands. Both are append-only and
 > mechanically identical; the guard checks the FORM and cannot check which verb is honest, so
 > that half is the reviewer's. **Appending the pointer is required, not optional, whenever a
@@ -396,3 +398,16 @@
   `harness/templates/amh.conf.example`'s instruction to drop the marker. Recorded and not
   repaired under the guard playbook's incident bar, since no session has yet had cause to
   un-cite a row (**DB-019** on why D-023 is not that bar).
+  Corrected by DC-021.
+
+- DC-021: **A contradiction in shipped prose was fixed in one of five places, and only the review
+  pass counted them.** DC-020 recorded that the seed ledger preamble's flat immutability rule
+  contradicted `harness/templates/amh.conf.example`, which tells an adopter to drop a stale
+  `[cited]` marker; the fix names the marker as the one in-place edit that rule does not cover,
+  and the first draft applied it to the seed alone. That left this repository's own constitution,
+  runbook, state file and four volume preambles still stating the flat rule while its own
+  citation rung demanded the edit — the reference instance shipping a correction it had not
+  taken. The precedent was on the record and was not followed: preamble rule changes move as a
+  set of five, which is how the "correct the entry" promise was removed. Nothing detects this,
+  because preamble and rule-file prose sits outside every guard's reach and the ladder was green
+  over the one-file version. Shipped as PATCH 10.2.1, one bump from the latest tag.
