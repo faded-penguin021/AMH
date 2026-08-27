@@ -82,7 +82,10 @@
 > resolves here before you lean on or reword a row. Known Goodhart path, unguarded: the
 > cheapest way to strip a protected row's marker is to delete the code comment citing it,
 > which the guard then *requires*. If you find yourself doing that, you are removing the
-> warning rather than heeding it. **One carve-out, and only one:** a citation inside a
+> warning rather than heeding it. Here `scripts/guards/ledger-append-only.sh` refuses the
+> removal as a rewrite — but only while it is uncommitted, because it baselines on HEAD, so
+> a commit walks past it and nothing looks again (**DC-020**). **One carve-out, and only
+> one:** a citation inside a
 > SHIPPED script is not a citation at all in the tree that receives it — those rows are ours
 > and can never exist in an adopter's ledger — so removing one is correcting a false promise,
 > not evading a warning. The reasoning prose stays and the row is named in a form the guard

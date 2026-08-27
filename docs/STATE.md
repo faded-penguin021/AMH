@@ -102,13 +102,19 @@ re-litigate from.
   (**DC-007**); the two 2026-08-10 review proposals (**DB-024**); any guard that opens a file
   to classify it (**DB-027**); and a configurable ledger-id prefix to dodge domain-constant
   collisions, which relocates the collision into the adopter's taxonomy rather than removing it
-  (**DC-015**).
+  (**DC-015**); and making ledger immutability hold across commits rather than only against the
+  working tree, which needs a history rail no incident has earned (**DC-020**).
 
 ## Changelog
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-27 — **The append-only guard's HEAD baseline makes committing a bypass.** The citation
+  rung orders a stale `[cited]` marker dropped and the guard refuses the removal, but only while
+  it is uncommitted, so ledger immutability is a working-tree property and CI checks it not at
+  all. Recorded, not repaired; the review pass killed the deadlock claim the unit opened with
+  (**DC-020**).
 - 2026-08-26 — **CI stops running the whole matrix twice per commit.** `on.push` was `"**"`,
   which every session branch matches, so each commit was verified once for the push and again
   for the `pull_request` event; it is now `main` only. The cost is stated in the workflow: an

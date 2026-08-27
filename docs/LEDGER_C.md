@@ -85,7 +85,10 @@
 > resolves here before you lean on or reword a row. Known Goodhart path, unguarded: the
 > cheapest way to strip a protected row's marker is to delete the code comment citing it,
 > which the guard then *requires*. If you find yourself doing that, you are removing the
-> warning rather than heeding it. **One carve-out, and only one:** a citation inside a
+> warning rather than heeding it. Here `scripts/guards/ledger-append-only.sh` refuses the
+> removal as a rewrite — but only while it is uncommitted, because it baselines on HEAD, so
+> a commit walks past it and nothing looks again (**DC-020**). **One carve-out, and only
+> one:** a citation inside a
 > SHIPPED script is not a citation at all in the tree that receives it — those rows are ours
 > and can never exist in an adopter's ledger — so removing one is correcting a false promise,
 > not evading a warning. The reasoning prose stays and the row is named in a form the guard
@@ -377,3 +380,19 @@
   models the option's NAME instead of its arity hands the option's argument to the guard as
   the command word. Shipped as MINOR 10.2.0 on the 10.1.0 precedent for a rail whose verdicts
   move for a real class of commands, MAJOR ruled out because no binding rule changed.
+
+- DC-020 [cited]: **An append-only guard baselined on HEAD polices only uncommitted work, and
+  committing is the bypass.** The ladder's citation rung fails a row marked `[cited]` that
+  nothing cites any more and orders the marker dropped, while `scripts/guards/ledger-append-only.sh`
+  refuses that removal as a rewrite, so the edit stalls — but that guard gates on a diff against
+  HEAD, so committing through the red rung leaves both rungs green forever, which is a replay
+  this row rests on rather than an inference. What reads as a deadlock is therefore a prose rule
+  with no machine behind it: immutability is checked against the working tree and never against
+  history, and in CI, where the worktree IS HEAD, this guard examines nothing at all. The clean
+  escape is to re-cite the row from any file under `CITATION_SCAN_PATHS`, never a
+  `CITATION_EXCLUDE` entry, which only shrinks the cited set and reddens the ladder further
+  (**DC-015**). Adopters ship no guards and so cannot reach the stall, but they inherit both
+  halves of the tension as prose — the seed preamble's flat immutability rule against
+  `harness/templates/amh.conf.example`'s instruction to drop the marker. Recorded and not
+  repaired under the guard playbook's incident bar, since no session has yet had cause to
+  un-cite a row (**DB-019** on why D-023 is not that bar).

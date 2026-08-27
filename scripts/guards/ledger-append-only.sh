@@ -193,6 +193,14 @@ allowed_metadata_only() { # allowed_metadata_only <base-row> <current-row>
 	# an uncited header may gain `[cited]`, and one strict pointer sentence (supersession or
 	# correction) may be appended. Removing `[cited]`, changing prose, or altering an existing pointer remains
 	# a rewrite because normalization is deliberately one-way from current back to HEAD.
+	#
+	# That one-wayness contradicts the ladder's citation rung, which FAILS a row that is marked
+	# but no longer cited and orders the marker dropped. The contradiction stalls the un-cite
+	# and does not prevent it: the HEAD baseline above means a commit through the red rung
+	# leaves this guard green from then on, and in CI, where the worktree IS HEAD, the early
+	# return below examines nothing. So the immutability this enforces is a working-tree
+	# property, never a property of history — do not read a green line here as evidence that
+	# committed rows were never edited. DC-020 records why that is left standing.
 	trimmed=$(mktemp "$TMPDIR/ledger-row.XXXXXX") || exit 1
 	cp "$current" "$trimmed" || { rm -f "$trimmed"; return 1; }
 	LC_ALL=C sed -n '1{/^- D[A-Z]*-[0-9][0-9]* \[cited\]: /q0};q1' "$base" && base_cited=1
