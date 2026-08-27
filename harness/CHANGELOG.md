@@ -11,6 +11,46 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 10.4.0 — 2026-08-27
+
+- **The destructive rail grew a data-plane tier.** `supabase db reset`, `prisma migrate reset`,
+  `prisma db push --accept-data-loss|--force-reset`, `rails`/`rake` `db:drop|db:reset|
+  db:schema:load`, `dropdb`, and `psql -c` whose statement STARTS with `DROP DATABASE`,
+  `DROP SCHEMA` or `TRUNCATE` now get the same one-time advisory `rm -rf` gets — reached through
+  a bare invocation or one package runner (`npx`, `pnpx`, `bunx`, and `pnpm`/`yarn`/`bun` with or
+  without `exec`/`dlx`/`run`/`x`), since nobody types a bare `prisma`.
+- **The runner strip widens the filesystem arms too.** It runs before the whole dispatch, so
+  `npx rm -rf x` and `pnpm exec git clean -fdx` are now advised where they used to be commands
+  named `npx` and `pnpm` that no arm recognised. The deletion is just as real for being run
+  through a runner.
+- **Its advisory asks a different question, because it has to.** For a path the guard can name
+  the hazard and ask for an expansion. A database reset names no target at all — it is resolved
+  from a linked project, a config file found from the working directory, or `$DATABASE_URL`, so
+  the production and local spellings are byte-identical. The advisory says exactly that and asks
+  the agent to print the resolved target before rerunning; the path-shaped paragraphs are
+  suppressed for these verbs, because "if that variable is empty the command addresses an
+  absolute path" is false of a database and a rail that is confidently wrong teaches an agent to
+  skim the next one.
+- **The rail does not become the disclosure.** A data-plane command can carry a role password in
+  a `--db-url`, and signatures are written to a state file and printed by `--advisory-report`, so
+  value-bearing flags contribute their NAME only and a bare operand contributes itself only when
+  it cannot be a connection string. A fixture builds a credential-shaped URL at runtime and fails
+  if any part of the value reaches either place.
+- **What it buys, stated in the header.** It cannot tell production from local and never will.
+  A cleared advisory means the command was made deliberate, never that it was made safe — and
+  the tools knowingly outside the list (`drizzle-kit`, `alembic`, `manage.py flush`, `redis-cli`,
+  `mysql -e`, `mongosh`, `psql -f`, anything behind `npm run`) are named there rather than left
+  to be discovered.
+
+### Upgrading
+
+Copy `command-guard.sh` from `harness/templates/scripts/` over your local copy and re-run your
+manifest generator, as for any shipped-script change. No configuration key changes. Expect one
+extra prompt the first time a session runs a database reset command, per verb and per named
+target; a rerun of the same command proceeds, exactly as with the filesystem tier. Also expect
+`rm -rf` and `git clean -fd` run through a package runner to start being advised, which they
+were not before.
+
 ## 10.3.1 — 2026-08-27
 
 - **The README now starts with the failures AMH relieves.** The opening explains cross-session

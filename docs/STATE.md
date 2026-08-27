@@ -9,12 +9,18 @@
 The AMH meta-repository — source of truth for the Agentic Maintenance Harness and its
 reference instance, which runs byte-identical copies of the scripts it ships. `AGENTS.md`
 describes both and is read in full every session.
-Adopted harness version: **AMH 10.3.1** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 10.4.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-AMH **10.3.1** is prepared on this branch and untagged. Its README now leads with the failures
-AMH relieves, translates the mechanisms into familiar agent-workflow terms, and puts adoption
+AMH **10.4.0** is prepared on this branch and untagged. The destructive rail now has a
+**data-plane tier**: `supabase db reset` and its siblings in five other tools get the one-time
+advisory `rm -rf` gets, reached through a package runner as well as bare, with an advisory that
+asks for the RESOLVED database to be printed because the target is never in the command, and with
+no operand value ever recorded into a signature that gets persisted and printed (**DC-024**). It
+cannot tell production from local; a cleared advisory means deliberate, not safe, and the guard
+header says so. 10.3.1 before it made the README lead with the failures
+AMH relieves, translate the mechanisms into familiar agent-workflow terms, and put adoption
 before architectural detail. The ` [cited]` marker change prepared in 10.3.0 remains the current
 harness behavior: it is now named as the
 one in-place edit the ledger's immutability rule does not cover — in the shipped seed preamble
@@ -41,9 +47,17 @@ its HEAD baseline means it polices uncommitted work only (**DC-020**). The live 
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**OPEN — tag and publish AMH 10.3.1 after merge.** The release commit is prepared on the PR
-branch; tagging and publication are owner-only actions. Check: `git tag -l amh-v10.3.1` —
-resolved when it prints `amh-v10.3.1`.
+**OPEN — tag and publish AMH 10.4.0 after merge.** The release commit is prepared on the PR
+branch; tagging and publication are owner-only actions. Check: `git tag -l amh-v10.4.0` —
+resolved when it prints `amh-v10.4.0`.
+
+**OPEN — the data-plane tier's verb list is earned by ONE incident and extended by shape**
+(**DC-024**). `supabase db reset` is the recorded near-miss; the other five tools are there
+because they are the same command in a different ecosystem and because a rail that stops one
+spelling teaches the spelling instead of the class. That is a weaker provenance claim than P3's
+incident bar usually accepts, and whether the siblings stay, shrink to supabase alone, or grow to
+the tools named as knowingly-absent in the guard header is the owner's call. No check — a list's
+right length is not a thing a command settles.
 
 **OPEN — investigate the forge/API mutation surface as an escape around the local rails.** The
 pre-push rail (DC-009) guards git-CLI pushes only, so an owner-reserved side effect through a
@@ -93,6 +107,14 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-27 — **10.4.0: the destructive rail learned the data plane.** Six database-destroying
+  verb shapes across five tools now take the same one-time advisory as `rm -rf`, through a package
+  runner as well as bare; the advisory asks for the resolved target because the command names
+  none, records no operand value into a signature that is persisted and printed, and the guard
+  header states the limit it cannot pass — this tier cannot tell production from local
+  (**DC-024**). The rule-review pass found the credential-omission fixture covering one of three
+  redaction arms and four more assertions that could not fail; all six findings are applied, and
+  the N-arms-means-N-mutations lesson is **DC-025**.
 - 2026-08-27 — **10.3.1: the README now leads with the failure AMH relieves and the shortest path to
   adoption.** Its opening translates the core mechanisms into familiar agent-workflow terms,
   keeps the rails' limits explicit, and moves Quick Start ahead of architecture and fit details.

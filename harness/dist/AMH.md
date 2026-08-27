@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 10.3.1.** Repos that adopt it record the version they took
+**Harness version 10.4.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 

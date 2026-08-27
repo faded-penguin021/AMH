@@ -442,3 +442,34 @@
   list is compared
   NUMERICALLY — `git tag -l` sorts amh-v9.1.0 after amh-v10.2.0, so taking the lexical last would
   validate every PR against a two-major-stale tag while printing a green line.
+
+- DC-024: **A rail that reads the command cannot see a target the command does not name, and the
+  data plane is where that gap lives.** A public near-miss: an agent ran `supabase db reset` in an
+  app directory, and the only thing between it and a production schema was a local Docker daemon
+  that happened to be down — the agent worked out what it had nearly done after a human asked,
+  not before running it. The destructive rail could not have helped, being a filesystem and git
+  verb list, and the header's "what this guard does NOT catch" block did not name the category at
+  all, so its absence read as coverage. The tier added here follows the `rm` contract rather than
+  the `operands_unknown_target` one, because there is no routine spelling of these verbs whose
+  target IS plain: it is always in a linked project, a config file resolved from the working
+  directory, or `$DATABASE_URL`. Two things the shape forces and both are load-bearing: the
+  advisory asks for the resolved target to be PRINTED rather than for care to be taken, since
+  "check first" is unfalsifiable and `--local` is a claim in the command text rather than a fact
+  about the environment; and no operand VALUE is ever recorded into the signature, because a
+  connection string carries a password and the signature is persisted and printed, which would
+  make the rail the incident it exists to prevent. The honest claim is deliberateness, not
+  safety, and the header says so rather than leaving a green run to be read as a verdict.
+
+- DC-025: **A fixture that covers one of several arms reads exactly like one that covers them
+  all, and the prose will claim the second.** The data-plane tier's changelog said a fixture
+  "fails if any part of the value reaches either place"; the fixture exercised one of three
+  redaction arms, and a review pass deleted the other two in turn with the whole suite staying
+  green while each mutant wrote a live password into the state file `--advisory-report` prints.
+  The same pass found four more assertions that could not fail — a rootish-suppression fixture
+  whose operand had no `/` to trigger it, a closing-paragraph selector nobody asserted, and a
+  comment claiming a widening had not happened when it had. The durable rule is narrower than
+  "write fixtures": when a property is guarded by N arms, the demonstration owed is N mutations,
+  and the count belongs in the fixture's own comment so the next editor cannot quietly add an
+  arm without one. This is the mutation discipline the playbook already requires, failing in the
+  direction nobody checks — not "does the fixture fail when I break the feature" but "does it
+  fail when I break each PART of it".
