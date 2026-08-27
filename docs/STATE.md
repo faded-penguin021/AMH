@@ -55,22 +55,20 @@ its HEAD baseline means it polices uncommitted work only (**DC-020**). The live 
 branch; tagging and publication are owner-only actions. Check: `git tag -l amh-v10.4.0` —
 resolved when it prints `amh-v10.4.0`.
 
-**OPEN — decide whether the four `Shipped as` rows get a `Corrected by DC-026.` pointer.** The
-review pass called the omission the unit's blocker; the session declined it as the owner's, because
-a row's pointer slot is FINAL and spending four of them on a version number forecloses a later
-correction of the lesson each row carries (**DC-026** argues it, DC-022 is the precedent). The cost
-is real: a reader who greps a row id meets the old number and never reaches the rule. Check:
-`grep -c "Corrected by DC-026" docs/LEDGER_C.md` — four means the appends were made, zero means
-this still stands open.
-
 **OPEN — the command rail can be tripped by quoted text in a pathologically nested shell command.**
 Observed once, on a long multi-line `bash -c` whose arguments carried shell text inside python
 strings inside double quotes: the data-plane advisory fired with `npm run db:push` as the matched
 verb, though every realistic prose shape is allowed (`git commit -m "ran npm run db:push"`,
-`echo`, `grep`, single-quoted and escaped-quote nestings all verified silent). Not minimized —
-prefixes of a reduced script did not reproduce it — so it is a finding, not a fix; the cost is one
-turn, since the advisory is one-time per command text. Check: no command settles it until a
-reproducer exists.
+`echo`, `grep`, single-quoted and escaped-quote nestings all verified silent). **This is the D-007
+family and the owner asked the right question: it has bitten twice and the recorded fix each time
+was "judge position, not presence"** — D-007 itself (`git commit -m "never git push --force"`
+blocked by its own message) and item 2 of the same audit (the `<` redirection scan). What is NOT
+established is that this instance is a presence match: the verb reached LEADING-command position
+of some segment, which points at segment or quote tracking rather than at a scanner, and item 1 of
+that audit is the precedent for that half — `strip_heredocs` opening body mode on `<<<`. Minimize
+it against `split_segments`/`split_words`/`strip_heredocs` before proposing any fix; prefixes of a
+reduced script did not reproduce it. Cost is one turn, the advisory being one-time per command
+text. No check until a reproducer exists.
 
 **OPEN — investigate the forge/API mutation surface as an escape around the local rails.** The
 pre-push rail (DC-009) guards git-CLI pushes only, so an owner-reserved side effect through a
@@ -116,6 +114,10 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-27 — **The four `Shipped as` rows keep their wording and get no pointer** (owner,
+  2026-08-27, agreeing with the session's refusal). A row's one pointer slot is FINAL, the four
+  carry live principles that may still need it, and this change did not falsify them — they were
+  never true. **DC-026** holds the argument and the cost it accepts.
 - 2026-08-27 — **The data-plane tier's list grew by what reported incidents earn.** The owner
   answered its provenance question: `npm run db:push` (the Replit incident's own command, whose
   script NAME is in the command text the tier said it could not read) and `drizzle-kit push` under
