@@ -499,3 +499,24 @@
   queued as such. The seed is left alone for playbook 4's reason, that a seed edit reaches existing
   adopters only as a hand-applied Upgrading step and their runbook has no release playbook to hold
   the rule — never because adopters tag nothing, which is the population this serves best.
+
+- DC-027: **The most-reported incident in a category can be the one shape the rail was built not
+  to see, and the search that finds it is the one nobody ran.** The data-plane tier's header named
+  `npm run db:reset` as knowingly absent because "the verb is not in the command text" — but the
+  Replit agent that dropped a production database during a stated code freeze ran `npm run
+  db:push`, whose SCRIPT NAME is right there in the text, and the same search turned up a second
+  uncovered shape in a tool the tier already owned: `prisma migrate` with `--shadow-database-url`
+  pointed at production, which reset 22 tables. Both are advised now, with `drizzle-kit push` —
+  the tool that name conventionally runs — on the owner's answer (2026-08-27) to the tier's open
+  provenance question: a verb enters when a public report shows it destroying data, so `alembic
+  downgrade base`, `manage.py flush`, `redis-cli flushall`, `mysql -e`, `mongosh --eval` and
+  `drizzle-kit drop` returned no such report and stay out. The script arm judges a NAME and the
+  advisory says so, keyed on how the command word was RESOLVED rather than on which arm it reached
+  — `npm run dropdb` read a script name too, and telling it that it "drops a database outright"
+  was the confident half without the honest one. Two findings worth more than the verbs: a glob
+  interpolating command text into a signature kind let a crafted operand forge another command's
+  signature and clear its advisory, and a fixture may only claim a property for the arms it
+  actually exercises — the redaction fixture's own comment now carries the arm count, per DC-025.
+  The one shape no verb list can hold went to the forge/API queue item instead: PocketOS lost its
+  production volume and its backups to a `curl` GraphQL mutation carrying a token the agent found
+  in an unrelated file.

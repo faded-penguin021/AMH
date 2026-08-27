@@ -17,7 +17,11 @@ AMH **10.4.0** is prepared on this branch and untagged. The destructive rail now
 **data-plane tier**: `supabase db reset` and its siblings in five other tools get the one-time
 advisory `rm -rf` gets, reached through a package runner as well as bare, with an advisory that
 asks for the RESOLVED database to be printed because the target is never in the command, and with
-no operand value ever recorded into a signature that gets persisted and printed (**DC-024**). It
+no operand value ever recorded into a signature that gets persisted and printed (**DC-024**). Its
+verb list then grew by what reported incidents earn: `npm run db:push` — the most-reported command
+in this category and, until now, in the tier's own knowingly-absent list — plus `drizzle-kit push`
+and `prisma migrate --shadow-database-url`, with `npm` joining the runner strip and the advisory
+disclosing that a script NAME is all it read (**DC-027**). It
 cannot tell production from local; a cleared advisory means deliberate, not safe, and the guard
 header says so. 10.3.1 before it made the README lead with the failures
 AMH relieves, translate the mechanisms into familiar agent-workflow terms, and put adoption
@@ -51,14 +55,6 @@ its HEAD baseline means it polices uncommitted work only (**DC-020**). The live 
 branch; tagging and publication are owner-only actions. Check: `git tag -l amh-v10.4.0` —
 resolved when it prints `amh-v10.4.0`.
 
-**OPEN — the data-plane tier's verb list is earned by ONE incident and extended by shape**
-(**DC-024**). `supabase db reset` is the recorded near-miss; the other five tools are there
-because they are the same command in a different ecosystem and because a rail that stops one
-spelling teaches the spelling instead of the class. That is a weaker provenance claim than P3's
-incident bar usually accepts, and whether the siblings stay, shrink to supabase alone, or grow to
-the tools named as knowingly-absent in the guard header is the owner's call. No check — a list's
-right length is not a thing a command settles.
-
 **OPEN — decide whether the four `Shipped as` rows get a `Corrected by DC-026.` pointer.** The
 review pass called the omission the unit's blocker; the session declined it as the owner's, because
 a row's pointer slot is FINAL and spending four of them on a version number forecloses a later
@@ -67,11 +63,23 @@ is real: a reader who greps a row id meets the old number and never reaches the 
 `grep -c "Corrected by DC-026" docs/LEDGER_C.md` — four means the appends were made, zero means
 this still stands open.
 
+**OPEN — the command rail can be tripped by quoted text in a pathologically nested shell command.**
+Observed once, on a long multi-line `bash -c` whose arguments carried shell text inside python
+strings inside double quotes: the data-plane advisory fired with `npm run db:push` as the matched
+verb, though every realistic prose shape is allowed (`git commit -m "ran npm run db:push"`,
+`echo`, `grep`, single-quoted and escaped-quote nestings all verified silent). Not minimized —
+prefixes of a reduced script did not reproduce it — so it is a finding, not a fix; the cost is one
+turn, since the advisory is one-time per command text. Check: no command settles it until a
+reproducer exists.
+
 **OPEN — investigate the forge/API mutation surface as an escape around the local rails.** The
 pre-push rail (DC-009) guards git-CLI pushes only, so an owner-reserved side effect through a
 forge or API surface — `gh pr merge`, `gh release create`, `gh api -X POST`, `curl`/`wget`
 mutations — bypasses every local rail. Not machinery yet: an adversarial test vector per P3/P10,
-earning a narrow rail only if a real session crosses that boundary. No check — nobody but a
+earning a narrow rail only if a real session crosses that boundary. It is no longer only
+adversarial: the search behind **DC-027** turned up PocketOS, where an agent found a token in an
+unrelated file and deleted a production volume AND its backups with one `curl` GraphQL mutation —
+a reported incident on this exact surface, in someone else's harness. No check — nobody but a
 session actually crossing it settles this.
 
 **OPEN — `path-refs.sh` may report specific false failures when its file listing comes back
@@ -108,6 +116,13 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-27 — **The data-plane tier's list grew by what reported incidents earn.** The owner
+  answered its provenance question: `npm run db:push` (the Replit incident's own command, whose
+  script NAME is in the command text the tier said it could not read) and `drizzle-kit push` under
+  it are advised, `npm` joins the runner strip, and the advisory discloses that it matched a name
+  and not a script. Six tools a search found no report for stay out, and the incident no verb list
+  can hold — a `curl` GraphQL mutation that deleted a production volume and its backups — went to
+  the forge/API queue item instead (**DC-027**).
 - 2026-08-27 — **A ledger row records the version it DRAFTED, never one it claims shipped.** The
   owner closed the prose half of **DC-023**: rows saying "Shipped as" name numbers the remote's tag
   list does not carry, so new rows assert no release, old ones are read as drafts, and the rule sits

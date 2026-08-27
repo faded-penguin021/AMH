@@ -17,8 +17,8 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   `prisma db push --accept-data-loss|--force-reset`, `rails`/`rake` `db:drop|db:reset|
   db:schema:load`, `dropdb`, and `psql -c` whose statement STARTS with `DROP DATABASE`,
   `DROP SCHEMA` or `TRUNCATE` now get the same one-time advisory `rm -rf` gets — reached through
-  a bare invocation or one package runner (`npx`, `pnpx`, `bunx`, and `pnpm`/`yarn`/`bun` with or
-  without `exec`/`dlx`/`run`/`x`), since nobody types a bare `prisma`.
+  a bare invocation or one package runner (`npx`, `pnpx`, `bunx`, and `npm`/`pnpm`/`yarn`/`bun`
+  with or without `exec`/`dlx`/`run`/`run-script`/`x`), since nobody types a bare `prisma`.
 - **The runner strip widens the filesystem arms too.** It runs before the whole dispatch, so
   `npx rm -rf x` and `pnpm exec git clean -fdx` are now advised where they used to be commands
   named `npx` and `pnpm` that no arm recognised. The deletion is just as real for being run
@@ -38,9 +38,33 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   if any part of the value reaches either place.
 - **What it buys, stated in the header.** It cannot tell production from local and never will.
   A cleared advisory means the command was made deliberate, never that it was made safe — and
-  the tools knowingly outside the list (`drizzle-kit`, `alembic`, `manage.py flush`, `redis-cli`,
-  `mysql -e`, `mongosh`, `psql -f`, anything behind `npm run`) are named there rather than left
-  to be discovered.
+  the tools knowingly outside the list (`alembic`, `manage.py flush`, `redis-cli`, `mysql -e`,
+  `mongosh`, `psql -f`) are named there rather than left to be discovered.
+- **The tier then grew by what reported incidents earn, and by nothing else.** `npm run db:push`
+  — the command an agent ran against a production database during a stated code freeze, in the
+  most widely reported incident of this kind — was in the knowingly-absent list on the grounds
+  that "the verb is not in the command text". Half of that was wrong: the SCRIPT NAME is in the
+  text. A short list of names that say what they do (`db:push`, `db:reset`, `db:drop`, `db:wipe`,
+  `db:nuke`, `db:schema:load`, `schema:load`, `migrate:reset`, `db:migrate:reset`,
+  `migrate:fresh`, `migrate:refresh`) is now advised, matched WHOLE, and `npm` joins the runner
+  strip so `npm run`, `npm run-script` and `npm exec` resolve like their `pnpm`/`yarn`/`bun`
+  equivalents. `drizzle-kit push` — the tool that name conventionally runs — is advised too, where
+  bare `prisma db push` still is not: prisma's push prompts by default, and drizzle's
+  confirmation is reported failing in its 1.0 beta. The same search found a second uncovered
+  shape in a tool the tier already had an arm for: any `prisma migrate` subcommand carrying
+  `--shadow-database-url`, which prisma RESETS before replaying — a reported incident pointed it
+  at production and lost 22 tables.
+- **The script arm judges a name, and its advisory says so.** The script body is a line in
+  the package manifest and no guard here opens a file to classify a command, so a harmless `db:push` is
+  advised anyway and a script that drops the database under a name like `seed` is not advised at
+  all. That paragraph is part of the advisory text rather than a comment, so a cleared prompt
+  cannot read as a judgement about the script.
+- **What a search for reported incidents did NOT find stays out.** `alembic downgrade base`,
+  `manage.py flush`, `redis-cli flushall`, `mysql -e`, `mongosh --eval` and `drizzle-kit drop`
+  have no public report of destroying data in an agent's hands, so resemblance alone does not
+  admit them. Neither does the largest incident no verb list can hold: a production volume and
+  its backups deleted by a `curl` GraphQL mutation carrying a found token, which is an API
+  surface rather than a command word.
 
 ### Upgrading
 
@@ -49,7 +73,9 @@ manifest generator, as for any shipped-script change. No configuration key chang
 extra prompt the first time a session runs a database reset command, per verb and per named
 target; a rerun of the same command proceeds, exactly as with the filesystem tier. Also expect
 `rm -rf` and `git clean -fd` run through a package runner to start being advised, which they
-were not before.
+were not before — `npm exec` included, since `npm` is now stripped like `npx`. If your
+repository has a package script on the name list whose body is harmless, it is advised once per
+session all the same: the guard reads the name, never the script.
 
 ## 10.3.1 — 2026-08-27
 
