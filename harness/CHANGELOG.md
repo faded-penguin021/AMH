@@ -11,6 +11,20 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 10.3.1 — 2026-08-27
+
+- **The README now starts with the failures AMH relieves.** The opening explains cross-session
+  memory, mechanical verification and command guardrails in familiar terms, and puts the Quick
+  Start before the detailed architecture and fit discussion.
+- **The limits remain explicit.** The shorter introduction describes the rails as risk
+  reduction rather than a security sandbox, and the detailed mechanism and scope sections are
+  retained after the adoption path.
+
+### Upgrading
+
+No action required. This release changes only the source repository's presentation of the
+existing adoption path.
+
 ## 10.3.0 — 2026-08-27
 
 - **The seed ledger preamble and `amh.conf.example` stopped contradicting each other.** The seed

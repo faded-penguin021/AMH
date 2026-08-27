@@ -9,11 +9,14 @@
 The AMH meta-repository — source of truth for the Agentic Maintenance Harness and its
 reference instance, which runs byte-identical copies of the scripts it ships. `AGENTS.md`
 describes both and is read in full every session.
-Adopted harness version: **AMH 10.3.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 10.3.1** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-AMH **10.3.0** is prepared on this branch and untagged: the ` [cited]` marker is now named as the
+AMH **10.3.1** is prepared on this branch and untagged. Its README now leads with the failures
+AMH relieves, translates the mechanisms into familiar agent-workflow terms, and puts adoption
+before architectural detail. The ` [cited]` marker change prepared in 10.3.0 remains the current
+harness behavior: it is now named as the
 one in-place edit the ledger's immutability rule does not cover — in the shipped seed preamble
 and in this repository's own five rule-bearing places — so the seed and
 `harness/templates/amh.conf.example` stop handing adopters opposite instructions about the same
@@ -37,6 +40,10 @@ its HEAD baseline means it polices uncommitted work only (**DC-020**). The live 
 > Items leave only when done, answered or triaged — then delete the item and record the outcome
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
+
+**OPEN — tag and publish AMH 10.3.1 after merge.** The release commit is prepared on the PR
+branch; tagging and publication are owner-only actions. Check: `git tag -l amh-v10.3.1` —
+resolved when it prints `amh-v10.3.1`.
 
 **OPEN — investigate the forge/API mutation surface as an escape around the local rails.** The
 pre-push rail (DC-009) guards git-CLI pushes only, so an owner-reserved side effect through a
@@ -86,7 +93,7 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-08-27 — **The README now leads with the failure AMH relieves and the shortest path to
+- 2026-08-27 — **10.3.1: the README now leads with the failure AMH relieves and the shortest path to
   adoption.** Its opening translates the core mechanisms into familiar agent-workflow terms,
   keeps the rails' limits explicit, and moves Quick Start ahead of architecture and fit details.
 - 2026-08-27 — **The release number is validated at PR time against the latest tag.** Sessions
