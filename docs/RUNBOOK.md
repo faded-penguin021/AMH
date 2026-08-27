@@ -160,6 +160,15 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
 
 - **When:** the owner asks. Version semantics are in `CONTRIBUTING.md`; an ambiguous
   major-vs-minor call is an Owner-queue question, not an agent's judgement call.
+- **The number is one bump above the LATEST TAG, and it is settled at PR time** (owner,
+  2026-08-27). Keep writing a version as you work — that half is unchanged — but the number that
+  ships is decided against `git tag -l` when the PR goes up, not accumulated per unit: four
+  numbers once rode inside the 10.2.0 train and only the head one was ever tagged (**DC-023**).
+  CI's `pull_request` event runs `scripts/guards/version-lockstep.sh --against-latest-tag`, which
+  fails unless `harness/VERSION` is exactly the MAJOR, MINOR or PATCH successor of the newest
+  `amh-v` tag. If a merged release was never tagged, that check compares against a stale tag and
+  reddens a legitimate number — its message says so; tag the predecessor rather than moving the
+  number to satisfy it.
 - **Steps:** update `harness/VERSION` → add the `harness/CHANGELOG.md` entry, including its
   **Upgrading** subsection (what an adopter must actually do) → update the version recorded
   in `AGENTS.md`, `docs/STATE.md` and `amh.conf` → **update the release tag in the `README.md`

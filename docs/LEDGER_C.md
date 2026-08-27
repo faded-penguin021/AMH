@@ -424,3 +424,21 @@
   closer look, the smaller one costs them a missed change, and those are not the same size of
   mistake. Recorded so the next PATCH-vs-MINOR draft starts from the asymmetry rather than
   re-deriving it.
+
+- DC-023 [cited]: **A version assigned per unit is a number nobody validated; validate it once,
+  where the release decision is actually made.** Four numbers rode inside the 10.2.0 train —
+  10.0.1, 10.1.0, 10.1.1 and 10.2.0 — each picked by whichever session happened to be writing at
+  the time, only the head one was ever tagged, and the residue was three "prepared and untagged"
+  paragraphs in the state file. The owner's rule is that the number is decided at PR time against
+  the latest tag, and the shape chosen keeps sessions writing a version as they work while
+  `scripts/guards/version-lockstep.sh --against-latest-tag` asserts at PR time that it is exactly
+  one bump above the newest `amh-v` tag. The owner named this the easy fix rather than the clean
+  one and the seam is real: a release merged but never tagged leaves the next PR compared against
+  a stale tag, which the failure message says out loud rather than leaving to be deduced. It is
+  not a ladder rung because a CLONE's tag list is not the repository's — a session clone
+  routinely carries none, and as a rung that state fails every such session over something its
+  change cannot affect; the first draft justified the same placement by claiming the check
+  reaches the network, which it does not, and a review pass timed it at 20ms offline. The tag
+  list is compared
+  NUMERICALLY — `git tag -l` sorts amh-v9.1.0 after amh-v10.2.0, so taking the lexical last would
+  validate every PR against a two-major-stale tag while printing a green line.
