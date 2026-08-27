@@ -582,6 +582,72 @@ d=$(snapshot ver_readme_gone)
 sed_in_place 's/--branch amh-v[0-9][0-9.]*//' "$d/README.md"
 expect fail "version-lockstep: README quickstart lost its pin" "$d" version-lockstep.sh "no version found"
 
+# --against-latest-tag. Each fixture PINS both halves of the comparison — the version it writes
+# into all six version-bearing places, and the tag list it creates — because the first draft
+# pinned neither. It derived a tag from the live `harness/VERSION` and hard-coded `amh-v10.2.0`
+# opposite it, so both arms passed by coincidence of the number the tree happened to carry that
+# afternoon; a review pass reproduced the suite going red on the next PATCH release. A fixture
+# whose meaning moves with an unrelated file is not a fixture.
+version_fixture() { # version_fixture <name> <version> <tag>... -> prints the snapshot path
+	local name=$1 version=$2 d t
+	shift 2
+	d=$(snapshot "$name")
+	printf '%s\n' "$version" >"$d/harness/VERSION"
+	sed_in_place "s/Adopted harness version: \*\*AMH [0-9][0-9.]*\*\*/Adopted harness version: **AMH $version**/" "$d/AGENTS.md"
+	sed_in_place "s/Adopted harness version: \*\*AMH [0-9][0-9.]*\*\*/Adopted harness version: **AMH $version**/" "$d/docs/STATE.md"
+	sed_in_place "s/^AMH_VERSION=[0-9][0-9.]*/AMH_VERSION=$version/" "$d/amh.conf"
+	sed_in_place "s/--branch amh-v[0-9][0-9.]*/--branch amh-v$version/" "$d/README.md"
+	# The changelog's TOP entry only, which is the one the lockstep reads; a blanket substitution
+	# would rewrite every historical heading to the same number.
+	awk -v v="$version" '!done && sub(/^## [0-9][0-9.]*/, "## " v) { done = 1 } { print }' \
+		"$d/harness/CHANGELOG.md" >"$d/harness/CHANGELOG.md.new" &&
+		cat "$d/harness/CHANGELOG.md.new" >"$d/harness/CHANGELOG.md" &&
+		rm -f "$d/harness/CHANGELOG.md.new"
+	for t in "$@"; do
+		# A tag that silently failed to be created turns an arm into a different test — the
+		# no-tags one — which still passes for the wrong reason. Say so instead.
+		git -C "$d" tag "$t" || {
+			FAILED=$((FAILED + 1))
+			printf '  FAIL %s — could not create fixture tag %s\n' "$name" "$t" >&2
+		}
+	done
+	printf '%s' "$d"
+}
+
+# The three ACCEPT arms, one per bump size. Without all three a guard accepting only MINOR passes
+# the whole suite: the review pass mutated `"$major" | "$minor" | "$patch")` down to `"$minor")`
+# and got 119 passed, 0 failed, because 10.3.0-from-10.2.0 was the only accepted shape any
+# fixture exercised. The first PATCH release would then have gone red with nothing to catch it.
+d=$(version_fixture ver_tag_major 11.0.0 amh-v10.2.0)
+expect pass "version-lockstep: --against-latest-tag accepts a MAJOR bump" "$d" \
+	"version-lockstep.sh --against-latest-tag"
+
+d=$(version_fixture ver_tag_patch 10.2.1 amh-v10.2.0)
+expect pass "version-lockstep: --against-latest-tag accepts a PATCH bump" "$d" \
+	"version-lockstep.sh --against-latest-tag"
+
+# The MINOR arm carries the lexical-sort trap: `git tag -l` sorts as text, so amh-v9.1.0 comes
+# AFTER amh-v10.2.0. A guard taking the list's last entry would validate every PR against a tag
+# two majors stale while printing a green line. Mutating the numeric comparison to take the
+# lexical last reddens exactly this arm, which is what makes it worth its runtime.
+d=$(version_fixture ver_tag_minor 10.3.0 amh-v9.1.0 amh-v10.2.0)
+expect pass "version-lockstep: --against-latest-tag accepts a MINOR bump and ignores the lexical last" "$d" \
+	"version-lockstep.sh --against-latest-tag"
+
+d=$(version_fixture ver_tag_same 10.2.0 amh-v10.2.0)
+expect fail "version-lockstep: --against-latest-tag rejects the tag's own version" "$d" \
+	"version-lockstep.sh --against-latest-tag" "already released"
+
+d=$(version_fixture ver_tag_stale 10.3.0 amh-v9.0.0)
+expect fail "version-lockstep: --against-latest-tag rejects a version several bumps out" "$d" \
+	"version-lockstep.sh --against-latest-tag" "not one bump above"
+
+# No tags at all must FAIL, never pass: "there is nothing to compare against" and "the version
+# is fine" are the two states a green line here would render identically.
+d=$(snapshot ver_tag_none)
+expect fail "version-lockstep: --against-latest-tag with no tags says it compared NOTHING" "$d" \
+	"version-lockstep.sh --against-latest-tag" "compared NOTHING"
+
 d=$(snapshot refs_broken)
 printf '\nSee [the plan](docs/NOTHING_HERE.md).\n' >>"$d/docs/RUNBOOK.md"
 expect fail "path-refs: a broken relative link" "$d" path-refs.sh "broken link"

@@ -4,7 +4,8 @@ Entry point for changing this repository. Pick the playbook matching your task, 
 names, then do the work. **Code + the guard fixture suite are ground truth**; where any doc
 disagrees with the code, trust the code and fix the doc — except the append-only ledger, whose
 rows are never edited in place: a correction is a new row plus one appended pointer on the old
-one (see any volume preamble for the two verbs).
+one (see any volume preamble for the two verbs). Syncing a row's ` [cited]` marker is the one
+in-place edit that rule does not cover.
 
 ## Where logic lives
 
@@ -159,6 +160,15 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
 
 - **When:** the owner asks. Version semantics are in `CONTRIBUTING.md`; an ambiguous
   major-vs-minor call is an Owner-queue question, not an agent's judgement call.
+- **The number is one bump above the LATEST TAG, and it is settled at PR time** (owner,
+  2026-08-27). Keep writing a version as you work — that half is unchanged — but the number that
+  ships is decided against `git tag -l` when the PR goes up, not accumulated per unit: four
+  numbers once rode inside the 10.2.0 train and only the head one was ever tagged (**DC-023**).
+  CI's `pull_request` event runs `scripts/guards/version-lockstep.sh --against-latest-tag`, which
+  fails unless `harness/VERSION` is exactly the MAJOR, MINOR or PATCH successor of the newest
+  `amh-v` tag. If a merged release was never tagged, that check compares against a stale tag and
+  reddens a legitimate number — its message says so; tag the predecessor rather than moving the
+  number to satisfy it.
 - **Steps:** update `harness/VERSION` → add the `harness/CHANGELOG.md` entry, including its
   **Upgrading** subsection (what an adopter must actually do) → update the version recorded
   in `AGENTS.md`, `docs/STATE.md` and `amh.conf` → **update the release tag in the `README.md`

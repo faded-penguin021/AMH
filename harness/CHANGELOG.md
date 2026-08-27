@@ -11,6 +11,55 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 10.3.0 — 2026-08-27
+
+- **The seed ledger preamble and `amh.conf.example` stopped contradicting each other.** The seed
+  said `**Rows are immutable — never edit one in place.**` and offered a correction only as a new
+  row plus an appended pointer, while the shipped config's citation-collision note told you to "drop
+  the marker, never the row" when an exclusion strands a `[cited]` row — an in-place edit of a
+  committed row, which the seed had just forbidden. Both files ship, so every adopter received
+  both instructions about the same edit.
+- **The seed now names the marker as the one exception**, because that is which of the two was
+  incomplete: the ladder's citation rung has always required the marker to track the citation
+  set in both directions, so syncing it in place was already mandatory and the immutability
+  rule was simply silent about it. The `[cited]` section says so at the point of use, and both
+  files now carry the same warning — an append-only guard of your own must permit the marker in
+  BOTH directions, or it will refuse the very edit the rung demands.
+- **This repository ran into that exact contradiction first**, which is what produced the fix:
+  its own append-only guard refuses the removal, so the un-cite stalls until the row is
+  re-cited or the removal is committed past the red rung. That guard is repo-local and no
+  adopter inherits it, but both halves of the prose reached them.
+- **The same carve-out landed in this repository's own five rule-bearing places**, not the seed
+  alone — the constitution, the runbook, the state file and all four volume preambles carried
+  the flat sentence too, and a reference instance that ships a correction it has not taken is
+  the defect twice. The review pass is what counted them; no guard reaches preamble prose
+  (**DC-021**).
+
+**Why MINOR — the owner's call, 2026-08-27, over a drafted PATCH.** The session argued PATCH and
+the reasoning is worth keeping because it is half right: no binding rule changed, the shipped
+scripts are byte-identical, the manifest's hash lines are unchanged (only its version header
+moved), and the rule the seed now states completely is the rule the ladder was already enforcing
+— so 10.2.0's governing test, that PATCH does not survive an Upgrading section telling an adopter
+to do something, is arguably survived here, since neither item below is a NEW obligation. What
+the owner weighed heavier is the other definition: the seed template gains a carve-out and a
+caution it did not carry, and template prose an adopter may take or leave is what MINOR names.
+The number a reader can act on beats the number a reader has to reconstruct an argument for, and
+between two defensible numbers the larger one costs an adopter a closer look and nothing else
+(**DC-020**, **DC-021**, **DC-022**).
+
+### Upgrading
+
+No new obligation. Two things to look at, both pre-existing:
+
+1. If your ledger preamble still carries the seed's immutability wording, you may hand-apply the
+   carve-out and the `[cited]` paragraph's closing sentences. Seeds are yours; the rule is
+   unchanged either way. The manifest's version header moved with this release, so copy the
+   regenerated manifest if you want it to match your `AMH_VERSION`.
+2. If you wrote your own append-only guard over your ledger, check that it permits ` [cited]`
+   to be added AND dropped. One that permits only the addition will refuse the removal the
+   citation rung demands — which it demanded at 10.2.0 too, so such a guard is already
+   contradicting your ladder rather than newly contradicting it.
+
 ## 10.2.0 — 2026-08-26
 
 - **`env` is judged by whether it was handed a command, not by whether an option follows it.**

@@ -13,8 +13,10 @@
 > entries at the bottom, one continuous sequence.
 > Code and fixtures are ground truth: where an entry conflicts with the current code, the code
 > wins and the entry stays exactly as written. **Rows are immutable — never edit one in
-> place.** A correction is a NEW row plus one appended pointer line on the old one, and there
-> are two verbs: `Superseded by D-NNN.` when the whole row is replaced, `Corrected by D-NNN.`
+> place**, with one exception named below: the ` [cited]` marker is metadata rather than
+> content, and syncing it — adding it or dropping it — is the one in-place edit this rule
+> does not cover. A correction is a NEW row plus one appended pointer line on the old
+> one, and there are two verbs: `Superseded by D-NNN.` when the whole row is replaced, `Corrected by D-NNN.`
 > when one detail went stale under a principle that still stands. Both are append-only and
 > mechanically identical; the guard checks the FORM and cannot check which verb is honest, so
 > that half is the reviewer's. **Appending the pointer is required, not optional, whenever a
@@ -85,7 +87,10 @@
 > resolves here before you lean on or reword a row. Known Goodhart path, unguarded: the
 > cheapest way to strip a protected row's marker is to delete the code comment citing it,
 > which the guard then *requires*. If you find yourself doing that, you are removing the
-> warning rather than heeding it. **One carve-out, and only one:** a citation inside a
+> warning rather than heeding it. Here `scripts/guards/ledger-append-only.sh` refuses the
+> removal as a rewrite — but only while it is uncommitted, because it baselines on HEAD, so
+> a commit walks past it and nothing looks again (**DC-020**). **One carve-out, and only
+> one:** a citation inside a
 > SHIPPED script is not a citation at all in the tree that receives it — those rows are ours
 > and can never exist in an adopter's ledger — so removing one is correcting a false promise,
 > not evading a warning. The reasoning prose stays and the row is named in a form the guard
@@ -377,3 +382,63 @@
   models the option's NAME instead of its arity hands the option's argument to the guard as
   the command word. Shipped as MINOR 10.2.0 on the 10.1.0 precedent for a rail whose verdicts
   move for a real class of commands, MAJOR ruled out because no binding rule changed.
+
+- DC-020 [cited]: **An append-only guard baselined on HEAD polices only uncommitted work, and
+  committing is the bypass.** The ladder's citation rung fails a row marked `[cited]` that
+  nothing cites any more and orders the marker dropped, while `scripts/guards/ledger-append-only.sh`
+  refuses that removal as a rewrite, so the edit stalls — but that guard gates on a diff against
+  HEAD, so committing through the red rung leaves both rungs green forever, which is a replay
+  this row rests on rather than an inference. What reads as a deadlock is therefore a prose rule
+  with no machine behind it: immutability is checked against the working tree and never against
+  history, and in CI, where the worktree IS HEAD, this guard examines nothing at all. The clean
+  escape is to re-cite the row from any file under `CITATION_SCAN_PATHS`, never a
+  `CITATION_EXCLUDE` entry, which only shrinks the cited set and reddens the ladder further
+  (**DC-015**). Adopters ship no guards and so cannot reach the stall, but they inherit both
+  halves of the tension as prose — the seed preamble's flat immutability rule against
+  `harness/templates/amh.conf.example`'s instruction to drop the marker. Recorded and not
+  repaired under the guard playbook's incident bar, since no session has yet had cause to
+  un-cite a row (**DB-019** on why D-023 is not that bar).
+  Corrected by DC-021.
+
+- DC-021: **A contradiction in shipped prose was fixed in one of five places, and only the review
+  pass counted them.** DC-020 recorded that the seed ledger preamble's flat immutability rule
+  contradicted `harness/templates/amh.conf.example`, which tells an adopter to drop a stale
+  `[cited]` marker; the fix names the marker as the one in-place edit that rule does not cover,
+  and the first draft applied it to the seed alone. That left this repository's own constitution,
+  runbook, state file and four volume preambles still stating the flat rule while its own
+  citation rung demanded the edit — the reference instance shipping a correction it had not
+  taken. The precedent was on the record and was not followed: preamble rule changes move as a
+  set of five, which is how the "correct the entry" promise was removed. Nothing detects this,
+  because preamble and rule-file prose sits outside every guard's reach and the ladder was green
+  over the one-file version. Shipped as PATCH 10.2.1, one bump from the latest tag.
+
+- DC-022: **Between two defensible version numbers the owner takes the larger one, and the
+  drafted argument stays on the record.** The session drafted 10.2.1 as a PATCH — no binding rule
+  changed, the manifest's hash lines unchanged, and neither Upgrading item a new obligation, so
+  10.2.0's governing test was arguably survived. The owner called it MINOR: the seed template
+  gained a carve-out and a caution it had not carried, which is what the changelog's own MINOR
+  definition names, and a number a reader can act on beats one they must reconstruct an argument
+  for. `CONTRIBUTING.md` reserves only the ambiguous major-vs-minor call for the owner, so this
+  one was the session's to make and it made it; the correction cost nothing because the number
+  had not been tagged. The asymmetry is the durable part: the larger number costs an adopter a
+  closer look, the smaller one costs them a missed change, and those are not the same size of
+  mistake. Recorded so the next PATCH-vs-MINOR draft starts from the asymmetry rather than
+  re-deriving it.
+
+- DC-023 [cited]: **A version assigned per unit is a number nobody validated; validate it once,
+  where the release decision is actually made.** Four numbers rode inside the 10.2.0 train —
+  10.0.1, 10.1.0, 10.1.1 and 10.2.0 — each picked by whichever session happened to be writing at
+  the time, only the head one was ever tagged, and the residue was three "prepared and untagged"
+  paragraphs in the state file. The owner's rule is that the number is decided at PR time against
+  the latest tag, and the shape chosen keeps sessions writing a version as they work while
+  `scripts/guards/version-lockstep.sh --against-latest-tag` asserts at PR time that it is exactly
+  one bump above the newest `amh-v` tag. The owner named this the easy fix rather than the clean
+  one and the seam is real: a release merged but never tagged leaves the next PR compared against
+  a stale tag, which the failure message says out loud rather than leaving to be deduced. It is
+  not a ladder rung because a CLONE's tag list is not the repository's — a session clone
+  routinely carries none, and as a rung that state fails every such session over something its
+  change cannot affect; the first draft justified the same placement by claiming the check
+  reaches the network, which it does not, and a review pass timed it at 20ms offline. The tag
+  list is compared
+  NUMERICALLY — `git tag -l` sorts amh-v9.1.0 after amh-v10.2.0, so taking the lexical last would
+  validate every PR against a two-major-stale tag while printing a green line.

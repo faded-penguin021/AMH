@@ -1,7 +1,7 @@
 # AMH meta-repository — maintenance guide
 
 This repository is the source of truth for the **Agentic Maintenance Harness** (AMH) and its
-reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 10.2.0**
+reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 10.3.0**
 (`harness/VERSION`).
 
 This file states the harness and this repository as they are now. Rules are rewritten in place
@@ -28,7 +28,9 @@ courtesy that says the protocol applies; the reviewer is the enforcement.
 
 Code and guard fixtures settle what the harness currently does; when descriptive prose
 conflicts with them, correct the prose — but never a committed ledger row, which is immutable:
-write a new row and append one `Superseded by` or `Corrected by` pointer to the old one. They do not settle what the harness *should* do:
+write a new row and append one `Superseded by` or `Corrected by` pointer to the old one. The
+` [cited]` marker is the one exception, being metadata rather than content: syncing it in place —
+adding it or dropping it — is what the citation rung demands. They do not settle what the harness *should* do:
 changing a binding value or rule is legislation, not documentation repair, and must follow
 the rule-review protocol.
 

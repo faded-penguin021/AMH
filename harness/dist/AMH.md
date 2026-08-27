@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 10.2.0.** Repos that adopt it record the version they took
+**Harness version 10.3.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -953,7 +953,11 @@ CITATION_EXCLUDE='scripts/test-ladder-guards.sh scripts/tests'
 #      that file held the last citation of a row marked [cited], the marker goes stale the
 #      moment you exclude it and your ladder goes red naming that row. The rung tells you
 #      the second step at that point — drop the marker, never the row — but nothing tells
-#      you in advance, which is why it is written here. Know what dropping it buys: the
+#      you in advance, which is why it is written here. Dropping it edits a committed row in
+#      place, which the seed ledger preamble carves out of its immutability rule for exactly
+#      this reason; if you wrote an append-only guard of your own, it must permit the marker
+#      in BOTH directions or it will refuse the edit this rung is demanding. Know what
+#      dropping it buys: the
 #      code still cites the row, you have only stopped looking, so the marker's whole job
 #      (warning the next reader that an implementation artifact depends on this row) is
 #      what you are trading away. Prefer excluding the narrowest path that holds the
@@ -1524,7 +1528,9 @@ shipped bug teaches session N+9's review pass.
 > summarised away. Append new entries at the bottom, one continuous sequence.
 > Code and fixtures are ground truth: where an entry conflicts with the current code, the code
 > wins and the entry stays exactly as written. **Rows are immutable — never edit one in
-> place.** A correction is a NEW row plus one appended pointer line on the old one, and there
+> place**, with one exception named below: the ` [cited]` marker is metadata rather than
+> content, and syncing it — adding it or dropping it — is the one in-place edit this rule does
+> not cover. A correction is a NEW row plus one appended pointer line on the old one, and there
 > are two verbs: `Superseded by D-NNN.` when the whole row is replaced, `Corrected by D-NNN.`
 > when one detail went stale under a principle that still stands. Both are append-only and
 > mechanically identical. **Appending the pointer is required, not optional, whenever a change
@@ -1588,7 +1594,11 @@ shipped bug teaches session N+9's review pass.
 > from the ladder's scan scope carries ` [cited]` after its number. The ladder checks it BOTH
 > directions — cited-but-unmarked and marked-but-uncited each fail the build — but it never
 > edits this file: nothing syncs the marker for you. The marker warns you that code resolves
-> here before you lean on or reword a row.
+> here before you lean on or reword a row. Syncing it by hand means editing a committed row in
+> place, which is why the immutability rule above carves it out: an append-only guard of your
+> own must permit the marker in BOTH directions, or it will refuse the very edit this rung
+> demands. Dropping a marker is not optional housekeeping — a marked row nothing cites any
+> more fails the build until you drop it, and the row itself is never what goes.
 
 - D-001: {{terse entry: what was discovered, decided or broken; what to do about it; what it
   affects. One entry per durable fact. Solved mistakes AND standing invariants both live

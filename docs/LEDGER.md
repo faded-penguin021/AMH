@@ -9,8 +9,10 @@
 > A dangling `D-NNN` in a doc will not fail the build; that one is on the reviewer. Append new entries at the bottom, one continuous sequence.
 > Code and fixtures are ground truth: where an entry conflicts with the current code, the code
 > wins and the entry stays exactly as written. **Rows are immutable — never edit one in
-> place.** A correction is a NEW row plus one appended pointer line on the old one, and there
-> are two verbs: `Superseded by D-NNN.` when the whole row is replaced, `Corrected by D-NNN.`
+> place**, with one exception named below: the ` [cited]` marker is metadata rather than
+> content, and syncing it — adding it or dropping it — is the one in-place edit this rule
+> does not cover. A correction is a NEW row plus one appended pointer line on the old
+> one, and there are two verbs: `Superseded by D-NNN.` when the whole row is replaced, `Corrected by D-NNN.`
 > when one detail went stale under a principle that still stands. Both are append-only and
 > mechanically identical; the guard checks the FORM and cannot check which verb is honest, so
 > that half is the reviewer's. **Appending the pointer is required, not optional, whenever a
@@ -62,7 +64,10 @@
 > resolves here before you lean on or reword a row. Known Goodhart path, unguarded: the
 > cheapest way to strip a protected row's marker is to delete the code comment citing it,
 > which the guard then *requires*. If you find yourself doing that, you are removing the
-> warning rather than heeding it. **One carve-out, and only one:** a citation inside a
+> warning rather than heeding it. Here `scripts/guards/ledger-append-only.sh` refuses the
+> removal as a rewrite — but only while it is uncommitted, because it baselines on HEAD, so
+> a commit walks past it and nothing looks again (**DC-020**). **One carve-out, and only
+> one:** a citation inside a
 > SHIPPED script is not a citation at all in the tree that receives it — those rows are
 > ours and can never exist in an adopter's ledger — so removing one is correcting a false
 > promise, not evading a warning. The reasoning prose stays and the row is named in a form

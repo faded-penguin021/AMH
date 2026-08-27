@@ -38,6 +38,27 @@ jobs:
         # (AMH P4). Nothing here duplicates what the agent runs.
         run: scripts/ladder.sh
 
+      - name: Version is one bump above the latest tag
+        # PR-time only, and that is the whole design. The version is still WRITTEN as a session
+        # works — the alternative, a placeholder every lockstep copy would have to learn, buys
+        # nothing — and it is VALIDATED once, here, where the release decision is actually made
+        # (DC-023). It is not a ladder rung because a CLONE's tag list is not the repository's: a
+        # session clone routinely has no tags, and as a rung that state would fail every such
+        # session over something its change cannot affect. Nothing here reaches the network.
+        # `fetch-depth: 0` above fetches tags (checkout@v5 swaps its default --no-tags for an
+        # explicit +refs/tags/*:refs/tags/* on the full-history path), so this sees them.
+        #
+        # This is the ONE verification command CI runs that scripts/ladder.sh does not, so the
+        # single-entrypoint claim above is narrowed rather than false — an unexplained extra step
+        # is indistinguishable from drift, which is why this says which one it is and why.
+        #
+        # The `pull_request` gate is also what keeps release.yml green: it calls this workflow,
+        # and at tag time harness/VERSION IS the newest tag, which this check rejects. A called
+        # workflow inherits the caller's event (`push`), so the step is skipped there — that
+        # inheritance is load-bearing, not incidental.
+        if: github.event_name == 'pull_request'
+        run: scripts/guards/version-lockstep.sh --against-latest-tag
+
   portability:
     name: portability (${{ matrix.os }})
     strategy:
