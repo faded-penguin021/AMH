@@ -86,6 +86,9 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-27 — **The README now leads with the failure AMH relieves and the shortest path to
+  adoption.** Its opening translates the core mechanisms into familiar agent-workflow terms,
+  keeps the rails' limits explicit, and moves Quick Start ahead of architecture and fit details.
 - 2026-08-27 — **The release number is validated at PR time against the latest tag.** Sessions
   still write one as they work; CI's `pull_request` event fails unless `harness/VERSION` is
   exactly one bump above the newest `amh-v` tag, over six fixtures whose three accept arms exist
