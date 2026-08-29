@@ -520,3 +520,19 @@
   The one shape no verb list can hold went to the forge/API queue item instead: PocketOS lost its
   production volume and its backups to a `curl` GraphQL mutation carrying a token the agent found
   in an unrelated file.
+
+- DC-028: **Six character walkers disagreed with bash about what closes a quote, and the report
+  that led here described the harmless half of it.** All six read the `\"` in a double-quoted word
+  as the CLOSING quote, so everything after it looked unquoted: `echo "say \"hi\"" && git push
+  --force origin main` was ALLOWED, and so were `rm -rf`, `cat .env` and `printenv` behind the same
+  shape — the two oldest rails in the file, defeated by an escaped quote in a commit message.
+  `expands_secret_var`, which is not one of the six, had modelled the rule correctly since it was
+  written, so this was a disagreement between walkers rather than a missing feature; the
+  fail-OPEN half surfaced only because minimizing a filed false positive asked which direction the
+  mis-split ran. That the filed report and this defect are the same event is INFERRED, not shown:
+  the defect reproduces the reported symptom class exactly, but the original command text was never
+  captured and no reconstruction of it reproduced. The count of DEMONSTRATED sites went 6, then 5,
+  then 6 again, and the middle number is the lesson — a mutation run whose suite is already red
+  scores every kill for the wrong reason, and "unreachable" is a claim about every input that one
+  failed construction does not establish, which is how `heredoc_delim` was nearly shipped as the
+  one walker with no fixture and the worst failure mode.

@@ -81,6 +81,12 @@
 #     real coverage the self-test asserts.
 #   * CONSTRUCTED AND ENCODED COMMANDS. `eval`, base64/hex payloads decoded at runtime,
 #     and any command assembled from variables are text at scan time, not commands.
+#   * A COMMAND SUBSTITUTION INSIDE DOUBLE QUOTES RUNS, AND NO WALKER LOOKS IN. Bash executes
+#     `echo "$(git push --force origin main)"`, and every scanner here treats the whole
+#     `"…"` as quoted text, so that push is ALLOWED where the unquoted `echo $(…)` is denied.
+#     Named here rather than fixed because closing it means the walkers recursing into `$(`
+#     while still treating ordinary quoted prose as data, which is a bigger change than the
+#     backslash rule beside it and belongs to whoever takes it (AMH ledger row DC028).
 #   * HEREDOCS AND LONG LINES. `cmd <<EOF` hides its body until the delimiter, and the
 #     window-based scanners give up past `CHAR_LOOKAHEAD` characters — a variable name or
 #     redirection target longer than the window is not classified.
@@ -267,6 +273,22 @@ split_segments() { # sets SEGMENTS
 		fi
 		c=${wbuf:i-wbase:1}
 		if [ -n "$q" ]; then
+			# THE BACKSLASH RULE, explained here and pointed at from the other walkers.
+			# Inside DOUBLE quotes a backslash escapes the next character; inside SINGLE
+			# quotes there are no escapes at all, so `'a \'` is a complete string. Without
+			# this, the `\"` in `echo "say \"hi\"" && git push --force origin main` read as
+			# the CLOSING quote: every operator after it looked unquoted, the `&&` split a
+			# segment that bash never runs, and the rails that resolve a leading command saw
+			# a different command line than the shell does. That direction is fail-OPEN and
+			# it voided the two oldest rails — force-push and push-to-default — plus the
+			# destructive and secret-file scanners, on any command line carrying an escaped
+			# quote. `expands_secret_var` modelled this correctly from the beginning; the
+			# five character walkers did not, which is why the fix is a rule and not a patch
+			# (AMH ledger row DC028).
+			if [ "$c" = "\\" ] && [ "$q" = '"' ]; then
+				i=$((i + 2))
+				continue
+			fi
 			[ "$c" = "$q" ] && q=''
 			i=$((i + 1))
 			continue
@@ -368,6 +390,11 @@ heredoc_delim() {
 		fi
 		c=${wbuf:i-wbase:1}
 		if [ -n "$q" ]; then
+			# The backslash rule — see `split_segments` for why this is not a patch.
+			if [ "$c" = "\\" ] && [ "$q" = '"' ]; then
+				i=$((i + 2))
+				continue
+			fi
 			[ "$c" = "$q" ] && q=''
 			i=$((i + 1))
 			continue
@@ -877,6 +904,11 @@ split_words() { # sets SPLIT_WORDS
 		fi
 		c=${wbuf:i-wbase:1}
 		if [ -n "$q" ]; then
+			# The backslash rule — see `split_segments` for why this is not a patch.
+			if [ "$c" = "\\" ] && [ "$q" = '"' ]; then
+				i=$((i + 2))
+				continue
+			fi
 			[ "$c" = "$q" ] && q=''
 			i=$((i + 1))
 			continue
@@ -939,6 +971,11 @@ strip_redirections() { # sets STRIPPED
 	while [ "$i" -lt "$n" ]; do
 		c=${s:i:1}
 		if [ -n "$q" ]; then
+			# The backslash rule — see `split_segments` for why this is not a patch.
+			if [ "$c" = "\\" ] && [ "$q" = '"' ]; then
+				i=$((i + 2))
+				continue
+			fi
 			[ "$c" = "$q" ] && q=''
 			i=$((i + 1))
 			continue
@@ -979,6 +1016,11 @@ strip_redirections() { # sets STRIPPED
 		while [ "$i" -lt "$n" ]; do
 			c=${s:i:1}
 			if [ -n "$q" ]; then
+				# The backslash rule — see `split_segments`.
+				if [ "$c" = "\\" ] && [ "$q" = '"' ]; then
+					i=$((i + 2))
+					continue
+				fi
 				[ "$c" = "$q" ] && q=''
 				i=$((i + 1))
 				continue
@@ -1040,6 +1082,11 @@ redirect_targets() { # sets REDIRECT_TARGETS
 		fi
 		c=${wbuf:i-wbase:1}
 		if [ -n "$q" ]; then
+			# The backslash rule — see `split_segments` for why this is not a patch.
+			if [ "$c" = "\\" ] && [ "$q" = '"' ]; then
+				i=$((i + 2))
+				continue
+			fi
 			[ "$c" = "$q" ] && q=''
 			i=$((i + 1))
 			continue
@@ -3742,6 +3789,68 @@ printenv'
 
 	# --- must allow: the known false-positive classes.
 	# Quoted text naming a forbidden command is DATA, not a command.
+	# THE BACKSLASH RULE, in the direction that matters first. An escaped quote inside a
+	# double-quoted word is not the closing quote, and until every walker agreed about that,
+	# ONE `\"` anywhere on the line voided the rails for everything after it: the `&&` that
+	# followed read as unquoted, a segment bash never runs was handed to the scanners, and the
+	# force-push rail — the oldest one here — let a real push through. Six walkers carry the
+	# rule and each of the six is a way to break it, so the demonstration owed is six
+	# mutations, not one (AMH ledger row DC025 on why that count belongs in this comment).
+	st_blocked 'echo "say \"hi\"" && git push --force origin main'
+	st_blocked 'echo "say \"hi\"" ; git push --force origin main'
+	st_blocked 'echo "a \" b" && git push --force origin main'
+	st_blocked 'x="\"" && git push --force origin main'
+	st_blocked 'echo "1 \"2\" 3 \"4\"" && git push --force origin main'
+	st_blocked 'echo "say \"hi\"" && git push origin main'
+	st_blocked 'echo "say \"hi\"" && cat .env'
+	st_blocked 'echo "a \" b" && printenv'
+	st_blocked 'echo "trailing backslash \\" && git push --force origin main'
+	st_destructive_advisory_once 'echo "say \"hi\"" && rm -rf /tmp/x'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'echo "a\\" && rm -rf /tmp/x'
+	rm -f -- "$self_destructive_advisory_state"
+	# SINGLE quotes have no escapes at all, so `'"'"'a \'"'"'` is a complete word and the command
+	# after it is real. A walker that treated the backslash as an escape there would swallow
+	# the closing quote and the push with it — the same hole, one quote character over.
+	st_blocked "echo 'a \\' && git push --force origin main"
+	# ONE FIXTURE PER WALKER, because six sites are six ways to break this and the first draft
+	# of this block demonstrated exactly one of them — every mutation but `split_segments`
+	# survived a green suite. Each command below dies with the walker it names; two of them die
+	# with a second walker as well, which is why the claim here is "every site has a fixture
+	# that fails without it" and NOT the tidier "each covers exactly one" — that sentence was
+	# in an earlier draft and was false for the two `>` cases (AMH ledger row DC025).
+	#
+	# `heredoc_delim` is the sixth and it took three tries to demonstrate, which is the part
+	# worth carrying away. Draft one claimed six kills from a mutation run whose suite was
+	# ALREADY red, so every mutant died for the wrong reason. Draft two put the `<<` AFTER the
+	# quoted word (`echo "a \" <<EOF`), left the string unterminated, and concluded from that
+	# one construction that the walker was unreachable on input bash accepts — a claim the
+	# review pass falsified by moving the operator INSIDE the word, where the string closes and
+	# both lines really run. The lesson is not "write fixtures": it is that "unreachable" is a
+	# claim about every input, and one failed construction is not a proof of it.
+	#   heredoc_delim: a `<<` inside a quoted WORD — the string still closes, so bash runs both
+	#   lines — opens body mode that discards every later line, which is the severity class AMH
+	#   ledger row D016 item 1 records: the rails do not fire because they never see the input.
+	st_blocked 'echo "a \" << EOF b"
+git push --force origin main'
+	st_blocked 'echo "write \" <<EOF into the doc"
+cat .env'
+	#   split_words: the word boundary decides whether `.env` is an operand at all.
+	st_blocked 'cat "a \" b" .env'
+	#   strip_redirections, outer loop: a quoted `>` read as a real redirection cuts the
+	#   operand that names the secret out of the segment before anything judges it.
+	st_blocked 'cat "a \" > out" .env'
+	st_blocked 'grep -q "a \" > out" .env'
+	#   strip_redirections, target loop, and redirect_targets: both fail the OTHER way — a
+	#   quoted `<` read as a redirection makes prose about `.env` look like a read of it,
+	#   which is AMH ledger row D007 in the scanner D007 was written about.
+	st_allowed 'cat < "x \" .env"'
+	st_allowed 'grep -q "x \" < .env" file.txt'
+	st_allowed 'grep -q "pattern \" < id_rsa" file.txt'
+	# ...and none of that is bought by breaking AMH ledger row D007. Quoted prose with an escaped quote
+	# is still DATA, including the shape this repository writes constantly.
+	st_allowed 'echo "a \"q\" | rm -rf /tmp/x | b"'
+	st_allowed 'echo "a \" | db:reset | b"'
 	st_allowed 'git commit -m "never git push --force on this repo"'
 	st_allowed "git commit -m 'document why printenv is denied'"
 	st_allowed 'echo "cat .env is forbidden by P17"'

@@ -59,6 +59,15 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   advised anyway and a script that drops the database under a name like `seed` is not advised at
   all. That paragraph is part of the advisory text rather than a comment, so a cleared prompt
   cannot read as a judgement about the script.
+- **An escaped quote no longer voids the rails downstream of it.** All six character
+  walkers read the `\"` in a double-quoted word as the CLOSING quote, so every operator after it
+  looked unquoted and the scanners were handed a command line the shell never runs. The effect
+  was fail-OPEN on the oldest rails in the file: `echo "say \"hi\"" && git push --force origin
+  main` was allowed, and so were `rm -rf`, `cat .env` and `printenv` behind the same shape. All
+  six walkers now apply bash's rule — a backslash escapes the next character inside double
+  quotes, and inside single quotes there are no escapes — which `expands_secret_var` had modelled
+  correctly since it was written. Every one of the six sites carries a fixture that fails without
+  it, including the heredoc scanner, whose case took the `<<` INSIDE the quoted word to reach.
 - **What a search for reported incidents did NOT find stays out.** `alembic downgrade base`,
   `manage.py flush`, `redis-cli flushall`, `mysql -e`, `mongosh --eval` and `drizzle-kit drop`
   have no public report of destroying data in an agent's hands, so resemblance alone does not
@@ -75,7 +84,14 @@ target; a rerun of the same command proceeds, exactly as with the filesystem tie
 `rm -rf` and `git clean -fd` run through a package runner to start being advised, which they
 were not before — `npm exec` included, since `npm` is now stripped like `npx`. If your
 repository has a package script on the name list whose body is harmless, it is advised once per
-session all the same: the guard reads the name, never the script.
+session all the same: the guard reads the name, never the script. Expect one more class of
+command to start being judged that was silently passing before: anything on a line that also
+carries a `\"` inside double quotes, which until now closed the quote early and hid whatever
+followed it from every rail. It cuts BOTH ways and the loosening half is worth knowing: prose
+carrying an escaped quote stops being mistaken for a command, so `echo "a \" | rm -rf x | b"` and
+`grep -q "x \" < .env" f` go quiet, and an unterminated line such as `echo "a\" && git push
+--force` is now allowed rather than blocked — malformed input fails open by design. If you key any
+CI check or transcript review on this guard's output, expect both directions to move.
 
 ## 10.3.1 — 2026-08-27
 

@@ -21,7 +21,9 @@ no operand value ever recorded into a signature that gets persisted and printed 
 verb list then grew by what reported incidents earn: `npm run db:push` — the most-reported command
 in this category and, until now, in the tier's own knowingly-absent list — plus `drizzle-kit push`
 and `prisma migrate --shadow-database-url`, with `npm` joining the runner strip and the advisory
-disclosing that a script NAME is all it read (**DC-027**). It
+disclosing that a script NAME is all it read (**DC-027**). All six character walkers now agree
+that a `\"` inside double quotes is not the closing quote; none of them did, which let a real
+`git push --force` through behind an escaped quote (**DC-028**). The tier
 cannot tell production from local; a cleared advisory means deliberate, not safe, and the guard
 header says so. 10.3.1 before it made the README lead with the failures
 AMH relieves, translate the mechanisms into familiar agent-workflow terms, and put adoption
@@ -55,20 +57,17 @@ its HEAD baseline means it polices uncommitted work only (**DC-020**). The live 
 branch; tagging and publication are owner-only actions. Check: `git tag -l amh-v10.4.0` —
 resolved when it prints `amh-v10.4.0`.
 
-**OPEN — the command rail can be tripped by quoted text in a pathologically nested shell command.**
-Observed once, on a long multi-line `bash -c` whose arguments carried shell text inside python
-strings inside double quotes: the data-plane advisory fired with `npm run db:push` as the matched
-verb, though every realistic prose shape is allowed (`git commit -m "ran npm run db:push"`,
-`echo`, `grep`, single-quoted and escaped-quote nestings all verified silent). **This is the D-007
-family and the owner asked the right question: it has bitten twice and the recorded fix each time
-was "judge position, not presence"** — D-007 itself (`git commit -m "never git push --force"`
-blocked by its own message) and item 2 of the same audit (the `<` redirection scan). What is NOT
-established is that this instance is a presence match: the verb reached LEADING-command position
-of some segment, which points at segment or quote tracking rather than at a scanner, and item 1 of
-that audit is the precedent for that half — `strip_heredocs` opening body mode on `<<<`. Minimize
-it against `split_segments`/`split_words`/`strip_heredocs` before proposing any fix; prefixes of a
-reduced script did not reproduce it. Cost is one turn, the advisory being one-time per command
-text. No check until a reproducer exists.
+**OPEN — the destructive rail sees no Windows shell, and two reported incidents live there.**
+The owner supplied one (2026-08-29): another agent ran `cmd /c "rd /s /q \"D:\Coding\Mobile
+App\surprise\""` twice, and a backslash-quote mismatch between the shell that built the line and
+the one that parsed it left `\` as the deletion target, which resolved to the root of `D:` and
+wiped unrelated folders. Which layer mis-parsed — the outer shell, `cmd.exe`, or the C-runtime argv
+split — is not settled here and matters to whoever builds the arm. It pairs with the Antigravity incident the **DC-027** search turned up,
+`rmdir /s /q d:\` truncated at the drive root by an unquoted space. Neither is reachable here:
+the verbs are Windows and `cmd /c "..."` hides its command exactly as `bash -c` does. Deliberately
+NOT folded into the units that found them — this is a verb-list expansion with its own provenance
+and its own scope question, since the harness targets bash and a Windows arm is the owner's call.
+No check until a session decides to build it.
 
 **OPEN — investigate the forge/API mutation surface as an escape around the local rails.** The
 pre-push rail (DC-009) guards git-CLI pushes only, so an owner-reserved side effect through a
@@ -118,6 +117,11 @@ rows — this section is a pointer index, not a narrative.
   2026-08-27, agreeing with the session's refusal). A row's one pointer slot is FINAL, the four
   carry live principles that may still need it, and this change did not falsify them — they were
   never true. **DC-026** holds the argument and the cost it accepts.
+- 2026-08-29 — **An escaped quote stopped voiding the rails behind it.** The false positive filed
+  on 2026-08-27 was the fail-CLOSED half of a defect whose other half let `git push --force`,
+  `rm -rf`, `cat .env` and `printenv` through whenever a `\"` appeared earlier on the line: all six
+  character walkers read it as the closing quote. Each now applies bash's rule and each has a
+  fixture that fails without it; that the filed report was this defect is inferred (**DC-028**).
 - 2026-08-27 — **The data-plane tier's list grew by what reported incidents earn.** The owner
   answered its provenance question: `npm run db:push` (the Replit incident's own command, whose
   script NAME is in the command text the tier said it could not read) and `drizzle-kit push` under
