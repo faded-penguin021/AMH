@@ -122,7 +122,7 @@
   Sessions route around rails (**DB-030**); a rail provably wrong about what it just read
   supplies the argument.
 
-- DC-002: **"Not judged" and "nothing to object to" must never share an exit path** — a rail's
+- DC-002 [cited]: **"Not judged" and "nothing to object to" must never share an exit path** — a rail's
   form of the failure DA-008 records for generators. A scanner read its word list through a
   process substitution; an empty read took the "no words" branch and ALLOWED the command, so
   the rail could report a clean read of text it never parsed. Observed as 18 fixtures red on
@@ -536,3 +536,20 @@
   scores every kill for the wrong reason, and "unreachable" is a claim about every input that one
   failed construction does not establish, which is how `heredoc_delim` was nearly shipped as the
   one walker with no fixture and the worst failure mode.
+
+- DC-029: **A guard that could not list the tree has two hollow states, they read as opposite
+  verdicts, and neither is one.** `scripts/guards/path-refs.sh` built both its listings from
+  `git ls-files` and checked neither, so an empty basename set reported every bare citation as
+  cited nowhere while an empty file list printed a green count over a scan of no documents —
+  **DC-002**'s process-substitution branch a second time. The two are not symmetric and the
+  symptom reads backwards easily: a listing failing UNIFORMLY lands on the GREEN state, since
+  the markdown loop then never runs, so the false failure this started from needs the tree
+  listing short while the markdown one still succeeds. Status and emptiness are now checked
+  separately on both listings, and a post-exclusion count joins them, because refusing an empty
+  listing BEFORE the exclusions still passed a tree whose every markdown file the scan drops —
+  the state `shipped-citations.sh` had already learned to refuse after its own. Six behaviours,
+  six mutations, six fixtures, the last of them for the `if [ -e "$p" ]` that the status check
+  turned into load-bearing code: under `pipefail` the `&&` form returns the TEST's status, so a
+  deleted last-sorted path posed as a failed listing, and the whole suite stayed green without
+  it. What none of this reaches is a short listing git completed and reported success for, which
+  is why the Owner-queue item is narrowed rather than closed.

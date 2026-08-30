@@ -34,6 +34,7 @@ export GIT_COMMITTER_NAME=amh-test GIT_COMMITTER_EMAIL=amh@test.invalid
 
 PASSED=0
 FAILED=0
+EXPECT_PATH_PREFIX=
 
 snapshot() { # snapshot <name> -> prints the path
 	local d="$WORK/$1"
@@ -61,8 +62,12 @@ is_marked_warn() { # is_marked_warn <rc> <output>
 expect() { # expect <pass|fail|warn> <name> <dir> <guard> [message-substring]
 	local want=$1 name=$2 dir=$3 guard=$4 want_msg=${5:-}
 	local out rc
+	# EXPECT_PATH_PREFIX prepends one directory to PATH for a single case. It is how a guard's
+	# reaction to a TOOL that misbehaves can be tested at all: a tree can be posed into yielding
+	# an EMPTY listing, never a truncated one, so the shim has to sit on PATH. Empty for every
+	# other case, and `${x:+}` keeps that safe under `set -u`.
 	# shellcheck disable=SC2086  # $guard may carry arguments, e.g. "x.sh --tag v1"
-	out=$(cd "$dir" && bash scripts/guards/$guard 2>&1)
+	out=$(cd "$dir" && PATH="${EXPECT_PATH_PREFIX:+$EXPECT_PATH_PREFIX:}$PATH" bash scripts/guards/$guard 2>&1)
 	rc=$?
 	if [ "$want" = pass ] && [ "$rc" -ne 0 ]; then
 		FAILED=$((FAILED + 1))
@@ -707,6 +712,125 @@ expect fail "path-refs: a bare name that is only a substring of a real file" "$d
 d=$(snapshot refs_bare_deleted)
 rm "$d/amh.conf"
 expect fail "path-refs: a bare name whose file was deleted but is still in the index" "$d" path-refs.sh "no file by that name"
+
+# The hollow states, where the guard's own listing tells it nothing and the answer used to be
+# indistinguishable from a verdict about the prose. SIX behaviours, six cases below, because a
+# suite that covers four of them reads exactly like one that covers all six (DC-025): the tree
+# listing failing (i, iv) and coming back empty (ii); the markdown listing failing (v) and
+# coming back empty (iii); every listed file being excluded after the fact (vi); and the `if
+# [ -e ]` in the basename loop that keeps a deleted last-sorted path from posing as a failed
+# listing (vii). Each asserts the DISCRIMINATING sentence, never the shared `checked NOTHING`,
+# which every one of them would satisfy.
+#
+# Note which hollow state a uniformly failing listing lands on: the GREEN one. Both calls fail,
+# the loop never runs, and the guard used to print `0 path reference(s) resolve`. The false
+# failure that started this — a real run reporting `session-start.sh`, a file that exists, as
+# cited nowhere — needs the tree listing to come back short while the markdown one succeeds.
+#
+# A tree of nothing but the guard itself, for the cases that need a listing this repo's
+# snapshot can never produce. Built rather than snapshotted: `git ls-files -c` reports tracked
+# files whatever the excludes say, so an empty listing is unreachable from a committed tree.
+guard_only_tree() { # guard_only_tree <name> -> prints the path
+	local d="$WORK/$1"
+	mkdir -p "$d/scripts/guards"
+	cp "$ROOT/scripts/guards/path-refs.sh" "$d/scripts/guards/path-refs.sh"
+	(cd "$d" && git init -q .)
+	printf '%s' "$d"
+}
+
+# A `git` that dies part way through ONE listing: plausible output already emitted, then a
+# non-zero exit. No tree can be posed into that — a tree yields an empty listing or a complete
+# one — so the status checks are reachable only through a shim, and without one they are the
+# arms that survive deletion untouched while the emptiness checks cover for them. `which` picks
+# the listing, so each status check is demonstrated on its own.
+git_dying_shim() { # git_dying_shim <name> <tree|md> -> prints a directory to prepend to PATH
+	# Split, not one `local` list: `dir="$WORK/shim-$name"` would expand `$name` before the
+	# same statement assigned it, which is D-006 and explodes under `set -u`.
+	local name=$1 which=$2
+	local dir="$WORK/shim-$name" real pattern
+	real=$(command -v git)
+	case $which in
+	tree) pattern='ls-files' ;;
+	md) pattern="'*.md'" ;;
+	esac
+	mkdir -p "$dir"
+	cat >"$dir/git" <<SHIM
+#!/usr/bin/env bash
+for a in "\$@"; do
+	case \$a in
+	$pattern) printf 'AGENTS.md\0'; exit 128 ;;
+	esac
+done
+exec $real "\$@"
+SHIM
+	chmod +x "$dir/git"
+	printf '%s' "$dir"
+}
+
+# (i) The tree listing FAILS outright. A truncated index is the failure git actually reports —
+#     exit 128 with nothing on stdout — and it cannot be satisfied by an enclosing repository
+#     the way a deleted `.git` could.
+d=$(snapshot refs_listing_failed)
+printf 'garbage' >"$d/.git/index"
+expect fail "path-refs: a failed tree listing is not a clean sweep" "$d" path-refs.sh \
+	"the tree listing FAILED (exit 128)"
+
+# (ii) The tree listing SUCCEEDS and is empty: no tracked file, and the working tree excluded.
+#      `.git/info/exclude` rather than a `.gitignore` only to keep the tree file-free — a
+#      `.gitignore` matching `*` excludes itself too and yields the same empty listing.
+d=$(guard_only_tree refs_listing_empty)
+printf '*\n' >"$d/.git/info/exclude"
+expect fail "path-refs: a tree listing that came back empty is not a clean sweep" "$d" path-refs.sh \
+	"the tree listing named no file at all"
+
+# (iii) The tree listing is fine and the MARKDOWN listing is empty — the case the check on
+#       `basenames` alone would never reach, and the one that made the guard print a green
+#       count over a scan of no documents at all.
+d=$(guard_only_tree refs_no_markdown)
+(cd "$d" && git add -A && git commit -qm no-markdown)
+expect fail "path-refs: a tree with no markdown in it is not a clean sweep" "$d" path-refs.sh \
+	"the markdown listing named no file at all"
+
+# (iv) The tree listing fails AFTER emitting a plausible path, so `basenames` is non-empty and
+#      only the status check can catch it. Delete `[ "$rc" -eq 0 ] || listing_failed tree` and
+#      this is the case that reddens; (i) is not, because an empty listing catches that one.
+d=$(snapshot refs_tree_status)
+EXPECT_PATH_PREFIX=$(git_dying_shim tree_status tree)
+expect fail "path-refs: a tree listing that dies mid-stream is not a clean sweep" "$d" path-refs.sh \
+	"the tree listing FAILED (exit 128)"
+EXPECT_PATH_PREFIX=
+
+# (v) The same for the markdown listing: the tree call is let through, so the file is non-empty
+#     and its `-s` test passes. Only the markdown status check is left to catch it.
+d=$(snapshot refs_md_status)
+EXPECT_PATH_PREFIX=$(git_dying_shim md_status md)
+expect fail "path-refs: a markdown listing that dies mid-stream is not a clean sweep" "$d" path-refs.sh \
+	"the markdown listing FAILED (exit 128)"
+EXPECT_PATH_PREFIX=
+
+# (vi) A listing that is non-empty and wholly excluded. `shipped-citations.sh` refuses this
+#      AFTER its exclusions for the reason it states — a renamed directory looks exactly like a
+#      clean sweep — and this guard refused it only before them, so a tree whose every markdown
+#      file sits under `harness/templates/` scanned nothing and reported green.
+d=$(guard_only_tree refs_all_excluded)
+mkdir -p "$d/harness/templates"
+# shellcheck disable=SC2016 # literal backticks: same fixture form as above.
+printf 'See `docs/NOTHING_HERE.md`.\n' >"$d/harness/templates/adopter.md"
+(cd "$d" && git add -A && git commit -qm excluded-only)
+expect fail "path-refs: a listing whose every file is excluded is not a clean sweep" "$d" path-refs.sh \
+	"are outside the scan"
+
+# (vii) The `if [ -e "$p" ]` in the basename loop, which the tree status check turned into
+#       load-bearing code: under `pipefail` the older `[ -e "$p" ] && printf` form returns the
+#       TEST's status, so a last-sorted path that no longer exists reported the whole listing as
+#       failed — a false alarm that also swallows whatever real finding the run had. The file is
+#       constructed rather than borrowed from the tree, because a fixture that depends on which
+#       real file happens to sort last stops testing this, silently, the day another one does.
+d=$(snapshot refs_last_path_deleted)
+printf 'x\n' >"$d/zzz-last-in-listing.txt"
+(cd "$d" && git add zzz-last-in-listing.txt && git commit -qm zzz)
+rm "$d/zzz-last-in-listing.txt"
+expect pass "path-refs: a deleted last-sorted path is not a failed listing" "$d" path-refs.sh
 
 # --- scripts/bootstrap.sh ----------------------------------------------------
 # Not a guard, so it gets its own runner rather than `expect`. It is repo-local for the

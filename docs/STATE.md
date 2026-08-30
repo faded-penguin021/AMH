@@ -79,12 +79,14 @@ unrelated file and deleted a production volume AND its backups with one `curl` G
 a reported incident on this exact surface, in someone else's harness. No check — nobody but a
 session actually crossing it settles this.
 
-**OPEN — `path-refs.sh` may report specific false failures when its file listing comes back
-short.** One full ladder run failed it on `` `session-start.sh` `` — a file that exists — and it
-did not reproduce on two clean runs. The guard builds `basenames` from `git ls-files` and never
-checks that the listing succeeded or is non-empty, so section (c) can name real citations as
-broken, where its siblings refuse that zero-extraction case explicitly. Unverified — no
-reproducer yet, which is why this is a finding and not a fix.
+**OPEN — `path-refs.sh` may still report a false failure if a listing comes back short.** One
+full ladder run failed it on `` `session-start.sh` `` — a file that exists — and it did not
+reproduce on two clean runs. The guard now refuses a listing that failed or came back empty
+instead of reporting either as a verdict, which covers a `git ls-files` that died part way and
+left partial output — the shape that fits this symptom, since a total failure would have printed
+a green count instead (**DC-029**). Not covered and not seeable from here: a listing git
+completed, reported success for, and cut short anyway. No check; only a recurrence settles which
+it was.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -113,6 +115,12 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-30 — **A guard that could not list the tree stopped reporting that as a verdict.**
+  `path-refs.sh` checked neither of its `git ls-files` listings, so a failed one printed a green
+  count over a scan of nothing while an empty basename set called real citations broken. Status,
+  emptiness and a post-exclusion count are now checked separately on both listings and each of
+  the six behaviours has a fixture its own mutation reddens — the last covering an `if [ -e ]`
+  the suite could not see. The queue finding is narrowed, not closed (**DC-029**).
 - 2026-08-27 — **The four `Shipped as` rows keep their wording and get no pointer** (owner,
   2026-08-27, agreeing with the session's refusal). A row's one pointer slot is FINAL, the four
   carry live principles that may still need it, and this change did not falsify them — they were
