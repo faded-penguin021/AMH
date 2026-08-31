@@ -84,6 +84,35 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Tool versions (the third-party behaviour these rungs depend on)
+        # This repository's whole portability story is "a third-party tool behaves
+        # differently there": the citation rung and placeholder-integrity.sh pass `-I`
+        # because grep <= 3.4 prints its binary-file notice on stdout, the secret scan
+        # subtracts a `--baseline` pass because MSYS2's sed is not byte-transparent, and
+        # the CRLF class turns on what git's own installer default does to a checkout. The
+        # version that decides any of it was unrecorded on every run, so a reader asking
+        # "is this runner's grep even one of the affected ones?" had no way to answer it
+        # from a log. Printed, never asserted: pinning a runner's tool versions would make
+        # an image bump red without anything being wrong, and the rungs are written to
+        # hold across versions rather than against one.
+        #
+        # Read the numbers on the right axis, because half this matrix is not on it. The
+        # 3.4/3.5 boundary is a GNU one; macOS ships BSD grep, whose FreeBSD-scale number
+        # is not comparable to it at all, and a reader who ranks `2.6.0-FreeBSD` against
+        # 3.4 has learned nothing about which stream that leg's notice goes to. On the BSD
+        # leg the vendor is the answer, not the version.
+        #
+        # `|| true` keeps this print-only whatever the leg does: BSD sed on macOS has no
+        # `--version` and exits non-zero into `pipefail` (its usage line is itself the
+        # answer to which sed this leg has), and the same clause absorbs a `head` SIGPIPE
+        # and a tool missing from PATH. A diagnostic step must never be the thing that
+        # reddens a run.
+        run: |
+          for t in bash grep sed git; do
+            printf '%s: ' "$t"
+            "$t" --version 2>&1 | head -n 1 || true
+          done
+
       - name: Install shellcheck (macOS)
         if: runner.os == 'macOS'
         run: brew install shellcheck

@@ -49,7 +49,7 @@ versions printed by the portability job, (2) a CI job that runs the shipped rung
 CRLF adopter tree. The owner pre-approved the mandated fresh-context review pass for both units
 (one blocking reviewer each, strongest tier, the one-pass bound unchanged) and asked for the
 work to be paced around a usage window that resets ~22:30 UTC on 2026-08-31 — the plan carries
-the schedule and the `send_later` waits. Checklist: [ ] unit 1 [ ] unit 2 [ ] PR #58 body
+the schedule and the `send_later` waits. Checklist: [x] unit 1 [ ] unit 2 [ ] PR #58 body
 corrected [ ] plan archived or deleted.
 
 **OPEN — the destructive rail sees no Windows shell, and two reported incidents live there.**
@@ -75,19 +75,30 @@ reproduce on two clean runs; the guard now refuses a listing that failed or came
 rather than reporting either as a verdict (**DC-029**). Still uncovered: a listing git completed,
 reported success for, and cut short anyway. No check; only a recurrence settles which it was.
 
-**OPEN — the Windows guards rung is green in theory again, and unconfirmed there for the second
-time.** The adopter tree (Tideo-Auto-Brightness) confirmed **DC-030** on a real Git-for-Windows
-clone — four `--guards-only` runs, 533 failures on 9.1.0 down to 2, the secret scan and the
-manifest parse both clean under real MSYS2 sed — and the 2 survivors were the grep defect
-**DC-031** now fixes, reproduced here under a shim. What is missing is narrower than it looks:
-CI's `portability (windows-latest)` job runs `scripts/ladder.sh --guards-only` on every PR, so
-the fixed rungs DO run on Windows — but no file in `CITATION_SCAN_PATHS` is binary, so that job
-cannot reproduce the defect and its green says nothing about the fix. A CRLF worktree also still
-needs the `.gitattributes` seed; the scripts alone do not make one green. `verify.sh` (rung 3)
-has never been run on Windows at all — the adopter's runs were `--guards-only` only. Check: on a
-stock Git-for-Windows clone, `printf 'x\0 D-999 \0' >scripts/blob.bin && bash scripts/ladder.sh
---guards-only && rm scripts/blob.bin` — resolved when the citation rung passes with no `Binary
-file` token in its output.
+**OPEN — the binary input now reaches the Windows job; whether that job's grep is one that
+could fail on it is still unknown.** The adopter tree (Tideo-Auto-Brightness) confirmed
+**DC-030** on a real Git-for-Windows clone — four `--guards-only` runs, 533 failures on 9.1.0
+down to 2 — and the 2 survivors were the grep defect **DC-031** fixed. What changed:
+`scripts/fixtures/binary-citation.bin` is committed inside `CITATION_SCAN_PATHS`, so CI's
+`portability (windows-latest)` job now runs the citation rung against the input that breaks it
+and not merely on the platform, and that job prints its `bash`/`grep`/`sed`/`git` versions
+(**DC-033**). That is not the same as confirmation, and the difference is the whole item: on
+grep >= 3.5 the notice goes to stderr and the fixture moves no verdict, so a green Windows job
+settles nothing until the printed version is read and turns out to be <= 3.4. Also still open —
+a CRLF worktree needs the `.gitattributes` seed and the scripts alone do not make one green
+(Unit 2 below), and `verify.sh` (rung 3), which is where the shipped fixture suite and its grep
+shim live, has never run on Windows or macOS at all: CI's portability job is `--guards-only`,
+as were the adopter's runs. Check: on a stock Git-for-Windows clone, `grep --version && bash
+scripts/ladder.sh --guards-only` — resolved when the citation rung passes on a run whose grep
+is <= 3.4, which is the only configuration in which passing means anything.
+
+**OPEN — `amh.conf`'s `LEDGER_ROW_CHAR_CAP` comment calibrates against a figure the rows
+falsify.** It states that the longest sentence-compliant row is ~1450 bytes, leaving 2000 "about
+a quarter of headroom"; measured across the volumes, **DC-030** is 1962, **DC-027** 1866 and
+**DC-011** 1858, so the headroom the comment describes does not exist. Pre-existing and found by
+a review pass looking at something else. Code is ground truth, so the prose is what is wrong —
+but it is legislation in a `RULE_FILES` file, so repairing it is a reviewed unit, not a typo fix.
+Check: `awk` the volumes for the longest row under the sentence cap and compare with the comment.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -116,6 +127,15 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-31 — **CI now runs the citation rung against the input that breaks it, not merely on
+  the platform.** `scripts/fixtures/binary-citation.bin` is a committed binary file inside
+  `CITATION_SCAN_PATHS` — outside the shipped set, skipped by the secret scan and
+  `placeholder-integrity.sh`, carrying an id-shaped token that makes the rung fail by name if it
+  ever stops being binary, though nothing enforces its presence. It moves no verdict on grep
+  >= 3.5 and is not a regression check for `-I` — that is the grep shim in the shipped fixture
+  suite, which runs on Linux only; what it buys is that any runner shipping an older GNU grep
+  reports the defect. The portability job also prints `bash`/`grep`/`sed`/`git` versions on both legs, printed and never
+  asserted — on the BSD leg read the vendor rather than the number (**DC-033**).
 - 2026-08-31 — **The adopter tree confirmed the CRLF fix on real Windows, and the 2 failures it
   had left were a second tool assumption.** GNU grep prints its binary-file notice on stdout
   through 3.4 (Git for Windows ships 3.0) and on stderr from 3.5, so the citation rung captured

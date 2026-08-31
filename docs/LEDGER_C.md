@@ -611,3 +611,25 @@
   flag with `LC_ALL=C` beside it (grep before 3.5 also calls a file binary on an encoding error
   in the current locale, so the flag alone would have made the scanned set locale-dependent), and
   one took a refusal instead.
+- DC-033: **A rung fixed for a platform its fixtures cannot run on needs its breaking INPUT
+  committed, not just its execution on that platform.** CI's `portability (windows-latest)` job
+  has run the citation rung on every pull request since the matrix existed and could never have
+  caught DC-031: no file in `CITATION_SCAN_PATHS` was binary, so the rung met its ordinary input
+  on an unusual platform rather than the input that breaks it, and its green said nothing about
+  the fix. `scripts/fixtures/binary-citation.bin` is that input — inside the scan, outside the
+  shipped set `shipped-citations.sh` reads, skipped by the secret scan's own `grep -qI` and by
+  `placeholder-integrity.sh`'s `-I` — carrying an id-shaped token that resolves to no row, so the
+  rung fails by name if the file ever stops being binary, though nothing enforces its PRESENCE
+  and deleting it leaves every rung green: recorded, not repaired. What it does NOT buy is the
+  half worth writing down: on grep >= 3.5 the notice goes to stderr and this file moves no verdict at all,
+  so it is not a regression check for `-I` (that is still the grep shim in
+  `scripts/test-ladder-guards.sh`), only a guarantee that any runner ever shipping an older grep
+  reports the defect instead of passing over it. The portability job now also prints `bash`,
+  `grep`, `sed` and `git` versions on both legs, printed and never asserted, because "is this
+  runner's grep one of the affected versions" was a question no log could answer while every fix
+  here turned on it — on the BSD leg read the vendor, not the number, that boundary being GNU's.
+  Recorded as the owner's durable grant: on 2026-08-31 the owner pre-approved the fresh-context
+  rule-review pass mandated for both units of
+  `docs/plans/2026-08-31-ci-sees-windows.md`, lifting this session's standing no-subagent policy
+  for exactly those passes, with one blocking reviewer each at the strongest tier and the
+  one-pass-per-unit bound unchanged.
