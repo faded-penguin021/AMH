@@ -652,3 +652,22 @@
   the failure direction is worse — a match that reads as a non-match makes the rail stand down
   on a Bash command it should have inspected — and it is queued rather than fixed here, being a
   shipped rail with its own playbook.
+  Corrected by DC-035.
+- DC-035: **The owner authorised the parked pass, and it found the fix right and its story
+  wrong.** DC-034's mechanism is real and explains the `macos-latest` failure on `AGENTS.md`,
+  but its claim to also explain the 2026-08-29 `session-start.sh` sighting — and so to close that
+  Owner-queue item — is false, because this repository's basename list is 1127 bytes over 71
+  entries, far under any pipe buffer, the old pipeline produces 0/200 false failures against the
+  real listing, and `session-start.sh` is entry 64 of 71, so almost nothing is pending when grep
+  matches; the item is restored, narrowed to a sighting that still has no reproducer. The same
+  pass found the shape in a shipped rung the original survey missed — `ladder.sh`'s poison-token
+  check, where it fails OPEN and where this branch's own commit messages already stand at 44065
+  bytes of the ~65536 the defect needs. Two corrections of record: the fix works because a
+  here-string's writer is not a pipeline member and so never reaches `PIPESTATUS`, NOT because
+  bash backs it with a temporary file, which it does only above the pipe-buffer size; and the
+  published one-liner prints 141, a SIGPIPE death, rather than the 1 it claims, except where
+  SIGPIPE is ignored as it was on the CI runner. The durable lesson is about attribution rather
+  than about pipes: a mechanism that explains today's failure is not thereby the explanation of
+  yesterday's, and retiring an old unreproduced sighting onto a new root cause closes an open
+  question on a coincidence of symptoms. Recorded and deliberately NOT fixed tonight, by the
+  owner's instruction, so the shipped diff stays as it was reviewed.

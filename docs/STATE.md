@@ -42,18 +42,41 @@ fresh-context pass for each — one blocking reviewer, strongest tier, one-pass 
 and asked that the work be paced around the usage window. Checklist: [x] unit 1 [ ] unit 2
 [ ] unit 3 [x] PR #58 body corrected [ ] plan archived or deleted.
 
-**OPEN — the `path-refs.sh` fix (**DC-034**) is PARKED UNREVIEWED on `session/readme-adoption`.**
-It touches `scripts/guards/`, in `RULE_FILES`, so the protocol applies, and the owner's
-pre-approval covered the plan's units only; nobody was awake to ask, so it is committed and
-pushed rather than held, which is what parking requires. Commit `b2a9ae3` states it in full.
-Authorising a pass is the owner's to grant. No check: it is a question.
+**OPEN — the `path-refs.sh` pass is DONE and its findings are RECORDED, NOT FIXED — fix them
+first (owner, 2026-08-31).** The fix in `b2a9ae3` is correct; what the pass falsified was the
+story around it (**DC-035**). In priority order, each replayable: (a) the guard comment at
+`path-refs.sh:185` gives the wrong REASON — a here-string works because its writer is not a
+pipeline member and never reaches `PIPESTATUS`, not because bash backs it with a temp file,
+which it does only above the pipe-buffer size, so a reader on bash >= 5.1 would wrongly think
+the fix void; (b) fixture (viii) in `local-guards.sh` pads with `*.md`, which drags 800 files
+through the markdown loop for nothing — `*.txt` still fails against the piped form and takes
+0.13s against 10.9s, currently 23% of the repo-local suite; (c) that fixture is a bare `expect
+pass` with no message substring, so it goes vacuous silently if the padding ever stops clearing
+the pipe buffer — `expect` takes a fifth argument on a pass verdict; (d) the `Check:` one-liner
+below and in `b2a9ae3` prints 141, a SIGPIPE death, not the 1 it claims, except where SIGPIPE is
+ignored as on the CI runner; (e) the commit body's "(DC-034 cites DC-033)" is false — DC-034
+cites no other row. Check: `sed -n '185p' scripts/guards/path-refs.sh` — resolved when the
+comment no longer says "temporary file rather than a pipe".
+
+**OPEN — the 2026-08-29 `path-refs.sh` false failure on `` `session-start.sh` `` still has no
+reproducer.** It was closed in `b2a9ae3` as the EPIPE defect **DC-034** fixes; the pass
+falsified that (**DC-035**) and the item is restored rather than left retired on a coincidence
+of symptoms. The mechanism cannot have produced it: the basename list is 1127 bytes over 71
+entries, the old pipeline gives 0/200 false failures against the real listing, and
+`session-start.sh` is entry 64 of 71, so nothing is pending when grep matches. What DC-029 named
+is still uncovered — a listing git completed, reported success for, and cut short anyway. No
+check; only a recurrence settles it.
 
 **OPEN — `scripts/command-guard.sh` carries the same `printf | grep -q` shape, and there it
 fails OPEN.** `extract_command`'s no-python3 fallback reads a SUCCESSFUL match as a failure
 whenever the writer still had bytes pending, so `|| return 0` stands the rail down on a Bash
-command it should have inspected. Approved by the owner (2026-08-31) as **Unit 3** of the plan
-above on the same terms, pre-approved pass included; the defect, acceptance and playbook-2
-obligations are written there. Check: `bash -c 'set -uo pipefail; { printf "a\n"; sleep 0.1;
+command it should have inspected. **And it is not the only site:** the pass found
+`scripts/ladder.sh:899` and its shipped twin doing the same in the poison-token rung, where a
+token early in a long enough set of commit messages is silently not reported — this branch's own
+messages already stand at 44065 bytes of the ~65536 needed (**DC-035**). Approved by the owner
+(2026-08-31) as **Unit 3** of the plan above on the same terms, pre-approved pass included; the
+defect, acceptance and playbook-2 obligations are written there, and the rung now belongs in
+that unit's scope. Check: `bash -c 'set -uo pipefail; { printf "a\n"; sleep 0.1;
 printf "b\n"; } | grep -qxF a'; echo $?` prints 1 for a match that succeeded.
 
 **OPEN — the grep half is CONFIRMED on Windows CI; the CRLF half and rung 3 are not.** Run
@@ -117,6 +140,11 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-31 — **The parked `path-refs.sh` unit was reviewed on the owner's authorisation, and
+  the pass kept the fix but broke its story.** The EPIPE mechanism explains the macOS CI failure
+  and cannot explain the older `session-start.sh` sighting, so that queue item is restored; the
+  same shape turned up in `ladder.sh`'s poison-token rung, failing open. Findings recorded
+  unfixed by the owner's instruction (**DC-035**).
 - 2026-08-25 through 2026-08-31 — **The unreleased 10.3.0–10.4.0 train, folded.** A data-plane
   tier grown by reported incidents; an escaped quote that had been voiding the rails behind it;
   a PR-time release-number check; an adoption-first README; and a Windows tail in four parts —
