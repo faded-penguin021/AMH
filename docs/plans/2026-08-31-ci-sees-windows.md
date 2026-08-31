@@ -138,6 +138,39 @@ nothing.
   coverage, and a platform job that normalises away the platform's defaults tests the wrong
   machine.
 
+## Unit 3 — the same `printf | grep -q` shape in the command rail, where it fails OPEN
+
+Added 2026-08-31 by owner grant, after **DC-034** found the class in `path-refs.sh` and the
+audit found it again here. Same protocol as units 1 and 2: same pacing, and the mandated
+fresh-context pass is PRE-APPROVED on the same terms — one blocking reviewer, strongest tier,
+one pass per unit, no licence for a second. Record the grant in this unit's ledger row.
+
+**Binary acceptance:** a fixture in the SHIPPED suite that fails against the current
+`extract_command` and passes against the fixed one. The direction must be demonstrated, not
+asserted: this is a rail, and the failure mode is silence.
+
+- **The defect.** In `scripts/command-guard.sh`'s `extract_command`, the no-python3 fallback runs
+  `printf '%s' "$payload" | grep -qE '"tool_name"...' || return 0`. `grep -q` exits at its first
+  match; a writer with bytes still pending takes EPIPE; the file runs under `set -uo pipefail`,
+  so a SUCCESSFUL match becomes a non-zero pipeline and `|| return 0` stands the rail down on a
+  Bash command it should have inspected. The `printf | sed | head -1` on the next line is the
+  same class with `head` as the early exit, and there the status becomes the FUNCTION's.
+- **Direction matters here in a way it did not in DC-034.** `path-refs.sh` failed loudly and
+  falsely; this fails quietly and permissively. A rail that stands down is indistinguishable
+  from a rail that looked and found nothing, which is the silent-skip class the adversarial
+  checklist names.
+- **Playbook 2 applies in full** — the template under `harness/templates/scripts/` is the
+  original, copied down byte-for-byte, with `scripts/build-manifest.sh` run in the same change.
+  Never patch the local copy.
+- **Reproduce before fixing, on the real payload path.** The fallback runs only where `python3`
+  is absent, so the fixture has to reach it — check how the existing suite poses that, and make
+  the payload large enough that the write splits. A fixture that cannot reach the fallback tests
+  nothing, and would pass against both versions.
+- **Record:** STATE changelog line; a ledger row carrying the owner's grant and the durable
+  lesson, which is about the DIRECTION a shared bug class takes at each site rather than the
+  class itself — the same shape read as a false failure in a guard and as a silent stand-down in
+  a rail.
+
 ## Chore, do it inside whichever unit lands first
 
 PR #58's body still lists four scripts under **Adopter impact** and does not mention
