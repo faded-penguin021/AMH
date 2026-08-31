@@ -905,6 +905,33 @@ printf 'x\n' >"$d/zzz-last-in-listing.txt"
 rm "$d/zzz-last-in-listing.txt"
 expect pass "path-refs: a deleted last-sorted path is not a failed listing" "$d" path-refs.sh
 
+# (viii) The bare-name lookup must not be a PIPE. `grep -q` exits on its first match, and a
+#        writer with bytes still pending then takes EPIPE; under `pipefail` that turns a
+#        successful match into a non-zero pipeline, and the guard reports a file that exists
+#        as cited nowhere. It reached CI as a macOS run failing on `AGENTS.md` while every
+#        Linux run of the same commit stayed green (DC-034).
+#
+#        This case is SIZE-BUILT rather than shim-built, and the size is the whole trick: a
+#        single write into a pipe that has room never notices the reader leaving, so the
+#        real tree's ~1 KB basename list cannot reproduce this on a host with a 64 KB pipe
+#        buffer no matter how the fixture is posed. Padding the listing past that buffer
+#        forces the writer to block, which is what lets `grep -q` exit first. The cited name
+#        sorts to the very front so the match happens as early as possible, leaving the most
+#        pending. Against the piped form this case fails; against the here-string it passes,
+#        and the padding is what makes that difference exist at all on this platform.
+d=$(guard_only_tree refs_early_match_long_listing)
+mkdir -p "$d/pad"
+i=0
+while [ "$i" -lt 800 ]; do
+	: >"$d/pad/$(printf 'p%0100d' "$i").md"
+	i=$((i + 1))
+done
+: >"$d/AAA-first-in-listing.md"
+# shellcheck disable=SC2016 # the backticks are the fixture: the guard reads a markdown
+# code span, so single quotes are required here.
+printf 'cites `AAA-first-in-listing.md`\n' >"$d/doc.md"
+expect pass "path-refs: an early match on a long listing is not a missing file" "$d" path-refs.sh
+
 # --- scripts/bootstrap.sh ----------------------------------------------------
 # Not a guard, so it gets its own runner rather than `expect`. It is repo-local for the
 # same reason the guards above are: session-start.sh is the shipped, agent-neutral boot

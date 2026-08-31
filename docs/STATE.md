@@ -69,11 +69,20 @@ local rail. No longer only adversarial: the **DC-027** search turned up PocketOS
 found a token in an unrelated file and deleted a production volume AND its backups with one
 `curl` GraphQL mutation. No check — nobody but a session actually crossing it settles this.
 
-**OPEN — `path-refs.sh` may still report a false failure if a listing comes back short.** One
-full ladder run failed it on `` `session-start.sh` `` — a file that exists — and it did not
-reproduce on two clean runs; the guard now refuses a listing that failed or came back empty
-rather than reporting either as a verdict (**DC-029**). Still uncovered: a listing git completed,
-reported success for, and cut short anyway. No check; only a recurrence settles which it was.
+**OPEN — the `path-refs.sh` fix is PARKED UNREVIEWED on `session/readme-adoption`.** It touches
+`scripts/guards/`, which is in `RULE_FILES`, so the rule-review protocol applies — but the
+owner's pre-approval (**DC-033**) covers the two CI-sees-Windows units and this is neither. A
+standing no-subagent instruction is a policy, not a capability, and the runbook says to ASK
+before parking; nobody was awake, so the work is committed and pushed rather than held, which is
+what parking requires. Authorising a pass is the owner's to grant. No check: it is a question.
+
+**OPEN — `scripts/command-guard.sh` carries the same `printf | grep -q` shape, and there it
+fails OPEN.** In `extract_command`'s no-python3 fallback, `printf '%s' "$payload" | grep -qE
+'"tool_name"...' || return 0` reads a SUCCESSFUL match as a failure whenever the writer still had
+bytes pending, standing the rail down on a Bash command it should have inspected; the
+`printf | sed | head -1` beneath it is the same class. Not fixed here — a shipped rail takes
+playbook 2 and its own pass. Check: `bash -c 'set -uo pipefail; { printf "a\n"; sleep 0.1;
+printf "b\n"; } | grep -qxF a'; echo $?` prints 1 for a match that succeeded.
 
 **OPEN — the grep half is CONFIRMED on Windows CI; the CRLF half and rung 3 are not.** The
 adopter tree (Tideo-Auto-Brightness) confirmed **DC-030** on a real Git-for-Windows clone — four
@@ -126,6 +135,12 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-31 — **A guard reported a file that exists as missing, and the cut-short listing was
+  its own pipeline rather than git's.** `path-refs.sh` looked up bare names with `printf |
+  grep -qxF`: grep exits at the first match, a pending write takes EPIPE, and `pipefail` turned
+  the successful match into a failure — green on Linux, red on `macos-latest` naming `AGENTS.md`.
+  Fixed with a here-string and fixtured by padding the listing past the pipe buffer, which is
+  what makes the defect reproducible on Linux at all. Closes that open question (**DC-034**).
 - 2026-08-31 — **CI now runs the citation rung against the input that breaks it, not merely on
   the platform.** `scripts/fixtures/binary-citation.bin` is a committed binary file inside
   `CITATION_SCAN_PATHS` — outside the shipped set, skipped by the secret scan and
@@ -134,9 +149,8 @@ rows — this section is a pointer index, not a narrative.
   >= 3.5 and is not a regression check for `-I` — that is the grep shim in the shipped fixture
   suite, which runs on Linux only; what it buys is that any runner shipping an older GNU grep
   reports the defect. The portability job also prints `bash`/`grep`/`sed`/`git` versions on both
-  legs, printed and never asserted (**DC-033**) — and the first run answered the question they
-  exist for: `windows-latest` is on grep **3.0**, so that leg is a real check rather than a
-  hypothetical one, while `macos-latest` is BSD grep `2.6.0-FreeBSD`, off the GNU axis entirely.
+  legs, printed and never asserted (**DC-033**); the queue item above carries what the first run
+  printed.
 - 2026-08-31 — **The adopter tree confirmed the CRLF fix on real Windows, and the 2 failures it
   had left were a second tool assumption.** GNU grep prints its binary-file notice on stdout
   through 3.4 (Git for Windows ships 3.0) and on stderr from 3.5, so the citation rung captured

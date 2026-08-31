@@ -633,3 +633,22 @@
   `docs/plans/2026-08-31-ci-sees-windows.md`, lifting this session's standing no-subagent policy
   for exactly those passes, with one blocking reviewer each at the strongest tier and the
   one-pass-per-unit bound unchanged.
+- DC-034 [cited]: **`grep -q` closes the pipe, and under `pipefail` that turns a successful
+  match into a failed one.** `path-refs.sh` asked whether a cited bare filename exists with
+  `printf '%s\n' "$basenames" | grep -qxF -- "$target"`; grep exits at its first match, a writer
+  with bytes still pending then takes EPIPE, bash's printf builtin returns non-zero, and
+  `pipefail` promotes that to the pipeline's status — so the guard reported `AGENTS.md`, a file
+  in its own listing, as cited nowhere. It is the residue the earlier Owner-queue item named as
+  "a listing git completed, reported success for, and cut short anyway": the truncation was
+  never git's, it was the guard's own pipeline, which is why two clean re-runs could not find it
+  and why the first sighting looked like a phantom. Whether it fires is the platform's business
+  and not the code's — a single write into a pipe with room never notices the reader leaving, so
+  the ~1 KB basename list here is safe wherever it goes out in one write and is not where it
+  does not, which is how the same commit was green on every Linux run and red on `macos-latest`.
+  The fix is a here-string, a temporary file rather than a pipe, so there is no reader to leave;
+  the fixture has to PAD the listing past the pipe buffer to make the defect reproducible on
+  Linux at all, and that padding is the honest cost of testing a bug the fixtures' own platform
+  hides. The same shape sits in `scripts/command-guard.sh`'s no-python3 payload fallback, where
+  the failure direction is worse — a match that reads as a non-match makes the rail stand down
+  on a Bash command it should have inspected — and it is queued rather than fixed here, being a
+  shipped rail with its own playbook.

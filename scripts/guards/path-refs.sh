@@ -173,7 +173,19 @@ while IFS= read -r -d '' f; do
 	while IFS= read -r target; do
 		[ -n "$target" ] || continue
 		checked=$((checked + 1))
-		if ! printf '%s\n' "$basenames" | grep -qxF -- "$target"; then
+		# A here-string, NOT `printf ... | grep -q`, and the difference is a false FAILURE
+		# rather than a style preference. `grep -q` exits the moment it matches; if the
+		# writer still has bytes pending, its next write lands on a closed pipe and bash's
+		# printf builtin returns non-zero with `write error: Broken pipe`. This file runs
+		# under `pipefail`, which promotes that to the pipeline's status — so a SUCCESSFUL
+		# match reads as a failure and the guard reports a file that exists as cited
+		# nowhere. Whether the write is split at all is the platform's business: a
+		# single write into a pipe with room never notices the reader leaving, so this
+		# repository's ~1 KB basename list is safe on a host that writes it in one go and
+		# is not on one that does not. It reached CI as `path-refs.sh` failing on
+		# `AGENTS.md` on macOS while every Linux run stayed green. A here-string is a
+		# temporary file rather than a pipe, so there is no reader to leave (DC-034).
+		if ! grep -qxF -- "$target" <<<"$basenames"; then
 			# shellcheck disable=SC2016 # literal backticks: the message quotes the citation
 			# back in the same markdown form the prose used. No expansion wanted.
 			printf 'no file by that name anywhere in the tree, cited in %s: `%s`\n' "$f" "$target"
