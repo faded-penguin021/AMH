@@ -70,12 +70,15 @@ reported success for, and cut short anyway. No check; only a recurrence settles 
 time.** The adopter tree (Tideo-Auto-Brightness) confirmed **DC-030** on a real Git-for-Windows
 clone — four `--guards-only` runs, 533 failures on 9.1.0 down to 2, the secret scan and the
 manifest parse both clean under real MSYS2 sed — and the 2 survivors were the grep defect
-**DC-031** now fixes, reproduced here under a shim. Nobody has run the fixed pair on Windows, and
-this session cannot: same shape as the item it replaces, one bug later. `verify.sh` (rung 3) has
-never been run on Windows at all — the confirmation covered `--guards-only` only, so nothing is
-known either way about the build and test rung there. Check: `bash scripts/ladder.sh
---guards-only` on a stock Git-for-Windows clone, expecting no `Binary file` token in the
-citation rung's output.
+**DC-031** now fixes, reproduced here under a shim. What is missing is narrower than it looks:
+CI's `portability (windows-latest)` job runs `scripts/ladder.sh --guards-only` on every PR, so
+the fixed rungs DO run on Windows — but no file in `CITATION_SCAN_PATHS` is binary, so that job
+cannot reproduce the defect and its green says nothing about the fix. A CRLF worktree also still
+needs the `.gitattributes` seed; the scripts alone do not make one green. `verify.sh` (rung 3)
+has never been run on Windows at all — the adopter's runs were `--guards-only` only. Check: on a
+stock Git-for-Windows clone, `printf 'x\0 D-999 \0' >scripts/blob.bin && bash scripts/ladder.sh
+--guards-only && rm scripts/blob.bin` — resolved when the citation rung passes with no `Binary
+file` token in its output.
 
 ## Decided non-items (don't re-litigate without new evidence)
 

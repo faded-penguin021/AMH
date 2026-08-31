@@ -97,6 +97,23 @@ for pattern in $SCAN_GLOBS; do
 			fails=$((fails + 1))
 			continue
 		fi
+		# A BINARY file is refused rather than skipped, and the difference matters in both
+		# directions (AMH ledger row DC032). `-I` would be the wrong answer here: it makes grep
+		# exit 1 with no output, which is indistinguishable from "this file cites nothing", so
+		# the file would be COUNTED as scanned and reported clean — the hollow extraction the
+		# arm below exists to refuse. Grep >= 3.5 already produces that state without `-I`: it
+		# puts its binary-file notice on stderr and exits 0 with an empty stdout, so a shipped
+		# script containing a NUL byte reads here as citation-free on the platform this guard's
+		# fixtures run on. This rung's whole job is to prove a scan HAPPENED, so a file it
+		# cannot read as text is a failure with its name on it.
+		# `-s` first, because `grep -qI .` answers 1 for an EMPTY file too, and an empty file was
+		# read successfully and cites nothing — calling it binary would be a false diagnostic in
+		# a guard whose value is that its verdicts are literal.
+		if [ -s "$f" ] && ! LC_ALL=C grep -qI . "$f"; then
+			printf '%s is binary, so this guard did NOT scan it for citations — a shipped artifact must be text\n' "$f"
+			fails=$((fails + 1))
+			continue
+		fi
 		# Whole-word, and the same unbounded volume pattern the ladder's citation rung uses, so a
 		# multi-letter id cannot slip past this while being caught there.
 		hits=$(LC_ALL=C grep -nowE 'D[A-Z]*-[0-9]+' "$f")

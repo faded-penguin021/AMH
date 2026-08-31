@@ -32,7 +32,12 @@ trap 'rm -f "$documented" "$used"' EXIT
 # code spans in the table cells. Expanding them would run the cell text as a command.
 sed -n 's/^| *`\([^`]*\)`\( *\/ *`\([^`]*\)`\)* *|.*/\1 \3/p' "$DOC" | tr ' ' '\n' | grep -v '^$' | sort -u >"$documented"
 
-grep -rhoE '\{\{[A-Z_][A-Z0-9_]*\}\}' "$TEMPLATES" 2>/dev/null |
+# `-I` and `LC_ALL=C` here for the reason the live-file pass below states: a binary template
+# asset — an icon, a font — makes grep print its binary-file notice INSTEAD of the match, on
+# stdout for grep <= 3.4, and `sed 's/[{}]//g'` passes that straight through as a placeholder
+# NAME that `harness/PLACEHOLDERS.md` cannot document. Three greps read file content in this
+# guard and all three carry the flags; the first draft of this fix carried two.
+LC_ALL=C grep -rIhoE '\{\{[A-Z_][A-Z0-9_]*\}\}' "$TEMPLATES" 2>/dev/null |
 	sed 's/[{}]//g' | sort -u >"$used"
 
 undocumented=$(comm -23 "$used" "$documented")
@@ -59,10 +64,16 @@ if [ -n "$live" ]; then
 	# is not `{{PLACEHOLDER}}` or `{{X}}`, and this guard reports an unfilled placeholder in a
 	# file nobody can fill. A binary file has no placeholder for a human to instantiate, so
 	# skipping one loses nothing this guard was ever checking.
+	#
+	# `LC_ALL=C` with it, because `-I` alone does not settle WHICH files are binary: grep before
+	# 3.5 — the versions this flag is here for — also classifies a file as binary on an encoding
+	# error in the current locale, so under a UTF-8 locale a Latin-1 text file would be skipped
+	# and its unfilled placeholder would go unseen. Under `C` the question is the NUL byte on
+	# every host, which is how the ladder's secret scan asks it.
 	leftover=$(printf '%s\n' "$live" | tr '\n' '\0' |
-		xargs -0 grep -I -lE '\{\{[A-Z_][A-Z0-9_]*\}\}' 2>/dev/null |
+		LC_ALL=C xargs -0 grep -I -lE '\{\{[A-Z_][A-Z0-9_]*\}\}' 2>/dev/null |
 		while IFS= read -r f; do
-			if grep -I -ohE '\{\{[A-Z_][A-Z0-9_]*\}\}' "$f" | grep -qvE '^\{\{(PLACEHOLDER|X)\}\}$'; then
+			if LC_ALL=C grep -I -ohE '\{\{[A-Z_][A-Z0-9_]*\}\}' "$f" | grep -qvE '^\{\{(PLACEHOLDER|X)\}\}$'; then
 				printf '%s\n' "$f"
 			fi
 		done)

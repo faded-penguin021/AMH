@@ -592,3 +592,22 @@
   change. `shipped-citations.sh` was audited and deliberately left as it is: its input is a
   fixed glob of shipped text artifacts, and `-I` there would let a binary file count as scanned
   and cited-clean, which is the hollow extraction that guard exists to refuse.
+  Corrected by DC-032.
+- DC-032: **The audit in DC-031 reached the right action for `shipped-citations.sh` and gave a
+  reason that only holds on the platform the audit was NOT worried about.** Keeping `-I` out was
+  correct — it would make a binary file exit 1 with no output, indistinguishable from a file that
+  cites nothing, so the file would be counted as scanned and reported clean — but the row went on
+  to describe the guard as therefore sound, and on grep >= 3.5, which is what its own fixtures
+  run on, it already produced that exact state without `-I`: the binary-file notice goes to
+  stderr, stdout is empty, the exit status is 0, the `rc > 1` trouble arm never fires, and a
+  shipped script carrying a NUL byte reads as citation-free. The fix is the third verdict this
+  guard was missing — a file it cannot read as text is refused by name rather than skipped or
+  swallowed — with `-s` tested first so an empty file, which was read successfully and cites
+  nothing, is not mislabelled binary. The durable lesson is about the audit rather than the flag:
+  a fix pass that asks "does this call site need the flag?" reads each site against the reported
+  platform and stops there, when the question a guard's site actually poses is "what does this
+  site do when the read yields nothing" — which has a different answer per site and, here, was
+  already wrong on the fixtures' own platform. That is why one site took the flag, one took the
+  flag with `LC_ALL=C` beside it (grep before 3.5 also calls a file binary on an encoding error
+  in the current locale, so the flag alone would have made the scanned set locale-dependent), and
+  one took a refusal instead.

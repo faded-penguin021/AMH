@@ -732,7 +732,16 @@ guard_citations() {
 		# tool's behaviour that only holds on the platform the fixtures run on. `-I`
 		# settles it in every version — a binary file is not a citation site — and it is
 		# what the secret scan already uses to decide the same question.
-		xargs -0 grep -I -hwoE 'D[A-Z]*-[0-9]+' <"$scan_files" 2>/dev/null | sort -u >"$cited"
+		#
+		# `LC_ALL=C` is half of that flag, not decoration beside it. Grep before 3.5 — the
+		# versions `-I` is here for — also calls a file binary on an ENCODING ERROR in the
+		# current locale, so under a UTF-8 locale a Latin-1 file in the scan paths would be
+		# skipped: its citations would vanish, an unmarked row would then pass, and a
+		# `[cited]` marker whose only site was that file would fail as stale. That is scope
+		# drift of exactly the kind the `set -f` above exists to stop. Under `C` the
+		# question is the NUL byte on every host and locale, which is how the secret scan
+		# and `shipped-citations.sh` both ask it.
+		LC_ALL=C xargs -0 grep -I -hwoE 'D[A-Z]*-[0-9]+' <"$scan_files" 2>/dev/null | sort -u >"$cited"
 	fi
 
 	local unresolved missing_marker stale_marker

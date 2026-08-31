@@ -1204,13 +1204,32 @@ expect_fail "a standalone token of the id shape IS read as a citation" "$d" "no 
 # broken rung. It stands in for the older grep by moving that one notice back to stdout, and it
 # leaves every other line — and the exit status — alone. `-I` makes the notice unreachable in
 # both versions, which is why the fixture is a pass rather than a message assertion.
+#
+# The fixture cites a REAL row beside the font, and the assertion reads the count rather than
+# the words around it. Without both, this case asserts nothing: `mk` builds its ledger from the
+# ids the copied scripts mention, `shipped-citations.sh` forbids a hyphenated id in any of them,
+# so the cited set here is pinned at zero — and `0 citation(s) resolve` satisfies a match on the
+# phrase alone. Deleting the rung's whole body would then have left this green (D-027(a), which
+# is the defect this file already records twice).
 d=$(mk cite_binary_notice)
 printf 'GDEF\000 D-099 \000glyf\n' >"$d/scripts/font.ttf"
+printf '# see D-001\n' >"$d/scripts/cites.sh"
+sed_in_place 's/^- D-001:/- D-001 [cited]:/' "$d/docs/LEDGER.md"
 mkdir -p "$d/old-grep"
 real_grep=$(command -v grep)
+if [ -z "$real_grep" ]; then
+	# Same check `require_shim` makes below, for the same reason: a shim directory that was
+	# never built leaves the fixture testing whatever `grep` the PATH happens to find.
+	report no "a binary file is not a citation site, whatever grep says about it" \
+		"could not build a grep shim — no grep on PATH?"
+	real_grep=/nonexistent
+fi
 cat >"$d/old-grep/grep" <<-EOF
 	#!/usr/bin/env bash
-	err=\$(mktemp)
+	# A failed mktemp would abort the redirection, real grep would never run, and every
+	# caller would read the silence as "no match" — the silent-skip class, inside the tool
+	# a fixture is using to prove a guard is not silently skipping.
+	err=\$(mktemp) || exit 2
 	"$real_grep" "\$@" 2>"\$err"
 	rc=\$?
 	while IFS= read -r line; do
@@ -1233,11 +1252,11 @@ FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
 if [ "$rc" -ne 0 ]; then
 	report no "a binary file is not a citation site, whatever grep says about it" \
 		"expected exit 0, got $rc" "$out"
-elif ! grep -qF "citation(s) resolve" <<<"$out"; then
-	# The verdict line is part of the assertion: a rung that scanned nothing would satisfy a
-	# bare "did not fail" test just as well as the fix does.
+elif ! grep -qE '^   ok    [1-9][0-9]* citation\(s\) resolve' <<<"$out"; then
+	# The verdict word AND a non-zero count: a rung that scanned nothing satisfies a bare
+	# "did not fail" test, and a rung whose scan set is empty satisfies the phrase alone.
 	report no "a binary file is not a citation site, whatever grep says about it" \
-		"the citation rung did not report a resolved set" "$out"
+		"the citation rung did not report a resolved set it actually found" "$out"
 else
 	report ok "a binary file is not a citation site, whatever grep says about it"
 fi

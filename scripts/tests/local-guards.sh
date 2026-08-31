@@ -387,6 +387,23 @@ ln -s /nonexistent "$d/harness/templates/scripts/dangling.sh"
 expect fail "shipped-citations: an unreadable shipped file is named, not dropped" "$d" \
 	shipped-citations.sh "could not check it"
 
+# A shipped file grep cannot read as text is refused for the same reason, and this one needs no
+# shim to reproduce: on grep >= 3.5 — the version on CI — a binary file exits 0 with its notice
+# on stderr and an EMPTY stdout, so it used to be counted as scanned and reported as citing
+# nothing. `-I` would have made that permanent rather than fixed it (AMH ledger row DC032).
+d=$(snapshot shipped_citations_binary)
+printf '#!/usr/bin/env bash\000 DB-999 \000\n' >"$d/harness/templates/scripts/blob.sh"
+expect fail "shipped-citations: a binary shipped file is refused, not counted as scanned" "$d" \
+	shipped-citations.sh "did NOT scan it"
+
+# ...and an EMPTY shipped file is NOT that case: it was read successfully and cites nothing, so
+# the binary arm above must not swallow it. `grep -qI .` answers 1 for both, which is why the
+# arm tests `-s` first.
+d=$(snapshot shipped_citations_empty)
+: >"$d/harness/templates/scripts/empty.sh"
+expect pass "shipped-citations: an empty shipped file is scanned, not called binary" "$d" \
+	shipped-citations.sh
+
 # Scanning nothing is a failure, not a sweep — and the two empty states have different fixes,
 # so they say different things.
 d=$(snapshot shipped_citations_scanned_nothing)
@@ -567,12 +584,16 @@ expect fail "placeholders: left unfilled in a live file" "$d" placeholder-integr
 grep_stdout_notice_shim() { # <name> -> prints a directory to prepend to PATH
 	local name=$1
 	local dir="$WORK/shim-$name" real
-	real=$(command -v grep)
+	real=$(command -v grep) || return 1
+	[ -n "$real" ] || return 1
 	mkdir -p "$dir"
 	cat >"$dir/grep" <<SHIM
 #!/usr/bin/env bash
-err=\$(mktemp)
-$real "\$@" 2>"\$err"
+# A failed mktemp would abort the redirection and real grep would never run, which every
+# caller reads as "no match" — a silent skip inside the tool a fixture uses to prove a
+# guard does not silently skip.
+err=\$(mktemp) || exit 2
+"$real" "\$@" 2>"\$err"
 rc=\$?
 while IFS= read -r line; do
 	case \$line in
@@ -592,8 +613,18 @@ SHIM
 
 d=$(snapshot ph_binary_notice)
 printf 'GDEF\000 {{%s}} \000glyf\n' PROJECT_NAME >"$d/docs/logo.ttf"
-EXPECT_PATH_PREFIX=$(grep_stdout_notice_shim ph_binary)
+EXPECT_PATH_PREFIX=$(grep_stdout_notice_shim ph_binary) || EXPECT_PATH_PREFIX=
 expect pass "placeholders: a binary file is not an unfilled placeholder" "$d" placeholder-integrity.sh
+EXPECT_PATH_PREFIX=
+
+# The same notice reaching the TEMPLATES pass, which is a different grep in the same guard and
+# was missed by the first draft of this fix: there the notice survives `sed 's/[{}]//g'` and is
+# reported as a placeholder name `harness/PLACEHOLDERS.md` does not document.
+d=$(snapshot ph_binary_template)
+printf 'GDEF\000 {{%s}} \000glyf\n' PROJECT_NAME >"$d/harness/templates/seed/logo.ttf"
+EXPECT_PATH_PREFIX=$(grep_stdout_notice_shim ph_binary_tpl) || EXPECT_PATH_PREFIX=
+expect pass "placeholders: a binary template asset is not an undocumented placeholder" "$d" \
+	placeholder-integrity.sh
 EXPECT_PATH_PREFIX=
 
 d=$(snapshot ver_bump)

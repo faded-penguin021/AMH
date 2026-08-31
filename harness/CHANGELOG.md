@@ -156,15 +156,16 @@ and it will refuse to scan and say so rather than pass your tree quietly.
 **Copy every script `MANIFEST.sha256` names, not only the ones this entry changed.** The
 integrity rung compares your `scripts/` against the hashes published in the manifest you just
 copied, so any script left behind at an older version reports as edited and the rung stays red —
-`session-start.sh` above all, which no entry in this train changed but which did change earlier
-in the unreleased 10.x line. An adopter upgrading from 9.1.0 followed the list literally and
-finished with a red rung for exactly that reason; the list, not their tree, was wrong.
+`session-start.sh` above all, which no entry in this train changed but which changed in 10.2.0 —
+a release an adopter coming from 9.1.0 skipped. One followed the list literally and finished with
+a red integrity rung for exactly that reason; the list, not their tree, was wrong.
 
 One expectation to set for Windows, since nothing above implies it: **the secret scan costs
 roughly twice the CPU on a CRLF worktree** (4m20s → 9m06s, measured), because every file that
 differs from its filtered stream takes the baseline path and on a CRLF tree every file differs.
-Renormalising fixes the harness's own files, not your source tree, so the cost is durable rather
-than transitional. On an LF checkout nothing differs and nothing extra runs.
+Renormalising covers what the seed pins — the harness's files and, through `*.sh`, your own shell
+scripts — and nothing else, so on a tree of any other language the cost is durable rather than
+transitional. On an LF checkout nothing differs and nothing extra runs.
 
 Seeds are yours, so the new `.gitattributes` is a hand-applied note: copy
 `harness/templates/seed/.gitattributes` into your repository root if you have no such file, or
