@@ -49,7 +49,7 @@ versions printed by the portability job, (2) a CI job that runs the shipped rung
 CRLF adopter tree. The owner pre-approved the mandated fresh-context review pass for both units
 (one blocking reviewer each, strongest tier, the one-pass bound unchanged) and asked for the
 work to be paced around a usage window that resets ~22:30 UTC on 2026-08-31 — the plan carries
-the schedule and the `send_later` waits. Checklist: [x] unit 1 [ ] unit 2 [ ] PR #58 body
+the schedule and the `send_later` waits. Checklist: [x] unit 1 [ ] unit 2 [x] PR #58 body
 corrected [ ] plan archived or deleted.
 
 **OPEN — the destructive rail sees no Windows shell, and two reported incidents live there.**
@@ -75,22 +75,21 @@ reproduce on two clean runs; the guard now refuses a listing that failed or came
 rather than reporting either as a verdict (**DC-029**). Still uncovered: a listing git completed,
 reported success for, and cut short anyway. No check; only a recurrence settles which it was.
 
-**OPEN — the binary input now reaches the Windows job; whether that job's grep is one that
-could fail on it is still unknown.** The adopter tree (Tideo-Auto-Brightness) confirmed
-**DC-030** on a real Git-for-Windows clone — four `--guards-only` runs, 533 failures on 9.1.0
-down to 2 — and the 2 survivors were the grep defect **DC-031** fixed. What changed:
-`scripts/fixtures/binary-citation.bin` is committed inside `CITATION_SCAN_PATHS`, so CI's
-`portability (windows-latest)` job now runs the citation rung against the input that breaks it
-and not merely on the platform, and that job prints its `bash`/`grep`/`sed`/`git` versions
-(**DC-033**). That is not the same as confirmation, and the difference is the whole item: on
-grep >= 3.5 the notice goes to stderr and the fixture moves no verdict, so a green Windows job
-settles nothing until the printed version is read and turns out to be <= 3.4. Also still open —
-a CRLF worktree needs the `.gitattributes` seed and the scripts alone do not make one green
-(Unit 2 below), and `verify.sh` (rung 3), which is where the shipped fixture suite and its grep
-shim live, has never run on Windows or macOS at all: CI's portability job is `--guards-only`,
-as were the adopter's runs. Check: on a stock Git-for-Windows clone, `grep --version && bash
-scripts/ladder.sh --guards-only` — resolved when the citation rung passes on a run whose grep
-is <= 3.4, which is the only configuration in which passing means anything.
+**OPEN — the grep half is CONFIRMED on Windows CI; the CRLF half and rung 3 are not.** The
+adopter tree (Tideo-Auto-Brightness) confirmed **DC-030** on a real Git-for-Windows clone — four
+`--guards-only` runs, 533 failures on 9.1.0 down to 2 — and the 2 survivors were the grep defect
+**DC-031** fixed. That half is now settled by CI rather than by a shim: run 33432523501 prints
+`grep (GNU grep) 3.0` on `portability (windows-latest)`, inside the <= 3.4 range where the
+binary-file notice goes to STDOUT, and the citation rung passed there over the committed
+`scripts/fixtures/binary-citation.bin` — so that leg is a genuine regression check for `-I`
+rather than the input merely being present (**DC-033**). Two gaps remain and neither is touched
+by it: a CRLF worktree still needs the `.gitattributes` seed, and CI's Windows job sets
+`core.autocrlf false` before checkout so it has never seen one (Unit 2 below); and `verify.sh`
+(rung 3), where the shipped fixture suite lives, has never run on Windows or macOS at all, both
+portability legs being `--guards-only` as the adopter's runs were. Check: read `portability
+(windows-latest)` on the newest run — resolved for the grep half while its printed grep stays
+<= 3.4 and the citation rung passes; a runner image that moves grep to >= 3.5 silently retires
+that confirmation, which is why the version is printed rather than assumed.
 
 **OPEN — `amh.conf`'s `LEDGER_ROW_CHAR_CAP` comment calibrates against a figure the rows
 falsify.** It states that the longest sentence-compliant row is ~1450 bytes, leaving 2000 "about
@@ -134,8 +133,10 @@ rows — this section is a pointer index, not a narrative.
   ever stops being binary, though nothing enforces its presence. It moves no verdict on grep
   >= 3.5 and is not a regression check for `-I` — that is the grep shim in the shipped fixture
   suite, which runs on Linux only; what it buys is that any runner shipping an older GNU grep
-  reports the defect. The portability job also prints `bash`/`grep`/`sed`/`git` versions on both legs, printed and never
-  asserted — on the BSD leg read the vendor rather than the number (**DC-033**).
+  reports the defect. The portability job also prints `bash`/`grep`/`sed`/`git` versions on both
+  legs, printed and never asserted (**DC-033**) — and the first run answered the question they
+  exist for: `windows-latest` is on grep **3.0**, so that leg is a real check rather than a
+  hypothetical one, while `macos-latest` is BSD grep `2.6.0-FreeBSD`, off the GNU axis entirely.
 - 2026-08-31 — **The adopter tree confirmed the CRLF fix on real Windows, and the 2 failures it
   had left were a second tool assumption.** GNU grep prints its binary-file notice on stdout
   through 3.4 (Git for Windows ships 3.0) and on stderr from 3.5, so the citation rung captured
