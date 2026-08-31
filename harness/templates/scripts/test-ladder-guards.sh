@@ -37,6 +37,18 @@ sed_in_place() { # <sed-expression> <file>
 	}
 	cat "$tmp" >"$file" && rm -f "$tmp"
 }
+# Rewrite a fixture file with CRLF endings, the way a Windows checkout receives every tracked
+# text file. Written in bash rather than with `sed`, `unix2dos` or `awk`: a `\r` in a sed
+# replacement is GNU-only, and the tool it would stand in for is the very one whose newline
+# handling is under test here.
+crlf_endings() { # <file>
+	local file=$1 line tmp="$1.amh-crlf.$$"
+	while IFS= read -r line || [ -n "$line" ]; do
+		printf '%s\r\n' "$line"
+	done <"$file" >"$tmp"
+	cat "$tmp" >"$file" && rm -f "$tmp"
+}
+
 slow_threshold_valid() { # <candidate> — bounded to integers every supported bash can compare
 	case $1 in
 		''|*[!0-9]*|??????????*) return 1 ;;
@@ -1207,6 +1219,102 @@ else
 	report no "secret scan is value-free" "(not reached)"
 fi
 
+# A CRLF worktree under a `sed` that is not byte-transparent — which is a stock Windows
+# checkout, not an exotic one: Git for Windows sets `core.autocrlf=true` in its system config
+# at install time, and the MSYS2 sed it ships rewrites CRLF to LF even for a script that
+# matches nothing. The scan is a redact-then-`cmp` against the raw file, so every text file in
+# the tree differed from its own filtered stream and was reported as a credential — 529 of
+# them, the harness's own shipped scripts included (AMH ledger row DC030).
+#
+# The shim is what makes the case exist at all: on a platform whose sed IS transparent there is
+# nothing to reproduce, and this fixture would pass against the broken ladder. It stands in for
+# the MSYS2 build — real sed, CR removed — and it goes on PATH for the whole ladder run,
+# because that is the situation being reproduced: on Windows every sed in the run is that one.
+sed_shim() { # <name> <post-filter command> -> prints a PATH directory holding that sed
+	local dir=$WORK/sed_shim_$1 real
+	real=$(command -v sed) || return 1
+	mkdir -p "$dir"
+	{
+		printf '#!/usr/bin/env bash\n'
+		# pipefail, so a genuinely failing sed still reports as one: without it the shim
+		# returns the post-filter's status and a broken sed inside a fixture reads as
+		# success.
+		printf 'set -o pipefail\n'
+		printf '%q "$@" | %s\n' "$real" "$2"
+	} >"$dir/sed"
+	chmod +x "$dir/sed"
+	printf '%s' "$dir"
+}
+
+# A shim that returns nothing leaves `PATH=":$PATH"`, whose empty element is the CURRENT
+# DIRECTORY — a fixture that then runs whatever happens to be named `sed` in a fixture repo.
+# The suite runs without `set -e`, so this would not abort: it would quietly test something
+# else. Checked rather than assumed.
+require_shim() { # <name> <dir>
+	[ -n "$2" ] && [ -x "$2/sed" ] && return 0
+	report no "$1" "could not build a sed shim — no sed on PATH?"
+	return 1
+}
+
+d=$(mk_unmodified secret_crlf)
+printf 'ordinary notes, no credentials here\r\nsecond line\r\n' >"$d/notes.txt"
+SHIM_SED=$(sed_shim crlf "tr -d '\\r'")
+require_shim "a CRLF file under a non-transparent sed is not a credential" "$SHIM_SED" || SHIM_SED=/nonexistent
+started=$SECONDS
+out=$(cd "$d" && PATH="$SHIM_SED:$PATH" CI=1 bash scripts/ladder.sh --guards-only 2>&1)
+rc=$?
+FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
+if [ "$rc" -ne 0 ]; then
+	report no "a CRLF file under a non-transparent sed is not a credential" "expected exit 0, got $rc" "$out"
+elif ! grep -qF "   ok    no credential-shaped strings" <<<"$out"; then
+	# The verdict word is part of the assertion: a scan that silently checked nothing would
+	# satisfy a bare "not flagged" test, and this rung's whole failure mode is a green that
+	# was never earned.
+	report no "a CRLF file under a non-transparent sed is not a credential" \
+		"the scan did not report a clean tree" "$out"
+else
+	report ok "a CRLF file under a non-transparent sed is not a credential"
+fi
+
+# The other end of the same subtraction, and the one that decides whether it is safe: a
+# platform whose `sed` TRUNCATES. The filter's stream and the baseline's are both cut off in
+# the same place, so they agree — and a scan that trusted the agreement would print a green
+# over bytes it never read, with a live credential sitting past the cut. The baseline has to
+# earn its place as the file's stand-in, which is why the rung compares it against the file
+# itself (apart from carriage returns) before subtracting anything.
+#
+# The credential is planted PAST the truncation point on purpose: a fixture that plants it
+# before would be satisfied by the ordinary finding and could not tell the two verdicts apart.
+d=$(mk_unmodified secret_truncating_sed)
+{
+	printf 'line one\nline two\n'
+	printf 'key = %s\n' "$(akia_token)"
+} >"$d/secrets.txt"
+SHIM_SED=$(sed_shim truncate 'head -2')
+require_shim "a truncating sed makes the scan refuse rather than report clean" "$SHIM_SED" || SHIM_SED=/nonexistent
+started=$SECONDS
+out=$(cd "$d" && PATH="$SHIM_SED:$PATH" CI=1 bash scripts/ladder.sh --guards-only 2>&1)
+rc=$?
+FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
+if [ "$rc" -eq 0 ]; then
+	report no "a truncating sed makes the scan refuse rather than report clean" \
+		"the ladder stayed green over a file the filter never read to the end" "$out"
+elif ! grep -qF "did not reproduce" <<<"$out"; then
+	report no "a truncating sed makes the scan refuse rather than report clean" \
+		"it failed for some other reason than the unreadable baseline" "$out"
+else
+	report ok "a truncating sed makes the scan refuse rather than report clean"
+fi
+
+# ...and the control the fix itself now depends on. The scan subtracts `redact.sh --baseline`
+# from `redact.sh`, so a redact.sh without that mode leaves it comparing against nothing at
+# all. It must refuse to scan and say so, not report the tree clean: "I did not manage to
+# look" is the one verdict this rung may never render as a pass (AMH ledger row DC002).
+d=$(mk secret_no_baseline)
+sed_in_place 's/^--baseline)/--baseline-removed)/' "$d/scripts/redact.sh"
+expect_fail "a redact.sh with no --baseline mode makes the scan refuse rather than pass" "$d" \
+	"has no working --baseline mode"
+
 # A file name with a space: the file list must be NUL-separated, or the scan
 # silently skips it — a hole that looks exactly like a pass.
 d=$(mk secret_spacey)
@@ -1904,6 +2012,17 @@ else
 	rm -f "$d/scripts/session-start.sh"
 	expect_fail "a manifest entry with no file behind it fails" "$d" \
 		"which is not in this tree"
+
+	# The manifest as a Windows checkout hands it over: every line ending in CRLF. The hash
+	# field comes FIRST, so it still measures 64 characters and the corruption arm below never
+	# fires; only the filename carries the CR, so the rung looked for `scripts/ladder.sh<CR>`,
+	# reported five present scripts as deleted, and told the reader to re-run the init script
+	# to restore them — the "true verdict wrapped in a false description of what was checked"
+	# this rung's own comment says it must avoid (AMH ledger row DC030).
+	d=$(mk_integrity integrity_crlf)
+	crlf_endings "$d/scripts/MANIFEST.sha256"
+	expect_pass_saying "a CRLF manifest names the same files a LF one does" "$d" \
+		"   ok    4 shipped script(s) match the published hashes"
 
 	# A manifest this cannot parse verifies nothing, so it must not be read past in silence.
 	d=$(mk_integrity integrity_malformed)

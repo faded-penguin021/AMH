@@ -124,7 +124,7 @@ your first real session — an agent's first instruction is to trust the ladder,
 arrives red teaches it not to.
 
 **How much lands is your call, and the default is small.** `--profile light` (the default)
-installs the constitution, the state file and one verification command; `--profile standard`
+installs the constitution, the state file, one verification command and a `.gitattributes`; `--profile standard`
 adds the runbook and the ledger; `--profile full` adds the archive tier. The brief's first
 instruction is to ask you which you want rather than to assume the default. Escalating later is
 the same command with a larger profile — it adds the missing files and touches nothing you have

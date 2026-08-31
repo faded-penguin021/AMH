@@ -494,7 +494,7 @@ profile_case() { # <profile> <present-csv> <absent-csv>
 }
 
 profile_case light \
-	'AGENTS.md CLAUDE.md docs/STATE.md scripts/verify.sh scripts/ladder.sh amh.conf' \
+	'AGENTS.md CLAUDE.md .gitattributes docs/STATE.md scripts/verify.sh scripts/ladder.sh amh.conf' \
 	'docs/RUNBOOK.md docs/LEDGER.md docs/history/README.md'
 d=$PROFILE_DIR
 
@@ -520,14 +520,14 @@ else
 fi
 
 profile_case standard \
-	'AGENTS.md CLAUDE.md docs/STATE.md scripts/verify.sh scripts/ladder.sh amh.conf docs/RUNBOOK.md docs/LEDGER.md' \
+	'AGENTS.md CLAUDE.md .gitattributes docs/STATE.md scripts/verify.sh scripts/ladder.sh amh.conf docs/RUNBOOK.md docs/LEDGER.md' \
 	'docs/history/README.md'
 
 # `full` has no seed left to be absent, so its absence list names the file the OTHER two
 # profiles decline. Passing an empty list would have made this call's absence half a loop that
 # runs zero times — an assertion that cannot fail, dressed as one that can.
 profile_case full \
-	'AGENTS.md CLAUDE.md docs/STATE.md scripts/verify.sh scripts/ladder.sh amh.conf docs/RUNBOOK.md docs/LEDGER.md docs/history/README.md' \
+	'AGENTS.md CLAUDE.md .gitattributes docs/STATE.md scripts/verify.sh scripts/ladder.sh amh.conf docs/RUNBOOK.md docs/LEDGER.md docs/history/README.md' \
 	'docs/NOTHING_IS_DECLINED_AT_FULL.md'
 
 # The DEFAULT is `light`, and until this assertion existed nothing said so: every case above

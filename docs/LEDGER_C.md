@@ -553,3 +553,25 @@
   deleted last-sorted path posed as a failed listing, and the whole suite stayed green without
   it. What none of this reaches is a short listing git completed and reported success for, which
   is why the Owner-queue item is narrowed rather than closed.
+
+- DC-030: **A guard defined as "any byte the filter changed is a credential" was asserting that
+  `sed` is byte-transparent, and on the platform most adopters run it is not.** A Windows report
+  (AMH 9.1.0, Git Bash, GNU sed 4.9) showed 533 failures on a clean worktree — 529 files
+  reported as carrying credentials, `redact.sh` failing its self-test on its own bytes, five
+  present scripts reported as deleted — with nothing wrong with the patterns: Git for Windows
+  sets `core.autocrlf=true` in its SYSTEM config, so the default clone is CRLF and MSYS2's sed
+  rewrites CRLF to LF even for a script that matches nothing. The fix is to stop assuming the
+  property and measure it: `redact.sh --baseline` runs the same stages with no substitutions and
+  the scan subtracts it, but only after requiring the baseline to reproduce that file apart from
+  carriage returns — without which a truncating sed truncates both streams alike, the two agree,
+  and the rung prints a green over bytes nobody read (the review pass built that sed and got the
+  green). The durable part is (a) that the invariant was an unstated dependency on a third-party
+  tool's byte behaviour, and unstated is how it survived a fixture suite that runs on Linux,
+  where it happens to hold. (b) A subtraction is only as good as the thing subtracted, since
+  cancelling makes an unreadable stream look exactly like a clean one — so the baseline earns
+  its standing per file, and the byte-level self-tests around it are parity checks rather than
+  the platform test their first draft claimed. (c) The manifest half is the same class in the
+  parse — a filename's CR hid behind a hash field still measuring 64 characters, so the rung
+  blamed the tree for files on disk — and the halves no rung can reach (an LF hash against a
+  CRLF script, a CR in every sourced `amh.conf` value) are what the `.gitattributes` seed
+  carries, which is the difference between a fix and a claim.

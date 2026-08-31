@@ -25,7 +25,13 @@ disclosing that a script NAME is all it read (**DC-027**). All six character wal
 that a `\"` inside double quotes is not the closing quote; none of them did, which let a real
 `git push --force` through behind an escaped quote (**DC-028**). The tier
 cannot tell production from local; a cleared advisory means deliberate, not safe, and the guard
-header says so. 10.3.1 before it made the README lead with the failures
+header says so. The same release stops two rungs failing falsely on a Windows checkout: the
+secret scan compares `redact.sh`'s output against the new `redact.sh --baseline` rather than
+against the raw file, because `sed` is not byte-transparent everywhere and MSYS2's drops CR, and
+it refuses any file whose baseline does not reproduce it apart from line endings; the integrity
+rung strips the CR a CRLF manifest leaves on every filename. A CRLF worktree still needs the new
+`.gitattributes` seed for the rest — an LF hash does not match a CRLF script, and `amh.conf`
+sources with a CR in every value (**DC-030**). 10.3.1 before it made the README lead with the failures
 AMH relieves, translate the mechanisms into familiar agent-workflow terms, and put adoption
 before architectural detail. The ` [cited]` marker change prepared in 10.3.0 remains the current
 harness behavior: it is now named as the
@@ -115,6 +121,13 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-31 — **Two rungs stopped failing falsely on a Windows checkout.** A CRLF worktree made
+  the secret scan report a credential in every text file and the integrity rung report five
+  present scripts as deleted, because `sed` is not byte-transparent under MSYS2 and a CRLF
+  manifest hides its CR behind a hash field of the right length. The scan subtracts a
+  `--baseline` pass and refuses a file that baseline cannot reproduce, the manifest parse strips
+  the CR, `st_untouched` compares bytes rather than `$(...)` strings, and a `.gitattributes` seed
+  carries what the rungs cannot (**DC-030**).
 - 2026-08-30 — **A guard that could not list the tree stopped reporting that as a verdict.**
   `path-refs.sh` checked neither of its `git ls-files` listings, so a failed one printed a green
   count over a scan of nothing while an empty basename set called real citations broken. Status,

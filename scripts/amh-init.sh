@@ -85,7 +85,7 @@ rather than failing. Nothing in the target tree records which profile was used: 
 `--profile standard <target>`, which adds the missing seeds and, because everything already
 present is yours, changes nothing you have written.
 
-  light      constitution, working memory, one verification command
+  light      constitution, working memory, one verification command, .gitattributes
   standard   + the runbook and the append-only ledger
   full       + the frozen archive tier
 USAGE
@@ -332,7 +332,11 @@ DECLINED=0
 SEED_RANK=0
 seed_min_rank() { # <rel> -> sets SEED_RANK to 1 (light), 2 (standard) or 3 (full)
 	case $1 in
-	AGENTS.md | CLAUDE.md | docs/STATE.md | scripts/verify.sh) SEED_RANK=1 ;;
+	# .gitattributes rides with `light`, the smallest profile, because the rungs it protects
+	# are the ones every profile has: the secret scan and the manifest rung do not become
+	# optional at a smaller profile, and a CRLF worktree is what a Windows adopter gets by
+	# default (AMH ledger row DC030).
+	AGENTS.md | CLAUDE.md | .gitattributes | docs/STATE.md | scripts/verify.sh) SEED_RANK=1 ;;
 	docs/RUNBOOK.md | docs/LEDGER.md) SEED_RANK=2 ;;
 	docs/history/README.md) SEED_RANK=3 ;;
 	*) die "seed file has no profile classification: $1 (add it to seed_min_rank)" ;;

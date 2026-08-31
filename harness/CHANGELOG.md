@@ -68,6 +68,45 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   quotes, and inside single quotes there are no escapes — which `expands_secret_var` had modelled
   correctly since it was written. Every one of the six sites carries a fixture that fails without
   it, including the heredoc scanner, whose case took the `<<` INSIDE the quoted word to reach.
+- **The secret scan and the manifest parse stopped failing on a Windows checkout.** The scan is a
+  redact-then-`cmp`, so it was only ever sound if `redact.sh` were the identity function on
+  credential-free input — and `redact.sh` is built out of `sed`, which is not byte-transparent
+  everywhere. The MSYS2 sed shipped with Git for Windows rewrites CRLF to LF even for a script
+  that matches nothing, so on a checkout made with Git's own installer default
+  (`core.autocrlf=true`) every text file differed from its own filtered stream: 529 false
+  findings in one reported run, the harness's own shipped scripts included, plus `redact.sh`
+  failing its self-test against its own bytes.
+- **`redact.sh --baseline` is the new mode that makes the comparison honest.** It runs the same
+  two `sed` stages with no substitutions, so it carries whatever the platform does to line
+  endings and no redaction at all. The scan compares against that — only for a file that already
+  differed, so a transparent platform pays for no extra process — and what survives is redaction
+  and nothing else. The baseline has to earn standing in for the file: the rung requires it to
+  reproduce that file's own bytes apart from carriage returns, and refuses the file otherwise.
+  Without that, a `sed` that truncated its output would truncate both streams alike, the two
+  would agree, and the rung would report a green over bytes nobody read. A missing `--baseline`
+  is refused the same way, for the same reason: a scan that cannot establish its baseline has
+  checked nothing, and nothing is not clean.
+- **The shipped-script integrity rung stopped reporting present files as deleted.** A CRLF
+  `scripts/MANIFEST.sha256` gives every parsed filename a trailing CR, and because the hash field
+  comes first the 64-character corruption check never fired — so the rung blamed the tree for
+  five scripts that were on disk and told the reader to re-run the init script to restore them.
+  The parse strips the CR; a filename cannot contain one.
+- **`st_untouched` compares bytes now.** The self-test assertion that ordinary output "passes
+  through byte-identical" compared through `$(...)`, which strips trailing newlines from both
+  sides, so it structurally could not fail on a mangled line ending — the one class it names. It
+  uses `cmp` against the baseline, with a CRLF case beside it. Both are parity checks between
+  the filter and its baseline, and they say so: a platform that mangles line endings mangles
+  both streams identically, so what these can catch is a filter stage the baseline does not
+  have. The Windows defect itself is demonstrated by the ladder's fixture, under a `sed` shim.
+- **A `.gitattributes` seed keeps the class from arising**, pinning the files AMH installs and
+  reads byte-for-byte to LF endings. Narrow by design: what the rest of your tree does with line
+  endings stays yours. It is not optional dressing on a Windows checkout, and the two halves it
+  is carrying alone are named rather than left to be discovered: the integrity rung compares a
+  file against a hash the harness published for its LF bytes, so a CRLF shipped script reports
+  as edited (a truer sentence than the "deleted" it used to get, but still red); and `amh.conf`
+  is sourced by bash, where a trailing CR joins the value and a numeric threshold stops being
+  numeric. Neither is fixable in the rungs without making them measure something other than the
+  bytes they exist to measure.
 - **What a search for reported incidents did NOT find stays out.** `alembic downgrade base`,
   `manage.py flush`, `redis-cli flushall`, `mysql -e`, `mongosh --eval` and `drizzle-kit drop`
   have no public report of destroying data in an agent's hands, so resemblance alone does not
@@ -92,6 +131,21 @@ carrying an escaped quote stops being mistaken for a command, so `echo "a \" | r
 `grep -q "x \" < .env" f` go quiet, and an unterminated line such as `echo "a\" && git push
 --force` is now allowed rather than blocked — malformed input fails open by design. If you key any
 CI check or transcript review on this guard's output, expect both directions to move.
+
+The same copy pass covers `ladder.sh`, `redact.sh` and `test-ladder-guards.sh` — the manifest
+instruction above already covers all of them. `ladder.sh` and `redact.sh` must move
+**together**: a new ladder beside an old `redact.sh` finds no `--baseline` to compare against,
+and it will refuse to scan and say so rather than pass your tree quietly.
+
+Seeds are yours, so the new `.gitattributes` is a hand-applied note: copy
+`harness/templates/seed/.gitattributes` into your repository root if you have no such file, or
+add its lines to the one you have. It governs future checkouts only — a worktree that is already
+CRLF stays that way until you renormalise it (`git add --renormalize .`) or clone again. **On
+Windows it is part of the fix, not a nicety.** The scripts alone stop the false credential
+findings and the false "deleted script" verdicts; they do not make a CRLF worktree green,
+because a CRLF shipped script does not hash to the hash published for its LF bytes and a CRLF
+`amh.conf` sources with a CR inside every value. If you are on Linux or macOS, or your checkout
+is already LF, nothing here asks anything of you.
 
 ## 10.3.1 — 2026-08-27
 
