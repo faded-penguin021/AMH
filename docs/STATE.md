@@ -43,6 +43,15 @@ its HEAD baseline means it polices uncommitted work only (**DC-020**). The live 
 branch; tagging and publication are owner-only actions. Check: `git tag -l amh-v10.4.0` —
 resolved when it prints `amh-v10.4.0`.
 
+**OPEN — approved plan, not yet started: `docs/plans/2026-08-31-ci-sees-windows.md`.** Two units,
+sequential, each shippable: (1) a committed binary file inside `CITATION_SCAN_PATHS` plus tool
+versions printed by the portability job, (2) a CI job that runs the shipped rungs on a genuinely
+CRLF adopter tree. The owner pre-approved the mandated fresh-context review pass for both units
+(one blocking reviewer each, strongest tier, the one-pass bound unchanged) and asked for the
+work to be paced around a usage window that resets ~22:30 UTC on 2026-08-31 — the plan carries
+the schedule and the `send_later` waits. Checklist: [ ] unit 1 [ ] unit 2 [ ] PR #58 body
+corrected [ ] plan archived or deleted.
+
 **OPEN — the destructive rail sees no Windows shell, and two reported incidents live there.**
 The owner supplied one (2026-08-29): an agent ran `cmd /c "rd /s /q \"D:\Coding\Mobile
 App\surprise\""` twice, and a backslash-quote mismatch between the shell that built the line and
