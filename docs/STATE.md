@@ -13,33 +13,12 @@ Adopted harness version: **AMH 10.4.0** — see `harness/VERSION`, the copy that
 
 ## Current state
 
-AMH **10.4.0** is prepared on this branch and untagged. The destructive rail now has a
-**data-plane tier**: `supabase db reset` and its siblings in five other tools get the one-time
-advisory `rm -rf` gets, reached through a package runner as well as bare, with an advisory that
-asks for the RESOLVED database to be printed because the target is never in the command, and with
-no operand value ever recorded into a signature that gets persisted and printed (**DC-024**). Its
-verb list then grew by what reported incidents earn: `npm run db:push` — the most-reported command
-in this category and, until now, in the tier's own knowingly-absent list — plus `drizzle-kit push`
-and `prisma migrate --shadow-database-url`, with `npm` joining the runner strip and the advisory
-disclosing that a script NAME is all it read (**DC-027**). All six character walkers now agree
-that a `\"` inside double quotes is not the closing quote; none of them did, which let a real
-`git push --force` through behind an escaped quote (**DC-028**). The tier
-cannot tell production from local; a cleared advisory means deliberate, not safe, and the guard
-header says so. The same release stops two rungs failing falsely on a Windows checkout: the
-secret scan compares `redact.sh`'s output against the new `redact.sh --baseline` rather than
-against the raw file, because `sed` is not byte-transparent everywhere and MSYS2's drops CR, and
-it refuses any file whose baseline does not reproduce it apart from line endings; the integrity
-rung strips the CR a CRLF manifest leaves on every filename. A CRLF worktree still needs the new
-`.gitattributes` seed for the rest — an LF hash does not match a CRLF script, and `amh.conf`
-sources with a CR in every value (**DC-030**). 10.3.1 before it made the README lead with the failures
-AMH relieves, translate the mechanisms into familiar agent-workflow terms, and put adoption
-before architectural detail. The ` [cited]` marker change prepared in 10.3.0 remains the current
-harness behavior: it is now named as the
-one in-place edit the ledger's immutability rule does not cover — in the shipped seed preamble
-and in this repository's own five rule-bearing places — so the seed and
-`harness/templates/amh.conf.example` stop handing adopters opposite instructions about the same
-edit (**DC-020**, **DC-021**), and CI validates the release number against the latest tag
-(**DC-023**). Drafted as PATCH 10.2.1 and raised to MINOR by the owner (**DC-022**). Everything
+AMH **10.4.0** is prepared on this branch and untagged, carrying 10.3.1 with it; the newest tag
+is `amh-v10.3.0`, and the PR-time check wants the number exactly one bump above it. This train
+gave the destructive rail a data-plane tier and grew it by reported incidents, taught all six
+character walkers that `\"` inside double quotes is not the closing quote, stopped the secret
+scan and the integrity rung failing falsely on a CRLF checkout, and made the README
+adoption-first (**DC-024**, **DC-027**, **DC-028**, **DC-030**, changelog below). Everything
 from 10.0.1 through 10.2.0 shipped inside the published `amh-v10.2.0` tag; **9.2.0 has a
 changelog entry and no tag**, and nothing checks that every changelog version got one.
 
@@ -64,35 +43,33 @@ branch; tagging and publication are owner-only actions. Check: `git tag -l amh-v
 resolved when it prints `amh-v10.4.0`.
 
 **OPEN — the destructive rail sees no Windows shell, and two reported incidents live there.**
-The owner supplied one (2026-08-29): another agent ran `cmd /c "rd /s /q \"D:\Coding\Mobile
+The owner supplied one (2026-08-29): an agent ran `cmd /c "rd /s /q \"D:\Coding\Mobile
 App\surprise\""` twice, and a backslash-quote mismatch between the shell that built the line and
-the one that parsed it left `\` as the deletion target, which resolved to the root of `D:` and
-wiped unrelated folders. Which layer mis-parsed — the outer shell, `cmd.exe`, or the C-runtime argv
-split — is not settled here and matters to whoever builds the arm. It pairs with the Antigravity incident the **DC-027** search turned up,
-`rmdir /s /q d:\` truncated at the drive root by an unquoted space. Neither is reachable here:
-the verbs are Windows and `cmd /c "..."` hides its command exactly as `bash -c` does. Deliberately
-NOT folded into the units that found them — this is a verb-list expansion with its own provenance
-and its own scope question, since the harness targets bash and a Windows arm is the owner's call.
-No check until a session decides to build it.
+the one that parsed it left `\` as the target, which resolved to the root of `D:`; which layer
+mis-parsed — outer shell, `cmd.exe`, or the C-runtime argv split — is unsettled and matters to
+whoever builds the arm. It pairs with the Antigravity incident the **DC-027** search found,
+`rmdir /s /q d:\` truncated at the drive root by an unquoted space. Neither is reachable here —
+the verbs are Windows and `cmd /c "..."` hides its command as `bash -c` does — and a Windows arm
+is the owner's call, since the harness targets bash. No check until a session builds it.
 
 **OPEN — investigate the forge/API mutation surface as an escape around the local rails.** The
-pre-push rail (DC-009) guards git-CLI pushes only, so an owner-reserved side effect through a
-forge or API surface — `gh pr merge`, `gh release create`, `gh api -X POST`, `curl`/`wget`
-mutations — bypasses every local rail. Not machinery yet: an adversarial test vector per P3/P10,
-earning a narrow rail only if a real session crosses that boundary. It is no longer only
-adversarial: the search behind **DC-027** turned up PocketOS, where an agent found a token in an
-unrelated file and deleted a production volume AND its backups with one `curl` GraphQL mutation —
-a reported incident on this exact surface, in someone else's harness. No check — nobody but a
-session actually crossing it settles this.
+pre-push rail (DC-009) guards git-CLI pushes only, so an owner-reserved side effect through
+`gh pr merge`, `gh release create`, `gh api -X POST` or a `curl`/`wget` mutation bypasses every
+local rail. No longer only adversarial: the **DC-027** search turned up PocketOS, where an agent
+found a token in an unrelated file and deleted a production volume AND its backups with one
+`curl` GraphQL mutation. No check — nobody but a session actually crossing it settles this.
 
 **OPEN — `path-refs.sh` may still report a false failure if a listing comes back short.** One
 full ladder run failed it on `` `session-start.sh` `` — a file that exists — and it did not
-reproduce on two clean runs. The guard now refuses a listing that failed or came back empty
-instead of reporting either as a verdict, which covers a `git ls-files` that died part way and
-left partial output — the shape that fits this symptom, since a total failure would have printed
-a green count instead (**DC-029**). Not covered and not seeable from here: a listing git
-completed, reported success for, and cut short anyway. No check; only a recurrence settles which
-it was.
+reproduce on two clean runs; the guard now refuses a listing that failed or came back empty
+rather than reporting either as a verdict (**DC-029**). Still uncovered: a listing git completed,
+reported success for, and cut short anyway. No check; only a recurrence settles which it was.
+
+**OPEN — the Windows CRLF report is fixed here but unconfirmed there.** **DC-030** was fixed
+against a `sed` shim that models MSYS2, on Linux; nobody has run the ladder on Windows since. The
+adopter tree that filed it (Tideo-Auto-Brightness) is where confirmation has to come from, and a
+CRLF worktree also needs the new `.gitattributes` — the scripts alone do not make it green.
+Check: `bash scripts/ladder.sh --guards-only` on a stock Git-for-Windows clone.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -123,62 +100,16 @@ rows — this section is a pointer index, not a narrative.
 
 - 2026-08-31 — **Two rungs stopped failing falsely on a Windows checkout.** A CRLF worktree made
   the secret scan report a credential in every text file and the integrity rung report five
-  present scripts as deleted, because `sed` is not byte-transparent under MSYS2 and a CRLF
-  manifest hides its CR behind a hash field of the right length. The scan subtracts a
-  `--baseline` pass and refuses a file that baseline cannot reproduce, the manifest parse strips
-  the CR, `st_untouched` compares bytes rather than `$(...)` strings, and a `.gitattributes` seed
-  carries what the rungs cannot (**DC-030**).
-- 2026-08-30 — **A guard that could not list the tree stopped reporting that as a verdict.**
-  `path-refs.sh` checked neither of its `git ls-files` listings, so a failed one printed a green
-  count over a scan of nothing while an empty basename set called real citations broken. Status,
-  emptiness and a post-exclusion count are now checked separately on both listings and each of
-  the six behaviours has a fixture its own mutation reddens — the last covering an `if [ -e ]`
-  the suite could not see. The queue finding is narrowed, not closed (**DC-029**).
-- 2026-08-27 — **The four `Shipped as` rows keep their wording and get no pointer** (owner,
-  2026-08-27, agreeing with the session's refusal). A row's one pointer slot is FINAL, the four
-  carry live principles that may still need it, and this change did not falsify them — they were
-  never true. **DC-026** holds the argument and the cost it accepts.
-- 2026-08-29 — **An escaped quote stopped voiding the rails behind it.** The false positive filed
-  on 2026-08-27 was the fail-CLOSED half of a defect whose other half let `git push --force`,
-  `rm -rf`, `cat .env` and `printenv` through whenever a `\"` appeared earlier on the line: all six
-  character walkers read it as the closing quote. Each now applies bash's rule and each has a
-  fixture that fails without it; that the filed report was this defect is inferred (**DC-028**).
-- 2026-08-27 — **The data-plane tier's list grew by what reported incidents earn.** The owner
-  answered its provenance question: `npm run db:push` (the Replit incident's own command, whose
-  script NAME is in the command text the tier said it could not read) and `drizzle-kit push` under
-  it are advised, `npm` joins the runner strip, and the advisory discloses that it matched a name
-  and not a script. Six tools a search found no report for stay out, and the incident no verb list
-  can hold — a `curl` GraphQL mutation that deleted a production volume and its backups — went to
-  the forge/API queue item instead (**DC-027**).
-- 2026-08-27 — **A ledger row records the version it DRAFTED, never one it claims shipped.** The
-  owner closed the prose half of **DC-023**: rows saying "Shipped as" name numbers the remote's tag
-  list does not carry, so new rows assert no release, old ones are read as drafts, and the rule sits
-  in the live volume's preamble and release playbook 5 (**DC-026**).
-- 2026-08-27 — **10.4.0: the destructive rail learned the data plane.** Six database-destroying
-  verb shapes across five tools now take the same one-time advisory as `rm -rf`, through a package
-  runner as well as bare; the advisory asks for the resolved target because the command names
-  none, records no operand value into a signature that is persisted and printed, and the guard
-  header states the limit it cannot pass — this tier cannot tell production from local
-  (**DC-024**). The rule-review pass found the credential-omission fixture covering one of three
-  redaction arms and four more assertions that could not fail; all six findings are applied, and
-  the N-arms-means-N-mutations lesson is **DC-025**.
-- 2026-08-27 — **10.3.1: the README now leads with the failure AMH relieves and the shortest path to
-  adoption.** Its opening translates the core mechanisms into familiar agent-workflow terms,
-  keeps the rails' limits explicit, and moves Quick Start ahead of architecture and fit details.
-- 2026-08-27 — **The release number is validated at PR time against the latest tag.** Sessions
-  still write one as they work; CI's `pull_request` event fails unless `harness/VERSION` is
-  exactly one bump above the newest `amh-v` tag, over six fixtures whose three accept arms exist
-  because the review pass mutated the accept clause to MINOR-only and the first suite stayed
-  green (**DC-023**).
-- 2026-08-27 — **10.3.0: the seed ledger preamble stops contradicting `amh.conf.example`.** The
-  seed forbade in-place row edits while the shipped config told adopters to drop a stale
-  `[cited]` marker; the marker is now named as the one edit that rule does not cover, in the seed
-  and in this repo's own five rule-bearing places (**DC-021**), at a number the owner raised from
-  the drafted PATCH (**DC-022**).
-- 2026-08-27 — **The append-only guard's HEAD baseline makes committing a bypass.** The citation
-  rung orders a stale `[cited]` marker dropped and the guard refuses the removal, but only while
-  it is uncommitted, so ledger immutability is a working-tree property and CI checks it not at
-  all — recorded, not repaired (**DC-020**).
+  present scripts as deleted; the scan now subtracts a `--baseline` pass and refuses a file that
+  baseline cannot reproduce, the manifest parse strips the CR, and a `.gitattributes` seed
+  carries the halves no rung can reach (**DC-030**).
+- 2026-08-25 through 2026-08-30 — **The unreleased 10.3.0–10.4.0 train, folded.** The
+  destructive rail gained a data-plane tier and then grew it by reported incidents only; an
+  escaped quote stopped voiding the rails behind it; `path-refs.sh` stopped reporting a listing
+  it could not make as a verdict; the release number became a PR-time check against the latest
+  tag; the seed ledger preamble stopped contradicting `amh.conf.example`; ledger rows stopped
+  claiming releases they only drafted, with the four `Shipped as` rows left unpointered by the
+  owner; and the README became adoption-first (**DC-020**–**DC-030**).
 - 2026-08-26 — **The 10.1.0–10.2.0 train, published as `amh-v10.2.0`.** CI stopped running the
   whole matrix twice per commit; the command rail learned to read `env` as POSIX defines it,
   closing a false positive and the `env FOO=1` hole together; the push rail stopped policing
