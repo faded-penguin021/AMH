@@ -17,8 +17,9 @@ AMH **10.4.0** is prepared on this branch and untagged, carrying 10.3.1 with it;
 is `amh-v10.3.0`, and the PR-time check wants the number exactly one bump above it. This train
 gave the destructive rail a data-plane tier and grew it by reported incidents, taught all six
 character walkers that `\"` inside double quotes is not the closing quote, stopped the secret
-scan and the integrity rung failing falsely on a CRLF checkout, and made the README
-adoption-first (**DC-024**, **DC-027**, **DC-028**, **DC-030**, changelog below). Everything
+scan, the integrity rung and the citation rung failing falsely on a Windows checkout, and made
+the README adoption-first (**DC-024**, **DC-027**, **DC-028**, **DC-030**, **DC-031**, changelog
+below). Everything
 from 10.0.1 through 10.2.0 shipped inside the published `amh-v10.2.0` tag; **9.2.0 has a
 changelog entry and no tag**, and nothing checks that every changelog version got one.
 
@@ -65,11 +66,16 @@ reproduce on two clean runs; the guard now refuses a listing that failed or came
 rather than reporting either as a verdict (**DC-029**). Still uncovered: a listing git completed,
 reported success for, and cut short anyway. No check; only a recurrence settles which it was.
 
-**OPEN — the Windows CRLF report is fixed here but unconfirmed there.** **DC-030** was fixed
-against a `sed` shim that models MSYS2, on Linux; nobody has run the ladder on Windows since. The
-adopter tree that filed it (Tideo-Auto-Brightness) is where confirmation has to come from, and a
-CRLF worktree also needs the new `.gitattributes` — the scripts alone do not make it green.
-Check: `bash scripts/ladder.sh --guards-only` on a stock Git-for-Windows clone.
+**OPEN — the Windows guards rung is green in theory again, and unconfirmed there for the second
+time.** The adopter tree (Tideo-Auto-Brightness) confirmed **DC-030** on a real Git-for-Windows
+clone — four `--guards-only` runs, 533 failures on 9.1.0 down to 2, the secret scan and the
+manifest parse both clean under real MSYS2 sed — and the 2 survivors were the grep defect
+**DC-031** now fixes, reproduced here under a shim. Nobody has run the fixed pair on Windows, and
+this session cannot: same shape as the item it replaces, one bug later. `verify.sh` (rung 3) has
+never been run on Windows at all — the confirmation covered `--guards-only` only, so nothing is
+known either way about the build and test rung there. Check: `bash scripts/ladder.sh
+--guards-only` on a stock Git-for-Windows clone, expecting no `Binary file` token in the
+citation rung's output.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -98,6 +104,15 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-08-31 — **The adopter tree confirmed the CRLF fix on real Windows, and the 2 failures it
+  had left were a second tool assumption.** GNU grep prints its binary-file notice on stdout
+  through 3.4 (Git for Windows ships 3.0) and on stderr from 3.5, so the citation rung captured
+  it as a token and failed naming two fonts; `-I` closes it there and in
+  `placeholder-integrity.sh`, demonstrated by a grep shim as **DC-030** used a sed shim. The
+  upgrade notes now say to copy every script the manifest names — not only the changed ones,
+  which left `session-start.sh` stale and the integrity rung red — and state the CRLF secret
+  scan's doubled CPU as designed cost rather than leaving it to be filed as a regression
+  (**DC-031**).
 - 2026-08-31 — **Two rungs stopped failing falsely on a Windows checkout.** A CRLF worktree made
   the secret scan report a credential in every text file and the integrity rung report five
   present scripts as deleted; the scan now subtracts a `--baseline` pass and refuses a file that

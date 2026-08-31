@@ -575,3 +575,20 @@
   blamed the tree for files on disk — and the halves no rung can reach (an LF hash against a
   CRLF script, a CR in every sourced `amh.conf` value) are what the `.gitattributes` seed
   carries, which is the difference between a fix and a claim.
+- DC-031: **The same unstated dependency on a third-party tool as DC-030, one tool over and one
+  version lower: GNU grep prints its binary-file notice on STDOUT through 3.4 and on stderr from
+  3.5, and Git for Windows ships 3.0.** The adopter tree that filed the CRLF report ran this
+  train on a real Git-for-Windows clone and the citation rung failed naming two `.ttf` fonts
+  whose bytes match the row-id pattern — the notice was captured as a citation token no ledger
+  row can resolve, while on Linux the identical line had always been swallowed by the rung's own
+  `2>/dev/null`, so no fixture could see it. `-I` answers it in every version, since a binary
+  file is not a citation site, and the fixture that demonstrates it uses a grep shim that moves
+  that one line back to stdout — the same device DC-030's sed shim used, for the same reason:
+  a defect only reproducible on a platform the suite does not run on has to be modelled or it
+  is untested. The durable correction is to DC-030's scope rather than its content: the class is
+  not "sed is not byte-transparent" but "a rung's verdict depends on tool behaviour its fixtures
+  cannot vary", which turns every place a guard reads a tool's output into an audit target and
+  is how `placeholder-integrity.sh` was found carrying the same shape and fixed in the same
+  change. `shipped-citations.sh` was audited and deliberately left as it is: its input is a
+  fixed glob of shipped text artifacts, and `-I` there would let a binary file count as scanned
+  and cited-clean, which is the hollow extraction that guard exists to refuse.

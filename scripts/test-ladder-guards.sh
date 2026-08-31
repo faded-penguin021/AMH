@@ -1193,6 +1193,55 @@ d=$(mk cite_standalone_token)
 printf '# see DEBUG-2 for details\n' >"$d/scripts/thing.sh"
 expect_fail "a standalone token of the id shape IS read as a citation" "$d" "no such ledger row"
 
+# A BINARY file whose bytes happen to match. grep reports it with a notice instead of the
+# match, and which STREAM that notice goes to is version-dependent: stderr on grep >= 3.5,
+# where the rung's own `2>/dev/null` eats it, but stdout on <= 3.4 — and Git for Windows ships
+# 3.0. There the notice is captured as a citation token, and the rung fails naming two font
+# files no ledger row can resolve (reported from a Windows adopter tree, AMH ledger row DC031).
+#
+# The shim is what makes the case exist at all, exactly as with the `sed` shim below: on a host
+# whose grep is >= 3.5 there is nothing to reproduce and this fixture would pass against the
+# broken rung. It stands in for the older grep by moving that one notice back to stdout, and it
+# leaves every other line — and the exit status — alone. `-I` makes the notice unreachable in
+# both versions, which is why the fixture is a pass rather than a message assertion.
+d=$(mk cite_binary_notice)
+printf 'GDEF\000 D-099 \000glyf\n' >"$d/scripts/font.ttf"
+mkdir -p "$d/old-grep"
+real_grep=$(command -v grep)
+cat >"$d/old-grep/grep" <<-EOF
+	#!/usr/bin/env bash
+	err=\$(mktemp)
+	"$real_grep" "\$@" 2>"\$err"
+	rc=\$?
+	while IFS= read -r line; do
+		case \$line in
+		*': binary file matches')
+			name=\${line#*: }
+			printf 'Binary file %s matches\n' "\${name%: binary file matches}"
+			;;
+		*) printf '%s\n' "\$line" >&2 ;;
+		esac
+	done <"\$err"
+	rm -f "\$err"
+	exit \$rc
+EOF
+chmod +x "$d/old-grep/grep"
+started=$SECONDS
+out=$(cd "$d" && PATH="$d/old-grep:$PATH" CI=1 bash scripts/ladder.sh --guards-only 2>&1)
+rc=$?
+FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
+if [ "$rc" -ne 0 ]; then
+	report no "a binary file is not a citation site, whatever grep says about it" \
+		"expected exit 0, got $rc" "$out"
+elif ! grep -qF "citation(s) resolve" <<<"$out"; then
+	# The verdict line is part of the assertion: a rung that scanned nothing would satisfy a
+	# bare "did not fail" test just as well as the fix does.
+	report no "a binary file is not a citation site, whatever grep says about it" \
+		"the citation rung did not report a resolved set" "$out"
+else
+	report ok "a binary file is not a citation site, whatever grep says about it"
+fi
+
 # --- secret shapes
 d=$(mk secret_plain)
 tok=$(akia_token)

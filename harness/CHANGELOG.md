@@ -107,6 +107,22 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   is sourced by bash, where a trailing CR joins the value and a numeric threshold stops being
   numeric. Neither is fixable in the rungs without making them measure something other than the
   bytes they exist to measure.
+- **A font file stopped being read as a citation, for the same reason and one version lower.**
+  The citation rung greps every scanned file for row ids; a binary file whose bytes happen to
+  match makes grep print `Binary file <path> matches` instead of the match, and which stream
+  that notice goes to is version-dependent — stderr on grep >= 3.5, which the rung already
+  discarded, but STDOUT on <= 3.4, and Git for Windows ships 3.0. There it was captured as a
+  citation token no ledger row can resolve, so a Windows checkout failed the rung naming two
+  `.ttf` fonts. `-I` settles it in every version — a binary file is not a citation site — and it
+  is the same flag the secret scan already uses to answer the same question. Found by the
+  adopter tree that filed the CRLF report, running this train on a real Git-for-Windows clone.
+- **The Windows secret scan is about twice the CPU it was, by design.** The `--baseline`
+  subtraction runs only for a file that already differed from its filtered stream, so an LF tree
+  pays nothing — but on a CRLF worktree every text file differs, so every file takes the slow
+  path. Measured on the reporting tree: 4m20s of CPU before, 9m06s after. Renormalising does not
+  relieve it beyond the harness's own files, because the `.gitattributes` seed is deliberately
+  narrow and the rest of your tree stays whatever it was. This is the cost of measuring the
+  filter instead of assuming it; it is not a regression to report.
 - **What a search for reported incidents did NOT find stays out.** `alembic downgrade base`,
   `manage.py flush`, `redis-cli flushall`, `mysql -e`, `mongosh --eval` and `drizzle-kit drop`
   have no public report of destroying data in an agent's hands, so resemblance alone does not
@@ -136,6 +152,19 @@ The same copy pass covers `ladder.sh`, `redact.sh` and `test-ladder-guards.sh` �
 instruction above already covers all of them. `ladder.sh` and `redact.sh` must move
 **together**: a new ladder beside an old `redact.sh` finds no `--baseline` to compare against,
 and it will refuse to scan and say so rather than pass your tree quietly.
+
+**Copy every script `MANIFEST.sha256` names, not only the ones this entry changed.** The
+integrity rung compares your `scripts/` against the hashes published in the manifest you just
+copied, so any script left behind at an older version reports as edited and the rung stays red —
+`session-start.sh` above all, which no entry in this train changed but which did change earlier
+in the unreleased 10.x line. An adopter upgrading from 9.1.0 followed the list literally and
+finished with a red rung for exactly that reason; the list, not their tree, was wrong.
+
+One expectation to set for Windows, since nothing above implies it: **the secret scan costs
+roughly twice the CPU on a CRLF worktree** (4m20s → 9m06s, measured), because every file that
+differs from its filtered stream takes the baseline path and on a CRLF tree every file differs.
+Renormalising fixes the harness's own files, not your source tree, so the cost is durable rather
+than transitional. On an LF checkout nothing differs and nothing extra runs.
 
 Seeds are yours, so the new `.gitattributes` is a hand-applied note: copy
 `harness/templates/seed/.gitattributes` into your repository root if you have no such file, or

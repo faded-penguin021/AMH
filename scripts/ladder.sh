@@ -721,7 +721,18 @@ guard_citations() {
 		# pattern changes what the text around it MEANS, this file included.) Whole-word
 		# matching also closes the same trap one letter down, where `XL-003` used to
 		# yield a citation to L-003 (AMH ledger row DB004(g)); that one shipped.
-		xargs -0 grep -hwoE 'D[A-Z]*-[0-9]+' <"$scan_files" 2>/dev/null | sort -u >"$cited"
+		#
+		# `-I` is not an optimization. A binary file whose bytes happen to match makes
+		# grep print `Binary file <path> matches` INSTEAD of the match — and which stream
+		# it prints that on is version-dependent: stderr on grep >= 3.5, which the
+		# redirection below already discards, but STDOUT on <= 3.4, and Git for Windows
+		# ships 3.0. There the notice lands in `$cited` as a citation token no ledger row
+		# can ever resolve, and the rung fails naming a font file. Same class as the sed
+		# assumption in AMH ledger row DC030: a shipped guard depending on a third-party
+		# tool's behaviour that only holds on the platform the fixtures run on. `-I`
+		# settles it in every version — a binary file is not a citation site — and it is
+		# what the secret scan already uses to decide the same question.
+		xargs -0 grep -I -hwoE 'D[A-Z]*-[0-9]+' <"$scan_files" 2>/dev/null | sort -u >"$cited"
 	fi
 
 	local unresolved missing_marker stale_marker

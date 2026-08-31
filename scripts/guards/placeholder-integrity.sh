@@ -53,10 +53,16 @@ fi
 live=$(git ls-files -co --exclude-standard |
 	grep -v -e '^harness/' -e '^scripts/guards/placeholder-integrity.sh$' || true)
 if [ -n "$live" ]; then
+	# `-I` on both passes, for the reason the ladder's citation rung carries it (AMH ledger row
+	# DC031): a binary file that matches makes grep print `Binary file <path> matches` instead of
+	# the match, on STDOUT for grep <= 3.4 — so the inner pass reads that notice as a token that
+	# is not `{{PLACEHOLDER}}` or `{{X}}`, and this guard reports an unfilled placeholder in a
+	# file nobody can fill. A binary file has no placeholder for a human to instantiate, so
+	# skipping one loses nothing this guard was ever checking.
 	leftover=$(printf '%s\n' "$live" | tr '\n' '\0' |
-		xargs -0 grep -lE '\{\{[A-Z_][A-Z0-9_]*\}\}' 2>/dev/null |
+		xargs -0 grep -I -lE '\{\{[A-Z_][A-Z0-9_]*\}\}' 2>/dev/null |
 		while IFS= read -r f; do
-			if grep -ohE '\{\{[A-Z_][A-Z0-9_]*\}\}' "$f" | grep -qvE '^\{\{(PLACEHOLDER|X)\}\}$'; then
+			if grep -I -ohE '\{\{[A-Z_][A-Z0-9_]*\}\}' "$f" | grep -qvE '^\{\{(PLACEHOLDER|X)\}\}$'; then
 				printf '%s\n' "$f"
 			fi
 		done)

@@ -554,6 +554,48 @@ d=$(snapshot ph_unfilled)
 printf '{{%s}}\n' PROJECT_NAME >>"$d/docs/STATE.md"
 expect fail "placeholders: left unfilled in a live file" "$d" placeholder-integrity.sh "unfilled placeholder"
 
+# A BINARY live file whose bytes happen to match, under a grep that reports it the way GNU grep
+# <= 3.4 does — which is what Git for Windows ships (3.0). The notice goes to STDOUT there, so
+# the inner pass reads `Binary file <path> matches` as a token that is neither `{{PLACEHOLDER}}`
+# nor `{{X}}` and this guard fails naming a file no human can fill. Same class as the ladder's
+# citation rung, fixed the same way and for the same reason (AMH ledger row DC031).
+#
+# The shim is what makes the case exist on this host at all: on grep >= 3.5 the notice is on
+# stderr, which both passes already discard, so the fixture would pass against the unfixed
+# guard. It relocates that one line and leaves everything else — including the exit status —
+# alone.
+grep_stdout_notice_shim() { # <name> -> prints a directory to prepend to PATH
+	local name=$1
+	local dir="$WORK/shim-$name" real
+	real=$(command -v grep)
+	mkdir -p "$dir"
+	cat >"$dir/grep" <<SHIM
+#!/usr/bin/env bash
+err=\$(mktemp)
+$real "\$@" 2>"\$err"
+rc=\$?
+while IFS= read -r line; do
+	case \$line in
+	*': binary file matches')
+		name=\${line#*: }
+		printf 'Binary file %s matches\n' "\${name%: binary file matches}"
+		;;
+	*) printf '%s\n' "\$line" >&2 ;;
+	esac
+done <"\$err"
+rm -f "\$err"
+exit \$rc
+SHIM
+	chmod +x "$dir/grep"
+	printf '%s' "$dir"
+}
+
+d=$(snapshot ph_binary_notice)
+printf 'GDEF\000 {{%s}} \000glyf\n' PROJECT_NAME >"$d/docs/logo.ttf"
+EXPECT_PATH_PREFIX=$(grep_stdout_notice_shim ph_binary)
+expect pass "placeholders: a binary file is not an unfilled placeholder" "$d" placeholder-integrity.sh
+EXPECT_PATH_PREFIX=
+
 d=$(snapshot ver_bump)
 printf '1.9.0\n' >"$d/harness/VERSION"
 expect fail "version-lockstep: VERSION bumped alone" "$d" version-lockstep.sh "harness/VERSION says 1.9.0"
