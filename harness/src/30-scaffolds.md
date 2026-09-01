@@ -20,22 +20,12 @@ micro-trim to just under the soft cap passes the guard and re-arms the warning a
 The guard therefore also fails a change that trims the file out of warn territory but stops
 inside the debounce band instead of reaching the compression floor.
 
-**The floor is two numbers in two units, and a landing satisfies both. That is the whole of the
-8.0.0 change, and the reason it is two is worth more than the change itself.** A byte floor can
-be reached by shaving — drop an adjective, re-measure, repeat — which removes no content, and a
-landing 7 bytes under one is a reported instance rather than a worry. A sentence floor cannot be
-shaved, because the smallest edit that moves that count deletes a whole sentence. But it can be
-reached by rewriting `. T` to `; t`, which frees no space: measured on this repository's own
-state file, one `sed` pass took 85 sentences to 41 and zero bytes. **Every single measure of a
-document has a cheap satisfier; the pair does not, because each number is the other's
-countermeasure.** Bytes make the repunctuation pointless, sentences make the shave pointless,
-and folding whole completed stages is the move that satisfies both at once — which is the move
-the rule was always asking for. The soft and hard caps stay byte-only: they answer *when* to
-compress, not how far, and nobody drafts toward them. Set the sentence floor so it bites at
-about the same place as the byte floor at your file's rough bytes-per-sentence, or one of the
-two is decorative — 9 KB / 50 sentences / 14 KB / 16 KB is a working example at roughly 170
-bytes a sentence. Nothing checks that alignment, because nothing can: it is a property of prose,
-so re-read the number if the file's density changes markedly.
+**The floor is two post-compression acceptance ceilings in two units, and a landing satisfies
+both.** A byte-only check can be cleared by shaving words, while a sentence-only check can be
+cleared by repunctuation that frees no space. The pair blocks those two cheap mechanical moves;
+it does not decide what content stays or establish a preferred landing size. Lifecycle does:
+fold a stage when it is complete, route its durable lesson, and retain everything still live.
+The soft and hard caps stay byte-only because they classify size rather than content.
 
 In the *rule* prose that explains these thresholds, name the `amh.conf` keys rather than
 restating their values. Nothing checks such a number, and a guard for it would have to lift a
@@ -72,20 +62,12 @@ paragraph is one), a **historical statement** of what a threshold was at some pa
 no `amh.conf` to be authoritative. What the rule forbids is a live rule-statement asserting a
 value it is not the source of.
 
-Say in the file itself that the compression floor is a **ceiling, not a target** — and note what
-that sentence could not do on its own. Every phrasing of the rule is naturally read as "land at
-the floor", and an agent that reads it that way shaves words one at a time until the guard goes
-quiet. Two countermeasures were tried against that reflex before the unit change: the prose
-above, which a session copied into its own preamble by hand and then disregarded in the same
-session, and removing the number from green output, which does not reach a session that measures
-its own draft. Adding the second unit is the countermeasure that does not depend on restraint.
-Note what it still is not: **not proof against gaming, only against the two cheap moves.** A
-determined rewrite that genuinely removes content in the wrong places passes both floors, and no
-guard can see the difference — that is what the fold-whole-stages rule is for, and it stays
-prose. Do not answer this by adding a *third* threshold: a top-decile warning would fire on a
-perfectly good pass, "is 8 enough?" has no answer, and a second number in the SAME unit is a
-second number to hug. Two numbers in two units is not that shape; it is one aim-point that
-cannot be met sideways.
+Say in the file itself that both values are **acceptance ceilings, not targets**. There is no
+reward for retaining text because space remains, no preferred landing size, and no need to add,
+preserve or reshape content to approach either ceiling. A substantially smaller state file is
+equally successful — and often better — when it retains everything live. The pair is still not
+proof against gaming: no guard can tell a correct lifecycle fold from a file gutted in the wrong
+places, so the content rule remains prose.
 
 Both ledger controls are rejection boundaries for unusually long new rows, never desired
 sizes. Write the smallest self-contained durable lesson first; one or two sentences are
@@ -105,9 +87,8 @@ comes in under several. Widen the *delta* if your file is unusual; never widen t
 is the hole the landing check was built for.
 
 The delta stays byte-only while the floor beside it is a pair, and that is the rule rather than
-an oversight: **a number an agent writes toward is bounded in two units; a number the guard
-merely observes needs only one.** The delta classifies a shrink that already happened, and
-nobody drafts toward it.
+an oversight: the paired ceilings reject two cheap mechanical landings, while the delta merely
+classifies a shrink that already happened.
 
 <!-- amh:include harness/templates/seed/docs/STATE.md -->
 

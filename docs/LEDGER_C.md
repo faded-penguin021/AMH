@@ -141,6 +141,7 @@
   file from 85 sentences to 41 while freeing no byte at all. So an aim-point is bounded in both
   units and a landing satisfies both, each blocking the move that fools the other, while bytes
   still stand alone where nobody drafts: the soft and hard caps, and the edit delta.
+Corrected by DC-044.
 
 - DC-004: **When a rail asks for something it cannot see, make the compliant move the one that
   removes the hazard, and make the sidestep leave a trace.** The `rm -rf` advisory spends a turn
@@ -796,3 +797,8 @@
   scripts, aliases and external interfaces can initiate identical mutations with no observable
   command structure, so least-privilege tokens, protected environments, approval requirements and
   separate destructive-administration credentials remain the controls that bind those paths.
+- DC-044: **Working-memory content has a lifecycle, not a size entitlement.** Completed narrative
+  and durable lessons are folded or routed when their stage completes; the paired byte and
+  sentence values only reject an overlarge post-compression landing, and neither remaining
+  space nor headroom justifies retaining, adding, or reshaping content. This corrects DC-003's
+  description of the pair as an aim-point without changing either configured value.

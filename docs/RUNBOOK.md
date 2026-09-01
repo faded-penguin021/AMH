@@ -517,8 +517,9 @@ all** on the plain `ok`, which reports the file's size and stops. The landing `o
 reports how far **clear of the floor** it landed, in bytes and in sentences, rather than the
 floor — a measurement, not a score, since a file gutted to stubs prints a large one and passes.
 Read the units off those verdicts rather than assuming one: the caps are byte sizes, and the
-floor is a byte size AND a sentence count that a landing satisfies together, because the caps
-say WHEN to compress while the floor is what a session writes toward (**DC-003**). This is 8.0.0's change and it reverses part
+floor is a byte size AND a sentence count that a landing satisfies together. Both are
+post-compression acceptance ceilings: they reject shallow mechanical folds but do not decide
+what stays or provide a size to write toward (**DC-003**, corrected by **DC-044**). This is 8.0.0's change and it reverses part
 of what 5.2.1 said:
 that release was cut to record that the landing line names the floor, which was true and is now
 deliberately not, because the anchor turned out to cost more than the description bought
@@ -571,22 +572,26 @@ the config, so a restated number is a drift class no guard covers (**DB-022**). 
 the size rung prints, and why a number it printed is never a copy to quote back, are in
 **Acceptance ladder** above.
 
-**When to compress.** Grow freely to the soft cap. Over it, ONE deep pass landing at or below
-the compression floor — a ceiling, not a target: anywhere below is fine, and you do not keep
-shaving once under (owner, 2026-07-27). Fail above the hard cap, which is byte-only like the
-soft cap; those two say WHEN to compress. A typo fix above the cap is allowed and still owes
-the pass (**D-027**).
+**When to compress.** Compress by lifecycle, not by file size: as soon as a stage is complete,
+fold its narrative and route its durable lessons even when the file remains below the soft cap.
+The soft cap is only the point above which a compression pass is mandatory before further
+substantive work; the hard cap remains a byte-only failure boundary. A typo fix above the soft
+cap is allowed and still owes the pass (**D-027**).
 
-**How far.** The floor is a byte size **AND** a sentence count, and a landing satisfies both
-(**DC-003**). That is what stops the rule depending on your restraint: trimming words cannot
-move the sentence count, repunctuating cannot move the bytes, and folding whole stages is the
-only move that clears both. Land short and you fold MORE stages.
+**How far.** After compression, this file contains only current state, unresolved Owner-queue
+items, immediate operational gotchas, and concise Changelog pointers. The configured byte and
+sentence values are post-compression acceptance ceilings, satisfied together (**DC-003**), not
+instructions about how much prose to retain. There is no reward for keeping text merely because
+space remains, no preferred landing size, and no need to add, preserve or reshape content to
+approach either ceiling. A substantially smaller file is equally successful — and often better
+— when it retains everything live.
 
-**How.** Fold whole completed stages into Changelog pointer lines and move durable lessons to
-the ledger. Never shave clauses until the guard goes quiet, and never cut text into another
-file — moving a passage OUT is not compression, it is the owner's call, and it has now been
-granted exactly twice: the guard-output description (owner, 2026-08-11) and this section
-(owner, 2026-08-25).
+**How.** Decide each fold by whether the stage is complete, never by proximity to a number.
+Fold completed stages into concise Changelog pointer lines, move durable lessons to the ledger
+before deleting their narrative, and retain only immediate operational gotchas. Never shave
+clauses until the guard goes quiet, and never cut text into another file — moving a passage OUT
+is not compression, it is the owner's call, and it has now been granted exactly twice: the
+guard-output description (owner, 2026-08-11) and this section (owner, 2026-08-25).
 
 **What the ladder does not check.** It checks sizes, structure and repeated headings
 (**D-034**) and nothing else — not whether what survived is any good, and not whether you
