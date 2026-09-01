@@ -169,6 +169,17 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
   `amh-v` tag. If a merged release was never tagged, that check compares against a stale tag and
   reddens a legitimate number — its message says so; tag the predecessor rather than moving the
   number to satisfy it.
+- **A ledger row says what the session DRAFTED, never what shipped** (owner, 2026-08-27, closing
+  the prose half of **DC-023**). Write the number as drafted — `Drafted as MINOR X.Y.Z` — and
+  assert no release: "shipped", "published" and "released" are one claim, and only a tag settles
+  it. A *later* row may name the tag once it exists; what a train actually published is in the
+  `docs/STATE.md` changelog's train lines. The habit this replaces was not a style preference:
+  committed rows say `Shipped as` for numbers `git ls-remote --tags origin` does not carry — ask
+  the remote, never `git tag -l`, because a session clone routinely holds no tags (**DA-002**) —
+  so a number written mid-train was reported as a published release (**DC-026**). Those rows keep
+  their wording and were deliberately left without a `Corrected by` pointer, so read the number in
+  one as the draft it was. **Prose-only, unlike the bullet above:** nothing checks a version claim
+  inside a row, and at the moment one is written the tag that would falsify it does not exist yet.
 - **Steps:** update `harness/VERSION` → add the `harness/CHANGELOG.md` entry, including its
   **Upgrading** subsection (what an adopter must actually do) → update the version recorded
   in `AGENTS.md`, `docs/STATE.md` and `amh.conf` → **update the release tag in the `README.md`
@@ -244,7 +255,13 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
    run sequentially and each ends shippable. At the end, move a completed plan worth retaining
    whole to `docs/history/`; otherwise delete it. Its durable outcomes live in changelog lines
    and ledger rows either way. Code cites ledger rows, never plans: an archived plan is a
-   historical record, not permanent memory.
+   historical record, not permanent memory. **And no ledger row may cite a plan's PATH** — not
+   in backticks, not as a link, not as a bare filename. A committed row is immutable and the
+   path guard checks that a cited path exists, so such a row pins the plan in the tree
+   permanently and the archive-or-delete step above can no longer run. Record what the plan
+   DELIVERED in the row; name the plan in prose if you must refer to it, in a form no path
+   guard resolves. A plan already pinned by a committed row stays where it is — that citation
+   cannot be withdrawn, so the plan is retained in place rather than archived.
 6. **Recovery (bounded).** If the unit in flight has gone wrong: reset to the last green
    checkpoint, re-run the ladder to confirm green, re-attempt smaller — recording any durable
    lesson first. Recovery is not infinite: if the SAME blocker survives a second

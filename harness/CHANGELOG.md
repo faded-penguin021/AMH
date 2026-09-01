@@ -11,6 +11,212 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 10.4.0 — 2026-08-27
+
+- **The destructive rail grew a data-plane tier.** `supabase db reset`, `prisma migrate reset`,
+  `prisma db push --accept-data-loss|--force-reset`, `rails`/`rake` `db:drop|db:reset|
+  db:schema:load`, `dropdb`, and `psql -c` whose statement STARTS with `DROP DATABASE`,
+  `DROP SCHEMA` or `TRUNCATE` now get the same one-time advisory `rm -rf` gets — reached through
+  a bare invocation or one package runner (`npx`, `pnpx`, `bunx`, and `npm`/`pnpm`/`yarn`/`bun`
+  with or without `exec`/`dlx`/`run`/`run-script`/`x`), since nobody types a bare `prisma`.
+- **The runner strip widens the filesystem arms too.** It runs before the whole dispatch, so
+  `npx rm -rf x` and `pnpm exec git clean -fdx` are now advised where they used to be commands
+  named `npx` and `pnpm` that no arm recognised. The deletion is just as real for being run
+  through a runner.
+- **Its advisory asks a different question, because it has to.** For a path the guard can name
+  the hazard and ask for an expansion. A database reset names no target at all — it is resolved
+  from a linked project, a config file found from the working directory, or `$DATABASE_URL`, so
+  the production and local spellings are byte-identical. The advisory says exactly that and asks
+  the agent to print the resolved target before rerunning; the path-shaped paragraphs are
+  suppressed for these verbs, because "if that variable is empty the command addresses an
+  absolute path" is false of a database and a rail that is confidently wrong teaches an agent to
+  skim the next one.
+- **The rail does not become the disclosure.** A data-plane command can carry a role password in
+  a `--db-url`, and signatures are written to a state file and printed by `--advisory-report`, so
+  value-bearing flags contribute their NAME only and a bare operand contributes itself only when
+  it cannot be a connection string. A fixture builds a credential-shaped URL at runtime and fails
+  if any part of the value reaches either place.
+- **What it buys, stated in the header.** It cannot tell production from local and never will.
+  A cleared advisory means the command was made deliberate, never that it was made safe — and
+  the tools knowingly outside the list (`alembic`, `manage.py flush`, `redis-cli`, `mysql -e`,
+  `mongosh`, `psql -f`) are named there rather than left to be discovered.
+- **The tier then grew by what reported incidents earn, and by nothing else.** `npm run db:push`
+  — the command an agent ran against a production database during a stated code freeze, in the
+  most widely reported incident of this kind — was in the knowingly-absent list on the grounds
+  that "the verb is not in the command text". Half of that was wrong: the SCRIPT NAME is in the
+  text. A short list of names that say what they do (`db:push`, `db:reset`, `db:drop`, `db:wipe`,
+  `db:nuke`, `db:schema:load`, `schema:load`, `migrate:reset`, `db:migrate:reset`,
+  `migrate:fresh`, `migrate:refresh`) is now advised, matched WHOLE, and `npm` joins the runner
+  strip so `npm run`, `npm run-script` and `npm exec` resolve like their `pnpm`/`yarn`/`bun`
+  equivalents. `drizzle-kit push` — the tool that name conventionally runs — is advised too, where
+  bare `prisma db push` still is not: prisma's push prompts by default, and drizzle's
+  confirmation is reported failing in its 1.0 beta. The same search found a second uncovered
+  shape in a tool the tier already had an arm for: any `prisma migrate` subcommand carrying
+  `--shadow-database-url`, which prisma RESETS before replaying — a reported incident pointed it
+  at production and lost 22 tables.
+- **The script arm judges a name, and its advisory says so.** The script body is a line in
+  the package manifest and no guard here opens a file to classify a command, so a harmless `db:push` is
+  advised anyway and a script that drops the database under a name like `seed` is not advised at
+  all. That paragraph is part of the advisory text rather than a comment, so a cleared prompt
+  cannot read as a judgement about the script.
+- **An escaped quote no longer voids the rails downstream of it.** All six character
+  walkers read the `\"` in a double-quoted word as the CLOSING quote, so every operator after it
+  looked unquoted and the scanners were handed a command line the shell never runs. The effect
+  was fail-OPEN on the oldest rails in the file: `echo "say \"hi\"" && git push --force origin
+  main` was allowed, and so were `rm -rf`, `cat .env` and `printenv` behind the same shape. All
+  six walkers now apply bash's rule — a backslash escapes the next character inside double
+  quotes, and inside single quotes there are no escapes — which `expands_secret_var` had modelled
+  correctly since it was written. Every one of the six sites carries a fixture that fails without
+  it, including the heredoc scanner, whose case took the `<<` INSIDE the quoted word to reach.
+- **The secret scan and the manifest parse stopped failing on a Windows checkout.** The scan is a
+  redact-then-`cmp`, so it was only ever sound if `redact.sh` were the identity function on
+  credential-free input — and `redact.sh` is built out of `sed`, which is not byte-transparent
+  everywhere. The MSYS2 sed shipped with Git for Windows rewrites CRLF to LF even for a script
+  that matches nothing, so on a checkout made with Git's own installer default
+  (`core.autocrlf=true`) every text file differed from its own filtered stream: 529 false
+  findings in one reported run, the harness's own shipped scripts included, plus `redact.sh`
+  failing its self-test against its own bytes.
+- **`redact.sh --baseline` is the new mode that makes the comparison honest.** It runs the same
+  two `sed` stages with no substitutions, so it carries whatever the platform does to line
+  endings and no redaction at all. The scan compares against that — only for a file that already
+  differed, so a transparent platform pays for no extra process — and what survives is redaction
+  and nothing else. The baseline has to earn standing in for the file: the rung requires it to
+  reproduce that file's own bytes apart from carriage returns, and refuses the file otherwise.
+  Without that, a `sed` that truncated its output would truncate both streams alike, the two
+  would agree, and the rung would report a green over bytes nobody read. A missing `--baseline`
+  is refused the same way, for the same reason: a scan that cannot establish its baseline has
+  checked nothing, and nothing is not clean.
+- **The shipped-script integrity rung stopped reporting present files as deleted.** A CRLF
+  `scripts/MANIFEST.sha256` gives every parsed filename a trailing CR, and because the hash field
+  comes first the 64-character corruption check never fired — so the rung blamed the tree for
+  five scripts that were on disk and told the reader to re-run the init script to restore them.
+  The parse strips the CR; a filename cannot contain one.
+- **`st_untouched` compares bytes now.** The self-test assertion that ordinary output "passes
+  through byte-identical" compared through `$(...)`, which strips trailing newlines from both
+  sides, so it structurally could not fail on a mangled line ending — the one class it names. It
+  uses `cmp` against the baseline, with a CRLF case beside it. Both are parity checks between
+  the filter and its baseline, and they say so: a platform that mangles line endings mangles
+  both streams identically, so what these can catch is a filter stage the baseline does not
+  have. The Windows defect itself is demonstrated by the ladder's fixture, under a `sed` shim.
+- **A `.gitattributes` seed keeps the class from arising**, pinning the files AMH installs and
+  reads byte-for-byte to LF endings. Narrow by design: what the rest of your tree does with line
+  endings stays yours. It is not optional dressing on a Windows checkout, and the two halves it
+  is carrying alone are named rather than left to be discovered: the integrity rung compares a
+  file against a hash the harness published for its LF bytes, so a CRLF shipped script reports
+  as edited (a truer sentence than the "deleted" it used to get, but still red); and `amh.conf`
+  is sourced by bash, where a trailing CR joins the value and a numeric threshold stops being
+  numeric. Neither is fixable in the rungs without making them measure something other than the
+  bytes they exist to measure.
+- **A font file stopped being read as a citation, for the same reason and one version lower.**
+  The citation rung greps every scanned file for row ids; a binary file whose bytes happen to
+  match makes grep print `Binary file <path> matches` instead of the match, and which stream
+  that notice goes to is version-dependent — stderr on grep >= 3.5, which the rung already
+  discarded, but STDOUT on <= 3.4, and Git for Windows ships 3.0. There it was captured as a
+  citation token no ledger row can resolve, so a Windows checkout failed the rung naming two
+  `.ttf` fonts. `-I` settles it in every version — a binary file is not a citation site — and it
+  is the same flag the secret scan already uses to answer the same question. Found by the
+  adopter tree that filed the CRLF report, running this train on a real Git-for-Windows clone.
+- **The Windows secret scan is about twice the CPU it was, by design.** The `--baseline`
+  subtraction runs only for a file that already differed from its filtered stream, so an LF tree
+  pays nothing — but on a CRLF worktree every text file differs, so every file takes the slow
+  path. Measured on the reporting tree: 4m20s of CPU before, 9m06s after. Renormalising does not
+  relieve it beyond the harness's own files, because the `.gitattributes` seed is deliberately
+  narrow and the rest of your tree stays whatever it was. This is the cost of measuring the
+  filter instead of assuming it; it is not a regression to report.
+- **What a search for reported incidents did NOT find stays out.** `alembic downgrade base`,
+  `manage.py flush`, `redis-cli flushall`, `mysql -e`, `mongosh --eval` and `drizzle-kit drop`
+  have no public report of destroying data in an agent's hands, so resemblance alone does not
+  admit them. Neither does the largest incident no verb list can hold: a production volume and
+  its backups deleted by a `curl` GraphQL mutation carrying a found token, which is an API
+  surface rather than a command word.
+- **A `printf | grep -q` that closes the pipe made two rungs fail OPEN, and both are fixed.** In
+  `command-guard.sh`'s `extract_command`, the fallback used where `python3` is absent matched the
+  hook payload with `printf '%s' "$payload" | grep -qE ...`. `grep -q` exits at its first match; a
+  writer with bytes still pending takes EPIPE; the file runs under `pipefail`, so a SUCCESSFUL
+  match became a failed pipeline and `|| return 0` stood the rail down on a Bash command nobody
+  inspected. `ladder.sh`'s poison-token rung had the same shape and left a token in the newest
+  commit unreported. Both are here-strings now, whose writer is not a pipeline member and so never
+  reaches `PIPESTATUS`; the `| head -1` beside the first is gone for the same reason. Reaching it
+  takes input that is BOTH multi-line and past the pipe buffer — size alone does not do it,
+  because grep cannot match until it holds a whole line — which is why it went unseen: the rail
+  is only exposed where `python3` is missing, and commit messages had to reach ~64 KB.
+- **A ledger row may no longer cite a plan's path, because two rules that each looked right made
+  a plan undeletable.** Permanent memory is immutable; the plan tier is archive-or-delete; a path
+  guard requires a cited path to exist. A row citing `docs/plans/<file>` satisfies all three and
+  makes them contradict: the plan can never move or go, and the contradiction only surfaces when
+  someone tries, long after the row is beyond repair. Recorded in the principles as prose, since
+  the shipped ladder has no ledger guard to carry it — the reference repository enforces it on
+  NEW rows in its own `ledger-append-only.sh`. Committed rows are exempt of necessity: a check
+  reaching them would fail permanently on the row that motivated the rule, which is the same trap
+  one layer up. A plan already pinned by a committed row is retained in place.
+
+### Upgrading
+
+Copy `command-guard.sh` AND `ladder.sh` from `harness/templates/scripts/` over your local copies
+and re-run your manifest generator, as for any shipped-script change. No configuration key changes. Expect one
+extra prompt the first time a session runs a database reset command, per verb and per named
+target; a rerun of the same command proceeds, exactly as with the filesystem tier. Also expect
+`rm -rf` and `git clean -fd` run through a package runner to start being advised, which they
+were not before — `npm exec` included, since `npm` is now stripped like `npx`. If your
+repository has a package script on the name list whose body is harmless, it is advised once per
+session all the same: the guard reads the name, never the script. Expect one more class of
+command to start being judged that was silently passing before: anything on a line that also
+carries a `\"` inside double quotes, which until now closed the quote early and hid whatever
+followed it from every rail. It cuts BOTH ways and the loosening half is worth knowing: prose
+carrying an escaped quote stops being mistaken for a command, so `echo "a \" | rm -rf x | b"` and
+`grep -q "x \" < .env" f` go quiet, and an unterminated line such as `echo "a\" && git push
+--force` is now allowed rather than blocked — malformed input fails open by design. If you key any
+CI check or transcript review on this guard's output, expect both directions to move.
+
+The plan-citation rule is prose in the principles and a seed-runbook line; no shipped guard
+enforces it, so it binds by review. If you took the seed runbook, hand-apply the new sentences in
+session discipline 5, and check your own ledger for a row that already names a plan path — if one
+exists, retain that plan where it is and record the retention in the plan file itself, rather
+than attempting an archive that a path-existence guard will reject.
+
+The same copy pass covers `ladder.sh`, `redact.sh` and `test-ladder-guards.sh` — the manifest
+instruction above already covers all of them. `ladder.sh` and `redact.sh` must move
+**together**: a new ladder beside an old `redact.sh` finds no `--baseline` to compare against,
+and it will refuse to scan and say so rather than pass your tree quietly.
+
+**Copy every script `MANIFEST.sha256` names, not only the ones this entry changed.** The
+integrity rung compares your `scripts/` against the hashes published in the manifest you just
+copied, so any script left behind at an older version reports as edited and the rung stays red —
+`session-start.sh` above all, which no entry in this train changed but which changed in 10.2.0 —
+a release an adopter coming from 9.1.0 skipped. One followed the list literally and finished with
+a red integrity rung for exactly that reason; the list, not their tree, was wrong.
+
+One expectation to set for Windows, since nothing above implies it: **the secret scan costs
+roughly twice the CPU on a CRLF worktree** (4m20s → 9m06s, measured), because every file that
+differs from its filtered stream takes the baseline path and on a CRLF tree every file differs.
+Renormalising covers what the seed pins — the harness's files and, through `*.sh`, your own shell
+scripts — and nothing else, so on a tree of any other language the cost is durable rather than
+transitional. On an LF checkout nothing differs and nothing extra runs.
+
+Seeds are yours, so the new `.gitattributes` is a hand-applied note: copy
+`harness/templates/seed/.gitattributes` into your repository root if you have no such file, or
+add its lines to the one you have. It governs future checkouts only — a worktree that is already
+CRLF stays that way until you renormalise it (`git add --renormalize .`) or clone again. **On
+Windows it is part of the fix, not a nicety.** The scripts alone stop the false credential
+findings and the false "deleted script" verdicts; they do not make a CRLF worktree green,
+because a CRLF shipped script does not hash to the hash published for its LF bytes and a CRLF
+`amh.conf` sources with a CR inside every value. If you are on Linux or macOS, or your checkout
+is already LF, nothing here asks anything of you.
+
+## 10.3.1 — 2026-08-27
+
+- **The README now starts with the failures AMH relieves.** The opening explains cross-session
+  memory, mechanical verification and command guardrails in familiar terms, and puts the Quick
+  Start before the detailed architecture and fit discussion.
+- **The limits remain explicit.** The shorter introduction describes the rails as risk
+  reduction rather than a security sandbox, and the detailed mechanism and scope sections are
+  retained after the adoption path.
+
+### Upgrading
+
+No action required. This release changes only the source repository's presentation of the
+existing adoption path.
+
 ## 10.3.0 — 2026-08-27
 
 - **The seed ledger preamble and `amh.conf.example` stopped contradicting each other.** The seed

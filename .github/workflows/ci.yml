@@ -84,6 +84,35 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Tool versions (the third-party behaviour these rungs depend on)
+        # This repository's whole portability story is "a third-party tool behaves
+        # differently there": the citation rung and placeholder-integrity.sh pass `-I`
+        # because grep <= 3.4 prints its binary-file notice on stdout, the secret scan
+        # subtracts a `--baseline` pass because MSYS2's sed is not byte-transparent, and
+        # the CRLF class turns on what git's own installer default does to a checkout. The
+        # version that decides any of it was unrecorded on every run, so a reader asking
+        # "is this runner's grep even one of the affected ones?" had no way to answer it
+        # from a log. Printed, never asserted: pinning a runner's tool versions would make
+        # an image bump red without anything being wrong, and the rungs are written to
+        # hold across versions rather than against one.
+        #
+        # Read the numbers on the right axis, because half this matrix is not on it. The
+        # 3.4/3.5 boundary is a GNU one; macOS ships BSD grep, whose FreeBSD-scale number
+        # is not comparable to it at all, and a reader who ranks `2.6.0-FreeBSD` against
+        # 3.4 has learned nothing about which stream that leg's notice goes to. On the BSD
+        # leg the vendor is the answer, not the version.
+        #
+        # `|| true` keeps this print-only whatever the leg does: BSD sed on macOS has no
+        # `--version` and exits non-zero into `pipefail` (its usage line is itself the
+        # answer to which sed this leg has), and the same clause absorbs a `head` SIGPIPE
+        # and a tool missing from PATH. A diagnostic step must never be the thing that
+        # reddens a run.
+        run: |
+          for t in bash grep sed git; do
+            printf '%s: ' "$t"
+            "$t" --version 2>&1 | head -n 1 || true
+          done
+
       - name: Install shellcheck (macOS)
         if: runner.os == 'macOS'
         run: brew install shellcheck
@@ -128,3 +157,138 @@ jobs:
           scripts/amh-init.sh --profile light "$target"
           test -x "$target/scripts/ladder.sh"
           test ! -e "$target/scripts/command-guard.sh.amh-init.tmp"
+
+      # The matrix cell that was green through DC-030 and could not have been anything else.
+      # This job's first step sets `core.autocrlf false` GLOBALLY before the checkout that
+      # follows, and only on the Windows leg (`if: runner.os == 'Windows'`). Deliberate:
+      # these scripts and manifests are byte-bound artifacts and repairing a CRLF tree after
+      # the fact is worse than not making one. The cost is that the Windows leg then tests
+      # Git Bash on an LF tree, which is the one configuration no adopter has — Git for
+      # Windows sets `core.autocrlf=true` in its SYSTEM config at install time, so the
+      # default clone is CRLF, and that is where the 533-failure report came from.
+      #
+      # Dropping the step above would not fix that. This repository's own root
+      # .gitattributes pins `* text=auto eol=lf`, so its checkout is LF regardless; fighting
+      # it would test a configuration the DC-030 fix has deliberately made impossible.
+      #
+      # So the adopter's tree is tested instead of ours. The smoke step above instantiates
+      # one of these to check that init works at all; this builds its OWN, independently, and
+      # gives it the adopter's real condition — core.autocrlf=true, committed and
+      # re-checked-out so the smudge actually runs — then runs ITS shipped rungs. Nothing
+      # here touches this repository's line endings.
+      #
+      # BOTH directions are asserted, because either one alone is a job that cannot fail for
+      # the right reason. Seeded, the byte-bound artifacts must be LF and the rungs green:
+      # that is the fix working. Unseeded, they must be CRLF and the rungs must NOT be green:
+      # that is what proves the seeded green was measured against a condition that actually
+      # materialised, rather than against a checkout that was never CRLF in the first place.
+      # A green-both-ways job would be indistinguishable from a job testing nothing, and this
+      # one goes red if it ever becomes that.
+      #
+      # The unseeded half asserts non-zero and PRINTS rather than matching a message, because
+      # the shape differs by platform and pinning one would make this a test of the failure
+      # text. On a host whose bash rejects a CRLF script it dies at the first `set` line; on
+      # Git Bash it gets further and the rungs report the damage. Which one this leg saw is
+      # then in the log for a reader, asserted by nobody.
+      - name: Adopter CRLF tree — seeded green AND unseeded red, both asserted
+        run: |
+          set -euo pipefail
+
+          cr=$(printf '\r')
+          # A `cr` that came back empty would make `grep -q "$cr"` match every file and turn
+          # the first assertion into a false alarm. It fails closed rather than open, but a
+          # job that goes red for the wrong reason still costs a reader the same hour.
+          test "${#cr}" -eq 1
+          has_cr() { LC_ALL=C grep -q "$cr" "$1"; }
+
+          # A sample, not the whole set: the manifest is parsed for filenames, amh.conf is
+          # sourced into bash where a trailing CR joins every value, and ladder.sh must both
+          # hash to its published LF digest and be a file bash will agree to run. The seed
+          # pins `*.sh` wholesale, so naming one script here samples that arm rather than
+          # covering it. What this list is NOT is the job's CRLF exposure: the secret scan
+          # reads every text file and the seed pins only what it lists, so on the SEEDED tree
+          # the adapter configs, .gitattributes, the workflow and AMH-ADOPT.md are still CRLF
+          # and go through the scan's --baseline subtraction under whatever sed this leg has.
+          # That is the part with real Windows teeth, and a red there is a finding about the
+          # subtraction rather than a reason to loosen anything here.
+          BYTE_BOUND='scripts/ladder.sh amh.conf scripts/MANIFEST.sha256'
+
+          target=$(mktemp -d)
+          log=$(mktemp)
+          trap 'rm -rf "$target" "$log"' EXIT
+
+          git -C "$target" init -q
+          git -C "$target" config core.autocrlf true
+          git -C "$target" config user.email amh-ci@example.invalid
+          git -C "$target" config user.name amh-ci
+          scripts/amh-init.sh --profile light "$target" >/dev/null
+          git -C "$target" add -A
+          git -C "$target" commit -qm 'adopt AMH'
+
+          # `git add` normalises INTO the index; it is the checkout back OUT that applies
+          # core.autocrlf. Without this the worktree keeps the bytes we wrote and the whole
+          # step measures nothing.
+          #
+          # `rm --cached -r .` then `reset --hard`, NOT delete-the-files-and-checkout. The
+          # latter worked on Linux and was a silent no-op on Git Bash: the first Windows run
+          # of this step reported `unseeded: scripts/ladder.sh has no CR`, i.e. the worktree
+          # was never re-smudged there at all. Emptying the index first leaves `reset --hard`
+          # nothing to consider clean, so every path is written back out through the smudge
+          # filter with the attributes and config in force NOW.
+          resmudge() {
+            git -C "$target" rm -q -r --cached . >/dev/null
+            git -C "$target" reset -q --hard
+          }
+          resmudge
+          test "$(git -C "$target" config core.autocrlf)" = true
+
+          # git's own view, printed on both platforms because the byte check above cannot say
+          # WHY it disagrees and the first Windows failure cost a round for want of this.
+          printf 'git ls-files --eol (seeded):\n'
+          git -C "$target" ls-files --eol -- $BYTE_BOUND AMH-ADOPT.md
+
+          for f in $BYTE_BOUND; do
+            if has_cr "$target/$f"; then
+              printf 'seeded: %s carries CR — the .gitattributes seed did not hold\n' "$f" >&2
+              exit 1
+            fi
+          done
+          printf 'seeded: byte-bound artifacts are LF under core.autocrlf=true\n'
+
+          # ...and the smudge DID run, which the line above cannot show on its own: every file
+          # it checks is pinned LF by the seed, so "no CR" is equally what a re-smudge that
+          # never happened looks like. AMH-ADOPT.md is not in the seed's list, so under
+          # core.autocrlf=true it must come back CRLF. Without this assertion the seeded half
+          # passes vacuously on any platform where resmudge silently does nothing — which is
+          # precisely what happened on the first Windows run.
+          if ! has_cr "$target/AMH-ADOPT.md"; then
+            printf 'seeded: AMH-ADOPT.md has no CR — the seed does not pin it, so the worktree was never re-smudged and the LF checks above proved nothing\n' >&2
+            exit 1
+          fi
+          printf 'seeded: an unpinned file IS CRLF, so the smudge ran and the LF above is the seed\n'
+
+          ( cd "$target" && bash scripts/ladder.sh --guards-only )
+          printf 'seeded: the shipped rungs are green on a CRLF-configured adopter tree\n'
+
+          # The adopter who never got the seed — AMH 9.1.0, which is the version the report
+          # came from.
+          git -C "$target" rm -q --cached .gitattributes
+          rm -f "$target/.gitattributes"
+          git -C "$target" commit -qm 'an adopter who never got the seed'
+          resmudge
+
+          for f in $BYTE_BOUND; do
+            if ! has_cr "$target/$f"; then
+              printf 'unseeded: %s has no CR — the CRLF condition never materialised, so the green above proved nothing\n' "$f" >&2
+              exit 1
+            fi
+          done
+          printf 'unseeded: byte-bound artifacts are genuinely CRLF\n'
+
+          if ( cd "$target" && bash scripts/ladder.sh --guards-only ) >"$log" 2>&1; then
+            printf 'unseeded CRLF tree came back GREEN — this step has stopped testing anything\n' >&2
+            sed -n '1,40p' "$log" >&2
+            exit 1
+          fi
+          printf 'unseeded: red, as it must be. What this platform printed:\n'
+          sed -n '1,25p' "$log"

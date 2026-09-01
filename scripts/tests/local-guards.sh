@@ -34,6 +34,7 @@ export GIT_COMMITTER_NAME=amh-test GIT_COMMITTER_EMAIL=amh@test.invalid
 
 PASSED=0
 FAILED=0
+EXPECT_PATH_PREFIX=
 
 snapshot() { # snapshot <name> -> prints the path
 	local d="$WORK/$1"
@@ -61,8 +62,12 @@ is_marked_warn() { # is_marked_warn <rc> <output>
 expect() { # expect <pass|fail|warn> <name> <dir> <guard> [message-substring]
 	local want=$1 name=$2 dir=$3 guard=$4 want_msg=${5:-}
 	local out rc
+	# EXPECT_PATH_PREFIX prepends one directory to PATH for a single case. It is how a guard's
+	# reaction to a TOOL that misbehaves can be tested at all: a tree can be posed into yielding
+	# an EMPTY listing, never a truncated one, so the shim has to sit on PATH. Empty for every
+	# other case, and `${x:+}` keeps that safe under `set -u`.
 	# shellcheck disable=SC2086  # $guard may carry arguments, e.g. "x.sh --tag v1"
-	out=$(cd "$dir" && bash scripts/guards/$guard 2>&1)
+	out=$(cd "$dir" && PATH="${EXPECT_PATH_PREFIX:+$EXPECT_PATH_PREFIX:}$PATH" bash scripts/guards/$guard 2>&1)
 	rc=$?
 	if [ "$want" = pass ] && [ "$rc" -ne 0 ]; then
 		FAILED=$((FAILED + 1))
@@ -268,6 +273,96 @@ PYROW
 (cd "$d" && git add amh.conf docs/LEDGER_C.md && git commit -qm over-cap-history)
 expect pass "ledger-append-only: an already committed over-cap row is historical and exempt" "$d" ledger-append-only.sh
 
+# A new row must not pin a plan file. Each fixture makes its OWN plan rather than naming the
+# one in the tree: the point is the shape, and a fixture that depends on today's plan set would
+# start passing vacuously the day that set changes. The three fail cases are the three forms
+# path-refs.sh resolves — a row that evades two of them pins the plan just as hard.
+d=$(snapshot ledger_row_cites_plan_path)
+mkdir -p "$d/docs/plans"
+printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-999: **New row citing a plan path.** See `docs/plans/fixture-plan.md` for the checklist.
+ROW
+expect fail "ledger-append-only: a new row cannot cite a plan path in backticks" "$d" \
+	ledger-append-only.sh "names the plan file 'docs/plans/fixture-plan.md'"
+
+d=$(snapshot ledger_row_links_plan_path)
+mkdir -p "$d/docs/plans"
+printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
+# `plans/…`, NOT `docs/plans/…`. path-refs.sh resolves a link against the LINKING FILE's
+# directory, and the ledger sits in docs/ — so this is the target that actually pins the plan,
+# and `](docs/plans/…)` is a broken link that pins nothing. The first version of this fixture
+# asserted on the broken form and passed while the real one went undetected.
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-999: **New row linking a plan.** See [the plan](plans/fixture-plan.md) for the checklist.
+ROW
+expect fail "ledger-append-only: a new row cannot link a plan path relative to the ledger" "$d" \
+	ledger-append-only.sh "names the plan file 'docs/plans/fixture-plan.md'"
+
+d=$(snapshot ledger_row_links_plan_fragment)
+mkdir -p "$d/docs/plans"
+printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-999: **New row linking a plan section.** See [unit 3](./plans/fixture-plan.md#unit-3) now.
+ROW
+expect fail "ledger-append-only: a leading ./ and a #fragment do not evade the link check" "$d" \
+	ledger-append-only.sh "names the plan file 'docs/plans/fixture-plan.md'"
+
+d=$(snapshot ledger_row_cites_plan_dotslash)
+mkdir -p "$d/docs/plans"
+printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-999: **New row citing a dot-slash plan path.** See `./docs/plans/fixture-plan.md` now.
+ROW
+expect fail "ledger-append-only: a leading ./ does not evade the backticked-path check" "$d" \
+	ledger-append-only.sh "names the plan file 'docs/plans/fixture-plan.md'"
+
+# The escape hatch has to work or the rule is unfollowable: a row may still SAY which plan the
+# work came from, so long as it does so in a form no path guard resolves.
+d=$(snapshot ledger_row_cites_plan_basename)
+mkdir -p "$d/docs/plans"
+printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
+# path-refs section (c) resolves a backticked BARE filename against every tracked basename, so
+# a plan named with no directory pins it exactly as hard as the full path does.
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-999: **New row citing a bare plan filename.** See `fixture-plan.md` for the checklist.
+ROW
+expect fail "ledger-append-only: a new row cannot cite a bare plan filename" "$d" \
+	ledger-append-only.sh "names the plan file 'fixture-plan.md'"
+
+d=$(snapshot ledger_row_names_plan_in_prose)
+mkdir -p "$d/docs/plans"
+printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-999: **New row naming a plan in prose.** Delivered under the fixture plan of 2026-08-31.
+ROW
+expect pass "ledger-append-only: a new row may name a plan in prose without a citable path" "$d" ledger-append-only.sh
+
+# Ordinary parentheses are not link syntax: path-refs resolves `](…)` only, so a plan named
+# inside prose parentheses pins nothing and must not fail here. Matching a bare `(` was a real
+# false positive in the first version.
+d=$(snapshot ledger_row_plan_in_parentheses)
+mkdir -p "$d/docs/plans"
+printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-999: **New row with a parenthetical.** Drafted (docs/plans/fixture-plan.md was the source).
+ROW
+expect pass "ledger-append-only: a plan named in bare parentheses is not a link and passes" "$d" ledger-append-only.sh
+
+# DC-033's own shape. Committed rows are immutable, so the check MUST NOT reach them — a
+# version that did would fail forever on the row that motivated it.
+d=$(snapshot ledger_committed_row_cites_plan_exempt)
+mkdir -p "$d/docs/plans"
+printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-999: **Committed row citing a plan path.** See `docs/plans/fixture-plan.md` for the checklist.
+ROW
+(cd "$d" && git add docs/LEDGER_C.md docs/plans && git commit -qm plan-citation-history)
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-1000: **A later clean row.** Nothing cited.
+ROW
+expect pass "ledger-append-only: an already committed plan citation is historical and exempt" "$d" ledger-append-only.sh
+
 d=$(snapshot ledger_append_only_superseded_over_cap_existing_row)
 sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=10/' "$d/amh.conf"
 awk '/^- D-002 / && !done { print "  Superseded by DB-999."; done = 1 } { print }' \
@@ -381,6 +476,23 @@ d=$(snapshot shipped_citations_unreadable)
 ln -s /nonexistent "$d/harness/templates/scripts/dangling.sh"
 expect fail "shipped-citations: an unreadable shipped file is named, not dropped" "$d" \
 	shipped-citations.sh "could not check it"
+
+# A shipped file grep cannot read as text is refused for the same reason, and this one needs no
+# shim to reproduce: on grep >= 3.5 — the version on CI — a binary file exits 0 with its notice
+# on stderr and an EMPTY stdout, so it used to be counted as scanned and reported as citing
+# nothing. `-I` would have made that permanent rather than fixed it (AMH ledger row DC032).
+d=$(snapshot shipped_citations_binary)
+printf '#!/usr/bin/env bash\000 DB-999 \000\n' >"$d/harness/templates/scripts/blob.sh"
+expect fail "shipped-citations: a binary shipped file is refused, not counted as scanned" "$d" \
+	shipped-citations.sh "did NOT scan it"
+
+# ...and an EMPTY shipped file is NOT that case: it was read successfully and cites nothing, so
+# the binary arm above must not swallow it. `grep -qI .` answers 1 for both, which is why the
+# arm tests `-s` first.
+d=$(snapshot shipped_citations_empty)
+: >"$d/harness/templates/scripts/empty.sh"
+expect pass "shipped-citations: an empty shipped file is scanned, not called binary" "$d" \
+	shipped-citations.sh
 
 # Scanning nothing is a failure, not a sweep — and the two empty states have different fixes,
 # so they say different things.
@@ -549,6 +661,62 @@ d=$(snapshot ph_unfilled)
 printf '{{%s}}\n' PROJECT_NAME >>"$d/docs/STATE.md"
 expect fail "placeholders: left unfilled in a live file" "$d" placeholder-integrity.sh "unfilled placeholder"
 
+# A BINARY live file whose bytes happen to match, under a grep that reports it the way GNU grep
+# <= 3.4 does — which is what Git for Windows ships (3.0). The notice goes to STDOUT there, so
+# the inner pass reads `Binary file <path> matches` as a token that is neither `{{PLACEHOLDER}}`
+# nor `{{X}}` and this guard fails naming a file no human can fill. Same class as the ladder's
+# citation rung, fixed the same way and for the same reason (AMH ledger row DC031).
+#
+# The shim is what makes the case exist on this host at all: on grep >= 3.5 the notice is on
+# stderr, which both passes already discard, so the fixture would pass against the unfixed
+# guard. It relocates that one line and leaves everything else — including the exit status —
+# alone.
+grep_stdout_notice_shim() { # <name> -> prints a directory to prepend to PATH
+	local name=$1
+	local dir="$WORK/shim-$name" real
+	real=$(command -v grep) || return 1
+	[ -n "$real" ] || return 1
+	mkdir -p "$dir"
+	cat >"$dir/grep" <<SHIM
+#!/usr/bin/env bash
+# A failed mktemp would abort the redirection and real grep would never run, which every
+# caller reads as "no match" — a silent skip inside the tool a fixture uses to prove a
+# guard does not silently skip.
+err=\$(mktemp) || exit 2
+"$real" "\$@" 2>"\$err"
+rc=\$?
+while IFS= read -r line; do
+	case \$line in
+	*': binary file matches')
+		name=\${line#*: }
+		printf 'Binary file %s matches\n' "\${name%: binary file matches}"
+		;;
+	*) printf '%s\n' "\$line" >&2 ;;
+	esac
+done <"\$err"
+rm -f "\$err"
+exit \$rc
+SHIM
+	chmod +x "$dir/grep"
+	printf '%s' "$dir"
+}
+
+d=$(snapshot ph_binary_notice)
+printf 'GDEF\000 {{%s}} \000glyf\n' PROJECT_NAME >"$d/docs/logo.ttf"
+EXPECT_PATH_PREFIX=$(grep_stdout_notice_shim ph_binary) || EXPECT_PATH_PREFIX=
+expect pass "placeholders: a binary file is not an unfilled placeholder" "$d" placeholder-integrity.sh
+EXPECT_PATH_PREFIX=
+
+# The same notice reaching the TEMPLATES pass, which is a different grep in the same guard and
+# was missed by the first draft of this fix: there the notice survives `sed 's/[{}]//g'` and is
+# reported as a placeholder name `harness/PLACEHOLDERS.md` does not document.
+d=$(snapshot ph_binary_template)
+printf 'GDEF\000 {{%s}} \000glyf\n' PROJECT_NAME >"$d/harness/templates/seed/logo.ttf"
+EXPECT_PATH_PREFIX=$(grep_stdout_notice_shim ph_binary_tpl) || EXPECT_PATH_PREFIX=
+expect pass "placeholders: a binary template asset is not an undocumented placeholder" "$d" \
+	placeholder-integrity.sh
+EXPECT_PATH_PREFIX=
+
 d=$(snapshot ver_bump)
 printf '1.9.0\n' >"$d/harness/VERSION"
 expect fail "version-lockstep: VERSION bumped alone" "$d" version-lockstep.sh "harness/VERSION says 1.9.0"
@@ -707,6 +875,166 @@ expect fail "path-refs: a bare name that is only a substring of a real file" "$d
 d=$(snapshot refs_bare_deleted)
 rm "$d/amh.conf"
 expect fail "path-refs: a bare name whose file was deleted but is still in the index" "$d" path-refs.sh "no file by that name"
+
+# The hollow states, where the guard's own listing tells it nothing and the answer used to be
+# indistinguishable from a verdict about the prose. SIX behaviours, six cases below, because a
+# suite that covers four of them reads exactly like one that covers all six (DC-025): the tree
+# listing failing (i, iv) and coming back empty (ii); the markdown listing failing (v) and
+# coming back empty (iii); every listed file being excluded after the fact (vi); and the `if
+# [ -e ]` in the basename loop that keeps a deleted last-sorted path from posing as a failed
+# listing (vii). Each asserts the DISCRIMINATING sentence, never the shared `checked NOTHING`,
+# which every one of them would satisfy.
+#
+# Note which hollow state a uniformly failing listing lands on: the GREEN one. Both calls fail,
+# the loop never runs, and the guard used to print `0 path reference(s) resolve`. The false
+# failure that started this — a real run reporting `session-start.sh`, a file that exists, as
+# cited nowhere — needs the tree listing to come back short while the markdown one succeeds.
+#
+# A tree of nothing but the guard itself, for the cases that need a listing this repo's
+# snapshot can never produce. Built rather than snapshotted: `git ls-files -c` reports tracked
+# files whatever the excludes say, so an empty listing is unreachable from a committed tree.
+guard_only_tree() { # guard_only_tree <name> -> prints the path
+	local d="$WORK/$1"
+	mkdir -p "$d/scripts/guards"
+	cp "$ROOT/scripts/guards/path-refs.sh" "$d/scripts/guards/path-refs.sh"
+	(cd "$d" && git init -q .)
+	printf '%s' "$d"
+}
+
+# A `git` that dies part way through ONE listing: plausible output already emitted, then a
+# non-zero exit. No tree can be posed into that — a tree yields an empty listing or a complete
+# one — so the status checks are reachable only through a shim, and without one they are the
+# arms that survive deletion untouched while the emptiness checks cover for them. `which` picks
+# the listing, so each status check is demonstrated on its own.
+git_dying_shim() { # git_dying_shim <name> <tree|md> -> prints a directory to prepend to PATH
+	# Split, not one `local` list: `dir="$WORK/shim-$name"` would expand `$name` before the
+	# same statement assigned it, which is D-006 and explodes under `set -u`.
+	local name=$1 which=$2
+	local dir="$WORK/shim-$name" real pattern
+	real=$(command -v git)
+	case $which in
+	tree) pattern='ls-files' ;;
+	md) pattern="'*.md'" ;;
+	esac
+	mkdir -p "$dir"
+	cat >"$dir/git" <<SHIM
+#!/usr/bin/env bash
+for a in "\$@"; do
+	case \$a in
+	$pattern) printf 'AGENTS.md\0'; exit 128 ;;
+	esac
+done
+exec $real "\$@"
+SHIM
+	chmod +x "$dir/git"
+	printf '%s' "$dir"
+}
+
+# (i) The tree listing FAILS outright. A truncated index is the failure git actually reports —
+#     exit 128 with nothing on stdout — and it cannot be satisfied by an enclosing repository
+#     the way a deleted `.git` could.
+d=$(snapshot refs_listing_failed)
+printf 'garbage' >"$d/.git/index"
+expect fail "path-refs: a failed tree listing is not a clean sweep" "$d" path-refs.sh \
+	"the tree listing FAILED (exit 128)"
+
+# (ii) The tree listing SUCCEEDS and is empty: no tracked file, and the working tree excluded.
+#      `.git/info/exclude` rather than a `.gitignore` only to keep the tree file-free — a
+#      `.gitignore` matching `*` excludes itself too and yields the same empty listing.
+d=$(guard_only_tree refs_listing_empty)
+printf '*\n' >"$d/.git/info/exclude"
+expect fail "path-refs: a tree listing that came back empty is not a clean sweep" "$d" path-refs.sh \
+	"the tree listing named no file at all"
+
+# (iii) The tree listing is fine and the MARKDOWN listing is empty — the case the check on
+#       `basenames` alone would never reach, and the one that made the guard print a green
+#       count over a scan of no documents at all.
+d=$(guard_only_tree refs_no_markdown)
+(cd "$d" && git add -A && git commit -qm no-markdown)
+expect fail "path-refs: a tree with no markdown in it is not a clean sweep" "$d" path-refs.sh \
+	"the markdown listing named no file at all"
+
+# (iv) The tree listing fails AFTER emitting a plausible path, so `basenames` is non-empty and
+#      only the status check can catch it. Delete `[ "$rc" -eq 0 ] || listing_failed tree` and
+#      this is the case that reddens; (i) is not, because an empty listing catches that one.
+d=$(snapshot refs_tree_status)
+EXPECT_PATH_PREFIX=$(git_dying_shim tree_status tree)
+expect fail "path-refs: a tree listing that dies mid-stream is not a clean sweep" "$d" path-refs.sh \
+	"the tree listing FAILED (exit 128)"
+EXPECT_PATH_PREFIX=
+
+# (v) The same for the markdown listing: the tree call is let through, so the file is non-empty
+#     and its `-s` test passes. Only the markdown status check is left to catch it.
+d=$(snapshot refs_md_status)
+EXPECT_PATH_PREFIX=$(git_dying_shim md_status md)
+expect fail "path-refs: a markdown listing that dies mid-stream is not a clean sweep" "$d" path-refs.sh \
+	"the markdown listing FAILED (exit 128)"
+EXPECT_PATH_PREFIX=
+
+# (vi) A listing that is non-empty and wholly excluded. `shipped-citations.sh` refuses this
+#      AFTER its exclusions for the reason it states — a renamed directory looks exactly like a
+#      clean sweep — and this guard refused it only before them, so a tree whose every markdown
+#      file sits under `harness/templates/` scanned nothing and reported green.
+d=$(guard_only_tree refs_all_excluded)
+mkdir -p "$d/harness/templates"
+# shellcheck disable=SC2016 # literal backticks: same fixture form as above.
+printf 'See `docs/NOTHING_HERE.md`.\n' >"$d/harness/templates/adopter.md"
+(cd "$d" && git add -A && git commit -qm excluded-only)
+expect fail "path-refs: a listing whose every file is excluded is not a clean sweep" "$d" path-refs.sh \
+	"are outside the scan"
+
+# (vii) The `if [ -e "$p" ]` in the basename loop, which the tree status check turned into
+#       load-bearing code: under `pipefail` the older `[ -e "$p" ] && printf` form returns the
+#       TEST's status, so a last-sorted path that no longer exists reported the whole listing as
+#       failed — a false alarm that also swallows whatever real finding the run had. The file is
+#       constructed rather than borrowed from the tree, because a fixture that depends on which
+#       real file happens to sort last stops testing this, silently, the day another one does.
+d=$(snapshot refs_last_path_deleted)
+printf 'x\n' >"$d/zzz-last-in-listing.txt"
+(cd "$d" && git add zzz-last-in-listing.txt && git commit -qm zzz)
+rm "$d/zzz-last-in-listing.txt"
+expect pass "path-refs: a deleted last-sorted path is not a failed listing" "$d" path-refs.sh
+
+# (viii) The bare-name lookup must not be a PIPE. `grep -q` exits on its first match, and a
+#        writer with bytes still pending then takes EPIPE; under `pipefail` that turns a
+#        successful match into a non-zero pipeline, and the guard reports a file that exists
+#        as cited nowhere. It reached CI as a macOS run failing on `AGENTS.md` while every
+#        Linux run of the same commit stayed green (DC-034).
+#
+#        This case is SIZE-BUILT rather than shim-built, and the size is the whole trick: a
+#        single write into a pipe that has room never notices the reader leaving, so the
+#        real tree's ~1 KB basename list cannot reproduce this on a host with a 64 KB pipe
+#        buffer no matter how the fixture is posed. Padding the listing past that buffer
+#        forces the writer to block, which is what lets `grep -q` exit first. The cited name
+#        sorts to the very front so the match happens as early as possible, leaving the most
+#        pending. Against the piped form this case fails; against the here-string it passes,
+#        and the padding is what makes that difference exist at all on this platform.
+#
+#        The padding is `*.txt` and NOT `*.md`, because only the BASENAME listing has to be
+#        long: the markdown loop opens and greps every file it is given, so `*.md` padding
+#        bought the identical verdict while dragging 800 empty documents through two greps
+#        apiece — 10.9s against 0.13s, which was 23% of this whole suite. Measured both ways
+#        against both forms of the lookup before the change: `*.txt` still fails against the
+#        piped form, which is the only property the padding owes.
+#
+#        The pass verdict carries a message substring, because a bare `expect pass` here goes
+#        vacuous in silence: if the padding ever stops clearing the pipe buffer the case is
+#        green against both forms and says nothing. The substring pins what the guard
+#        actually resolved — one citation across the two markdown files, the pad excluded —
+#        so a fixture that stopped exercising the lookup fails instead of passing quietly.
+d=$(guard_only_tree refs_early_match_long_listing)
+mkdir -p "$d/pad"
+i=0
+while [ "$i" -lt 800 ]; do
+	: >"$d/pad/$(printf 'p%0100d' "$i").txt"
+	i=$((i + 1))
+done
+: >"$d/AAA-first-in-listing.md"
+# shellcheck disable=SC2016 # the backticks are the fixture: the guard reads a markdown
+# code span, so single quotes are required here.
+printf 'cites `AAA-first-in-listing.md`\n' >"$d/doc.md"
+expect pass "path-refs: an early match on a long listing is not a missing file" "$d" path-refs.sh \
+	'1 path reference(s) resolve across 2 file(s)'
 
 # --- scripts/bootstrap.sh ----------------------------------------------------
 # Not a guard, so it gets its own runner rather than `expect`. It is repo-local for the

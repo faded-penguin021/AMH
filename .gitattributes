@@ -1,0 +1,15 @@
+# This repository is the harness's reference instance, so it takes the seed's own line-ending
+# rules (harness/templates/seed/.gitattributes) and extends them over the sources it ships.
+#
+# Git for Windows sets `core.autocrlf=true` in its SYSTEM config at install time; without this
+# file a Windows clone gets a CRLF worktree, and the rungs that compare or parse bytes rather
+# than lines read that as damage — the secret scan flagged every text file in the tree, and the
+# integrity rung reported five present scripts as deleted (DC-030).
+* text=auto eol=lf
+
+# The citation rung's binary fixture must STAY binary — being unreadable as text is the
+# whole of what it stands for. `text=auto` above would already leave it alone, since git
+# sniffs a NUL byte and declines to normalise; this line says so explicitly rather than
+# resting on a sniff that only reads the first 8000 bytes of a file whose explanatory
+# preamble could grow past them.
+scripts/fixtures/*.bin -text

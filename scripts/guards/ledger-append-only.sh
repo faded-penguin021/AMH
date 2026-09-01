@@ -19,6 +19,8 @@ set -uo pipefail
 LEDGER_DIR=docs
 LEDGER_BASENAME=LEDGER
 LEDGER_ROW_CHAR_CAP=0
+# Default matches scripts/ladder.sh's; amh.conf overrides it below.
+PLAN_DIR=docs/plans
 # shellcheck source=/dev/null
 [ -f amh.conf ] && . ./amh.conf
 # Two sanctioned pointer verbs, and the difference between them is LINGUISTIC, not mechanical:
@@ -187,6 +189,105 @@ validate_row_cap() { # validate_row_cap <row-file> <id>
 	fi
 }
 
+# A new row must not name a plan file — in ANY form `scripts/guards/path-refs.sh` resolves.
+#
+# The incident: DC-033 cited the 2026-08-31 ci-sees-windows plan's path in backticks. Rows are
+# immutable, path-refs checks that a cited path EXISTS, and session discipline 5 says a finished
+# plan is archived or deleted — so the row pinned the plan in place permanently and the
+# archive-or-delete step could never run. Tried it; path-refs failed, and the plan had to be
+# restored. Neither rule was wrong alone; nothing said they could not both bind the same file.
+#
+# NEW rows only, which is not a softening but the only reachable scope: DC-033 is committed and
+# immutable, so a check over the whole chain would fail forever on the very row that motivated
+# it — the trap this exists to prevent, rebuilt one layer up. The existing citation stands and
+# its plan is retained in place; see the runbook's session discipline 5.
+#
+# The three forms are path-refs's own, and the FIRST one is why this is not a single grep. That
+# guard resolves a markdown link RELATIVE TO THE LINKING FILE (`dir=$(dirname "$f")`), and every
+# ledger volume sits in LEDGER_DIR — so the target that pins a plan from a row is `plans/<file>`,
+# NOT `docs/plans/<file>`. The obvious spelling is the one that does not pin: `](docs/plans/…)`
+# resolves to `docs/docs/plans/…` and path-refs reports it broken whether or not the plan exists.
+# A first version of this guard matched the obvious spelling and missed the real one, and its
+# fixture asserted on the miss — caught in review by replaying both against path-refs.
+#
+#   (a) a markdown link whose target, resolved against LEDGER_DIR, lands under PLAN_DIR;
+#   (b) a backticked path under PLAN_DIR, resolved from the repo root as path-refs does;
+#   (c) a backticked BARE filename that is currently a file in PLAN_DIR — path-refs section (c)
+#       resolves those against every tracked basename, so a bare `<plan>.md` pins just as hard.
+#
+# Both extractions are substituted into a variable and read back, never piped into a consumer
+# that exits early. `grep -o ... | head -1` is the fail-OPEN shape DC-034 and DC-038 record: head
+# exits after its first line, the writer takes EPIPE, and under `pipefail` a FOUND citation
+# becomes a non-zero pipeline that reads as no-match. The first version of this guard had exactly
+# that pipeline.
+#
+# Matched with `case` over extracted tokens rather than by interpolating PLAN_DIR into an ERE:
+# the value comes from amh.conf and is adopter-editable, and a regex would silently impose a
+# no-metacharacters constraint on it that nothing documents or checks.
+#
+# (c) can only see plans that exist NOW: a row naming a plan added later is not reachable here,
+# and nothing catches it. Stated rather than papered over — the prose rule is what binds, and
+# this guard is a tripwire for the shape that already bit us.
+
+# Strip a #fragment and any leading `./`, the two spellings path-refs normalizes before it
+# resolves. Without this, `plans/x.md#unit-3` and `./plans/x.md` both pin and both pass.
+normalize_ref() { # normalize_ref <target>
+	local t=${1%%#*}
+	while [ "$t" != "${t#./}" ]; do t=${t#./}; done
+	printf '%s' "$t"
+}
+
+validate_row_plan_path() { # validate_row_plan_path <row-file> <id>
+	local row=$1 id=$2 tok target spans
+	[ -n "${PLAN_DIR:-}" ] || return 0
+
+	# (a) markdown links. `](` and not a bare `(`: path-refs only resolves link syntax, so a
+	# plan named inside ordinary parentheses pins nothing and must not fail here.
+	while IFS= read -r tok; do
+		[ -n "$tok" ] || continue
+		tok=${tok#](}
+		tok=${tok%)}
+		case $tok in
+		http*://* | '#'* | mailto:* | /*) continue ;;
+		esac
+		target=$(normalize_ref "$tok")
+		[ -n "$target" ] || continue
+		# Resolved the way path-refs resolves it: against the linking file's directory,
+		# which for every ledger volume is LEDGER_DIR.
+		case "$LEDGER_DIR/$target" in
+		"$PLAN_DIR"/*) plan_citation_fail "$id" "$LEDGER_DIR/$target" ;;
+		esac
+	done < <(LC_ALL=C grep -oE '\]\([^)]+\)' "$row")
+
+	# (b) and (c) backticked spans, resolved from the repo root as path-refs does.
+	# Hoisted out of the loop so the SC2016 waiver covers ONE command: a directive cannot sit
+	# before `done < <(...)` (SC1123), and putting it on the whole `while` would silence the
+	# check for the entire body — the same reasoning path-refs.sh records at its own extraction.
+	# shellcheck disable=SC2016 # backticks are the pattern's own syntax: this matches markdown
+	# code spans literally, so single quotes are required, not a slip.
+	spans=$(LC_ALL=C grep -oE '`[^`]+`' "$row")
+	while IFS= read -r tok; do
+		[ -n "$tok" ] || continue
+		tok=${tok#\`}
+		tok=${tok%\`}
+		target=$(normalize_ref "$tok")
+		[ -n "$target" ] || continue
+		case $target in
+		"$PLAN_DIR"/*) plan_citation_fail "$id" "$target" ;;
+		esac
+		# (c) a bare filename that is a plan in the tree right now.
+		case $target in
+		*/*) ;;
+		*) [ -n "$target" ] && [ -f "$PLAN_DIR/$target" ] && plan_citation_fail "$id" "$target" ;;
+		esac
+	done <<<"$spans"
+	return 0
+}
+
+plan_citation_fail() { # plan_citation_fail <id> <cited>
+	fail "ledger append-only: new row $1 names the plan file '$2'. A committed row is immutable and $PLAN_DIR files are archived or deleted when their work completes, so a row naming one pins it in the tree forever — and the archive-or-delete step then fails path-refs.sh (DC-033 did exactly this). Record what the plan DELIVERED in the row itself; name the plan in prose without a citable path if you must refer to it at all."
+}
+
 allowed_metadata_only() { # allowed_metadata_only <base-row> <current-row>
 	local base=$1 current=$2 trimmed without_pointer base_cited=0
 	# Normalize only the two sanctioned, additive metadata transitions before comparing:
@@ -280,6 +381,7 @@ for current_row in "$TMPDIR"/work-rows/D*-*; do
 	[ -f "$TMPDIR/head-rows/$id" ] && continue
 	new_checked=$((new_checked + 1))
 	validate_row_cap "$current_row" "$id"
+	validate_row_plan_path "$current_row" "$id"
 	# Two independent ways a new row can be filed wrong, and DB-015 (superseded by DB-020, which
 	# records how a misfiled row is repaired) is the second one, not
 	# the first — a fact worth stating because checking only the obvious half would leave the

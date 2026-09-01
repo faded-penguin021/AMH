@@ -1,14 +1,30 @@
 # AMH — the Agentic Maintenance Harness
 
-An operating harness for a repository maintained by AI agent sessions. It is a constitution
-file, three memory tiers, a verification ladder and a handful of shell scripts that together
-answer the question every agentic session runs into: *what does this repo already know that I
-don't?*
+**Seatbelts and memory for AI coding agents.**
 
-It is agent-agnostic on purpose. Nothing here is a plugin for one vendor's tool — the
-behaviour lives in files any agent reads, plus a thin adapter that wires them up. This
-repository ships the harness and is itself maintained under it, running byte-identical copies
-of the scripts it distributes.
+AI coding feels effortless at the start of a project. Then the repository grows, a fresh
+session forgets a decision the last one made, and the same bug comes back. The agent says it
+verified a fix without running the important check, or reaches for a dangerous command while
+you are not watching. Soon you spend more time reconstructing context and reviewing agent
+work than building.
+
+**AMH helps an agent pick up where the last session stopped, prove its work, and stay inside
+the boundaries you set.** It is a lightweight set of Markdown files and Bash scripts that
+lives in your repository—no service, database, or vendor lock-in. The default installation is
+deliberately small, and you add the deeper process only when the project earns it.
+
+In familiar terms:
+
+- **A startup prompt** (`AGENTS.md`) gives every session the repository's rules.
+- **A shared scratchpad** (`docs/STATE.md`) records what is happening now and what needs you.
+- **Long-term memory** (`docs/LEDGER.md`) preserves lessons and decisions across sessions.
+- **A “prove it” command** (`scripts/ladder.sh`) runs the real checks before work is accepted.
+- **Seatbelts** (`scripts/command-guard.sh`, `scripts/redact.sh`) block known-dangerous command
+  shapes and redact or detect credentials. They reduce risk; they are not a security sandbox.
+
+It is agent-agnostic on purpose. The behaviour lives in ordinary files any capable coding
+agent can read, with thin adapters for supported tools. This repository ships the harness and
+is itself maintained under it.
 
 The version this tree distributes is in `harness/VERSION`. It is stated as a pointer rather than
 a number everywhere except the Quick Start below, which must name a real tag to clone — and that
@@ -16,52 +32,11 @@ one copy is checked against `harness/VERSION` by `scripts/guards/version-lockste
 an unchecked hand-copied version goes stale at the next bump and hands every new adopter the
 wrong release.
 
-## The problem it addresses
-
-An agent session starts with no memory of the last one. Left alone, that produces a
-recognisable set of failures: the same bug reintroduced two sessions after it was fixed; a
-rule that quietly stops binding because nobody noticed the file it lived in changed; a
-"verified" claim that was never run; a credential pasted into a log; a force-push over work
-nobody can recover.
-
-The harness is the accumulated answer to those, and every mechanism in it is narrow:
-
-| Mechanism | What it is | What it prevents | Profile(s) |
-|---|---|---|---|
-| **Constitution** (`AGENTS.md`) | The always-loaded operating prompt: principles, protocol, invariants. | A session inventing its own process. | light, standard, full |
-| **Working memory** (`docs/STATE.md`) | Current state, Owner queue, changelog. Size-banded with hysteresis. | Handoff by guesswork; an unbounded file nobody reads. | light, standard, full |
-| **Permanent memory** (`docs/LEDGER.md`) | Append-only rows: what broke, why, and the generalisation. | Session N's shipped bug being rediscovered by session N+9. | standard, full |
-| **Runbook** (`docs/RUNBOOK.md`) | Playbooks for the recurring jobs. | Re-deriving a procedure badly, under time pressure. | standard, full |
-| **The ladder** (`scripts/ladder.sh`) | One verification entrypoint, run identically by the agent and by CI. | "It passes locally" — and green-by-omission. | light, standard, full |
-| **Rails** (`scripts/command-guard.sh`, `scripts/redact.sh`) | A pre-execution command guard, and a redaction filter that doubles as the repo's secret scan. | Force-pushes, `.env` reads, credentials in output. | light, standard, full |
-| **Review protocols** | Fresh-context adversarial passes, with a no-self-review rule. | A session grading its own homework. | light, standard, full |
-| **Archive tier** (`docs/history/`, `docs/plans/`) | Frozen archive of completed plans and active multi-session build plans. | Loss of historical context; inability to track and reference past decisions. | full |
-
-Nothing in the harness consumes a self-report. A checklist an agent ticks is not evidence;
-the ladder is.
-
-## Who it is for
-
-**It fits** a repository with a single human owner, maintained by agent sessions that run one
-at a time, with that human in the loop for merges and for the decisions an agent is not
-entitled to make. Any agent, any model vendor. It works on a solo side project as well as on
-a production codebase — the smaller the repo, the smaller the subset you should adopt.
-
-**It does not fit** — and will not be stretched to fit — multi-owner arbitration, concurrent
-agent sessions on the same repo, or external-contributor PR flows. Each of those needs
-machinery the harness deliberately does not define: task claims, ledger-ID allocation,
-state-file merge rules. Used there without building that first, it fails in ways it gives you
-no diagnostics for.
-
-Two honest costs, before you adopt:
-
-- **The owner has recurring work.** Exactly three touchpoints: merge the squash PRs, action
-  the Owner queue, and drop manual-test findings where the next session will read them. If a
-  mechanism ever increases that per-change workload, the mechanism is wrong.
-- **The value is cumulative.** The ledger and the guards pay for themselves once two or more
-  distinct sessions have touched the repo. On day one they are overhead.
-
 ## Quick Start
+
+You can preview or install AMH yourself, but the shortest path is to let the coding agent
+already inside your repository do the work. Paste it the prompt below. The agent will ask how
+much process you want before it changes your project.
 
 **Supported toolchains.** AMH's scripts run with Bash 3.2 or newer. Linux distributions with
 the usual GNU userland and macOS with its stock Bash and BSD userland are supported directly.
@@ -77,7 +52,7 @@ Install the latest stable release of the Agentic Maintenance Harness (AMH) into 
 
 Run:
 
-    git clone --depth 1 --branch amh-v10.3.0 https://github.com/faded-penguin021/AMH.git /tmp/amh
+    git clone --depth 1 --branch amh-v10.4.0 https://github.com/faded-penguin021/AMH.git /tmp/amh
     /tmp/amh/scripts/amh-init.sh .
 
 Once the harness has been instantiated, read `AMH-ADOPT.md` and follow it completely.
@@ -149,11 +124,56 @@ your first real session — an agent's first instruction is to trust the ladder,
 arrives red teaches it not to.
 
 **How much lands is your call, and the default is small.** `--profile light` (the default)
-installs the constitution, the state file and one verification command; `--profile standard`
+installs the constitution, the state file, one verification command and a `.gitattributes`; `--profile standard`
 adds the runbook and the ledger; `--profile full` adds the archive tier. The brief's first
 instruction is to ask you which you want rather than to assume the default. Escalating later is
 the same command with a larger profile — it adds the missing files and touches nothing you have
 written, so starting small costs nothing.
+
+## How it works
+
+An agent session starts with no memory of the last one. Left alone, that produces a
+recognisable set of failures: the same bug reintroduced two sessions after it was fixed; a
+rule that quietly stops binding because nobody noticed the file it lived in changed; a
+"verified" claim that was never run; a credential pasted into a log; a force-push over work
+nobody can recover.
+
+The harness is the accumulated answer to those, and every mechanism in it is narrow:
+
+| Mechanism | What it is | What it prevents | Profile(s) |
+|---|---|---|---|
+| **Constitution** (`AGENTS.md`) | The always-loaded operating prompt: principles, protocol, invariants. | A session inventing its own process. | light, standard, full |
+| **Working memory** (`docs/STATE.md`) | Current state, Owner queue, changelog. Size-banded with hysteresis. | Handoff by guesswork; an unbounded file nobody reads. | light, standard, full |
+| **Permanent memory** (`docs/LEDGER.md`) | Append-only rows: what broke, why, and the generalisation. | Session N's shipped bug being rediscovered by session N+9. | standard, full |
+| **Runbook** (`docs/RUNBOOK.md`) | Playbooks for the recurring jobs. | Re-deriving a procedure badly, under time pressure. | standard, full |
+| **The ladder** (`scripts/ladder.sh`) | One verification entrypoint, run identically by the agent and by CI. | "It passes locally" — and green-by-omission. | light, standard, full |
+| **Rails** (`scripts/command-guard.sh`, `scripts/redact.sh`) | A pre-execution command guard, and a redaction filter that doubles as the repo's secret scan. | Force-pushes, `.env` reads, credentials in output. | light, standard, full |
+| **Review protocols** | Fresh-context adversarial passes, with a no-self-review rule. | A session grading its own homework. | light, standard, full |
+| **Archive tier** (`docs/history/`, `docs/plans/`) | Frozen archive of completed plans and active multi-session build plans. | Loss of historical context; inability to track and reference past decisions. | full |
+
+Nothing in the harness consumes a self-report. A checklist an agent ticks is not evidence;
+the ladder is.
+
+## Who it is for
+
+**It fits** a repository with a single human owner, maintained by agent sessions that run one
+at a time, with that human in the loop for merges and for the decisions an agent is not
+entitled to make. Any agent, any model vendor. It works on a solo side project as well as on
+a production codebase — the smaller the repo, the smaller the subset you should adopt.
+
+**It does not fit** — and will not be stretched to fit — multi-owner arbitration, concurrent
+agent sessions on the same repo, or external-contributor PR flows. Each of those needs
+machinery the harness deliberately does not define: task claims, ledger-ID allocation,
+state-file merge rules. Used there without building that first, it fails in ways it gives you
+no diagnostics for.
+
+Two honest costs, before you adopt:
+
+- **The owner has recurring work.** Exactly three touchpoints: merge the squash PRs, action
+  the Owner queue, and drop manual-test findings where the next session will read them. If a
+  mechanism ever increases that per-change workload, the mechanism is wrong.
+- **The value is cumulative.** The ledger and the guards pay for themselves once two or more
+  distinct sessions have touched the repo. On day one they are overhead.
 
 ## Start smaller than this
 

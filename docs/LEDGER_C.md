@@ -46,6 +46,15 @@
 > toward the cap, because shaving buys nothing here. Put larger narratives in `docs/history/`
 > and link them from the `docs/STATE.md` changelog.
 >
+> **A version inside a row is what the session DRAFTED.** Write the number as drafted — `Drafted
+> as MINOR X.Y.Z` — and assert no release: the number is settled at PR time against the latest
+> tag, so one written mid-train is routinely never published, and "shipped", "published" and
+> "released" are the same claim (**DC-023**, **DC-026**, owner 2026-08-27). Rows committed before
+> this rule say `Shipped as` for numbers no tag carries; they are immutable, and they were
+> deliberately left without a `Corrected by` pointer, so read the number in one as the draft it
+> was — **DC-026** carries that trade and its cost. What a train actually published is in the
+> `docs/STATE.md` changelog's train lines, which is the index to read when a row's number matters.
+>
 > **File cap & rollover.** This file holds at most `LEDGER_LINE_CAP` lines from `amh.conf` (the
 > cap bounds LINES, not rows — it is read cost that is being bounded). New rows are capped by
 > `LEDGER_ROW_SENTENCE_CAP`, and beneath that by `LEDGER_ROW_CHAR_CAP`; the guard counts bytes
@@ -113,7 +122,7 @@
   Sessions route around rails (**DB-030**); a rail provably wrong about what it just read
   supplies the argument.
 
-- DC-002: **"Not judged" and "nothing to object to" must never share an exit path** — a rail's
+- DC-002 [cited]: **"Not judged" and "nothing to object to" must never share an exit path** — a rail's
   form of the failure DA-008 records for generators. A scanner read its word list through a
   process substitution; an empty read took the "no words" branch and ALLOWED the command, so
   the rail could report a clean read of text it never parsed. Observed as 18 fixtures red on
@@ -442,3 +451,295 @@
   list is compared
   NUMERICALLY — `git tag -l` sorts amh-v9.1.0 after amh-v10.2.0, so taking the lexical last would
   validate every PR against a two-major-stale tag while printing a green line.
+
+- DC-024: **A rail that reads the command cannot see a target the command does not name, and the
+  data plane is where that gap lives.** A public near-miss: an agent ran `supabase db reset` in an
+  app directory, and the only thing between it and a production schema was a local Docker daemon
+  that happened to be down — the agent worked out what it had nearly done after a human asked,
+  not before running it. The destructive rail could not have helped, being a filesystem and git
+  verb list, and the header's "what this guard does NOT catch" block did not name the category at
+  all, so its absence read as coverage. The tier added here follows the `rm` contract rather than
+  the `operands_unknown_target` one, because there is no routine spelling of these verbs whose
+  target IS plain: it is always in a linked project, a config file resolved from the working
+  directory, or `$DATABASE_URL`. Two things the shape forces and both are load-bearing: the
+  advisory asks for the resolved target to be PRINTED rather than for care to be taken, since
+  "check first" is unfalsifiable and `--local` is a claim in the command text rather than a fact
+  about the environment; and no operand VALUE is ever recorded into the signature, because a
+  connection string carries a password and the signature is persisted and printed, which would
+  make the rail the incident it exists to prevent. The honest claim is deliberateness, not
+  safety, and the header says so rather than leaving a green run to be read as a verdict.
+
+- DC-025: **A fixture that covers one of several arms reads exactly like one that covers them
+  all, and the prose will claim the second.** The data-plane tier's changelog said a fixture
+  "fails if any part of the value reaches either place"; the fixture exercised one of three
+  redaction arms, and a review pass deleted the other two in turn with the whole suite staying
+  green while each mutant wrote a live password into the state file `--advisory-report` prints.
+  The same pass found four more assertions that could not fail — a rootish-suppression fixture
+  whose operand had no `/` to trigger it, a closing-paragraph selector nobody asserted, and a
+  comment claiming a widening had not happened when it had. The durable rule is narrower than
+  "write fixtures": when a property is guarded by N arms, the demonstration owed is N mutations,
+  and the count belongs in the fixture's own comment so the next editor cannot quietly add an
+  arm without one. This is the mutation discipline the playbook already requires, failing in the
+  direction nobody checks — not "does the fixture fail when I break the feature" but "does it
+  fail when I break each PART of it".
+
+- DC-026: **A row saying "shipped as X" when no `amh-vX` tag exists reports a session's draft as a
+  published release.** DC-023 moved the release number to PR time and left the prose habit open as
+  the owner's call; the owner closed it on 2026-08-27, and `git ls-remote --tags origin` — the
+  question to ask, a session clone routinely carrying no tags at all — answers it for four of the
+  five committed rows that say `Shipped as`: `amh-v10.0.1`, `amh-v10.1.0`, `amh-v10.1.1` and
+  `amh-v10.2.1` do not exist, while the fifth names 10.2.0, which does. New rows state the number
+  as drafted and assert no release at all, the ban being on the claim rather than on one word,
+  since "published" and "released" say the same thing. Those four keep their wording AND get no
+  `Corrected by` pointer: this change did not falsify them, they were never true, a row's single
+  pointer slot is FINAL, and each of the four carries a live principle that may yet need it — the
+  precedent is DC-022, which raised DC-021's number and appended nothing. The cost of that trade
+  is stated rather than hidden, because a reader who greps a row id meets the old number and never
+  reaches this rule, and only a grep for `Shipped as` reaches both — the owner's to overturn, and
+  queued as such. The seed is left alone for playbook 4's reason, that a seed edit reaches existing
+  adopters only as a hand-applied Upgrading step and their runbook has no release playbook to hold
+  the rule — never because adopters tag nothing, which is the population this serves best.
+
+- DC-027: **The most-reported incident in a category can be the one shape the rail was built not
+  to see, and the search that finds it is the one nobody ran.** The data-plane tier's header named
+  `npm run db:reset` as knowingly absent because "the verb is not in the command text" — but the
+  Replit agent that dropped a production database during a stated code freeze ran `npm run
+  db:push`, whose SCRIPT NAME is right there in the text, and the same search turned up a second
+  uncovered shape in a tool the tier already owned: `prisma migrate` with `--shadow-database-url`
+  pointed at production, which reset 22 tables. Both are advised now, with `drizzle-kit push` —
+  the tool that name conventionally runs — on the owner's answer (2026-08-27) to the tier's open
+  provenance question: a verb enters when a public report shows it destroying data, so `alembic
+  downgrade base`, `manage.py flush`, `redis-cli flushall`, `mysql -e`, `mongosh --eval` and
+  `drizzle-kit drop` returned no such report and stay out. The script arm judges a NAME and the
+  advisory says so, keyed on how the command word was RESOLVED rather than on which arm it reached
+  — `npm run dropdb` read a script name too, and telling it that it "drops a database outright"
+  was the confident half without the honest one. Two findings worth more than the verbs: a glob
+  interpolating command text into a signature kind let a crafted operand forge another command's
+  signature and clear its advisory, and a fixture may only claim a property for the arms it
+  actually exercises — the redaction fixture's own comment now carries the arm count, per DC-025.
+  The one shape no verb list can hold went to the forge/API queue item instead: PocketOS lost its
+  production volume and its backups to a `curl` GraphQL mutation carrying a token the agent found
+  in an unrelated file.
+
+- DC-028: **Six character walkers disagreed with bash about what closes a quote, and the report
+  that led here described the harmless half of it.** All six read the `\"` in a double-quoted word
+  as the CLOSING quote, so everything after it looked unquoted: `echo "say \"hi\"" && git push
+  --force origin main` was ALLOWED, and so were `rm -rf`, `cat .env` and `printenv` behind the same
+  shape — the two oldest rails in the file, defeated by an escaped quote in a commit message.
+  `expands_secret_var`, which is not one of the six, had modelled the rule correctly since it was
+  written, so this was a disagreement between walkers rather than a missing feature; the
+  fail-OPEN half surfaced only because minimizing a filed false positive asked which direction the
+  mis-split ran. That the filed report and this defect are the same event is INFERRED, not shown:
+  the defect reproduces the reported symptom class exactly, but the original command text was never
+  captured and no reconstruction of it reproduced. The count of DEMONSTRATED sites went 6, then 5,
+  then 6 again, and the middle number is the lesson — a mutation run whose suite is already red
+  scores every kill for the wrong reason, and "unreachable" is a claim about every input that one
+  failed construction does not establish, which is how `heredoc_delim` was nearly shipped as the
+  one walker with no fixture and the worst failure mode.
+
+- DC-029: **A guard that could not list the tree has two hollow states, they read as opposite
+  verdicts, and neither is one.** `scripts/guards/path-refs.sh` built both its listings from
+  `git ls-files` and checked neither, so an empty basename set reported every bare citation as
+  cited nowhere while an empty file list printed a green count over a scan of no documents —
+  **DC-002**'s process-substitution branch a second time. The two are not symmetric and the
+  symptom reads backwards easily: a listing failing UNIFORMLY lands on the GREEN state, since
+  the markdown loop then never runs, so the false failure this started from needs the tree
+  listing short while the markdown one still succeeds. Status and emptiness are now checked
+  separately on both listings, and a post-exclusion count joins them, because refusing an empty
+  listing BEFORE the exclusions still passed a tree whose every markdown file the scan drops —
+  the state `shipped-citations.sh` had already learned to refuse after its own. Six behaviours,
+  six mutations, six fixtures, the last of them for the `if [ -e "$p" ]` that the status check
+  turned into load-bearing code: under `pipefail` the `&&` form returns the TEST's status, so a
+  deleted last-sorted path posed as a failed listing, and the whole suite stayed green without
+  it. What none of this reaches is a short listing git completed and reported success for, which
+  is why the Owner-queue item is narrowed rather than closed.
+
+- DC-030 [cited]: **A guard defined as "any byte the filter changed is a credential" was asserting that
+  `sed` is byte-transparent, and on the platform most adopters run it is not.** A Windows report
+  (AMH 9.1.0, Git Bash, GNU sed 4.9) showed 533 failures on a clean worktree — 529 files
+  reported as carrying credentials, `redact.sh` failing its self-test on its own bytes, five
+  present scripts reported as deleted — with nothing wrong with the patterns: Git for Windows
+  sets `core.autocrlf=true` in its SYSTEM config, so the default clone is CRLF and MSYS2's sed
+  rewrites CRLF to LF even for a script that matches nothing. The fix is to stop assuming the
+  property and measure it: `redact.sh --baseline` runs the same stages with no substitutions and
+  the scan subtracts it, but only after requiring the baseline to reproduce that file apart from
+  carriage returns — without which a truncating sed truncates both streams alike, the two agree,
+  and the rung prints a green over bytes nobody read (the review pass built that sed and got the
+  green). The durable part is (a) that the invariant was an unstated dependency on a third-party
+  tool's byte behaviour, and unstated is how it survived a fixture suite that runs on Linux,
+  where it happens to hold. (b) A subtraction is only as good as the thing subtracted, since
+  cancelling makes an unreadable stream look exactly like a clean one — so the baseline earns
+  its standing per file, and the byte-level self-tests around it are parity checks rather than
+  the platform test their first draft claimed. (c) The manifest half is the same class in the
+  parse — a filename's CR hid behind a hash field still measuring 64 characters, so the rung
+  blamed the tree for files on disk — and the halves no rung can reach (an LF hash against a
+  CRLF script, a CR in every sourced `amh.conf` value) are what the `.gitattributes` seed
+  carries, which is the difference between a fix and a claim.
+- DC-031: **The same unstated dependency on a third-party tool as DC-030, one tool over and one
+  version lower: GNU grep prints its binary-file notice on STDOUT through 3.4 and on stderr from
+  3.5, and Git for Windows ships 3.0.** The adopter tree that filed the CRLF report ran this
+  train on a real Git-for-Windows clone and the citation rung failed naming two `.ttf` fonts
+  whose bytes match the row-id pattern — the notice was captured as a citation token no ledger
+  row can resolve, while on Linux the identical line had always been swallowed by the rung's own
+  `2>/dev/null`, so no fixture could see it. `-I` answers it in every version, since a binary
+  file is not a citation site, and the fixture that demonstrates it uses a grep shim that moves
+  that one line back to stdout — the same device DC-030's sed shim used, for the same reason:
+  a defect only reproducible on a platform the suite does not run on has to be modelled or it
+  is untested. The durable correction is to DC-030's scope rather than its content: the class is
+  not "sed is not byte-transparent" but "a rung's verdict depends on tool behaviour its fixtures
+  cannot vary", which turns every place a guard reads a tool's output into an audit target and
+  is how `placeholder-integrity.sh` was found carrying the same shape and fixed in the same
+  change. `shipped-citations.sh` was audited and deliberately left as it is: its input is a
+  fixed glob of shipped text artifacts, and `-I` there would let a binary file count as scanned
+  and cited-clean, which is the hollow extraction that guard exists to refuse.
+  Corrected by DC-032.
+- DC-032: **The audit in DC-031 reached the right action for `shipped-citations.sh` and gave a
+  reason that only holds on the platform the audit was NOT worried about.** Keeping `-I` out was
+  correct — it would make a binary file exit 1 with no output, indistinguishable from a file that
+  cites nothing, so the file would be counted as scanned and reported clean — but the row went on
+  to describe the guard as therefore sound, and on grep >= 3.5, which is what its own fixtures
+  run on, it already produced that exact state without `-I`: the binary-file notice goes to
+  stderr, stdout is empty, the exit status is 0, the `rc > 1` trouble arm never fires, and a
+  shipped script carrying a NUL byte reads as citation-free. The fix is the third verdict this
+  guard was missing — a file it cannot read as text is refused by name rather than skipped or
+  swallowed — with `-s` tested first so an empty file, which was read successfully and cites
+  nothing, is not mislabelled binary. The durable lesson is about the audit rather than the flag:
+  a fix pass that asks "does this call site need the flag?" reads each site against the reported
+  platform and stops there, when the question a guard's site actually poses is "what does this
+  site do when the read yields nothing" — which has a different answer per site and, here, was
+  already wrong on the fixtures' own platform. That is why one site took the flag, one took the
+  flag with `LC_ALL=C` beside it (grep before 3.5 also calls a file binary on an encoding error
+  in the current locale, so the flag alone would have made the scanned set locale-dependent), and
+  one took a refusal instead.
+- DC-033 [cited]: **A rung fixed for a platform its fixtures cannot run on needs its breaking INPUT
+  committed, not just its execution on that platform.** CI's `portability (windows-latest)` job
+  has run the citation rung on every pull request since the matrix existed and could never have
+  caught DC-031: no file in `CITATION_SCAN_PATHS` was binary, so the rung met its ordinary input
+  on an unusual platform rather than the input that breaks it, and its green said nothing about
+  the fix. `scripts/fixtures/binary-citation.bin` is that input — inside the scan, outside the
+  shipped set `shipped-citations.sh` reads, skipped by the secret scan's own `grep -qI` and by
+  `placeholder-integrity.sh`'s `-I` — carrying an id-shaped token that resolves to no row, so the
+  rung fails by name if the file ever stops being binary, though nothing enforces its PRESENCE
+  and deleting it leaves every rung green: recorded, not repaired. What it does NOT buy is the
+  half worth writing down: on grep >= 3.5 the notice goes to stderr and this file moves no verdict at all,
+  so it is not a regression check for `-I` (that is still the grep shim in
+  `scripts/test-ladder-guards.sh`), only a guarantee that any runner ever shipping an older grep
+  reports the defect instead of passing over it. The portability job now also prints `bash`,
+  `grep`, `sed` and `git` versions on both legs, printed and never asserted, because "is this
+  runner's grep one of the affected versions" was a question no log could answer while every fix
+  here turned on it — on the BSD leg read the vendor, not the number, that boundary being GNU's.
+  Recorded as the owner's durable grant: on 2026-08-31 the owner pre-approved the fresh-context
+  rule-review pass mandated for both units of
+  `docs/plans/2026-08-31-ci-sees-windows.md`, lifting this session's standing no-subagent policy
+  for exactly those passes, with one blocking reviewer each at the strongest tier and the
+  one-pass-per-unit bound unchanged.
+- DC-034 [cited]: **`grep -q` closes the pipe, and under `pipefail` that turns a successful
+  match into a failed one.** `path-refs.sh` asked whether a cited bare filename exists with
+  `printf '%s\n' "$basenames" | grep -qxF -- "$target"`; grep exits at its first match, a writer
+  with bytes still pending then takes EPIPE, bash's printf builtin returns non-zero, and
+  `pipefail` promotes that to the pipeline's status — so the guard reported `AGENTS.md`, a file
+  in its own listing, as cited nowhere. It is the residue the earlier Owner-queue item named as
+  "a listing git completed, reported success for, and cut short anyway": the truncation was
+  never git's, it was the guard's own pipeline, which is why two clean re-runs could not find it
+  and why the first sighting looked like a phantom. Whether it fires is the platform's business
+  and not the code's — a single write into a pipe with room never notices the reader leaving, so
+  the ~1 KB basename list here is safe wherever it goes out in one write and is not where it
+  does not, which is how the same commit was green on every Linux run and red on `macos-latest`.
+  The fix is a here-string, a temporary file rather than a pipe, so there is no reader to leave;
+  the fixture has to PAD the listing past the pipe buffer to make the defect reproducible on
+  Linux at all, and that padding is the honest cost of testing a bug the fixtures' own platform
+  hides. The same shape sits in `scripts/command-guard.sh`'s no-python3 payload fallback, where
+  the failure direction is worse — a match that reads as a non-match makes the rail stand down
+  on a Bash command it should have inspected — and it is queued rather than fixed here, being a
+  shipped rail with its own playbook.
+  Corrected by DC-035.
+- DC-035 [cited]: **The owner authorised the parked pass, and it found the fix right and its story
+  wrong.** DC-034's mechanism is real and explains the `macos-latest` failure on `AGENTS.md`,
+  but its claim to also explain the 2026-08-29 `session-start.sh` sighting — and so to close that
+  Owner-queue item — is false, because this repository's basename list is 1127 bytes over 71
+  entries, far under any pipe buffer, the old pipeline produces 0/200 false failures against the
+  real listing, and `session-start.sh` is entry 64 of 71, so almost nothing is pending when grep
+  matches; the item is restored, narrowed to a sighting that still has no reproducer. The same
+  pass found the shape in a shipped rung the original survey missed — `ladder.sh`'s poison-token
+  check, where it fails OPEN and where this branch's own commit messages already stand at 44065
+  bytes of the ~65536 the defect needs. Two corrections of record: the fix works because a
+  here-string's writer is not a pipeline member and so never reaches `PIPESTATUS`, NOT because
+  bash backs it with a temporary file, which it does only above the pipe-buffer size; and the
+  published one-liner prints 141, a SIGPIPE death, rather than the 1 it claims, except where
+  SIGPIPE is ignored as it was on the CI runner. The durable lesson is about attribution rather
+  than about pipes: a mechanism that explains today's failure is not thereby the explanation of
+  yesterday's, and retiring an old unreproduced sighting onto a new root cause closes an open
+  question on a coincidence of symptoms. Recorded and deliberately NOT fixed tonight, by the
+  owner's instruction, so the shipped diff stays as it was reviewed.
+- DC-036: **A recorded finding decays into folklore the moment it is written down instead of
+  applied.** DC-035's five findings were applied rather than left as prose: the guard comment now
+  gives the real reason a here-string works — its writer is not a pipeline member, so nothing it
+  does reaches `PIPESTATUS` and `pipefail` has nothing to promote — instead of the temp-file
+  story, which holds only ABOVE the pipe-buffer size and so fails exactly where the defect lives;
+  fixture (viii) pads with `*.txt` rather than `*.md`, which the markdown loop no longer opens and
+  greps twice apiece, taking the case from 10.9s to 0.13s with the same verdict against both forms
+  of the lookup; and that fixture now asserts a message substring, because a bare `expect pass`
+  whose padding stopped clearing the buffer would go green against both forms in silence. Two
+  corrections of record no edit can reach, both in pushed commit bodies: the published one-liner
+  prints 141, a SIGPIPE death, not the 1 it claims, except where SIGPIPE is ignored as it was on
+  the CI runner; and `6a5d161`'s "(DC-034 cites DC-033)" is false — the owner's pre-approval is
+  recorded in DC-033 alone, and DC-034 cites no row at all. A tree-wide survey found ~40 further
+  instances of the shape, every one in a fixture harness on a captured output far under a pipe
+  buffer where the direction is a false FAIL, and they are left alone deliberately: the two that
+  matter, the rail and the poison-token rung, are the plan's unit 3. The durable lesson beyond the
+  corrections is that a fixture whose padding is built from files the guard also SCANS pays its
+  size twice, once for the listing it needs long and once for a loop it does not.
+- DC-037: **A matrix cell is not coverage: a platform job that normalises away the platform's own
+  defaults is testing the wrong machine.** The Windows leg stayed green right through the CRLF
+  class because its first step sets `core.autocrlf false` before checkout, so what it exercised
+  was Git Bash on an LF tree — the one configuration no adopter has, Git for Windows setting
+  `core.autocrlf=true` in its SYSTEM config at install time. That step stays, this repository's
+  root `.gitattributes` pinning `* text=auto eol=lf` regardless, so the ADOPTER's tree is tested
+  instead: `amh-init.sh --profile light` into a scratch repo configured `core.autocrlf=true`,
+  committed and re-checked-out so the smudge actually runs, then its own `--guards-only`. BOTH
+  directions are asserted, because either alone is a job that cannot fail for the right reason —
+  seeded, the byte-bound artifacts must be LF and the rungs green; unseeded, they must carry CR,
+  and it is that CR assertion rather than the red ladder beside it that proves the first half met
+  a condition which materialised rather than a checkout that was never CRLF. The unseeded ladder
+  run asserts non-zero and PRINTS rather than matching a message, the shape being
+  platform-dependent and on most platforms a tautology: a bash that refuses a CRLF script dies at
+  its first `set`, and only Git Bash gets far enough for a rung to report the damage. The owner's
+  pre-approved fresh-context pass (DC-033) is consumed here, and acceptance was demonstrated ON
+  LINUX by running the YAML-extracted step at HEAD, exit 0, and at `832dfe2` — HEAD~ of the fix,
+  where the seed does not yet exist — exit 1 on the first assertion.
+- DC-038 [cited]: **The same bug class takes a different DIRECTION at each site, and the direction is
+  what decides how bad it is.** `printf | grep -q` under `pipefail` read a false failure in
+  `path-refs.sh`, which was loud and wrong; at `command-guard.sh`'s no-python3 fallback the same
+  shape makes `|| return 0` stand the rail DOWN on a Bash command nobody inspected, and at
+  `ladder.sh`'s poison-token rung it leaves a token in the newest commit simply unreported — both
+  silent, and a rail that stood down is indistinguishable from one that looked and found nothing.
+  The plan's reproduction recipe was insufficient and a fixture built to it would have passed
+  against both versions: size alone does not reproduce this, because grep cannot match until it
+  holds a whole LINE, so a single-line payload is consumed in full however long it is — measured
+  at 100065 bytes extracting correctly through the unfixed form. The payload has to be BOTH
+  multi-line and past the pipe buffer, which pretty-printed JSON is and `extract_command`'s own
+  `case` accepts; commit messages are inherently multi-line, so the rung needs only the size.
+  Fixed with here-strings, whose writer is not a pipeline member and so never reaches
+  `PIPESTATUS`, and the `sed | head -1` beside it — same shape with `head` as the early exit, and
+  there the status lands on the FUNCTION — by substituting into a variable and taking the first
+  line with a parameter expansion. Demonstrated at both sites against the pre-fix scripts: the
+  rail returned 0 on `cat .env` and now returns 2, and the rung printed `ok clean` over a 216023
+  byte stream carrying `[skip ci]` and now reports it — under the owner's grant of 2026-08-31,
+  which added this as the plan's unit 3 after DC-034 turned the class up here, on the same terms
+  as the units before it and with one pre-approved fresh-context pass included (DC-033 records
+  those earlier grants and NOT this one).
+- DC-039: **Two rules that were each correct alone made a file undeletable, and the immutable
+  half is the one that cannot yield.** Permanent memory is immutable, the plan tier is
+  archive-or-delete, and `path-refs.sh` requires a cited path to exist; DC-033 cited a plan's
+  path in backticks and thereby satisfied all three into a contradiction, so the archive step
+  failed and the plan had to be restored. The rule added is that no row may cite a plan's PATH
+  in any form that guard resolves — backticked path, markdown link, or bare filename, which is
+  three forms because catching two would advertise a coverage the rule does not have. Enforced
+  on NEW rows only in `ledger-append-only.sh`, since a check reaching committed rows would fail
+  forever on DC-033 itself, rebuilding the trap one layer up; the fixtures make their own plan
+  rather than naming the tree's, and the pass case proves the prose escape hatch is followable.
+  The plan DC-033 pinned is retained in place, which is the honest resolution of a citation that
+  cannot be withdrawn. Recorded as the owner's grant: on 2026-09-01 the owner lifted this
+  session's standing no-subagent policy for the one blocking rule-review pass this unit
+  mandates, the protocol's ask-before-parking clause having made that a question rather than a
+  capability limit.

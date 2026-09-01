@@ -37,6 +37,18 @@ sed_in_place() { # <sed-expression> <file>
 	}
 	cat "$tmp" >"$file" && rm -f "$tmp"
 }
+# Rewrite a fixture file with CRLF endings, the way a Windows checkout receives every tracked
+# text file. Written in bash rather than with `sed`, `unix2dos` or `awk`: a `\r` in a sed
+# replacement is GNU-only, and the tool it would stand in for is the very one whose newline
+# handling is under test here.
+crlf_endings() { # <file>
+	local file=$1 line tmp="$1.amh-crlf.$$"
+	while IFS= read -r line || [ -n "$line" ]; do
+		printf '%s\r\n' "$line"
+	done <"$file" >"$tmp"
+	cat "$tmp" >"$file" && rm -f "$tmp"
+}
+
 slow_threshold_valid() { # <candidate> — bounded to integers every supported bash can compare
 	case $1 in
 		''|*[!0-9]*|??????????*) return 1 ;;
@@ -494,6 +506,52 @@ out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash"
 	env PATH="$fallback_path" scripts/command-guard.sh 2>&1)
 rc=$?
 if [ "$rc" -eq 2 ]; then report ok "a Codex Bash payload is guarded without Python"; else report no "a Codex Bash payload is guarded without Python" "rc=$rc" "$out"; fi
+
+# The same fallback, at a payload size that makes the writer block. This is the fail-OPEN
+# direction of the `grep -q` class: grep exits at its first match, the writer takes EPIPE,
+# `pipefail` promotes that to the pipeline's status, and `|| return 0` stands the rail down
+# on a Bash command nobody inspected. A rail that stood down is indistinguishable from a
+# rail that looked and found nothing, which is the silent-skip class.
+#
+# TWO properties are needed and the obvious fixture has only one. Size alone does NOT
+# reproduce it: grep cannot match until it holds a whole LINE, so a single-line payload is
+# consumed in full however long it is, and the case passes against both versions. The
+# payload must ALSO be multi-line, so that the match lands on an early line with the rest
+# still pending. Pretty-printed JSON is that shape, and `extract_command`'s own `case`
+# accepts it, so this is a payload the rail claims to handle rather than one invented to
+# break it. The token sits on line 2 and the command on the last line, which is where the
+# most bytes are left over.
+d=$(mk codex_hook_payload_large)
+fallback_path="$d/no-python-bin"
+mkdir -p "$fallback_path"
+for tool in bash cat dirname git grep head sed; do
+	tool_path=$(command -v "$tool")
+	ln -s "$tool_path" "$fallback_path/$tool"
+done
+big_pad=$(awk 'BEGIN { for (i = 0; i < 4000; i++) printf "  \"pad%d\": \"%s\",\n", i, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" }')
+big_payload='{
+  "tool_name": "Bash",
+'"$big_pad"'  "tool_input": { "command": "cat .env" }
+}'
+# The payload's SIZE is the fixture, so it is asserted rather than assumed. `awk` failing or
+# missing leaves `big_pad` empty under `set -uo pipefail` with no `-e`, collapsing this to a
+# 68-byte payload that is a duplicate of the case above and green against both versions. Swept
+# against the pre-fix script: 68 and 49957 bytes both return 2 (hollow), 100957 and 202957
+# return 0 (real). The 128 KB floor is therefore CONSERVATIVE — it rejects sizes that do
+# reproduce — which is the right direction for a hollowness guard: a fixture that refuses to
+# run is loud, one that runs on too little is green and worthless.
+if [ "${#big_payload}" -le 131072 ]; then
+	report no "a large multi-line Codex Bash payload is guarded without Python" \
+		"payload is only ${#big_payload} bytes — too small to reach the defect, so this case would pass against the unfixed script too"
+else
+out=$(cd "$d" && printf '%s' "$big_payload" | env PATH="$fallback_path" scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ]; then
+	report ok "a large multi-line Codex Bash payload is guarded without Python"
+else
+	report no "a large multi-line Codex Bash payload is guarded without Python" "rc=$rc (0 means the rail stood down)" "$out"
+fi
+fi
 
 # --- command-guard.sh: the git-native pre-push rail (P13) --------------------
 # The `--self-test` matrix stubs the ancestry seam; this exercises the REAL `git merge-base`
@@ -1181,6 +1239,74 @@ d=$(mk cite_standalone_token)
 printf '# see DEBUG-2 for details\n' >"$d/scripts/thing.sh"
 expect_fail "a standalone token of the id shape IS read as a citation" "$d" "no such ledger row"
 
+# A BINARY file whose bytes happen to match. grep reports it with a notice instead of the
+# match, and which STREAM that notice goes to is version-dependent: stderr on grep >= 3.5,
+# where the rung's own `2>/dev/null` eats it, but stdout on <= 3.4 — and Git for Windows ships
+# 3.0. There the notice is captured as a citation token, and the rung fails naming two font
+# files no ledger row can resolve (reported from a Windows adopter tree, AMH ledger row DC031).
+#
+# The shim is what makes the case exist at all, exactly as with the `sed` shim below: on a host
+# whose grep is >= 3.5 there is nothing to reproduce and this fixture would pass against the
+# broken rung. It stands in for the older grep by moving that one notice back to stdout, and it
+# leaves every other line — and the exit status — alone. `-I` makes the notice unreachable in
+# both versions, which is why the fixture is a pass rather than a message assertion.
+#
+# The fixture cites a REAL row beside the font, and the assertion reads the count rather than
+# the words around it. Without both, this case asserts nothing: `mk` builds its ledger from the
+# ids the copied scripts mention, `shipped-citations.sh` forbids a hyphenated id in any of them,
+# so the cited set here is pinned at zero — and `0 citation(s) resolve` satisfies a match on the
+# phrase alone. Deleting the rung's whole body would then have left this green (D-027(a), which
+# is the defect this file already records twice).
+d=$(mk cite_binary_notice)
+printf 'GDEF\000 D-099 \000glyf\n' >"$d/scripts/font.ttf"
+printf '# see D-001\n' >"$d/scripts/cites.sh"
+sed_in_place 's/^- D-001:/- D-001 [cited]:/' "$d/docs/LEDGER.md"
+mkdir -p "$d/old-grep"
+real_grep=$(command -v grep)
+if [ -z "$real_grep" ]; then
+	# Same check `require_shim` makes below, for the same reason: a shim directory that was
+	# never built leaves the fixture testing whatever `grep` the PATH happens to find.
+	report no "a binary file is not a citation site, whatever grep says about it" \
+		"could not build a grep shim — no grep on PATH?"
+	real_grep=/nonexistent
+fi
+cat >"$d/old-grep/grep" <<-EOF
+	#!/usr/bin/env bash
+	# A failed mktemp would abort the redirection, real grep would never run, and every
+	# caller would read the silence as "no match" — the silent-skip class, inside the tool
+	# a fixture is using to prove a guard is not silently skipping.
+	err=\$(mktemp) || exit 2
+	"$real_grep" "\$@" 2>"\$err"
+	rc=\$?
+	while IFS= read -r line; do
+		case \$line in
+		*': binary file matches')
+			name=\${line#*: }
+			printf 'Binary file %s matches\n' "\${name%: binary file matches}"
+			;;
+		*) printf '%s\n' "\$line" >&2 ;;
+		esac
+	done <"\$err"
+	rm -f "\$err"
+	exit \$rc
+EOF
+chmod +x "$d/old-grep/grep"
+started=$SECONDS
+out=$(cd "$d" && PATH="$d/old-grep:$PATH" CI=1 bash scripts/ladder.sh --guards-only 2>&1)
+rc=$?
+FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
+if [ "$rc" -ne 0 ]; then
+	report no "a binary file is not a citation site, whatever grep says about it" \
+		"expected exit 0, got $rc" "$out"
+elif ! grep -qE '^   ok    [1-9][0-9]* citation\(s\) resolve' <<<"$out"; then
+	# The verdict word AND a non-zero count: a rung that scanned nothing satisfies a bare
+	# "did not fail" test, and a rung whose scan set is empty satisfies the phrase alone.
+	report no "a binary file is not a citation site, whatever grep says about it" \
+		"the citation rung did not report a resolved set it actually found" "$out"
+else
+	report ok "a binary file is not a citation site, whatever grep says about it"
+fi
+
 # --- secret shapes
 d=$(mk secret_plain)
 tok=$(akia_token)
@@ -1206,6 +1332,102 @@ else
 	FIXTURE_ELAPSED_SECONDS=$elapsed
 	report no "secret scan is value-free" "(not reached)"
 fi
+
+# A CRLF worktree under a `sed` that is not byte-transparent — which is a stock Windows
+# checkout, not an exotic one: Git for Windows sets `core.autocrlf=true` in its system config
+# at install time, and the MSYS2 sed it ships rewrites CRLF to LF even for a script that
+# matches nothing. The scan is a redact-then-`cmp` against the raw file, so every text file in
+# the tree differed from its own filtered stream and was reported as a credential — 529 of
+# them, the harness's own shipped scripts included (AMH ledger row DC030).
+#
+# The shim is what makes the case exist at all: on a platform whose sed IS transparent there is
+# nothing to reproduce, and this fixture would pass against the broken ladder. It stands in for
+# the MSYS2 build — real sed, CR removed — and it goes on PATH for the whole ladder run,
+# because that is the situation being reproduced: on Windows every sed in the run is that one.
+sed_shim() { # <name> <post-filter command> -> prints a PATH directory holding that sed
+	local dir=$WORK/sed_shim_$1 real
+	real=$(command -v sed) || return 1
+	mkdir -p "$dir"
+	{
+		printf '#!/usr/bin/env bash\n'
+		# pipefail, so a genuinely failing sed still reports as one: without it the shim
+		# returns the post-filter's status and a broken sed inside a fixture reads as
+		# success.
+		printf 'set -o pipefail\n'
+		printf '%q "$@" | %s\n' "$real" "$2"
+	} >"$dir/sed"
+	chmod +x "$dir/sed"
+	printf '%s' "$dir"
+}
+
+# A shim that returns nothing leaves `PATH=":$PATH"`, whose empty element is the CURRENT
+# DIRECTORY — a fixture that then runs whatever happens to be named `sed` in a fixture repo.
+# The suite runs without `set -e`, so this would not abort: it would quietly test something
+# else. Checked rather than assumed.
+require_shim() { # <name> <dir>
+	[ -n "$2" ] && [ -x "$2/sed" ] && return 0
+	report no "$1" "could not build a sed shim — no sed on PATH?"
+	return 1
+}
+
+d=$(mk_unmodified secret_crlf)
+printf 'ordinary notes, no credentials here\r\nsecond line\r\n' >"$d/notes.txt"
+SHIM_SED=$(sed_shim crlf "tr -d '\\r'")
+require_shim "a CRLF file under a non-transparent sed is not a credential" "$SHIM_SED" || SHIM_SED=/nonexistent
+started=$SECONDS
+out=$(cd "$d" && PATH="$SHIM_SED:$PATH" CI=1 bash scripts/ladder.sh --guards-only 2>&1)
+rc=$?
+FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
+if [ "$rc" -ne 0 ]; then
+	report no "a CRLF file under a non-transparent sed is not a credential" "expected exit 0, got $rc" "$out"
+elif ! grep -qF "   ok    no credential-shaped strings" <<<"$out"; then
+	# The verdict word is part of the assertion: a scan that silently checked nothing would
+	# satisfy a bare "not flagged" test, and this rung's whole failure mode is a green that
+	# was never earned.
+	report no "a CRLF file under a non-transparent sed is not a credential" \
+		"the scan did not report a clean tree" "$out"
+else
+	report ok "a CRLF file under a non-transparent sed is not a credential"
+fi
+
+# The other end of the same subtraction, and the one that decides whether it is safe: a
+# platform whose `sed` TRUNCATES. The filter's stream and the baseline's are both cut off in
+# the same place, so they agree — and a scan that trusted the agreement would print a green
+# over bytes it never read, with a live credential sitting past the cut. The baseline has to
+# earn its place as the file's stand-in, which is why the rung compares it against the file
+# itself (apart from carriage returns) before subtracting anything.
+#
+# The credential is planted PAST the truncation point on purpose: a fixture that plants it
+# before would be satisfied by the ordinary finding and could not tell the two verdicts apart.
+d=$(mk_unmodified secret_truncating_sed)
+{
+	printf 'line one\nline two\n'
+	printf 'key = %s\n' "$(akia_token)"
+} >"$d/secrets.txt"
+SHIM_SED=$(sed_shim truncate 'head -2')
+require_shim "a truncating sed makes the scan refuse rather than report clean" "$SHIM_SED" || SHIM_SED=/nonexistent
+started=$SECONDS
+out=$(cd "$d" && PATH="$SHIM_SED:$PATH" CI=1 bash scripts/ladder.sh --guards-only 2>&1)
+rc=$?
+FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
+if [ "$rc" -eq 0 ]; then
+	report no "a truncating sed makes the scan refuse rather than report clean" \
+		"the ladder stayed green over a file the filter never read to the end" "$out"
+elif ! grep -qF "did not reproduce" <<<"$out"; then
+	report no "a truncating sed makes the scan refuse rather than report clean" \
+		"it failed for some other reason than the unreadable baseline" "$out"
+else
+	report ok "a truncating sed makes the scan refuse rather than report clean"
+fi
+
+# ...and the control the fix itself now depends on. The scan subtracts `redact.sh --baseline`
+# from `redact.sh`, so a redact.sh without that mode leaves it comparing against nothing at
+# all. It must refuse to scan and say so, not report the tree clean: "I did not manage to
+# look" is the one verdict this rung may never render as a pass (AMH ledger row DC002).
+d=$(mk secret_no_baseline)
+sed_in_place 's/^--baseline)/--baseline-removed)/' "$d/scripts/redact.sh"
+expect_fail "a redact.sh with no --baseline mode makes the scan refuse rather than pass" "$d" \
+	"has no working --baseline mode"
 
 # A file name with a space: the file list must be NUL-separated, or the scan
 # silently skips it — a hole that looks exactly like a pass.
@@ -1905,6 +2127,17 @@ else
 	expect_fail "a manifest entry with no file behind it fails" "$d" \
 		"which is not in this tree"
 
+	# The manifest as a Windows checkout hands it over: every line ending in CRLF. The hash
+	# field comes FIRST, so it still measures 64 characters and the corruption arm below never
+	# fires; only the filename carries the CR, so the rung looked for `scripts/ladder.sh<CR>`,
+	# reported five present scripts as deleted, and told the reader to re-run the init script
+	# to restore them — the "true verdict wrapped in a false description of what was checked"
+	# this rung's own comment says it must avoid (AMH ledger row DC030).
+	d=$(mk_integrity integrity_crlf)
+	crlf_endings "$d/scripts/MANIFEST.sha256"
+	expect_pass_saying "a CRLF manifest names the same files a LF one does" "$d" \
+		"   ok    4 shipped script(s) match the published hashes"
+
 	# A manifest this cannot parse verifies nothing, so it must not be read past in silence.
 	d=$(mk_integrity integrity_malformed)
 	printf 'not-a-hash scripts/ladder.sh\n' >>"$d/scripts/MANIFEST.sha256"
@@ -2036,6 +2269,42 @@ d=$(mk poison_clean)
 	git commit -qam "an ordinary checkpoint"
 )
 expect_pass "an ordinary commit message passes" "$d"
+
+# The same rung over a message stream past the pipe buffer, which is where it fails OPEN.
+# `git log --format=%B` prints the NEWEST commit first, so a token in the newest commit is
+# matched almost immediately and everything behind it is still pending — grep exits, the
+# writer takes EPIPE, `pipefail` makes a successful match a failed pipeline, and the token
+# is silently not reported. Commit messages are inherently multi-line, so unlike the rail's
+# payload case size alone is enough here.
+#
+# One commit with a long body rather than thousands of commits: the rung reads the message
+# STREAM, so what matters is its total size and where the token sits in it, and a
+# four-thousand-commit fixture would cost minutes to buy the same bytes.
+d=$(mk poison_token_long_stream)
+(
+	cd "$d" || exit 1
+	printf 'a change\n' >>docs/STATE.md
+	{
+		printf 'checkpoint [skip ci]\n\n'
+		awk 'BEGIN { for (i = 0; i < 4000; i++) print "padding line to push this stream past the pipe buffer" }'
+	} >"$d/msg"
+	# `-F`, never `-m "$(cat ...)"`: a message this long as a single argv element is over
+	# MAX_ARG_STRLEN and git dies with "Argument list too long", leaving no commit and a
+	# rung that reports "no new commits to check" — green, for a reason the fixture is not
+	# about. It failed exactly that way once before this comment existed.
+	git commit -qa -F "$d/msg"
+)
+# Same reason as the payload case above: the stream's size IS the fixture. Verified against the
+# pre-fix ladder, which reported the token (hollow) on a 563-byte stream and printed `ok clean`
+# on this one.
+msg_bytes=$(wc -c <"$d/msg")
+rm -f "$d/msg"
+if [ "$msg_bytes" -le 131072 ]; then
+	report no "a poison token early in a long message stream still fails" \
+		"message stream is only $msg_bytes bytes — too small to reach the defect, so this case would pass against the unfixed ladder too"
+else
+	expect_fail "a poison token early in a long message stream still fails" "$d" "[skip ci]"
+fi
 
 # --- git author identity
 # mk() commits as amh@test.invalid and points origin/<default> at that commit, so the

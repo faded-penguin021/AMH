@@ -721,7 +721,27 @@ guard_citations() {
 		# pattern changes what the text around it MEANS, this file included.) Whole-word
 		# matching also closes the same trap one letter down, where `XL-003` used to
 		# yield a citation to L-003 (AMH ledger row DB004(g)); that one shipped.
-		xargs -0 grep -hwoE 'D[A-Z]*-[0-9]+' <"$scan_files" 2>/dev/null | sort -u >"$cited"
+		#
+		# `-I` is not an optimization. A binary file whose bytes happen to match makes
+		# grep print `Binary file <path> matches` INSTEAD of the match — and which stream
+		# it prints that on is version-dependent: stderr on grep >= 3.5, which the
+		# redirection below already discards, but STDOUT on <= 3.4, and Git for Windows
+		# ships 3.0. There the notice lands in `$cited` as a citation token no ledger row
+		# can ever resolve, and the rung fails naming a font file. Same class as the sed
+		# assumption in AMH ledger row DC030: a shipped guard depending on a third-party
+		# tool's behaviour that only holds on the platform the fixtures run on. `-I`
+		# settles it in every version — a binary file is not a citation site — and it is
+		# what the secret scan already uses to decide the same question.
+		#
+		# `LC_ALL=C` is half of that flag, not decoration beside it. Grep before 3.5 — the
+		# versions `-I` is here for — also calls a file binary on an ENCODING ERROR in the
+		# current locale, so under a UTF-8 locale a Latin-1 file in the scan paths would be
+		# skipped: its citations would vanish, an unmarked row would then pass, and a
+		# `[cited]` marker whose only site was that file would fail as stale. That is scope
+		# drift of exactly the kind the `set -f` above exists to stop. Under `C` the
+		# question is the NUL byte on every host and locale, which is how the secret scan
+		# and `shipped-citations.sh` both ask it.
+		LC_ALL=C xargs -0 grep -I -hwoE 'D[A-Z]*-[0-9]+' <"$scan_files" 2>/dev/null | sort -u >"$cited"
 	fi
 
 	local unresolved missing_marker stale_marker
@@ -773,6 +793,24 @@ guard_secret_shapes() {
 		fail "scripts/redact.sh did not redact a generated test token — the filter is empty, broken or pass-through, and this scan would report green on everything"
 		return
 	fi
+	# ...and a second control, for the second thing this scan now depends on. A difference
+	# between the filter's output and the file is only a credential if everything else in
+	# the filter is byte-transparent, and `sed` — which is what the filter is built out of —
+	# is not, on every platform: the MSYS2 build shipped with Git for Windows rewrites CRLF
+	# to LF for a script that matches nothing at all (AMH ledger row DC030). `--baseline`
+	# runs the same stages with no substitutions, so it carries that newline handling and no
+	# redaction, and the comparison below can subtract one from the other. If it is missing
+	# — an older redact.sh beside a newer ladder — there is nothing to subtract, so this
+	# control establishes that the mode EXISTS and emits its input. It is deliberately not
+	# the whole check: one canary proves one class, and a baseline that redacted some other
+	# class would sail through it. What proves the baseline reproduced a particular file is
+	# the per-file comparison below, which runs on that file's own bytes. Refusing to scan
+	# is the honest verdict for both: this rung is the repo's whole secret defence, and
+	# "I did not manage to look" must never render as clean (AMH ledger row DC002).
+	if ! printf 'x %s x\n' "$canary" | bash scripts/redact.sh --baseline 2>/dev/null | grep -qF "$canary"; then
+		fail "scripts/redact.sh has no working --baseline mode, so this scan cannot tell a redaction from the platform's own newline handling and did NOT scan this tree. The copy of redact.sh beside this ladder is older than it or broken — re-run the harness's init script to restore the matching pair."
+		return
+	fi
 	local list=$TMP/files.nul hits=0
 	if has_git; then
 		git ls-files -co --exclude-standard -z >"$list"
@@ -781,7 +819,7 @@ guard_secret_shapes() {
 	fi
 	# NUL-separated: a word-split list silently skips names with spaces or non-ASCII
 	# characters, and a scan with a silent hole is worse than no scan.
-	local f pos cmperr=$TMP/cmp.err
+	local f pos cmperr=$TMP/cmp.err base=$TMP/redact.base
 	while IFS= read -r -d '' f; do
 		[ -f "$f" ] || continue
 		LC_ALL=C grep -qI . "$f" 2>/dev/null || continue # text files only
@@ -793,8 +831,38 @@ guard_secret_shapes() {
 		# nothing in this pipeline writes "$f", and comparing a file against its own
 		# filtered stream is precisely what the scan is.
 		pos=$(bash scripts/redact.sh <"$f" 2>/dev/null | cmp - "$f" 2>"$cmperr")
+		# A difference is a SUSPICION, not yet a finding. The byte-exact comparison above
+		# holds only where every stage of the filter is byte-transparent, and on a Windows
+		# checkout it is not: with `core.autocrlf=true` — Git for Windows's own installer
+		# default — the worktree is CRLF, MSYS2's sed drops the CR, and this rung reported a
+		# credential in every text file in the tree, its own shipped scripts included
+		# (AMH ledger row DC030). So re-compare against the baseline, which is the same
+		# stages with nothing to substitute. Done only for a file that already differed, so
+		# the exact comparison stays the fast path and a tree on a transparent platform pays
+		# nothing for the second.
+		if [ -s "$cmperr" ] || [ -n "$pos" ]; then
+			bash scripts/redact.sh --baseline <"$f" >"$base" 2>/dev/null
+			# The baseline is now standing in for the file, so it has to EARN that: it must
+			# reproduce this file's own bytes apart from carriage returns, which is the one
+			# difference the platform is allowed to make. Without this arm the subtraction
+			# cancels anything the stages do to BOTH streams — a sed that truncates its
+			# output truncates the baseline identically, the two agree, and the rung prints
+			# a green over bytes it never read. That is the same fail-open the truncation
+			# arm below exists to refuse, and it is why the tolerance is named (`\r`) rather
+			# than inherited from whatever the tool happens to do.
+			if ! LC_ALL=C tr -d '\r' <"$base" | cmp -s - <(LC_ALL=C tr -d '\r' <"$f"); then
+				fail "scripts/redact.sh --baseline did not reproduce $f apart from line endings, so the filter's own stages are altering or dropping this file's bytes and NOTHING here scanned it. A filter whose stages rewrite content cannot be told apart from one that redacted something — fix the filter or the sed it runs on; a green from this rung would be a green over bytes nobody read."
+				hits=$((hits + 1))
+				continue
+			fi
+			pos=$(bash scripts/redact.sh <"$f" 2>/dev/null | cmp - "$base" 2>"$cmperr")
+		fi
 		if [ -s "$cmperr" ]; then
-			fail "scripts/redact.sh did not filter all of $f ($(tr -d '\n' <"$cmperr")) — a truncated stream reads as clean"
+			# `cmp`'s own text names whichever operand it read, which is the scratch
+			# baseline rather than anything the reader has. Say which stream that was.
+			local why
+			why=$(tr -d '\n' <"$cmperr")
+			fail "scripts/redact.sh did not filter all of $f (${why//"$base"/the baseline stream}) — a truncated stream reads as clean"
 			hits=$((hits + 1))
 			continue
 		fi
@@ -828,7 +896,15 @@ guard_poison_tokens() {
 	fi
 	while IFS= read -r tok; do
 		[ -n "$tok" ] || continue
-		if printf '%s' "$msgs" | grep -qF -- "$tok"; then
+		# A here-string, NOT `printf ... | grep -q`. `grep -q` exits at its first match;
+		# with bytes still pending the writer takes EPIPE, and under `pipefail` that
+		# becomes the pipeline's status — so a token found EARLY in a long enough set of
+		# messages reads as absent and this rung fails OPEN, silently. Commit messages are
+		# inherently multi-line, so unlike the payload case size alone is enough here: at
+		# ~64 KB of `git log` output a token in the newest commit is simply not reported.
+		# A here-string's writer is not a pipeline member and never reaches `PIPESTATUS`
+		# (AMH ledger row DC034, DC035).
+		if grep -qF -- "$tok" <<<"$msgs"; then
 			fail "commit message contains '$tok' — a squash merge would fold it onto $DEFAULT_BRANCH, and force-push is forbidden, so it is permanent until merge"
 			hits=$((hits + 1))
 		fi
@@ -1109,6 +1185,17 @@ guard_shipped_integrity() {
 	local line n=0 checked=0 bad=0 covers_self=0 want rest file got
 	while IFS= read -r line || [ -n "$line" ]; do
 		n=$((n + 1))
+		# A CRLF checkout — the default on Windows, where the installer sets
+		# `core.autocrlf=true` system-wide — hands every line a trailing CR, and this rung
+		# was the one place it could not be shrugged off. The hash field comes FIRST, so it
+		# still measured 64 characters and the corruption check below stayed quiet; only the
+		# filename was polluted, and the rung went on to report five shipped scripts as
+		# deleted and to tell the reader to re-run the init script to restore files that
+		# were present all along — a true hash comparison wrapped in a false account of what
+		# was checked, which the note below says is the one thing this rung must never do
+		# (AMH ledger row DC030). Stripping it is unambiguous: a filename cannot contain a
+		# CR, and a hash field is hex.
+		line=${line%$'\r'}
 		case $line in '' | '#'*) continue ;; esac
 		# sha256sum's own format: `<hash>  <path>`, with `*` marking binary mode. Parsed
 		# rather than trusted — a manifest this cannot read is a manifest that checked

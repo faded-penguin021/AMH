@@ -81,6 +81,12 @@
 #     real coverage the self-test asserts.
 #   * CONSTRUCTED AND ENCODED COMMANDS. `eval`, base64/hex payloads decoded at runtime,
 #     and any command assembled from variables are text at scan time, not commands.
+#   * A COMMAND SUBSTITUTION INSIDE DOUBLE QUOTES RUNS, AND NO WALKER LOOKS IN. Bash executes
+#     `echo "$(git push --force origin main)"`, and every scanner here treats the whole
+#     `"…"` as quoted text, so that push is ALLOWED where the unquoted `echo $(…)` is denied.
+#     Named here rather than fixed because closing it means the walkers recursing into `$(`
+#     while still treating ordinary quoted prose as data, which is a bigger change than the
+#     backslash rule beside it and belongs to whoever takes it (AMH ledger row DC028).
 #   * HEREDOCS AND LONG LINES. `cmd <<EOF` hides its body until the delimiter, and the
 #     window-based scanners give up past `CHAR_LOOKAHEAD` characters — a variable name or
 #     redirection target longer than the window is not classified.
@@ -100,6 +106,54 @@
 #     deliberately silent; and `git checkout -- "$f"` carries no force flag and is not
 #     recognised at all. The rail is a speed bump on the shapes an agent actually
 #     mistypes, never an inventory of ways to lose a file.
+#   * ITS DATA-PLANE TIER IS A SHORTER VERB LIST AND A WEAKER CLAIM. `supabase db reset`,
+#     `prisma migrate reset`, `prisma db push --accept-data-loss|--force-reset`, `rails`/`rake`
+#     `db:drop|db:reset|db:schema:load`, `dropdb`, and `psql -c` whose statement STARTS with
+#     `DROP DATABASE`, `DROP SCHEMA` or `TRUNCATE` (every `-c` on the line is read, bundled
+#     spellings like `-Atc` included; a statement that merely NAMES one of those verbs —
+#     `SELECT * FROM truncate_log` — is a read and is not advised). Then `drizzle-kit push` and
+#     its three dialect spellings, any `prisma migrate` subcommand carrying
+#     `--shadow-database-url` (prisma RESETS whatever that flag names before replaying), and a
+#     PACKAGE SCRIPT whose NAME is one of a short list (`db:push`, `db:reset`, `db:drop`,
+#     `db:wipe`, `db:schema:load`, `migrate:reset`, `migrate:fresh` and a few more). Reached
+#     through a bare invocation or one package runner: `npx`, `pnpx`, `bunx`, and
+#     `npm`/`pnpm`/`yarn`/`bun` optionally followed by `exec`, `dlx`, `run`, `run-script` or
+#     `x`. That strip runs before the whole dispatch, so it also widens the FILESYSTEM arms —
+#     `npx rm -rf x` is now advised where it used to be a command called `npx`.
+#     THE SCRIPT ARM JUDGES A NAME, WHICH IS WEAKER THAN EVERYTHING ABOVE IT AND IS NOT HIDDEN.
+#     `npm run db:push` is the command the most widely reported incident of this kind actually
+#     ran, and what it runs lives in the package manifest, which no scanner here opens (AMH
+#     ledger row DB027). So the name is evidence and nothing else: a harmless `db:push` is
+#     advised anyway, and a script that drops the database under a name like `seed`, `setup` or
+#     `bootstrap` is invisible — as is a Makefile target, a justfile recipe, and every other
+#     name outside the list. The advisory says this in its own text rather than letting a
+#     cleared prompt read as a judgement about the script, and it says it for any kind reached
+#     through `run`/`run-script`, not just the ones on the name list: `npm run dropdb` gets the
+#     same disclosure, because the guard read a script name there too.
+#     WHAT IS STILL OUTSIDE, and why it is not an oversight: a verb enters this tier when a
+#     public report shows it destroying data, and a web search for reported incidents naming
+#     `alembic downgrade base`, `manage.py flush`, `redis-cli flushall`, `mysql -e`, `mongosh
+#     --eval` or `drizzle-kit drop` returned none, so they stay out (AMH ledger row DC027).
+#     `psql -f script.sql` and a migration run from application code stay out for the older
+#     reason — the verb is not in the command text at all. And one reported shape is outside any
+#     list a command scanner could hold: the PocketOS wipe was a `curl` GraphQL call carrying a
+#     token the agent found in an unrelated file, which is the forge/API surface the state file
+#     tracks separately.
+#     THE LIMIT THAT MATTERS MOST IS NOT THE LIST. This tier cannot tell production from local
+#     and never will: the target is not in the command, it is in a linked project, a config
+#     file resolved from the working directory, or `$DATABASE_URL`, and the two invocations are
+#     byte-identical. So it buys exactly one thing — the command stops once and the advisory
+#     asks which database this resolves to. It is not a confirmation that the answer was
+#     right, it does not know whether the agent looked, and a `--local` flag in the command
+#     text is a claim rather than a fact. Read a cleared advisory as "this was made
+#     deliberate", never as "this was made safe".
+#     TWO SMALLER LIMITS, both fail-open and both LISTS rather than categories. The options
+#     whose value is a separate word are enumerated (`-h`, `-p`, `-U`, `--host`, `--workdir`,
+#     `-p`/`--package` on a runner, and about a dozen more); an option outside that list has
+#     its value read as an operand, which is how `dropdb -U prod scratch` and `dropdb -U
+#     scratch prod` once shared one signature. And because a consumed value is not recorded,
+#     the same database name on two different HOSTS is one signature and one advisory — the
+#     advisory's question, not its bookkeeping, is what covers that.
 #   * THE PUSH RAIL READS THE PUSH, NOT THE BRANCH NAME. It denies the default branch in each
 #     of the three spellings git resolves to it (`main`, `heads/main`, `refs/heads/main`, on
 #     either side of a colon), force, deletion, an explicit `refs/tags/` push, exactly two
@@ -219,6 +273,22 @@ split_segments() { # sets SEGMENTS
 		fi
 		c=${wbuf:i-wbase:1}
 		if [ -n "$q" ]; then
+			# THE BACKSLASH RULE, explained here and pointed at from the other walkers.
+			# Inside DOUBLE quotes a backslash escapes the next character; inside SINGLE
+			# quotes there are no escapes at all, so `'a \'` is a complete string. Without
+			# this, the `\"` in `echo "say \"hi\"" && git push --force origin main` read as
+			# the CLOSING quote: every operator after it looked unquoted, the `&&` split a
+			# segment that bash never runs, and the rails that resolve a leading command saw
+			# a different command line than the shell does. That direction is fail-OPEN and
+			# it voided the two oldest rails — force-push and push-to-default — plus the
+			# destructive and secret-file scanners, on any command line carrying an escaped
+			# quote. `expands_secret_var` modelled this correctly from the beginning; the
+			# five character walkers did not, which is why the fix is a rule and not a patch
+			# (AMH ledger row DC028).
+			if [ "$c" = "\\" ] && [ "$q" = '"' ]; then
+				i=$((i + 2))
+				continue
+			fi
 			[ "$c" = "$q" ] && q=''
 			i=$((i + 1))
 			continue
@@ -320,6 +390,11 @@ heredoc_delim() {
 		fi
 		c=${wbuf:i-wbase:1}
 		if [ -n "$q" ]; then
+			# The backslash rule — see `split_segments` for why this is not a patch.
+			if [ "$c" = "\\" ] && [ "$q" = '"' ]; then
+				i=$((i + 2))
+				continue
+			fi
 			[ "$c" = "$q" ] && q=''
 			i=$((i + 1))
 			continue
@@ -579,8 +654,48 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# shellcheck disable=SC2016 # the examples must print literally, unexpanded.
 		if [ "$DESTRUCTIVE_DELETES" -eq 1 ]; then
 			ADVISORY_REASON='This destructive filesystem command may delete guard fixtures, source files, or untracked evidence. The command guard is stopping this ONCE, for this target, so you can spend one turn on the check rather than the deletion.'
+		elif [ "$DESTRUCTIVE_DATAPLANE" -eq 1 ] && [ "$DESTRUCTIVE_SCRIPTNAME" -eq 1 ]; then
+			# A FOURTH lead, for the reason the third one exists: the sentence has to be true.
+			# When the match came from a script NAME the guard has not seen a database command
+			# at all, so "this command destroys database state" is asserted on evidence the
+			# next paragraph then admits it does not have — a contradiction inside one
+			# advisory, and the "cries wolf" failure delivered by the rail's own words.
+			ADVISORY_REASON='This command MAY destroy DATABASE state — it carries the name of an operation that drops a schema and replays migrations, drops a database outright, or empties tables, and nothing in git restores any of that. The command guard is stopping this ONCE, for this command, so you can spend one turn on the check rather than the reset.'
+		elif [ "$DESTRUCTIVE_DATAPLANE" -eq 1 ]; then
+			# A THIRD verb, for the same reason there is a second: neither of the others is
+			# true here. Nothing on disk changes, so "may delete source files" is false and
+			# "uncommitted edits" is beside the point — git has nothing to do with it, and an
+			# agent that reads a false lead sentence has been handed a correct reason to
+			# dismiss the whole advisory.
+			ADVISORY_REASON='This command destroys DATABASE state — it drops a schema and replays migrations, drops a database outright, or empties tables. Nothing in git restores it and no working-tree check tells you what was in it. The command guard is stopping this ONCE, for this command, so you can spend one turn on the check rather than the reset.'
 		else
 			ADVISORY_REASON='This command overwrites or discards working-tree state — uncommitted edits, source files, or untracked evidence — and for anything not already committed there is nothing to recover it from. The command guard is stopping this ONCE, for this target, so you can spend one turn on the check rather than the overwrite.'
+		fi
+		# ADDITIVE, not another arm of the chain below. A command can be both — `rm -rf "$S/x"
+		# && supabase db reset` is two hazards in one segment list — and folding this into the
+		# path chain would silently drop whichever paragraph lost the race. Each paragraph
+		# describes a property the command actually has, so each fires on its own.
+		if [ "$DESTRUCTIVE_DATAPLANE" -eq 1 ]; then
+			# The paragraph the whole tier exists for. Every other branch here can name the
+			# hazard and point at the operand carrying it; this one has to say that the
+			# operand does not exist, which is a harder thing to make an agent act on and the
+			# reason this text asks for a named answer rather than a moment of care.
+			#
+			# It must not suggest a way to make the command safe, only a way to find out what
+			# it addresses: `--local` is a claim in the command text, not a fact about the
+			# environment, and an advisory that blessed it would have taught the sidestep
+			# instead of the check — the failure the destructive text above was rewritten to
+			# stop (owner, 2026-08-12).
+			# shellcheck disable=SC2016 # the examples must print literally, unexpanded.
+			ADVISORY_REASON="$ADVISORY_REASON"' WHICH database this hits is not in the command. It is resolved from the environment — a linked project, a config file found from the working directory, `$DATABASE_URL` — so the production and the local spelling of this command are byte-identical, and this guard cannot tell them apart. Neither can a reader of your transcript. Before you rerun, print the resolved target and say which database it is: `supabase status` or the linked project ref, the `DATABASE_URL` HOST (the host, never the whole URL, which carries a password), `\conninfo`, the database name the task is configured with. A `cd` earlier in this session is enough to change the answer, and so is a shell that inherited a different environment than the one you read.'
+		fi
+		# ADDITIVE again, and for a reason the paragraph itself states: this arm matched a
+		# script NAME, and the script is a line in the package manifest that no scanner here reads.
+		# Leaving that unsaid would let a cleared prompt read as a judgement about the script,
+		# which is the enforcement-asymmetry class the harness keeps a rule about.
+		if [ "$DESTRUCTIVE_SCRIPTNAME" -eq 1 ]; then
+			# shellcheck disable=SC2016 # the backticked names must print literally.
+			ADVISORY_REASON="$ADVISORY_REASON"' This one matched a package SCRIPT NAME, not a command this guard understands. What that script runs is a line in the package manifest and nothing here has opened it, so the name is the entire evidence: it may run something harmless, and the check that settles it is reading the script — `npm run` with no arguments lists them, and the `scripts` block shows the body. The reverse is the part worth carrying away, because no rerun clears it: a script that drops the database under a name like `seed`, `setup` or `bootstrap` reaches the database with no advisory at all, and so does a Makefile target and a justfile recipe. The most widely reported incident of this kind was exactly this shape — an agent ran `npm run db:push` against a production database during a stated code freeze, and the tables came back empty.'
 		fi
 		if [ "$DESTRUCTIVE_ROOTISH" -eq 1 ]; then
 			# shellcheck disable=SC2016 # the examples must print literally, unexpanded.
@@ -598,11 +713,27 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# shellcheck disable=SC2016 # the example must print literally, unexpanded.
 		if [ "$DESTRUCTIVE_DELETES" -eq 1 ]; then
 			ADVISORY_REASON="$ADVISORY_REASON"' Then rerun the same command to proceed if the deletion is intentional. Two things that are NOT compliance: renaming or relocating the target so the deletion is no longer needed, and rerunning without having looked — both leave the rail spent and the check unmade. Deciding not to delete is a fine answer; arriving at it to avoid the prompt is not.'
+		elif [ "$DESTRUCTIVE_DATAPLANE" -eq 1 ]; then
+			# The sidestep with this tier'"'"'s shape is not renaming a path or stashing an
+			# edit: it is adding a flag that ASSERTS the target is the safe one, or pointing
+			# the command at a different database, and calling either of those the check. Both
+			# leave the original question — what would this have destroyed — unasked.
+			ADVISORY_REASON="$ADVISORY_REASON"' Then rerun the same command to proceed if the reset is intentional. Two things that are NOT compliance: adding a flag that ASSERTS the target is safe, or repointing the command at another database, in place of finding out what the original one was — a flag is a claim in the command text, not a fact about the environment; and rerunning without having looked. Both leave the rail spent and the check unmade. Deciding not to run it, or asking the human whose data it is, is a fine answer; arriving at it to avoid the prompt is not.'
 		else
 			ADVISORY_REASON="$ADVISORY_REASON"' Then rerun the same command to proceed if the overwrite is intentional. Two things that are NOT compliance: committing or stashing the work only to clear the way, without reading what would otherwise have been lost, and rerunning without having looked — both leave the rail spent and the check unmade. Deciding not to run it is a fine answer; arriving at that to avoid the prompt is not.'
 		fi
-		# shellcheck disable=SC2016 # the example must print literally, unexpanded.
-		ADVISORY_REASON="$ADVISORY_REASON"' Rerunning clears this advisory for this command TEXT only, and a command aimed somewhere else gets its own. Two limits of that, both worth knowing: the guard keys on the operands AS WRITTEN, so clearing `rm -rf "$S/base"` clears it for every later value of `S` — the rerun is your check, not the guard'"'"'s — and `${S:?}` folds to `$S` for that purpose in both directions. What this rail can see is that a prompt fired and whether the command came back; it cannot see whether you looked, and `scripts/ladder.sh` prints the ones that never came back.'
+		# The closing paragraph states what the rearm key IS, so it has to follow the key. For
+		# a path the key is the operands as written; for a data-plane command there are barely
+		# any operands, and saying "clearing `rm -rf "$S/base"` clears it for every value of
+		# `S`" to an agent that just ran `supabase db reset` describes a mechanism its command
+		# does not have — the prose/guard drift class, inside one advisory.
+		if [ "$DESTRUCTIVE_DATAPLANE" -eq 1 ] && [ "$DESTRUCTIVE_DELETES" -eq 0 ] && [ "$DESTRUCTIVE_UNEXPANDED" -eq 0 ]; then
+			# shellcheck disable=SC2016 # the backticked examples must print literally.
+			ADVISORY_REASON="$ADVISORY_REASON"' Rerunning clears this advisory for this command TEXT only, and that key is weak here by construction: this command names almost nothing, so it is cleared by its verb and whichever target flags it carries, and the SAME text run later — after a `cd`, after a link, against a different environment — reaches a different database with the advisory already spent. The rerun is your check, not the guard'"'"'s. What this rail can see is that a prompt fired and whether the command came back; it cannot see whether you looked, and `scripts/ladder.sh` prints the ones that never came back.'
+		else
+			# shellcheck disable=SC2016 # the example must print literally, unexpanded.
+			ADVISORY_REASON="$ADVISORY_REASON"' Rerunning clears this advisory for this command TEXT only, and a command aimed somewhere else gets its own. Two limits of that, both worth knowing: the guard keys on the operands AS WRITTEN, so clearing `rm -rf "$S/base"` clears it for every later value of `S` — the rerun is your check, not the guard'"'"'s — and `${S:?}` folds to `$S` for that purpose in both directions. What this rail can see is that a prompt fired and whether the command came back; it cannot see whether you looked, and `scripts/ladder.sh` prints the ones that never came back.'
+		fi
 		;;
 	esac
 	return 0
@@ -773,6 +904,11 @@ split_words() { # sets SPLIT_WORDS
 		fi
 		c=${wbuf:i-wbase:1}
 		if [ -n "$q" ]; then
+			# The backslash rule — see `split_segments` for why this is not a patch.
+			if [ "$c" = "\\" ] && [ "$q" = '"' ]; then
+				i=$((i + 2))
+				continue
+			fi
 			[ "$c" = "$q" ] && q=''
 			i=$((i + 1))
 			continue
@@ -835,6 +971,11 @@ strip_redirections() { # sets STRIPPED
 	while [ "$i" -lt "$n" ]; do
 		c=${s:i:1}
 		if [ -n "$q" ]; then
+			# The backslash rule — see `split_segments` for why this is not a patch.
+			if [ "$c" = "\\" ] && [ "$q" = '"' ]; then
+				i=$((i + 2))
+				continue
+			fi
 			[ "$c" = "$q" ] && q=''
 			i=$((i + 1))
 			continue
@@ -875,6 +1016,11 @@ strip_redirections() { # sets STRIPPED
 		while [ "$i" -lt "$n" ]; do
 			c=${s:i:1}
 			if [ -n "$q" ]; then
+				# The backslash rule — see `split_segments`.
+				if [ "$c" = "\\" ] && [ "$q" = '"' ]; then
+					i=$((i + 2))
+					continue
+				fi
 				[ "$c" = "$q" ] && q=''
 				i=$((i + 1))
 				continue
@@ -936,6 +1082,11 @@ redirect_targets() { # sets REDIRECT_TARGETS
 		fi
 		c=${wbuf:i-wbase:1}
 		if [ -n "$q" ]; then
+			# The backslash rule — see `split_segments` for why this is not a patch.
+			if [ "$c" = "\\" ] && [ "$q" = '"' ]; then
+				i=$((i + 2))
+				continue
+			fi
 			[ "$c" = "$q" ] && q=''
 			i=$((i + 1))
 			continue
@@ -1545,6 +1696,31 @@ record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 	case $kind in
 	git-reset-hard | git-checkout-force | git-switch-force) revision_operands=0 ;;
 	esac
+	# The data-plane kinds take the same exemption for a stronger version of the same reason:
+	# their recorded operands are flag names and database names, never filesystem paths, so
+	# the rootish paragraph's mechanism — an empty variable widening a path to an absolute one
+	# — describes nothing that can happen to them. They get their own paragraph instead.
+	case $kind in
+	supabase-* | prisma-* | rails-db-* | dropdb | psql-* | drizzle-kit-* | package-script-*)
+		revision_operands=0
+		DESTRUCTIVE_DATAPLANE=1
+		;;
+	esac
+	# The script arm judged a NAME and never the script, which is a weaker basis than any other
+	# kind in this tier has and gets its own paragraph rather than being folded into the shared
+	# one. A rail that let a cleared prompt imply it had read the package manifest would be
+	# claiming a check nobody performed.
+	#
+	# TWO ways that happens, and the second is why this is not a `kind` test alone: the name may
+	# be one this dispatch recognises (`db:push`), or `npm run` may resolve a script whose name
+	# collides with a tool the tier knows (`npm run dropdb` reaches the `dropdb` arm having read
+	# nothing but a script name). Accepted miss in the other direction: `pnpm exec db:push` runs
+	# a BINARY with that name and still gets the paragraph, which overstates the guard's
+	# uncertainty rather than its coverage — the safe direction, and no such binary exists.
+	case $kind in
+	package-script-*) DESTRUCTIVE_SCRIPTNAME=1 ;;
+	esac
+	case ${DESTRUCTIVE_FROM_SCRIPT_NAME:-0} in 1) DESTRUCTIVE_SCRIPTNAME=1 ;; esac
 	# Whether the verb DELETES or merely overwrites decides the advisory's lead sentence. The
 	# shared text was written for `rm` and says "delete" seven times; against `git worktree
 	# add`, which deletes nothing, every one of those is false, and an agent that notices is
@@ -1634,11 +1810,87 @@ operands_unknown_target() { # operands_unknown_target <whole-tree-when-empty> <o
 	return 1
 }
 
+# Which target a DATA-PLANE command names — recorded as FLAG NAMES and enumerated literals,
+# never as a value. This is not tidiness: the signature is written to a state file and printed
+# by `--advisory-report`, so recording the VALUE of a `--db-url` — a connection string, which
+# carries the role password in its authority section — would put a live credential in both, the
+# one thing this harness's hard boundaries forbid outright. (Spelling that URL out here as an
+# example would put a credential-shaped literal in a shipped script, which the repository's own
+# secret-shape scan rejects and should: see the runtime construction in the fixture.) So no
+# value-bearing flag ever contributes its value, and a bare operand contributes itself only when
+# it can not be a connection string (no `://`, no `@`).
+#
+# What survives is enough to tell the decisions apart that differ: `--local` from `--linked`,
+# `dropdb staging_db` from `dropdb prod_db`. What does NOT survive is two different `--db-url`
+# values, which share one signature and therefore one advisory. Stated rather than fixed — the
+# alternative is hashing a credential-bearing string, and a rail that handles secrets to
+# sharpen its own bookkeeping has made itself the incident.
+DATA_PLANE_FLAGS=()
+data_plane_flags() { # data_plane_flags <record-bare-operands:0|1> <word>...
+	local record_bare=$1 w skip_next=0 bare_seen=0
+	shift
+	DATA_PLANE_FLAGS=()
+	for w in "$@"; do
+		if [ "$skip_next" -eq 1 ]; then
+			skip_next=0
+			continue
+		fi
+		case $w in
+		--local | --linked | --remote | --force-reset | --accept-data-loss)
+			DATA_PLANE_FLAGS+=("$w")
+			;;
+		# The name says WHICH knob was turned; `:given` says a value was supplied without
+		# saying what it was.
+		# `--shadow-database-url` joined this list with the arm that reads it, and it is the
+		# one whose value is a connection string BY DEFINITION — the reported incident is a
+		# production URL passed to it — so it must reduce to a name here like the rest.
+		--db-url | --database-url | --shadow-database-url | --project-ref | --dbname | --url)
+			DATA_PLANE_FLAGS+=("$w:given")
+			skip_next=1
+			;;
+		--db-url=* | --database-url=* | --shadow-database-url=* | --project-ref=* | --dbname=* | --url=*)
+			DATA_PLANE_FLAGS+=("${w%%=*}:given")
+			;;
+		# Options whose value is a SEPARATE word. Consuming it is not cosmetic: without this,
+		# `dropdb -U prod scratch` and `dropdb -U scratch prod` both recorded the operand pair
+		# {prod, scratch}, the signature sort made them identical, and clearing the advisory
+		# for the one that drops `scratch` silently cleared it for the one that drops `prod` —
+		# the per-target rearm defeated by an ordinary flag permutation rather than by evasion.
+		#
+		# A LIST, not a category, with the usual consequence: an option outside it has its
+		# value read as an operand again. Extend it when a real invocation shows up rather
+		# than guessing at the union of six tools' option tables.
+		-h | -p | -U | -u | -d | -e | -o | -v | -F | -T | -L | -P | --host | --port | --username | --maintenance-db | --file | --schema | --workdir | --set | --variable | --output | --log-file | --package)
+			skip_next=1
+			;;
+		-*) ;;
+		*)
+			# Only the FIRST bare operand. Every command in this tier that takes one takes
+			# exactly one — a database name — so a second is a flag value this list did not
+			# model, and recording it would reopen the permutation collision above by another
+			# route.
+			[ "$record_bare" -eq 1 ] || continue
+			[ "$bare_seen" -eq 0 ] || continue
+			bare_seen=1
+			case $w in
+			*://* | *@*) DATA_PLANE_FLAGS+=('target:redacted') ;;
+			*) DATA_PLANE_FLAGS+=("$w") ;;
+			esac
+			;;
+		esac
+	done
+	return 0
+}
+
 is_destructive_segment() {
 	local raw=$1 w cmd recursive=1 force=1 descend=1 i=0
 	local sub kind='' hard=1 staged=1 worktree_target=1
+	local sql='' up='' j=0 matched=1 rest='' stmt=''
 	local words=()
 	local operands=() end_of_options=1
+	# Per SEGMENT, not per command: `npm run db:push && dropdb app` is two decisions and the
+	# second one read a real command word, so the script-name disclosure must not carry over.
+	DESTRUCTIVE_FROM_SCRIPT_NAME=0
 	split_words "$raw"
 	words=(${SPLIT_WORDS[@]+"${SPLIT_WORDS[@]}"})
 	# Find the same leading command that leading_command reports, without treating
@@ -1659,6 +1911,83 @@ is_destructive_segment() {
 	[ "$i" -lt "${#words[@]}" ] || return 1
 	cmd=${words[$i]##*/}
 	i=$((i + 1))
+	# Package runners are how the data-plane tools below are ACTUALLY invoked — nobody types
+	# a bare `prisma`. This strip is deliberately NOT part of the transparent-prefix loop
+	# above: that loop feeds every rail in this script, including the secret scanners, and
+	# widening it there would change what `cat`, `env` and the rest are judged against for the
+	# sake of one tier.
+	#
+	# It DOES widen the destructive rail, which is a real behaviour change and is stated rather
+	# than assumed away: this strip runs before the whole dispatch, so `npx rm -rf /tmp/x` and
+	# `pnpm exec git clean -fdx` now reach the filesystem arms and are advised, where before
+	# they were commands named `npx` and `pnpm` that no arm recognised. That is the correct
+	# direction — the deletion is just as real for being run through a runner — and it has its
+	# own fixtures.
+	#
+	# `npm` joined this list with the package-script arm below, and the widening is the same one
+	# stated above: `npm exec prisma migrate reset` and `npm exec rm -rf x` now reach the arms
+	# that judge them, where before they were a command called `npm`.
+	#
+	# Accepted miss, narrowed but not closed: a runner whose TOOL is hidden behind a script name
+	# (a package.json script, a Makefile target, a justfile recipe). The tool is not in the
+	# command text and no amount of prefix-stripping reaches it — see the header's note on
+	# constructed commands. What IS in the command text is the script's NAME, and the arm below
+	# judges the short list of names that say outright what they do; every other name, and every
+	# Makefile or justfile target, stays in this miss.
+	case $cmd in
+	npx | pnpx | bunx)
+		# `-p pkg` / `--package pkg` names the package to fetch, NOT the command to run, so
+		# its value must be consumed: `npx -p prisma@5 prisma migrate reset` otherwise
+		# resolves to a command called `prisma@5` that no arm recognises.
+		while [ "$i" -lt "${#words[@]}" ]; do
+			case ${words[$i]} in
+			-p | --package | -c | --call) i=$((i + 2)) ;;
+			-*) i=$((i + 1)) ;;
+			*) break ;;
+			esac
+		done
+		[ "$i" -lt "${#words[@]}" ] || return 1
+		cmd=${words[$i]##*/}
+		i=$((i + 1))
+		;;
+	npm | pnpm | yarn | bun)
+		# The two-word options are a LIST with the usual consequence, and the workspace flags
+		# are on it because leaving them off made six spellings of the incident's own command
+		# silent: `npm -w api run db:push`, `npm --prefix ./app run db:push` and `pnpm -F api
+		# db:push` all had the flag's VALUE read as the subcommand. `yarn workspace api
+		# db:push` is a subcommand rather than a flag and stays missed.
+		while [ "$i" -lt "${#words[@]}" ]; do
+			case ${words[$i]} in
+			-p | --package | --filter | -C | --dir | -w | --workspace | --prefix | -F | --cwd) i=$((i + 2)) ;;
+			-*) i=$((i + 1)) ;;
+			*) break ;;
+			esac
+		done
+		[ "$i" -lt "${#words[@]}" ] || return 1
+		case ${words[$i]} in
+		exec | dlx | run | run-script | x)
+			# `run` and `run-script` resolve a SCRIPT NAME; `exec`, `dlx` and `x` resolve a
+			# binary. The advisory says something different in the first case and must know
+			# which happened — keying that off the resolved KIND instead got it wrong in both
+			# directions, telling an agent that `npm run dropdb` "drops a database outright"
+			# on the strength of a script name, and withholding the same disclosure from
+			# every data-plane kind reached that way.
+			case ${words[$i]} in run | run-script) DESTRUCTIVE_FROM_SCRIPT_NAME=1 ;; esac
+			i=$((i + 1))
+			while [ "$i" -lt "${#words[@]}" ]; do
+				case ${words[$i]} in
+				-w | --workspace | --prefix | --filter | -F | -C | --dir | --cwd) i=$((i + 2)) ;;
+				-*) i=$((i + 1)) ;;
+				*) break ;;
+				esac
+			done
+			[ "$i" -lt "${#words[@]}" ] || return 1
+			;;
+		esac
+		cmd=${words[$i]##*/}
+		i=$((i + 1))
+		;;
+	esac
 	case $cmd in
 	rm)
 		for w in "${words[@]:i}"; do
@@ -1857,11 +2186,261 @@ is_destructive_segment() {
 			record_destructive_targets "$kind" ${operands[@]+"${operands[@]}"}
 		fi
 		;;
+	# --- the DATA PLANE ---------------------------------------------------------
+	#
+	# Every arm above asks the same question — what does this command do to the working
+	# tree — and every one of them can answer it from the command text. These cannot, and
+	# that is the whole reason they are a separate tier rather than more verbs on the list.
+	#
+	# The shape, from the incident that earned it: an agent ran `supabase db reset` inside an
+	# app directory while a human watched. That command drops the schema and replays
+	# migrations from scratch. WHICH database it drops is not in the command — it comes from
+	# a linked project ref, a config file resolved from the working directory, or
+	# `$DATABASE_URL`, so the local and the production spelling are byte-identical. Nothing
+	# stopped it: the local Docker daemon happened to be down, the command errored, and the
+	# agent worked out what it had nearly done only after being asked. An incident whose
+	# entire mitigation was an unrelated service being offline is the definition of an
+	# unguarded one.
+	#
+	# So the check this tier asks for is different from the one above it. For `rm -rf "$S/x"`
+	# the guard can name the hazard precisely and ask the agent to print an expansion. Here it
+	# can only say: the target is not in what I can read, it is in what your environment
+	# resolves, so go and read THAT and say which database this is. The advisory text carries
+	# that difference (`DESTRUCTIVE_DATAPLANE`), and the path-shaped paragraphs are suppressed
+	# for these kinds, because "if that variable is empty the command addresses an absolute
+	# path" is simply false of a database reset and a rail is not allowed to be confidently
+	# wrong.
+	#
+	# THE LIST IS EARNED BY ONE INCIDENT AND EXTENDED BY SHAPE, which is a weaker claim than
+	# the filesystem rail can make and is stated rather than blurred. `supabase db reset` is
+	# the recorded one. The others are here because they are the same command in a different
+	# ecosystem — destructive by default, target from ambient config — and because a rail that
+	# stops exactly one spelling teaches an agent the spelling instead of the class. They are
+	# NOT an inventory; see the header for what is knowingly outside it.
+	#
+	# Unlike the tree-mutating git verbs, these are NOT gated on `operands_unknown_target`.
+	# That gate exists because `git reset --hard HEAD~1` is a correct, high-frequency command
+	# whose target is plain; there is no equivalently routine `supabase db reset` whose target
+	# is plain, because the target is never in the command at all. These follow the older `rm`
+	# contract instead: one turn of thought each, and a literal target does not buy silence.
+	supabase)
+		# `db reset` only. `supabase start`, `db diff`, `db push`, `migration new` and the
+		# rest are ordinary development commands and must not be advised.
+		#
+		# Global options come before the subcommand and must be skipped to find it, the same
+		# way the `git` arm skips `-C` and `--git-dir`. `--workdir` in particular decides which
+		# project's config is resolved, which is this tier's whole subject.
+		while [ "$i" -lt "${#words[@]}" ]; do
+			case ${words[$i]} in
+			--workdir | --profile) i=$((i + 2)) ;;
+			-*) i=$((i + 1)) ;;
+			*) break ;;
+			esac
+		done
+		[ "${words[$i]:-}" = db ] || return 1
+		i=$((i + 1))
+		[ "${words[$i]:-}" = reset ] || return 1
+		i=$((i + 1))
+		kind=supabase-db-reset
+		data_plane_flags 0 "${words[@]:i}"
+		record_destructive_targets "$kind" ${DATA_PLANE_FLAGS[@]+"${DATA_PLANE_FLAGS[@]}"}
+		;;
+	prisma)
+		case ${words[$i]:-} in
+		migrate)
+			# `migrate reset` drops and replays. `migrate dev`, `deploy`, `status` and
+			# `resolve` do not, and `dev` is the one a developer runs all day.
+			#
+			# `--shadow-database-url` is the exception among them, and it is here because a
+			# public report earned it rather than because it resembles the others: an agent
+			# passed a production connection string to it on `migrate diff` and prisma did
+			# what the flag says — it RESET the database at that URL before replaying, and 22
+			# production tables went with it, two of which no migration described. The flag
+			# names its own target, which makes this the one shape in the tier the guard
+			# could read; it still cannot tell a scratch URL from a production one, so it
+			# asks the same question the rest of the tier asks (AMH ledger row DC027).
+			if [ "${words[$((i + 1))]:-}" = reset ]; then
+				kind=prisma-migrate-reset
+			else
+				case " ${words[*]:i} " in
+				*' --shadow-database-url '* | *' --shadow-database-url='*)
+					kind=prisma-migrate-shadow-db
+					;;
+				*) return 1 ;;
+				esac
+			fi
+			;;
+		db)
+			# `db push` alone PROMPTS before it destroys data and is a normal development
+			# loop; it is the flag that says "do it without asking" that makes this the
+			# same command as the others here.
+			[ "${words[$((i + 1))]:-}" = push ] || return 1
+			# Both spellings of each flag: `--accept-data-loss` and `--accept-data-loss=true`
+			# are the same instruction, and matching only the bare one made the `=` form a
+			# silent bypass of the tier.
+			case " ${words[*]:i} " in
+			*' --accept-data-loss '* | *' --accept-data-loss='* | *' --force-reset '* | *' --force-reset='*) ;;
+			*) return 1 ;;
+			esac
+			kind=prisma-db-push-data-loss
+			;;
+		*) return 1 ;;
+		esac
+		i=$((i + 2))
+		data_plane_flags 0 "${words[@]:i}"
+		record_destructive_targets "$kind" ${DATA_PLANE_FLAGS[@]+"${DATA_PLANE_FLAGS[@]}"}
+		;;
+	rails | rake)
+		# `db:migrate`, `db:seed` and `db:prepare` are the everyday tasks and are not here.
+		case ${words[$i]:-} in
+		db:drop) kind=rails-db-drop ;;
+		db:reset) kind=rails-db-reset ;;
+		db:schema:load) kind=rails-db-schema-load ;;
+		*) return 1 ;;
+		esac
+		i=$((i + 1))
+		data_plane_flags 0 "${words[@]:i}"
+		record_destructive_targets "$kind" ${DATA_PLANE_FLAGS[@]+"${DATA_PLANE_FLAGS[@]}"}
+		;;
+	dropdb)
+		# The one command in this tier that says what it does in its own name, and the one
+		# whose bare operand IS the database name — worth recording, because `dropdb
+		# scratch` and `dropdb app_production` are two different decisions.
+		kind=dropdb
+		data_plane_flags 1 "${words[@]:i}"
+		record_destructive_targets "$kind" ${DATA_PLANE_FLAGS[@]+"${DATA_PLANE_FLAGS[@]}"}
+		;;
+	psql)
+		# `psql` is a REPL and a script runner; the overwhelming majority of invocations are
+		# reads. Only a statement passed inline with `-c`/`--command` is judged, and only for
+		# the three verbs that destroy a whole object rather than rows a `WHERE` clause chose.
+		# `DELETE FROM` is deliberately absent: `DELETE FROM t WHERE id = 1` is routine, and a
+		# rail that fires on it is the alarm this file's own comments warn about.
+		#
+		# EVERY `-c` is collected, not the first. `psql -c "SELECT 1" -c "DROP DATABASE app"`
+		# is a legal, ordinary two-statement invocation, and a scan that stopped at the first
+		# statement read the harmless half and allowed the other. Bundled short options are
+		# read too (`-Atc`, `-qc`, `-Xc`): psql accepts them and an agent writes them, so a
+		# pattern requiring `c` in position two was not a narrowing, it was a hole.
+		#
+		# Accepted misses, in the fail-open direction: `-f script.sql` and a heredoc hide the
+		# statement where no scanner here reads; irregular whitespace (`DROP  DATABASE`) does
+		# not match; and every other client — `mysql -e`, `mongosh --eval`, an ORM's own shell
+		# — is a different command this arm never sees. In the fail-CLOSED direction there is
+		# one: a bundle whose `c` is not last (`psql -cA …`) is read as a glued statement.
+		j=$i
+		while [ "$j" -lt "${#words[@]}" ]; do
+			case ${words[$j]} in
+			-c | --command)
+				j=$((j + 1))
+				sql="$sql;${words[$j]:-}"
+				;;
+			--command=*) sql="$sql;${words[$j]#--command=}" ;;
+			-c?*) sql="$sql;${words[$j]#-c}" ;;
+			# A bundle ending in `c` takes the statement as the NEXT word, the way psql
+			# itself reads it.
+			-[!-]*c)
+				j=$((j + 1))
+				sql="$sql;${words[$j]:-}"
+				;;
+			esac
+			j=$((j + 1))
+		done
+		[ -n "${sql//;/}" ] || return 1
+		up=$(printf '%s' "$sql" | tr '[:lower:]' '[:upper:]')
+		# POSITION, not presence — the D007 class, in the one arm of this script that reads a
+		# foreign language. `SELECT * FROM truncate_log`, `\d truncate_log` and `WHERE action =
+		# 'truncate'` all NAME the verb and destroy nothing, and the first version of this arm
+		# advised every one of them: a fail-CLOSED false positive on a read, in a rail whose
+		# stated reason for excluding `DELETE FROM` was that it must not cry wolf. So each
+		# statement is split out and judged by what it STARTS with.
+		matched=1
+		rest=$up
+		while [ -n "$rest" ]; do
+			stmt=${rest%%;*}
+			if [ "$stmt" = "$rest" ]; then rest=''; else rest=${rest#*;}; fi
+			stmt=${stmt#"${stmt%%[![:space:]]*}"}
+			# A leading `BEGIN` does not make the statement after it invisible.
+			case $stmt in
+			BEGIN | 'BEGIN '*) stmt=${stmt#BEGIN} ; stmt=${stmt#"${stmt%%[![:space:]]*}"} ;;
+			esac
+			case $stmt in
+			'TRUNCATE '* | 'DROP DATABASE '* | 'DROP SCHEMA '*)
+				matched=0
+				break
+				;;
+			esac
+		done
+		[ "$matched" -eq 0 ] || return 1
+		# The statement TEXT is never recorded: it is arbitrary SQL and can carry a role
+		# password. The kind alone is the signature, so every destructive `psql -c` in a
+		# session shares one advisory unless a target flag distinguishes it.
+		kind=psql-destructive-statement
+		data_plane_flags 0 "${words[@]:i}"
+		record_destructive_targets "$kind" ${DATA_PLANE_FLAGS[@]+"${DATA_PLANE_FLAGS[@]}"}
+		;;
+	drizzle-kit)
+		# `push` applies a schema straight to the database, emitting the DROP TABLE and DROP
+		# COLUMN statements the diff implies and bypassing migration files entirely. It is here
+		# and bare `prisma db push` is not, which is an asymmetry that has to be argued rather
+		# than assumed: prisma's push PROMPTS before a destructive statement and that prompt is
+		# its documented default, while drizzle's confirmation is reported failing outright —
+		# `drizzle-team/drizzle-orm` issue 5249 has DROP TABLE executing with no prompt at all
+		# after `strict` was silently deprecated in the 1.0 beta. A tool whose safeguard is
+		# reported absent is not carrying the weight the prisma exception rests on.
+		#
+		# `push:pg`, `push:mysql` and `push:sqlite` are the older per-dialect spellings of the
+		# same command. `generate`, `migrate`, `check`, `up` and `studio` are the everyday ones
+		# and are not advised; `drop` is deliberately absent, because no public report shows it
+		# destroying stored data and this tier's list is earned by reports (AMH ledger row DC027).
+		#
+		# The four spellings are ENUMERATED and the kind is built from a literal, never from the
+		# word. A `push:*` glob put command text into the kind, and the kind is the one part of a
+		# signature `record_destructive_targets` does not `%q`-quote: `drizzle-kit 'push:x<newline>
+		# package-script-db:push'` wrote a second line into the state file that was a byte-exact
+		# forgery of another command's signature, and `npm run db:push` then ran unadvised. That
+		# is this file's own rule — a sentinel an operand can spell is not a sentinel — so no arm
+		# here may interpolate an unvalidated word into a kind.
+		case ${words[$i]:-} in
+		push) kind=drizzle-kit-push ;;
+		push:pg) kind=drizzle-kit-push-pg ;;
+		push:mysql) kind=drizzle-kit-push-mysql ;;
+		push:sqlite) kind=drizzle-kit-push-sqlite ;;
+		*) return 1 ;;
+		esac
+		i=$((i + 1))
+		data_plane_flags 0 "${words[@]:i}"
+		record_destructive_targets "$kind" ${DATA_PLANE_FLAGS[@]+"${DATA_PLANE_FLAGS[@]}"}
+		;;
+	# The package script, which is the shape the most widely reported incident of this kind
+	# actually ran: an agent executed `npm run db:push` against a production database during a
+	# stated code freeze and the tables were dropped and replaced with empty ones. Every arm
+	# above would have seen a command called `npm`. The runner strip resolves the script NAME
+	# into `cmd`, so `npm run db:push`, `pnpm db:push`, `yarn db:push` and `bun run db:push`
+	# all arrive here as `db:push`.
+	#
+	# The list is NAMES, and each is a name that says what it does: the incident's own, the rails
+	# task names this tier already covers in their native spelling, prisma's `migrate:reset`, and
+	# laravel's `migrate:fresh`/`db:wipe`. It is matched WHOLE — `build:db:pushdocs` is a
+	# different script and is not this one — which is the D007 discipline in the arm most exposed
+	# to it, since a script name is free text an author chose.
+	#
+	# What this arm can NOT do is the reason its advisory carries an extra paragraph: the script
+	# body is in the package manifest and no scanner here opens a file to classify a command
+	# (AMH ledger row DB027). So a harmless `db:push` is advised anyway and a destructive
+	# `seed` is not advised at all, and the text says so rather than letting the prompt imply
+	# it read the script.
+	db:push | db:reset | db:drop | db:wipe | db:nuke | db:schema:load | schema:load | \
+		migrate:reset | db:migrate:reset | migrate:fresh | migrate:refresh)
+		kind=package-script-$cmd
+		data_plane_flags 0 "${words[@]:i}"
+		record_destructive_targets "$kind" ${DATA_PLANE_FLAGS[@]+"${DATA_PLANE_FLAGS[@]}"}
+		;;
 	*) return 1 ;;
 	esac
-	# `clean` and `rm` return through their own `record_destructive_targets`; the shared
-	# `if` above yields 0 when `kind` is empty. Saying so explicitly keeps that from being
-	# a puzzle a later reader has to re-derive.
+	# `clean`, `rm` and the data-plane arms return through their own
+	# `record_destructive_targets`; the shared `if` above yields 0 when `kind` is empty.
+	# Saying so explicitly keeps that from being a puzzle a later reader has to re-derive.
 	return 0
 }
 
@@ -1871,6 +2450,8 @@ is_destructive_command() {
 	DESTRUCTIVE_UNEXPANDED=0
 	DESTRUCTIVE_ROOTISH=0
 	DESTRUCTIVE_DELETES=0
+	DESTRUCTIVE_DATAPLANE=0
+	DESTRUCTIVE_SCRIPTNAME=0
 	cmd=$(strip_heredocs "$cmd")
 	# Every destructive segment is scanned, not just the first. A command that deletes two
 	# path sets is two decisions, and the advisory should be able to name both — stopping
@@ -1995,10 +2576,31 @@ except Exception:
 		'{'*'}') ;;
 		*) return 0 ;;
 		esac
-		printf '%s' "$payload" | grep -qE '"tool_name"[[:space:]]*:[[:space:]]*"Bash"' || return 0
-		printf '%s' "$payload" |
-			sed -n 's/.*"tool_input"[[:space:]]*:[[:space:]]*{[^}]*"command"[[:space:]]*:[[:space:]]*"\(.*\)"[[:space:]]*}.*/\1/p' |
-			head -1
+		#
+		# Here-strings, NOT `printf ... | grep -q` and `... | head -1`, and here the
+		# difference is the rail standing DOWN rather than a false alarm. `grep -q` exits
+		# at its first match; a writer with bytes still pending then takes EPIPE, and this
+		# file runs under `pipefail`, which promotes that to the pipeline's status — so a
+		# SUCCESSFUL match reads as a failure and `|| return 0` fails open on a Bash
+		# command nobody inspected. A here-string's writer is not a pipeline member, so
+		# nothing it does reaches `PIPESTATUS` and there is no status to promote. (On bash
+		# >= 5.1 a here-string is backed by a temporary file only above the pipe-buffer
+		# size, so "it is a file, not a pipe" is NOT the reason and would fail exactly
+		# where this defect lives. Older bash, 3.2 included, uses a temp file for every
+		# here-string whatever its size — which is why the reason has to be PIPESTATUS
+		# and not the backing: only PIPESTATUS is true of every version.) Size alone does
+		# not reproduce it: grep cannot match until it has
+		# a whole LINE, so a single-line payload is consumed entirely no matter how long
+		# it is. It takes a payload that is BOTH multi-line and past the pipe buffer —
+		# pretty-printed JSON — which the `case` above accepts and the fixture builds.
+		grep -qE '"tool_name"[[:space:]]*:[[:space:]]*"Bash"' <<<"$payload" || return 0
+		# `head -1` is the same shape with `head` as the early exit, and there the status
+		# lands on the FUNCTION. Substitute first, then take the first line with a
+		# parameter expansion, so no reader can leave. The `if` keeps the empty case
+		# returning 0, which is what the piped form did and what fail-open means here.
+		local extracted
+		extracted=$(sed -n 's/.*"tool_input"[[:space:]]*:[[:space:]]*{[^}]*"command"[[:space:]]*:[[:space:]]*"\(.*\)"[[:space:]]*}.*/\1/p' <<<"$payload")
+		if [ -n "$extracted" ]; then printf '%s\n' "${extracted%%$'\n'*}"; fi
 	fi
 }
 
@@ -2392,6 +2994,147 @@ st_destructive_reason_lacks() { # st_destructive_reason_lacks <substring> <comma
 			;;
 		esac
 	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
+}
+
+# The one fixture in this suite whose subject is what the guard WRITES DOWN rather than what it
+# decides. A data-plane command can carry a live password in a `--db-url`, and the signature is
+# persisted to a state file and printed by `--advisory-report`, so recording an operand value
+# here would disclose it twice — the hard boundary this whole script exists to serve, defeated
+# by the rail's own bookkeeping.
+#
+# The value is CONSTRUCTED AT RUNTIME. A realistic-looking password stored in this file would be
+# a secret-shaped literal in the repository, which is the AMH ledger row D004 class: the fixture
+# would then trip the very scanners it sits beside.
+st_dataplane_signature_omits_value() {
+	local state old_set old_state secret cmd sig recorded url
+	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
+	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-dataplane-signature-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	DESTRUCTIVE_ADVISORY_STATE=$state
+	secret="pw$$-${RANDOM:-0}-omitme"
+	# Assembled in pieces so no LITERAL in this file is credential-shaped. The repository's
+	# secret-shape scan anchors on a scheme, a userinfo pair and the `@` that closes it, and it
+	# is right to — this comment cannot spell the shape out either. A fixture that
+	# stores that shape whole is the thing it is scanning for, whatever the password expands
+	# from. `scripts/redact.sh`'s own fixtures are built the same way.
+	local at='@'
+	url="postgresql://appuser:$secret${at}db.example.internal:5432/app"
+	# ALL SIX arms that can see a value — the count is written here on purpose, because the
+	# first version of this fixture exercised exactly one of three. A review pass deleted the
+	# `--db-url=*` arm and the bare-operand redaction in turn, and the whole suite stayed green
+	# while each mutant wrote a live password into the state file that `--advisory-report`
+	# prints. A property this rail's ledger row and changelog both headline as guaranteed
+	# cannot be pinned by a fixture that passes against most of the ways to break it. The list
+	# grew with the arms: every kind that calls `data_plane_flags` belongs here, and the
+	# `--shadow-database-url` pair are the ones whose value is a connection string by
+	# definition — the reported incident IS a production URL passed to that flag.
+	for cmd in \
+		"supabase db reset --db-url $url" \
+		"supabase db reset --db-url=$url" \
+		"dropdb $url" \
+		"prisma migrate diff --shadow-database-url $url" \
+		"prisma migrate diff --shadow-database-url=$url" \
+		"drizzle-kit push $url" \
+		"npm run db:push $url"; do
+		rm -f -- "$state"
+		if check_command "$cmd"; then
+			printf 'SELF-TEST FAIL: a data-plane command with a connection string should have been advised\n' >&2
+			ST_FAILS=$((ST_FAILS + 1))
+			continue
+		fi
+		sig=$(destructive_signature)
+		recorded=$(cat -- "$state" 2>/dev/null) || recorded=''
+		# Neither the failure message nor anything else here echoes the command: a fixture
+		# that prints the value it is checking for is the diagnostic-leakage class.
+		case $sig$recorded in
+		*"$secret"*)
+			printf 'SELF-TEST FAIL: the destructive signature recorded a connection-string value\n' >&2
+			ST_FAILS=$((ST_FAILS + 1))
+			;;
+		esac
+		# The presence half. Without it the check above passes over a signature that recorded
+		# nothing at all — including one from a rail that stopped firing.
+		case $sig in
+		*supabase-db-reset* | *dropdb* | *prisma-migrate-shadow-db* | *drizzle-kit-push* | *package-script-*) ;;
+		*)
+			printf 'SELF-TEST FAIL: the data-plane signature did not name the command kind\n' >&2
+			ST_FAILS=$((ST_FAILS + 1))
+			;;
+		esac
+	done
+	# ...and the flag NAME survives, which is what makes `--db-url X` distinguishable from a
+	# bare reset without making it distinguishable from `--db-url Y`. Both spellings.
+	rm -f -- "$state"
+	check_command "supabase db reset --db-url $url" || :
+	sig=$(destructive_signature)
+	case $sig in
+	*'--db-url:given'*) ;;
+	*)
+		printf 'SELF-TEST FAIL: the data-plane signature dropped the target flag name\n' >&2
+		ST_FAILS=$((ST_FAILS + 1))
+		;;
+	esac
+	rm -f -- "$state"
+	check_command "supabase db reset --db-url=$url" || :
+	sig=$(destructive_signature)
+	case $sig in
+	*'--db-url:given'*) ;;
+	*)
+		printf 'SELF-TEST FAIL: the data-plane signature dropped the target flag name from the = spelling\n' >&2
+		ST_FAILS=$((ST_FAILS + 1))
+		;;
+	esac
+	# The flag NAME for the arm added with the prisma shadow-database shape, both spellings.
+	# Without these the whole entry could be dropped from the redaction list with the suite
+	# green, because these two arms pass `record_bare=0` and the value would be discarded by a
+	# different route — the fixture would be asserting a property no longer held where it says.
+	for cmd in \
+		"prisma migrate diff --shadow-database-url $url" \
+		"prisma migrate diff --shadow-database-url=$url"; do
+		rm -f -- "$state"
+		check_command "$cmd" || :
+		sig=$(destructive_signature)
+		case $sig in
+		*'--shadow-database-url:given'*) ;;
+		*)
+			printf 'SELF-TEST FAIL: the data-plane signature dropped the shadow-database flag name\n' >&2
+			ST_FAILS=$((ST_FAILS + 1))
+			;;
+		esac
+	done
+	# The two arms whose operand is neither a flag nor a URL: a plain database or script
+	# argument must not reach the signature either, which is the `record_bare=0` half of
+	# the tier's "no operand VALUE is ever recorded" rule and the half a connection-string fixture
+	# cannot see, because the redaction catches a URL whichever way that switch is set.
+	for cmd in \
+		"npm run db:push scratchdbname" \
+		"drizzle-kit push scratchdbname"; do
+		rm -f -- "$state"
+		check_command "$cmd" || :
+		sig=$(destructive_signature)
+		recorded=$(cat -- "$state" 2>/dev/null) || recorded=''
+		case $sig$recorded in
+		*scratchdbname*)
+			printf 'SELF-TEST FAIL: a bare operand reached the signature of a script-name or drizzle command\n' >&2
+			ST_FAILS=$((ST_FAILS + 1))
+			;;
+		esac
+	done
+	# The bare connection string keeps its redaction marker rather than vanishing: a target
+	# that disappears entirely collides with a bare `dropdb` on one signature.
+	rm -f -- "$state"
+	check_command "dropdb $url" || :
+	sig=$(destructive_signature)
+	case $sig in
+	*'target:redacted'*) ;;
+	*)
+		printf 'SELF-TEST FAIL: a redacted bare target left no marker in the signature\n' >&2
+		ST_FAILS=$((ST_FAILS + 1))
+		;;
+	esac
 	rm -f -- "$state"
 	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
 }
@@ -2816,6 +3559,225 @@ printenv'
 	# The report distinguishes the two outcomes the rail can actually observe.
 	st_advisory_report 'rm -rf /tmp/abandoned' 'rm -rf /tmp/resumed'
 
+	# --- the data-plane tier
+	# The earned shape first, then its siblings. Each must be advised ONCE and proceed on the
+	# rerun, exactly like the filesystem tier.
+	st_destructive_advisory_once 'supabase db reset'
+	st_destructive_advisory_once 'prisma migrate reset'
+	st_destructive_advisory_once 'prisma db push --accept-data-loss'
+	st_destructive_advisory_once 'prisma db push --force-reset'
+	st_destructive_advisory_once 'rails db:drop'
+	st_destructive_advisory_once 'rake db:reset'
+	st_destructive_advisory_once 'bin/rails db:schema:load'
+	st_destructive_advisory_once 'dropdb app_production'
+	st_destructive_advisory_once 'psql -c "DROP DATABASE app"'
+	st_destructive_advisory_once 'psql --command="TRUNCATE users"'
+	st_destructive_advisory_once 'psql -h db -c "drop schema public cascade"'
+	# Every `-c`, not the first: a harmless leading statement must not shelter the one behind
+	# it. Both were allowed until the scan stopped breaking at the first match.
+	st_destructive_advisory_once 'psql -c "SELECT 1" -c "DROP DATABASE app"'
+	st_destructive_advisory_once 'psql -c "SELECT 1 FROM t" -c "TRUNCATE users"'
+	# Bundled short options are how psql is actually written, and a pattern anchored on `c` in
+	# position two saw none of these.
+	st_destructive_advisory_once 'psql -Atc "TRUNCATE users"'
+	st_destructive_advisory_once 'psql -qc "DROP DATABASE app"'
+	st_destructive_advisory_once 'psql -d app -Xc "DROP SCHEMA public CASCADE"'
+	st_destructive_advisory_once 'psql -c "BEGIN; TRUNCATE users"'
+	# Package runners are the real invocation. Without the runner strip every one of these
+	# reaches the filesystem arms as a command called `npx` and is silently allowed.
+	st_destructive_advisory_once 'npx prisma migrate reset'
+	st_destructive_advisory_once 'npx --yes prisma migrate reset'
+	st_destructive_advisory_once 'pnpm exec prisma migrate reset'
+	st_destructive_advisory_once 'pnpm dlx prisma migrate reset'
+	st_destructive_advisory_once 'pnpm prisma migrate reset'
+	st_destructive_advisory_once 'yarn prisma migrate reset'
+	st_destructive_advisory_once 'bunx supabase db reset'
+	st_destructive_advisory_once 'bun x supabase db reset'
+	# ...and the wrappers the shared prefix loop already strips still work through it.
+	st_destructive_advisory_once 'cd apps/api && supabase db reset'
+	# The FALSE-POSITIVE direction, which is what decides whether this tier survives contact
+	# with a real session. These are the everyday commands in the same tools, and a rail that
+	# advises them is one an agent learns to skim — taking `rm -rf` down with it.
+	st_allowed 'supabase start'
+	st_allowed 'supabase db diff'
+	st_allowed 'supabase db push'
+	st_allowed 'supabase migration new add_users'
+	st_allowed 'prisma migrate dev'
+	st_allowed 'prisma migrate deploy'
+	st_allowed 'prisma generate'
+	st_allowed 'npx prisma db push'
+	st_allowed 'rails db:migrate'
+	st_allowed 'rake db:seed'
+	st_allowed 'rails server'
+	st_allowed 'psql -c "SELECT count(*) FROM users"'
+	st_allowed 'psql -f migrate.sql'
+	st_allowed 'psql'
+	# The verb NAMED but not performed. Every one of these is a read, and every one of them was
+	# advised while the scan matched the word anywhere in the statement — a fail-CLOSED false
+	# positive on `SELECT`, in the arm whose own comment refuses `DELETE FROM` for crying wolf.
+	st_allowed 'psql -c "SELECT * FROM truncate_log"'
+	st_allowed 'psql -c "EXPLAIN SELECT * FROM truncate_metrics"'
+	st_allowed "psql -c \"SELECT id FROM audit WHERE action = 'truncate'\""
+	st_allowed 'psql -c "\d truncate_log"'
+	st_allowed 'pnpm run build'
+	st_allowed 'createdb app_test'
+	# Quoted prose naming the verb is DATA — the D007 class, one tier down. A commit message
+	# about this rail must not trip it.
+	st_allowed 'git commit -m "guard supabase db reset and dropdb"'
+	# Each tool is its own decision, and so is each explicitly named target. Sharing one
+	# signature across the tier would mean the first reset of a session buys silence for every
+	# later one, in a different ecosystem, against a different database.
+	st_destructive_rearms_per_target 'supabase db reset' 'prisma migrate reset'
+	st_destructive_rearms_per_target 'supabase db reset --local' 'supabase db reset --linked'
+	st_destructive_rearms_per_target 'dropdb scratch' 'dropdb app_production'
+	# The permutation that defeated the rearm: a value-taking flag whose value was recorded as
+	# if it were the database name, then sorted, made these two the SAME signature — so
+	# clearing the one that drops `scratch` cleared the one that drops `prod`.
+	st_destructive_rearms_per_target 'dropdb -U prod scratch' 'dropdb -U scratch prod'
+	# The other half of that fix, pinned as the ACCEPTED MISS it is rather than left to be
+	# discovered: consuming a flag's value means the value no longer discriminates either, so
+	# the same database name on two different hosts is one signature and one advisory. Naming
+	# the host would discriminate, and this rail does not record operand values. The advisory's
+	# own text is what covers this — it asks which database the command resolves to, and the
+	# host is part of that answer.
+	st_destructive_same_target_set 'dropdb -h prod.example.internal app' \
+		'dropdb -h staging.example.internal app'
+	# The advisory says the thing this tier exists to say, and does NOT say the things that are
+	# only true of a path. "may delete guard fixtures" and the absolute-path mechanism are both
+	# false of a database reset, and an agent that catches a rail being confidently wrong has a
+	# correct reason to dismiss the next one too.
+	st_destructive_reason_names 'WHICH database this hits is not in the command' 'supabase db reset'
+	st_destructive_reason_names 'destroys DATABASE state' 'supabase db reset'
+	st_destructive_reason_names 'a flag is a claim in the command text' 'supabase db reset --local'
+	st_destructive_reason_lacks 'may delete guard fixtures' 'supabase db reset'
+	st_destructive_reason_lacks 'overwrites or discards working-tree state' 'supabase db reset'
+	# The operand carries a `/`, which is what makes this fixture able to fail: `dropdb "$DB"`
+	# never sets ROOTISH with or without the exemption, so it asserted nothing.
+	st_destructive_reason_lacks 'is empty the command addresses an absolute path' 'dropdb "$D/x"'
+	st_destructive_reason_lacks 'renaming or relocating the target' 'supabase db reset'
+	# A command that is BOTH gets both paragraphs. Folding the data-plane text into the path
+	# chain drops whichever one loses, and the deletion half of this command is no less real
+	# for the reset half being scarier.
+	st_destructive_reason_names 'is empty the command addresses an absolute path' \
+		'rm -rf "$S/base" && supabase db reset'
+	st_destructive_reason_names 'WHICH database this hits is not in the command' \
+		'rm -rf "$S/base" && supabase db reset'
+	# The runner strip widens the FILESYSTEM arms too, which is a behaviour change and gets
+	# fixtures rather than a comment asserting it did not happen.
+	st_destructive_advisory_once 'npx rm -rf /tmp/x'
+	st_destructive_advisory_once 'pnpm exec git clean -fdx'
+	# A runner option that takes a value names a package, not a command.
+	st_destructive_advisory_once 'npx -p prisma@5 prisma migrate reset'
+	# Global options come before the subcommand, the way the git arm has always read them.
+	st_destructive_advisory_once 'supabase --workdir . db reset'
+	st_destructive_advisory_once 'prisma db push --accept-data-loss=true'
+	# Which CLOSING paragraph won. The two hazard paragraphs were asserted and the selector
+	# below them was not, so reducing its three conditions to one left the suite green.
+	st_destructive_reason_names 'that key is weak here by construction' 'supabase db reset'
+	st_destructive_reason_lacks 'that key is weak here by construction' \
+		'rm -rf "$S/base" && supabase db reset'
+	# The rail must not become the disclosure. A connection string is the one operand in this
+	# tier that routinely carries a live password, and the signature it would land in is
+	# written to a state file and printed by `--advisory-report`.
+	st_dataplane_signature_omits_value
+
+	# --- the shapes a reported incident earned, and the everyday commands beside them.
+	# `npm run db:push` is the command from the most widely reported incident of this kind, and
+	# every arm here saw a command called `npm` until `npm` joined the runner strip. Each runner
+	# spelling is its own fixture because each resolves the script name by a different path.
+	st_destructive_advisory_once 'npm run db:push'
+	st_destructive_advisory_once 'npm run-script db:push'
+	st_destructive_advisory_once 'pnpm run db:reset'
+	st_destructive_advisory_once 'yarn db:drop'
+	st_destructive_advisory_once 'bun run migrate:reset'
+	st_destructive_advisory_once 'npm run db:wipe'
+	st_destructive_advisory_once 'npm run migrate:fresh'
+	# The tool underneath that script. `push` writes the schema diff straight to the database,
+	# and the confirmation prisma's equivalent relies on is reported not firing here.
+	st_destructive_advisory_once 'drizzle-kit push'
+	st_destructive_advisory_once 'npx drizzle-kit push'
+	st_destructive_advisory_once 'drizzle-kit push:pg'
+	# `npm` in the runner strip widens the filesystem and data-plane arms alike, exactly as
+	# `npx` did — a behaviour change with fixtures rather than a comment claiming it did not
+	# happen.
+	st_destructive_advisory_once 'npm exec prisma migrate reset'
+	st_destructive_advisory_once 'npm exec rm -rf /tmp/x'
+	# The FALSE-POSITIVE direction. These are the everyday scripts in the same repositories and
+	# the everyday verbs in the same tool; a rail that advises them teaches an agent to skim.
+	st_allowed 'npm run build'
+	st_allowed 'npm run test'
+	st_allowed 'npm run dev'
+	st_allowed 'npm install'
+	st_allowed 'npm ci'
+	st_allowed 'npm run db:migrate'
+	st_allowed 'npm run db:seed'
+	st_allowed 'npm run db:generate'
+	st_allowed 'yarn lint'
+	st_allowed 'drizzle-kit generate'
+	st_allowed 'drizzle-kit migrate'
+	st_allowed 'drizzle-kit studio'
+	st_allowed 'drizzle-kit check'
+	# Deliberately absent from the arm: no public report shows it destroying stored data, and
+	# this tier's list is earned by reports rather than by resemblance.
+	st_allowed 'drizzle-kit drop'
+	# The name is matched WHOLE. A script whose name merely CONTAINS one of the list is a
+	# different script — the D007 class in the arm most exposed to it, since a script name is
+	# free text its author chose.
+	st_allowed 'npm run build:db:pushdocs'
+	st_allowed 'npm run db:push:check'
+	st_allowed 'npm run predb:reset'
+	# Each script name is its own decision, and so is the tool underneath it: clearing the one
+	# that pushes a schema must not clear the one that drops the database.
+	st_destructive_rearms_per_target 'npm run db:push' 'npm run db:reset'
+	st_destructive_rearms_per_target 'drizzle-kit push' 'npm run db:push'
+	# ...and the same script through two runners is the same decision, because the signature is
+	# the resolved name rather than the text that reached it.
+	st_destructive_same_target_set 'npm run db:push' 'pnpm db:push'
+	# The paragraph this arm owes, in BOTH directions and against BOTH of the tier's other
+	# kinds — three assertions for three ways it could be wrong, per the N-arms rule that came
+	# out of this tier's own review pass. It must fire for a script name, and must NOT fire for
+	# a command the guard genuinely understands, or the disclosure stops meaning anything.
+	st_destructive_reason_names 'matched a package SCRIPT NAME' 'npm run db:push'
+	st_destructive_reason_names 'the check that settles it is reading the script' 'npm run db:push'
+	st_destructive_reason_lacks 'matched a package SCRIPT NAME' 'supabase db reset'
+	st_destructive_reason_lacks 'matched a package SCRIPT NAME' 'drizzle-kit push'
+	# The tier's shared paragraphs still reach the new kinds — a script name resolves a database
+	# from the same ambient config, and neither new kind touches a path.
+	st_destructive_reason_names 'WHICH database this hits is not in the command' 'npm run db:push'
+	st_destructive_reason_names 'destroys DATABASE state' 'drizzle-kit push'
+	st_destructive_reason_lacks 'may delete guard fixtures' 'npm run db:push'
+	# The disclosure is gated on HOW the command word was resolved, not on which kind it
+	# reached, and both halves of that need a fixture. `npm run dropdb` reads a script name and
+	# lands on the `dropdb` arm: without the resolution test it was told outright that it
+	# "drops a database outright" on the strength of a name nobody read.
+	st_destructive_reason_names 'matched a package SCRIPT NAME' 'npm run dropdb'
+	st_destructive_reason_names 'matched a package SCRIPT NAME' 'yarn run db:drop'
+	st_destructive_reason_lacks 'matched a package SCRIPT NAME' 'npm exec dropdb app'
+	st_destructive_reason_lacks 'matched a package SCRIPT NAME' 'npm exec rm -rf /tmp/x'
+	# ...and the lead sentence follows the same fact, because asserting "this command destroys
+	# DATABASE state" and then admitting the script was never read is a contradiction inside one
+	# advisory. Both directions: hedged for a name, flat for a command the guard understands.
+	st_destructive_reason_names 'MAY destroy DATABASE state' 'npm run db:push'
+	st_destructive_reason_lacks 'destroys DATABASE state' 'npm run db:push'
+	st_destructive_reason_lacks 'MAY destroy DATABASE state' 'supabase db reset'
+	# The prisma flag a public report earned: an agent pointed `--shadow-database-url` at
+	# production and prisma reset what the flag named. Every other `migrate` subcommand stays
+	# silent without it, which is the whole false-positive budget for this arm.
+	st_destructive_advisory_once 'prisma migrate diff --shadow-database-url postgres://scratch'
+	st_destructive_advisory_once 'npx prisma migrate dev --shadow-database-url=postgres://scratch'
+	st_allowed 'prisma migrate diff --from-empty --to-schema-datamodel schema.prisma'
+	st_allowed 'prisma migrate status'
+	# The dialect spellings are ENUMERATED, so the kind can never carry command text. A glob
+	# here let a crafted operand spell another command's signature and clear its advisory.
+	st_allowed 'drizzle-kit push:x'
+	st_allowed 'drizzle-kit push:'
+	# The workspace flags, whose values were being read as the subcommand — six silent
+	# spellings of the incident's own command in a monorepo, before and after `run`.
+	st_destructive_advisory_once 'npm -w api run db:push'
+	st_destructive_advisory_once 'npm --prefix ./app run db:push'
+	st_destructive_advisory_once 'npm run -w api db:push'
+	st_destructive_advisory_once 'pnpm -F api db:push'
+
 	# The subagent-spawn speed bump blocks once, allows the deliberate rerun, then rearms for
 	# the next spawn. That direction is load-bearing: a burst must not inherit silence from
 	# the first spawn, while the immediate rerun still permits the ONE blocking reviewer.
@@ -2848,6 +3810,68 @@ printenv'
 
 	# --- must allow: the known false-positive classes.
 	# Quoted text naming a forbidden command is DATA, not a command.
+	# THE BACKSLASH RULE, in the direction that matters first. An escaped quote inside a
+	# double-quoted word is not the closing quote, and until every walker agreed about that,
+	# ONE `\"` anywhere on the line voided the rails for everything after it: the `&&` that
+	# followed read as unquoted, a segment bash never runs was handed to the scanners, and the
+	# force-push rail — the oldest one here — let a real push through. Six walkers carry the
+	# rule and each of the six is a way to break it, so the demonstration owed is six
+	# mutations, not one (AMH ledger row DC025 on why that count belongs in this comment).
+	st_blocked 'echo "say \"hi\"" && git push --force origin main'
+	st_blocked 'echo "say \"hi\"" ; git push --force origin main'
+	st_blocked 'echo "a \" b" && git push --force origin main'
+	st_blocked 'x="\"" && git push --force origin main'
+	st_blocked 'echo "1 \"2\" 3 \"4\"" && git push --force origin main'
+	st_blocked 'echo "say \"hi\"" && git push origin main'
+	st_blocked 'echo "say \"hi\"" && cat .env'
+	st_blocked 'echo "a \" b" && printenv'
+	st_blocked 'echo "trailing backslash \\" && git push --force origin main'
+	st_destructive_advisory_once 'echo "say \"hi\"" && rm -rf /tmp/x'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'echo "a\\" && rm -rf /tmp/x'
+	rm -f -- "$self_destructive_advisory_state"
+	# SINGLE quotes have no escapes at all, so `'"'"'a \'"'"'` is a complete word and the command
+	# after it is real. A walker that treated the backslash as an escape there would swallow
+	# the closing quote and the push with it — the same hole, one quote character over.
+	st_blocked "echo 'a \\' && git push --force origin main"
+	# ONE FIXTURE PER WALKER, because six sites are six ways to break this and the first draft
+	# of this block demonstrated exactly one of them — every mutation but `split_segments`
+	# survived a green suite. Each command below dies with the walker it names; two of them die
+	# with a second walker as well, which is why the claim here is "every site has a fixture
+	# that fails without it" and NOT the tidier "each covers exactly one" — that sentence was
+	# in an earlier draft and was false for the two `>` cases (AMH ledger row DC025).
+	#
+	# `heredoc_delim` is the sixth and it took three tries to demonstrate, which is the part
+	# worth carrying away. Draft one claimed six kills from a mutation run whose suite was
+	# ALREADY red, so every mutant died for the wrong reason. Draft two put the `<<` AFTER the
+	# quoted word (`echo "a \" <<EOF`), left the string unterminated, and concluded from that
+	# one construction that the walker was unreachable on input bash accepts — a claim the
+	# review pass falsified by moving the operator INSIDE the word, where the string closes and
+	# both lines really run. The lesson is not "write fixtures": it is that "unreachable" is a
+	# claim about every input, and one failed construction is not a proof of it.
+	#   heredoc_delim: a `<<` inside a quoted WORD — the string still closes, so bash runs both
+	#   lines — opens body mode that discards every later line, which is the severity class AMH
+	#   ledger row D016 item 1 records: the rails do not fire because they never see the input.
+	st_blocked 'echo "a \" << EOF b"
+git push --force origin main'
+	st_blocked 'echo "write \" <<EOF into the doc"
+cat .env'
+	#   split_words: the word boundary decides whether `.env` is an operand at all.
+	st_blocked 'cat "a \" b" .env'
+	#   strip_redirections, outer loop: a quoted `>` read as a real redirection cuts the
+	#   operand that names the secret out of the segment before anything judges it.
+	st_blocked 'cat "a \" > out" .env'
+	st_blocked 'grep -q "a \" > out" .env'
+	#   strip_redirections, target loop, and redirect_targets: both fail the OTHER way — a
+	#   quoted `<` read as a redirection makes prose about `.env` look like a read of it,
+	#   which is AMH ledger row D007 in the scanner D007 was written about.
+	st_allowed 'cat < "x \" .env"'
+	st_allowed 'grep -q "x \" < .env" file.txt'
+	st_allowed 'grep -q "pattern \" < id_rsa" file.txt'
+	# ...and none of that is bought by breaking AMH ledger row D007. Quoted prose with an escaped quote
+	# is still DATA, including the shape this repository writes constantly.
+	st_allowed 'echo "a \"q\" | rm -rf /tmp/x | b"'
+	st_allowed 'echo "a \" | db:reset | b"'
 	st_allowed 'git commit -m "never git push --force on this repo"'
 	st_allowed "git commit -m 'document why printenv is denied'"
 	st_allowed 'echo "cat .env is forbidden by P17"'
