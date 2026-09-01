@@ -304,5 +304,24 @@ jobs:
             sed -n '1,40p' "$log" >&2
             exit 1
           fi
+          # The VERDICT lines, not the first 25. The head of a ladder log is its healthy
+          # rungs, so a fixed window shows a platform passing things nobody asked about and
+          # stops exactly where the answer starts: on Windows the 25-line excerpt ended one
+          # line above the failing rung, which left "an unseeded CRLF tree fails on the
+          # integrity rung" an inference from LF hashes rather than anything this job had
+          # observed (DC-041).
+          #
+          # ASCII-only pattern, deliberately: the ladder's verdict line carries a multibyte
+          # mark, and matching it would put this step's evidence back at the mercy of a
+          # tool's encoding handling on the one platform whose tool handling is the subject.
+          # `guards:` reaches the same line in bytes nobody can disagree about.
+          #
+          # The `if !` arm is not a fallback for tidiness: grep matching nothing means a red
+          # run that printed no rung verdict at all, which is what a shell refusing a CRLF
+          # script looks like — the macOS case — so the head is exactly what a reader needs
+          # there, and its absence would leave that platform's failure undocumented.
           printf 'unseeded: red, as it must be. What this platform printed:\n'
-          sed -n '1,25p' "$log"
+          if ! grep -E '^ *(FAIL|WARN)|guards:' "$log"; then
+            printf '(no rung verdict in the log — it did not get that far. Head:)\n'
+            sed -n '1,25p' "$log"
+          fi
