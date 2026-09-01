@@ -2095,7 +2095,7 @@ expect_runner_saying "a missing rail script loudly says that nothing self-tested
 # two that matter most are the ones that must NOT be failures: an adopter with no manifest,
 # and a machine with no hashing tool. Both stay green and both say so out loud.
 if [ -z "$HASHER" ]; then
-	printf '  SKIP 10 shipped-integrity case(s): no sha256sum or shasum on this machine, so no fixture manifest could be built\n' >&2
+	printf '  SKIP 11 shipped-integrity case(s): no sha256sum or shasum on this machine, so no fixture manifest could be built\n' >&2
 else
 	d=$(mk_integrity integrity_ok)
 	expect_pass_saying "an untouched tree matches the manifest and says how many it checked" "$d" \
@@ -2106,8 +2106,37 @@ else
 	# the only rung that can react is the one under test.
 	d=$(mk_integrity integrity_edited)
 	printf '\n# a local edit to a shipped script\n' >>"$d/scripts/session-start.sh"
-	expect_fail "an edited shipped script fails against the published hash" "$d" \
-		"does not match the hash the harness published for it"
+	out=$(run "$d")
+	rc=$?
+	if [ "$rc" -eq 0 ]; then
+		report no "an ordinary content mismatch retains the normal remediation without claiming CRLF" \
+			"expected a failure, ladder passed" "$out"
+	elif ! grep -qF "If you edited it:" <<<"$out"; then
+		report no "an ordinary content mismatch retains the normal remediation without claiming CRLF" \
+			"the normal edited-file remediation was absent" "$out"
+	elif grep -qF "CRLF worktree" <<<"$out"; then
+		report no "an ordinary content mismatch retains the normal remediation without claiming CRLF" \
+			"the diagnostic claimed CRLF without Git establishing it" "$out"
+	else
+		report ok "an ordinary content mismatch retains the normal remediation without claiming CRLF"
+	fi
+
+	# Git's eol report is authoritative for what its checkout machinery put in the worktree.
+	# Convert one tracked script after the manifest and commit are established: the published
+	# hash remains LF while `git ls-files --eol` now reports w/crlf for the affected path.
+	d=$(mk_integrity integrity_script_crlf)
+	crlf_endings "$d/scripts/session-start.sh"
+	out=$(run "$d")
+	rc=$?
+	if [ "$rc" -eq 0 ]; then
+		report no "a CRLF shipped-script mismatch names line endings and .gitattributes" \
+			"expected a failure, ladder passed" "$out"
+	elif ! grep -qF "CRLF worktree" <<<"$out" || ! grep -qF ".gitattributes" <<<"$out"; then
+		report no "a CRLF shipped-script mismatch names line endings and .gitattributes" \
+			"the targeted line-ending remediation was incomplete" "$out"
+	else
+		report ok "a CRLF shipped-script mismatch names line endings and .gitattributes"
+	fi
 
 	# Absence is not a failure — an adopter who upgraded by copying *.sh before the manifest
 	# existed has none, and failing them for following the documented path would be a fix

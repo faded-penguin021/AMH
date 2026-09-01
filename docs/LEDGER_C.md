@@ -777,3 +777,12 @@
   read. The durable part is narrower than "use git": an assertion about a tool-behaviour class
   must be built from something OUTSIDE that class, and a test for platform damage that runs on
   the damaged platform has to say which of its own instruments it still trusts there.
+
+- DC-042: **A byte-integrity verdict must separate content damage from Git's checkout
+  transformation before prescribing restoration.** Re-copying an LF artifact into a worktree
+  Git is configured to smudge to CRLF reproduces the mismatch, so generic “restore and retry”
+  advice sends that adopter around a loop. The integrity rung now asks `git ls-files --eol` for
+  each mismatched tracked path: an authoritative `w/crlf` report selects remediation that first
+  restores `.gitattributes` and re-normalizes the checkout, while every unestablished cause keeps
+  the ordinary edited-file explanation. The paired fixtures pin both directions because merely
+  adding a CRLF branch can otherwise misdiagnose every content edit as line-ending conversion.

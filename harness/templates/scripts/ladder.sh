@@ -1182,7 +1182,7 @@ guard_shipped_integrity() {
 		warn "neither sha256sum nor shasum is on PATH, so $manifest was NOT verified — this rung checked NOTHING. Install coreutils (or Perl's shasum) if you want the shipped scripts covered here."
 		return
 	fi
-	local line n=0 checked=0 bad=0 covers_self=0 want rest file got
+	local line n=0 checked=0 bad=0 covers_self=0 want rest file got eol
 	while IFS= read -r line || [ -n "$line" ]; do
 		n=$((n + 1))
 		# A CRLF checkout — the default on Windows, where the installer sets
@@ -1233,7 +1233,19 @@ guard_shipped_integrity() {
 		fi
 		got=$(amh_sha256 "$tool" "$file")
 		if [ "$got" != "$want" ]; then
-			fail "$file does not match the hash the harness published for it. If you edited it: the change belongs in amh.conf, in a guard under scripts/guards/, or in scripts/verify.sh — re-running the harness's init script puts the shipped copy back. If you upgraded by copying *.sh by hand: copy $manifest out of the same directory too, or this rung reports every new script as edited."
+			# Ask Git about the affected path instead of inspecting its bytes with another
+			# text-mode tool. `ls-files --eol` reports the worktree representation Git
+			# actually established, and prints nothing for an untracked file.
+			eol=''
+			has_git && eol=$(git ls-files --eol -- "$file" 2>/dev/null)
+			case $eol in
+			*' w/crlf '*)
+				fail "$file does not match the hash the harness published for it, and Git reports a CRLF worktree for this tracked file. Line-ending conversion may have changed this byte-bound artifact. Retain or restore the harness-provided .gitattributes, re-normalize and re-check out the affected file, and only then re-run the harness's init script or this ladder."
+				;;
+			*)
+				fail "$file does not match the hash the harness published for it. If you edited it: the change belongs in amh.conf, in a guard under scripts/guards/, or in scripts/verify.sh — re-running the harness's init script puts the shipped copy back. If you upgraded by copying *.sh by hand: copy $manifest out of the same directory too, or this rung reports every new script as edited."
+				;;
+			esac
 			bad=$((bad + 1))
 		fi
 	done <"$manifest"

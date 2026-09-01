@@ -39,17 +39,6 @@ message**: GitHub's default concatenates every commit body on the branch, which 
 release commit lost its CI run (**DC-040**). Check: `git tag -l amh-v10.4.1` — resolved when it
 prints the tag.
 
-**OPEN — the integrity rung's remediation text sends a CRLF adopter round a loop.** Now that
-run 33494690202 has PRINTED what an unseeded CRLF tree fails on — five `does not match the hash`
-lines and nothing else — the advice under them is readable, and it is wrong for this cause: it
-offers "you edited it" and "re-run the harness's init script", which re-copies LF files that the
-adopter's own `core.autocrlf=true` re-smudges to CRLF, failing identically next run. Line endings
-are not mentioned. That is a true verdict wrapped in a false account of the cause, the shape this
-rung's own comment block exists to refuse. A fix belongs in `ladder.sh` (a shipped script, so a
-reviewed unit): when a hash mismatch coincides with a CRLF worktree, say so and name
-`.gitattributes`. Check: the rung's failure text against a CRLF tree — resolved when it names
-line endings as a possible cause.
-
 **OPEN — the `printf | grep -q` class survives at 39 further sites, and 10 are NOT fixture
 harnesses.** Unit 3 fixed the two with reachable unbounded input; the residue is safe on BOUNDED,
 mostly single-line input rather than on a loud direction, and at least three are the same
@@ -105,6 +94,10 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-09-01 — **Shipped-integrity failures now distinguish CRLF conversion from ordinary
+  edits.** A mismatch asks Git for the affected tracked file's authoritative worktree EOL; only
+  `w/crlf` selects the targeted `.gitattributes`, re-normalize and re-checkout remediation, while
+  every other mismatch retains the existing edited-file explanation (**DC-042**).
 - 2026-09-01 — **The CRLF portability question is answered on both platforms.** Run 33494690202
   is green on both legs and prints what each does: an unseeded CRLF tree on Windows fails on the
   integrity rung and ONLY there — five `does not match the hash` lines, secret scan and rails
