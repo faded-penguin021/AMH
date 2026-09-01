@@ -62,7 +62,7 @@ LEDGER_DIR=docs
 LEDGER_BASENAME=LEDGER
 LEDGER_LINE_CAP=800
 LEDGER_ROW_SENTENCE_CAP=6
-# A backstop against runaway sentences, not the working limit — LEDGER_ROW_SENTENCE_CAP is.
+# A second rejection boundary that catches pathologically dense sentences.
 LEDGER_ROW_CHAR_CAP=2000
 CITATION_SCAN_PATHS='scripts .github'
 CITATION_EXCLUDE=''
@@ -502,9 +502,8 @@ guard_new_ledger_row_lengths() {
 		id=${row##*/}
 		[ -f "$TMP/head-rows/$id" ] && continue
 		checked=$((checked + 1))
-		# The working limit, and the only one a draft is written toward. Over it, no
-		# amount of rewording helps: the row loses a whole sentence of narrative or it
-		# does not pass, which is the same instruction the ledger preamble gives in prose.
+		# A rejection boundary, never a desired size. Counting sentences discourages
+		# word-by-word shaving; a row near it probably contains narrative or multiple lessons.
 		sentences=$(count_sentences "$row") || {
 			fail "$id: could not count the sentences in this new row — the rung judged NOTHING, and a green line here would say it had"
 			return
@@ -513,15 +512,15 @@ guard_new_ledger_row_lengths() {
 			fail "$id: new ledger row runs to $sentences sentences, over LEDGER_ROW_SENTENCE_CAP=$sent_cap — cut a whole sentence of narrative, not words; trimming clauses moves this count by nothing. Historical committed rows and sanctioned metadata-only additions are exempt"
 			return
 		fi
-		# The backstop, in bytes, for the one shape the sentence cap cannot see: a row
-		# inside its sentence budget whose sentences run away. Locale-stable character
+		# The second rejection boundary, in bytes, catches pathologically dense sentences
+		# that the sentence count cannot see. Locale-stable character
 		# policy — count bytes with LC_ALL=C. For ordinary ASCII ledger prose that is one
 		# byte per character; UTF-8 non-ASCII text is charged by encoded bytes so the
 		# verdict is identical across host locales.
 		count=$(LC_ALL=C wc -c <"$row") || return
 		count=${count//[[:space:]]/}
 		if [ "$cap" -gt 0 ] && [ "$count" -gt "$cap" ]; then
-			fail "$id: new ledger row is $count byte-counted character(s), over LEDGER_ROW_CHAR_CAP=$cap — that is the runaway backstop rather than the working limit, and $sentences sentence(s) reaching it means the narrative belongs in docs/history/ with a pointer from the state changelog, not that the wording needs tightening; historical committed rows and sanctioned metadata-only additions are exempt"
+			fail "$id: new ledger row is $count byte-counted character(s), over LEDGER_ROW_CHAR_CAP=$cap — approaching this rejection boundary means the material probably contains narrative or multiple lessons; split it, keep only the durable conclusion, or route it to docs/history/ with a concise pointer; historical committed rows and sanctioned metadata-only additions are exempt"
 			return
 		fi
 		lengths="$lengths $id=$sentences"

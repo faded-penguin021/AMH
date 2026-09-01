@@ -37,14 +37,13 @@
 > **Search before appending.** Grep ALL volumes for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes DB-NNN") and the old row gets a `Superseded by` pointer, never deletion.
-> **Keep new rows concise and at or below `LEDGER_ROW_SENTENCE_CAP`.** The working limit counts
-> SENTENCES (**DC-003**), which is what stops "a maximum, not a target" depending on restraint:
-> a draft over it cannot be reworded into compliance, only shortened by a whole sentence. It is
-> not a claim that the count cannot be gamed — repunctuating would move it — which is why the
-> `LEDGER_ROW_CHAR_CAP` backstop stays underneath and a row satisfies both. Write only the
-> durable lesson, even when that takes far less space; do not draft a narrative and shave it
-> toward the cap, because shaving buys nothing here. Put larger narratives in `docs/history/`
-> and link them from the `docs/STATE.md` changelog.
+> **Both row caps are rejection boundaries for unusually long rows, never desired sizes.** Write
+> the smallest self-contained durable lesson first; one or two sentences are preferable when
+> sufficient. `LEDGER_ROW_SENTENCE_CAP` discourages word-by-word shaving, while
+> `LEDGER_ROW_CHAR_CAP` catches pathologically dense sentences. Approaching either boundary means
+> the material probably contains narrative or multiple lessons: split it, keep only the durable
+> conclusion, or route it to `docs/history/` with a concise pointer from the `docs/STATE.md`
+> changelog.
 >
 > **A version inside a row is what the session DRAFTED.** Write the number as drafted — `Drafted
 > as MINOR X.Y.Z` — and assert no release: the number is settled at PR time against the latest
@@ -57,11 +56,9 @@
 >
 > **File cap & rollover.** This file holds at most `LEDGER_LINE_CAP` lines from `amh.conf` (the
 > cap bounds LINES, not rows — it is read cost that is being bounded). New rows are capped by
-> `LEDGER_ROW_SENTENCE_CAP`, and beneath that by `LEDGER_ROW_CHAR_CAP`; the guard counts bytes
+> `LEDGER_ROW_SENTENCE_CAP` and `LEDGER_ROW_CHAR_CAP`; the guard counts bytes
 > under `LC_ALL=C` for a locale-stable result, so ASCII text is one byte per character and
-> non-ASCII UTF-8 is charged by encoded bytes. The byte cap is a backstop against sentences that
-> run away and sits far above where a compliant row lands — if it fires, the row is a narrative
-> and belongs in `docs/history/`, not in tighter wording. Neither
+> non-ASCII UTF-8 is charged by encoded bytes. Neither
 > value is restated here as a number, and neither should be: nothing checks preamble prose
 > against `amh.conf`, and the 5.0.0 cap change left three volume preambles contradicting the
 > guard (**DB-022**). The ladder quotes a value in the verdict that TURNS ON it — a rejection must say what it rejected against — and a green run deliberately quotes neither, because the number a clean run shows you is the number the next row is drafted toward (**DB-040**). Read both from `amh.conf`. Rows already committed when checked are historical and exempt. The final row may

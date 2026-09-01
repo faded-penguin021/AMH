@@ -11,6 +11,24 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 10.5.1 — 2026-09-01
+
+- **Ledger row limits are described only as rejection boundaries.** The configuration template,
+  scaffold guidance and ledger seed now direct authors to write the smallest self-contained
+  durable lesson first, preferring one or two sentences when sufficient. The sentence boundary
+  discourages word-by-word shaving; the byte boundary catches pathologically dense sentences.
+  Calibration anecdotes and headroom comparisons are removed because they make the boundary a
+  salient optimization target.
+- **Approaching either boundary is a classification signal, not an editing target.** Material
+  near a boundary probably contains narrative or multiple lessons and should be split, reduced
+  to the durable conclusion, or routed to history with a concise pointer.
+
+### Upgrading
+
+No action required. Existing adopters may hand-apply the clarified comments from
+`harness/templates/amh.conf.example` and the preamble wording from
+`harness/templates/seed/docs/LEDGER.md`; no value or guard verdict changed.
+
 ## 10.5.0 — 2026-09-01
 
 - **Forge/API mutations now have a dedicated hard rail.** Parsed `gh api` and direct-forge

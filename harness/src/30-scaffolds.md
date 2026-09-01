@@ -87,16 +87,12 @@ perfectly good pass, "is 8 enough?" has no answer, and a second number in the SA
 second number to hug. Two numbers in two units is not that shape; it is one aim-point that
 cannot be met sideways.
 
-Apply the same pair to the ledger's new-row limit. `LEDGER_ROW_SENTENCE_CAP` is the working
-limit and it is a **maximum, not a target**: its job is to bound the retrieval cost of one row,
-not to prescribe a standard row length, and a draft over it loses a whole sentence of narrative
-rather than a handful of clauses. Set it at the top of the shape your rows already have — if it
-never binds it teaches nothing. `LEDGER_ROW_CHAR_CAP` stays underneath as a **backstop** against
-the shape a sentence count cannot see, a row inside its sentence budget whose sentences run away.
-Measure your longest compliant row before you set it, and expect the honest answer to be
-"some headroom", not "far above": a backstop high enough to be invisible has stopped bounding
-read cost. When it does fire, the answer is an archive tier with a pointer from the state
-changelog, not tighter wording.
+Both ledger controls are rejection boundaries for unusually long new rows, never desired
+sizes. Write the smallest self-contained durable lesson first; one or two sentences are
+preferable when sufficient. `LEDGER_ROW_SENTENCE_CAP` discourages word-by-word shaving, while
+`LEDGER_ROW_CHAR_CAP` catches pathologically dense sentences. Approaching either boundary is
+evidence that the material probably contains narrative or multiple lessons: split it, reduce it
+to the durable conclusion, or route the narrative to history with a concise pointer.
 
 The landing check judges the shrink's *size* as well as where it lands, which is why
 `STATE_EDIT_DELTA_BYTES` exists. Its first form treated every byte lost above the soft cap as a

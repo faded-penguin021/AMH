@@ -36,12 +36,10 @@ shipped bug teaches session N+9's review pass.
 > **Search before appending.** Grep the ledger for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes D-NNN") and the old row gets a `Superseded by` pointer, never deletion.
-> **Keep new rows concise and at or below `LEDGER_ROW_SENTENCE_CAP`.** The working limit counts
-> SENTENCES, which is what stops "a maximum, not a target" depending on restraint: a draft over
-> it cannot be reworded into compliance, only shortened by a whole sentence. It is not a claim
-> that the count cannot be gamed — repunctuating would move it — which is why the byte backstop
-> below stays underneath and a new row satisfies both. Write only the durable lesson, even when
-> that takes far less space; do not draft a narrative and shave it toward the cap, because
+> **Keep new rows concise and at or below `LEDGER_ROW_SENTENCE_CAP`.** This is a rejection
+> boundary for unusually long rows, never a desired size. Write the smallest self-contained
+> durable lesson first; one or two sentences are preferable when sufficient. Counting sentences
+> discourages word-by-word shaving. Do not draft a narrative and shave it toward the cap, because
 > shaving buys nothing here. Put larger narratives in `docs/history/` and link them from the
 > `docs/STATE.md` changelog.
 >
@@ -54,11 +52,11 @@ shipped bug teaches session N+9's review pass.
 > cap, deliberately: the number a clean run puts in front of you is the number the next row gets
 > drafted toward, which is how a cap written as a maximum is read as a length.
 > New rows must also stay at or below `LEDGER_ROW_CHAR_CAP`, counted as bytes under `LC_ALL=C`;
-> ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. That one
-> is a backstop against sentences that run away, not the limit you write toward. Set it with
-> real headroom over your longest compliant row, but do not expect to get FAR above it — a
-> backstop that high has stopped bounding read cost. If it fires, the row is a narrative and
-> belongs in an archive tier with a pointer from the changelog. Rows
+> ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. This is
+> also a rejection boundary, never a desired size; it catches pathologically dense sentences.
+> Approaching either boundary is evidence that the material probably contains narrative or
+> multiple lessons: split it, reduce it to the durable conclusion, or route it to a history tier
+> with a concise pointer. Rows
 > already committed when checked are historical and exempt. The final row may finish past the
 > file cap, but no row may ever *start* past it: when the file stands over the
 > cap, create the next volume with this same header discipline and number its rows from the
