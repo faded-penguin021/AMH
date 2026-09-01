@@ -2095,7 +2095,7 @@ expect_runner_saying "a missing rail script loudly says that nothing self-tested
 # two that matter most are the ones that must NOT be failures: an adopter with no manifest,
 # and a machine with no hashing tool. Both stay green and both say so out loud.
 if [ -z "$HASHER" ]; then
-	printf '  SKIP 11 shipped-integrity case(s): no sha256sum or shasum on this machine, so no fixture manifest could be built\n' >&2
+	printf '  SKIP 12 shipped-integrity case(s): no sha256sum or shasum on this machine, so no fixture manifest could be built\n' >&2
 else
 	d=$(mk_integrity integrity_ok)
 	expect_pass_saying "an untouched tree matches the manifest and says how many it checked" "$d" \

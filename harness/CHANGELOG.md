@@ -11,6 +11,23 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 10.4.2 — 2026-09-01
+
+- **Shipped-integrity mismatches now diagnose Git line-ending conversion.** For each mismatched
+  tracked file, the integrity rung asks Git for its authoritative worktree EOL report. A CRLF
+  worktree gets targeted guidance that line-ending conversion may have changed the byte-bound
+  artifact; ordinary content mismatches retain the existing edited-file explanation.
+- **The CRLF path gives an actionable order of operations.** It tells the adopter to retain or
+  restore the harness-provided `.gitattributes`, re-normalize and re-check out the affected
+  files, and only then rerun initialization or the ladder. This avoids restoring LF bytes into
+  a checkout that immediately converts them back to CRLF and repeats the same failure.
+
+### Upgrading
+
+No action required. Copy the 10.4.2 shipped scripts and manifest through the normal harness
+upgrade procedure; the additional diagnostic activates only when a manifest mismatch coincides
+with Git reporting a CRLF worktree.
+
 ## 10.4.1 — 2026-09-01
 
 - **No shipped script changed.** This release exists because the repository's own working memory
