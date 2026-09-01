@@ -743,3 +743,37 @@
   session's standing no-subagent policy for the one blocking rule-review pass this unit
   mandates, the protocol's ask-before-parking clause having made that a question rather than a
   capability limit.
+
+- DC-040: **A guard whose failure text names the consequence still does not prevent it, and the
+  cheap fix was in a field nobody read as part of the repository.** The poison-token rung failed
+  for four sessions on `e364631`'s body, saying in as many words that a squash merge would fold
+  the token onto `main` and that force-push is forbidden; the queue carried it as a BLOCKER whose
+  only routes were an owner-executed rewrite or a squash, and the squash is what happened. The
+  fold was not the surprising part — GitHub's DEFAULT squash message concatenates every commit
+  body on the branch, 24 of them and 1271 lines here, so the token arrived on `main` without
+  anyone choosing to carry it, and Actions skipped the push: the tagged release commit
+  `f1f25be` has no CI run and never will, on a train whose whole subject was verification on
+  platforms CI alone could reach. The durable part is that the merge dialog's message box is
+  editable and dropping one line there would have cost nothing, which no rule, rung or queue item
+  mentioned, because every one of them modelled the token as a property of the branch's history
+  rather than of the message the merge composes from it. The rung's scope makes this self-closing
+  and worth stating so nobody re-opens it: it reads `origin/main..HEAD`, so a token inside `main`
+  is invisible to every future branch, and the residue is exactly one unverifiable commit.
+
+- DC-041 [cited]: **The assertion written to catch a platform's tool defect was itself written
+  with a tool from the same family, so it could never fire on the platform it was for.** The
+  `Adopter CRLF tree` step proves a CRLF worktree really is CRLF before trusting anything it
+  then observes, and it asked that question with `grep -q "$cr"` — but MSYS2's grep reads in
+  text mode exactly as MSYS2's sed does (**DC-030**), so on Git Bash no CR is ever found and
+  both halves of the step fail their own vacuity check: the seeded half concludes the worktree
+  was never re-smudged, and the unseeded half would conclude the CRLF condition never
+  materialised. Two Windows rounds were spent on this, the first diagnosed as a missing
+  re-smudge (**DC-037**) — a plausible cause that the fix did not cure, and the `git ls-files
+  --eol` diagnostic that same fix added is what finally made the contradiction visible, one
+  line reporting `w/crlf` directly above another reporting no CR in the same file. The
+  replacement asks git, which is not merely the available tool but the authority: it is what
+  decides the checkout's line endings, so its `--eol` column is the subject rather than a proxy
+  for it, and the match runs against ASCII output so no CR byte ever passes through a text-mode
+  read. The durable part is narrower than "use git": an assertion about a tool-behaviour class
+  must be built from something OUTSIDE that class, and a test for platform damage that runs on
+  the damaged platform has to say which of its own instruments it still trusts there.

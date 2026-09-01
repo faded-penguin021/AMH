@@ -194,12 +194,26 @@ jobs:
         run: |
           set -euo pipefail
 
-          cr=$(printf '\r')
-          # A `cr` that came back empty would make `grep -q "$cr"` match every file and turn
-          # the first assertion into a false alarm. It fails closed rather than open, but a
-          # job that goes red for the wrong reason still costs a reader the same hour.
-          test "${#cr}" -eq 1
-          has_cr() { LC_ALL=C grep -q "$cr" "$1"; }
+          # ASK GIT, and never grep for a CR byte. MSYS2's grep reads in text mode, exactly
+          # as MSYS2's sed does (DC-030), so on Git Bash it reports no CR in a
+          # file git's own --eol column calls `w/crlf` — and this step spent two Windows
+          # rounds failing its own vacuity assertion on that contradiction before the
+          # `ls-files --eol` diagnostic below made the two answers visible side by side
+          # (DC-041). Using a tool whose byte-transparency is the very thing under test
+          # is the defect this whole train is about, one layer up in the test for it.
+          #
+          # git is the right authority for a second reason, not just an available one: it is
+          # what DECIDES the checkout's line endings here, so its classification is the
+          # subject rather than a proxy for it. The match runs against ls-files' ASCII
+          # output, so no CR byte passes through a text-mode read at any point.
+          #
+          # `w/mixed` counts as CR-carrying: a file with any CRLF line is not the LF artifact
+          # the seed promises. `w/none` (empty or binary) does not, and neither does an
+          # untracked path, which returns nothing at all — both are "no CR" here, and the
+          # assertions around this are written so that a silent nothing fails them rather
+          # than passing.
+          worktree_eol() { git -C "$target" ls-files --eol -- "$1" | awk 'NR==1 {print $2}'; }
+          has_cr() { case "$(worktree_eol "$1")" in w/crlf | w/mixed) ;; *) return 1 ;; esac; }
 
           # A sample, not the whole set: the manifest is parsed for filenames, amh.conf is
           # sourced into bash where a trailing CR joins every value, and ladder.sh must both
@@ -248,7 +262,7 @@ jobs:
           git -C "$target" ls-files --eol -- $BYTE_BOUND AMH-ADOPT.md
 
           for f in $BYTE_BOUND; do
-            if has_cr "$target/$f"; then
+            if has_cr "$f"; then
               printf 'seeded: %s carries CR — the .gitattributes seed did not hold\n' "$f" >&2
               exit 1
             fi
@@ -261,7 +275,7 @@ jobs:
           # core.autocrlf=true it must come back CRLF. Without this assertion the seeded half
           # passes vacuously on any platform where resmudge silently does nothing — which is
           # precisely what happened on the first Windows run.
-          if ! has_cr "$target/AMH-ADOPT.md"; then
+          if ! has_cr AMH-ADOPT.md; then
             printf 'seeded: AMH-ADOPT.md has no CR — the seed does not pin it, so the worktree was never re-smudged and the LF checks above proved nothing\n' >&2
             exit 1
           fi
@@ -278,7 +292,7 @@ jobs:
           resmudge
 
           for f in $BYTE_BOUND; do
-            if ! has_cr "$target/$f"; then
+            if ! has_cr "$f"; then
               printf 'unseeded: %s has no CR — the CRLF condition never materialised, so the green above proved nothing\n' "$f" >&2
               exit 1
             fi
@@ -290,5 +304,24 @@ jobs:
             sed -n '1,40p' "$log" >&2
             exit 1
           fi
+          # The VERDICT lines, not the first 25. The head of a ladder log is its healthy
+          # rungs, so a fixed window shows a platform passing things nobody asked about and
+          # stops exactly where the answer starts: on Windows the 25-line excerpt ended one
+          # line above the failing rung, which left "an unseeded CRLF tree fails on the
+          # integrity rung" an inference from LF hashes rather than anything this job had
+          # observed (DC-041).
+          #
+          # ASCII-only pattern, deliberately: the ladder's verdict line carries a multibyte
+          # mark, and matching it would put this step's evidence back at the mercy of a
+          # tool's encoding handling on the one platform whose tool handling is the subject.
+          # `guards:` reaches the same line in bytes nobody can disagree about.
+          #
+          # The `if !` arm is not a fallback for tidiness: grep matching nothing means a red
+          # run that printed no rung verdict at all, which is what a shell refusing a CRLF
+          # script looks like — the macOS case — so the head is exactly what a reader needs
+          # there, and its absence would leave that platform's failure undocumented.
           printf 'unseeded: red, as it must be. What this platform printed:\n'
-          sed -n '1,25p' "$log"
+          if ! grep -E '^ *(FAIL|WARN)|guards:' "$log"; then
+            printf '(no rung verdict in the log — it did not get that far. Head:)\n'
+            sed -n '1,25p' "$log"
+          fi

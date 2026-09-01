@@ -11,6 +11,36 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 10.4.1 — 2026-09-01
+
+- **No shipped script changed.** This release exists because the repository's own working memory
+  had to record that 10.4.0 shipped, and a release number is how this repository dates a change
+  to anything it publishes.
+- **What it records.** 10.4.0 merged as a squash whose default message concatenated every commit
+  body on the branch, poison token included, so GitHub Actions skipped that push: the tagged
+  release commit has no CI run and cannot be given one. The rung had said in as many words that a
+  squash would fold the token onto the default branch; what nothing modelled is that the merge
+  dialog composes a new message from those bodies and that box is editable, where deleting one
+  line would have cost nothing.
+
+- **One correction to 10.4.0's own Upgrading note, from evidence it did not have.** That note
+  said the shipped scripts alone stop the false findings on a CRLF worktree and that
+  `.gitattributes` closes the rest. True on Windows, and misleading everywhere else: the first
+  CI run on a genuinely CRLF adopter tree shows that **macOS and Linux bash will not execute a
+  CRLF script at all** — `set: pipefail\r: invalid option name`, and the ladder dies before its
+  first rung. Git Bash tolerates the CR and gets far enough to report the damage, which is why
+  the original bug report carried 533 findings rather than a dead shell. So on macOS or Linux
+  the seed is not the part that makes a CRLF checkout tidy, it is the part that makes it run.
+
+### Upgrading
+
+No action required, and nothing here changes a shipped artifact: the diff is `docs/STATE.md`,
+two ledger rows, this repository's own CI workflow, and the version copies. If you are on
+10.4.0 you are current in everything but the number.
+
+If you took 10.4.0's advice to skip `.gitattributes` because your worktree looked fine, re-read
+the correction above before deciding that on macOS or Linux.
+
 ## 10.4.0 — 2026-08-27
 
 - **The destructive rail grew a data-plane tier.** `supabase db reset`, `prisma migrate reset`,
