@@ -38,17 +38,19 @@ message**: GitHub's default concatenates every commit body on the branch, which 
 release commit lost its CI run (**DC-040**). Check: `git tag -l amh-v10.4.1` — resolved when it
 prints the tag.
 
-**OPEN — the portability legs have still never produced CRLF data, and the release commit
-carries no CI run.** The blocker is gone (the token now sits INSIDE `main`, where the rung's
-`origin/main..HEAD` range cannot see it), but nothing has run since: `f1f25be` was skipped by
-Actions entirely, and `ci.yml` has no `workflow_dispatch`, so only a fresh PR can produce the
-run. Before the merge, `Adopter CRLF tree` was SKIPPED on BOTH legs because the preceding
-`Portability smoke` step died on the poison-token rung — every other rung green (run
-33470639275). Windows Git Bash did run the whole guard set to completion, but on an LF checkout,
-so the unseeded half is unanswered; re-smudge, vacuity assertion and `git ls-files --eol`
-diagnostics are in (**DC-037**), the grep half stays CONFIRMED on run 33432523501 (**DC-033**),
-and `verify.sh` (rung 3) has still never run on Windows or macOS. Check: read that step on the
-first run this branch's PR produces — it resolves once it is green on BOTH legs.
+**OPEN — the CRLF portability data is HALF IN: macOS answered both halves, Windows is blocked
+on a defect in the step's own assertion.** Run 33491121491 (`978ed80`, PR #59) is the first CI
+any 10.4.x content has had — `ladder` and `portability (macos-latest)` green, `windows-latest`
+red. macOS proved BOTH halves for the first time: seeded, a CRLF-configured adopter tree runs
+`guards clean (2 warnings)`, so the `.gitattributes` seed holds; unseeded, it is red in a way
+neither the changelog nor **DC-030** anticipated — bash will not execute a CRLF script at all
+(`set: pipefail\r: invalid option name`, a tmpdir path carrying a CR), so the ladder never
+reaches a rung. Git Bash tolerates CRLF scripts and gets far enough to report the damage, which
+is why the original report showed 533 findings rather than a dead shell; that platform split is
+now stated in the 10.4.1 changelog. Windows still owes the unseeded answer: `has_cr` grepped for
+a CR byte, which MSYS2 grep cannot see, fixed here (**DC-041**). Check: read that step on the
+newest run — it resolves once it is green on BOTH legs. `verify.sh` (rung 3) has still never run
+on Windows or macOS.
 
 **OPEN — the `printf | grep -q` class survives at 39 further sites, and 10 are NOT fixture
 harnesses.** Unit 3 fixed the two with reachable unbounded input; the residue is safe on BOUNDED,
@@ -105,6 +107,13 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-09-01 — **A CRLF worktree does not run at all on macOS or Linux, and the CI step that
+  should have said so could not.** The first portability run since the merge proved the seed
+  holds on a CRLF adopter tree and that an unseeded one dies before the first rung, because bash
+  refuses a script whose every line ends in CR — Git Bash tolerating it is why the original
+  report saw 533 findings instead of a dead shell. The Windows leg could not answer either way:
+  its vacuity assertion grepped for a CR byte that MSYS2 grep reads past, the same tool-family
+  assumption one layer up from the defect it guards (**DC-041**).
 - 2026-09-01 — **10.4.1: 10.4.0 shipped, and the squash folded a poison token onto `main`.** PR #58
   merged as `f1f25be` and was tagged, resolving the release item and dissolving the rewrite
   BLOCKER by taking the route that needed no rewrite. The cost landed where the rung said it

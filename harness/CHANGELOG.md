@@ -23,11 +23,23 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   dialog composes a new message from those bodies and that box is editable, where deleting one
   line would have cost nothing.
 
+- **One correction to 10.4.0's own Upgrading note, from evidence it did not have.** That note
+  said the shipped scripts alone stop the false findings on a CRLF worktree and that
+  `.gitattributes` closes the rest. True on Windows, and misleading everywhere else: the first
+  CI run on a genuinely CRLF adopter tree shows that **macOS and Linux bash will not execute a
+  CRLF script at all** — `set: pipefail\r: invalid option name`, and the ladder dies before its
+  first rung. Git Bash tolerates the CR and gets far enough to report the damage, which is why
+  the original bug report carried 533 findings rather than a dead shell. So on macOS or Linux
+  the seed is not the part that makes a CRLF checkout tidy, it is the part that makes it run.
+
 ### Upgrading
 
-No action required. No shipped script, guard, template or configuration key changed — the diff is
-`docs/STATE.md` and one ledger row. If you are on 10.4.0, you are current in everything but the
-number.
+No action required, and nothing here changes a shipped artifact: the diff is `docs/STATE.md`,
+two ledger rows, this repository's own CI workflow, and the version copies. If you are on
+10.4.0 you are current in everything but the number.
+
+If you took 10.4.0's advice to skip `.gitattributes` because your worktree looked fine, re-read
+the correction above before deciding that on macOS or Linux.
 
 ## 10.4.0 — 2026-08-27
 

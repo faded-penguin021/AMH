@@ -759,3 +759,21 @@
   rather than of the message the merge composes from it. The rung's scope makes this self-closing
   and worth stating so nobody re-opens it: it reads `origin/main..HEAD`, so a token inside `main`
   is invisible to every future branch, and the residue is exactly one unverifiable commit.
+
+- DC-041 [cited]: **The assertion written to catch a platform's tool defect was itself written
+  with a tool from the same family, so it could never fire on the platform it was for.** The
+  `Adopter CRLF tree` step proves a CRLF worktree really is CRLF before trusting anything it
+  then observes, and it asked that question with `grep -q "$cr"` — but MSYS2's grep reads in
+  text mode exactly as MSYS2's sed does (**DC-030**), so on Git Bash no CR is ever found and
+  both halves of the step fail their own vacuity check: the seeded half concludes the worktree
+  was never re-smudged, and the unseeded half would conclude the CRLF condition never
+  materialised. Two Windows rounds were spent on this, the first diagnosed as a missing
+  re-smudge (**DC-037**) — a plausible cause that the fix did not cure, and the `git ls-files
+  --eol` diagnostic that same fix added is what finally made the contradiction visible, one
+  line reporting `w/crlf` directly above another reporting no CR in the same file. The
+  replacement asks git, which is not merely the available tool but the authority: it is what
+  decides the checkout's line endings, so its `--eol` column is the subject rather than a proxy
+  for it, and the match runs against ASCII output so no CR byte ever passes through a text-mode
+  read. The durable part is narrower than "use git": an assertion about a tool-behaviour class
+  must be built from something OUTSIDE that class, and a test for platform damage that runs on
+  the damaged platform has to say which of its own instruments it still trusts there.
