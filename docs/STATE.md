@@ -9,12 +9,13 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 10.4.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 10.4.1** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-AMH **10.4.0** is RELEASED: PR #58 squash-merged as `f1f25be` on 2026-09-01 and tagged
-`amh-v10.4.0`, carrying 10.3.1 inside it. That commit has **no CI run** — the squash folded the
+AMH **10.4.1** is prepared on this branch and untagged; it carries no shipped-script change and
+exists to date this record. **10.4.0** is RELEASED: PR #58 squash-merged as `f1f25be` on
+2026-09-01 and tagged `amh-v10.4.0`, carrying 10.3.1 inside it. That commit has **no CI run** — the squash folded the
 whole branch's bodies into its message, poison token included, so Actions skipped the push and
 the newest run on `main` is still 10.3.0's; the next PR is the first chance to verify this
 content (**DC-040**). **9.2.0 has a changelog entry and no tag**, and nothing checks that every
@@ -31,6 +32,11 @@ protection is repointed at `ladder`.
 > Items leave only when done, answered or triaged — then delete the item and record the outcome
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
+
+**OPEN — tag and publish AMH 10.4.1 after merge.** Owner-only. When merging, **edit the squash
+message**: GitHub's default concatenates every commit body on the branch, which is how 10.4.0's
+release commit lost its CI run (**DC-040**). Check: `git tag -l amh-v10.4.1` — resolved when it
+prints the tag.
 
 **OPEN — the portability legs have still never produced CRLF data, and the release commit
 carries no CI run.** The blocker is gone (the token now sits INSIDE `main`, where the rung's
@@ -99,7 +105,7 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-09-01 — **10.4.0 shipped, and the squash folded a poison token onto `main`.** PR #58
+- 2026-09-01 — **10.4.1: 10.4.0 shipped, and the squash folded a poison token onto `main`.** PR #58
   merged as `f1f25be` and was tagged, resolving the release item and dissolving the rewrite
   BLOCKER by taking the route that needed no rewrite. The cost landed where the rung said it
   would: the default squash message concatenated 24 commit bodies, so Actions skipped the push

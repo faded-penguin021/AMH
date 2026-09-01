@@ -11,6 +11,24 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 10.4.1 — 2026-09-01
+
+- **No shipped script changed.** This release exists because the repository's own working memory
+  had to record that 10.4.0 shipped, and a release number is how this repository dates a change
+  to anything it publishes.
+- **What it records.** 10.4.0 merged as a squash whose default message concatenated every commit
+  body on the branch, poison token included, so GitHub Actions skipped that push: the tagged
+  release commit has no CI run and cannot be given one. The rung had said in as many words that a
+  squash would fold the token onto the default branch; what nothing modelled is that the merge
+  dialog composes a new message from those bodies and that box is editable, where deleting one
+  line would have cost nothing.
+
+### Upgrading
+
+No action required. No shipped script, guard, template or configuration key changed — the diff is
+`docs/STATE.md` and one ledger row. If you are on 10.4.0, you are current in everything but the
+number.
+
 ## 10.4.0 — 2026-08-27
 
 - **The destructive rail grew a data-plane tier.** `supabase db reset`, `prisma migrate reset`,
