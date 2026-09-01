@@ -15,13 +15,12 @@ Adopted harness version: **AMH 10.4.0** — see `harness/VERSION`, the copy that
 
 AMH **10.4.0** is prepared on this branch and untagged, carrying 10.3.1 with it; the newest tag
 is `amh-v10.3.0` and the PR-time check wants exactly one bump above it. **9.2.0 has a changelog
-entry and no tag**, and nothing checks that every changelog version got one.
-
-The live ledger volume is `docs/LEDGER_C.md`, opened at the 8.0.0 rollover; `docs/LEDGER_B.md`
-is closed at **DB-040**. Row immutability, the correction verbs and the ` [cited]` exception are
-in that volume's preamble; the append-only guard's exceptions and draft-row rule are **DB-008**
-and **DB-013** (**DC-020** for its HEAD baseline).
-`main`'s protection is repointed at `ladder`.
+entry and no tag**, and nothing checks that every changelog version got one. The live ledger
+volume is `docs/LEDGER_C.md`, at 730 of its 800-line cap, so a rollover is near;
+`docs/LEDGER_B.md` is closed at **DB-040**. Row immutability, the correction verbs and the
+` [cited]` exception are in that volume's preamble; the append-only guard's exceptions and
+draft-row rule are **DB-008** and **DB-013** (**DC-020** for its HEAD baseline). `main`'s
+protection is repointed at `ladder`.
 
 ## Owner queue
 
@@ -30,146 +29,100 @@ and **DB-013** (**DC-020** for its HEAD baseline).
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**OPEN — tag and publish AMH 10.4.0 after merge.** The release commit is prepared on the PR
-branch; tagging and publication are owner-only actions. Check: `git tag -l amh-v10.4.0` —
-resolved when it prints `amh-v10.4.0`.
+**OPEN — BLOCKER, owner's call: `e364631`'s commit message carries a poison token and I cannot
+remove it.** Writing up unit 3 I quoted the rung's own failure text verbatim. The rung now FAILS
+permanently, scanning every message in `origin/main..HEAD` while pushed history may not be
+rewritten, and Actions SKIPPED the workflow for that push — PR #58 showed zero check runs, the
+exact harm the rung exists to prevent. Options are the owner's: squash-merge with a clean
+message, keeping the token off `main` and accepting a red rung until then (recommended, since
+only the message is wrong); or direct a history rewrite back to `e23f86a`. Check: `git log
+--format=%B origin/main..HEAD | grep -c 'skip'` — resolved when the range no longer holds it.
 
-**OPEN — approved plan, in progress: `docs/plans/2026-08-31-ci-sees-windows.md`.** Three
-sequential shippable units: (1) a binary file inside `CITATION_SCAN_PATHS` plus printed tool
-versions, (2) a CI job running the shipped rungs on a genuinely CRLF adopter tree, (3) the
-`printf | grep -q` fail-open in the command rail. The owner pre-approved the mandated
-fresh-context pass for each — one blocking reviewer, strongest tier, one-pass bound unchanged —
-and asked that the work be paced around the usage window. Checklist: [x] unit 1 [x] unit 2
-[x] unit 3 [x] PR #58 body corrected [ ] plan archived or deleted.
+**OPEN — a plan cannot be deleted once a ledger row cites its PATH, which no rule anticipated.**
+Session discipline 5 says a finished plan is archived or deleted, but DC-033 names
+`docs/plans/2026-08-31-ci-sees-windows.md` in backticks and committed rows are immutable, so
+`path-refs.sh` fails the moment the file moves or goes — tried, and it did. The plan is therefore
+restored and its checklist item stays open. The runbook already says code cites ledger rows and
+never plans; nothing said a ROW must not cite a plan's path, and that is the gap. Check: `ls
+docs/plans/` — resolved when the directory is empty AND `path-refs.sh` still passes, which today
+cannot both be true.
 
-**OPEN — the `printf | grep -q` class survives at 39 further sites, left alone deliberately, and
-10 of them are NOT in fixture harnesses.** Unit 3 fixed the two with reachable unbounded input —
-the rail's fallback and the poison-token rung, both fail-OPEN (**DC-038**). Of the rest, 29 are
-in `local-guards.sh`, `test-init-e2e.sh`, `test-ladder-guards.sh` and `redact.sh`'s self-test;
-the other 10 are live guard and rung code — `ladder.sh:792`, `:810`, `:1024`, `:1358` with their
-template twins, and `guards/adapter-set.sh:104` and `:108`. What makes them safe is that each
-matches against BOUNDED, mostly single-line input, NOT that the direction is loud: at least three
-(`ladder.sh:792`, `redact.sh:383`, `adapter-set.sh:104`/`:108`) are the same fail-OPEN shape and
-would stand a check down rather than shout. `ladder.sh:1358` is the one to watch — it matches
-against `git diff --name-only`, which is git-derived and multi-line, so its input is the least
-bounded of the residue, though its direction is a spurious `warn`. Not queued as work: rewriting
-39 call sites to close a hazard none can currently reach buys churn, and the reopen trigger is
-any of them starting to match against something unbounded. Check: `grep -rn "printf.*| *grep -q"
---include=*.sh scripts/ harness/templates/` prints 44 lines, 5 of them explanatory comments —
-resolved only if the description above stops matching that output, which it deliberately does
-not. The class in one line, still printing 141: `bash -c 'set -uo pipefail; { printf "a\n";
-sleep 0.1; printf "b\n"; } | grep -qxF a'; echo $?`.
+**OPEN — tag and publish AMH 10.4.0 after merge.** Owner-only actions; the release commit is
+prepared on the PR branch. Check: `git tag -l amh-v10.4.0` — resolved when it prints the tag.
+
+**OPEN — the CRLF CI step ran once, half-passed, and its re-run is unverified.** First run
+33468064665 (`e23f86a`): macOS green, Windows RED on the step's own vacuity assertion, because
+delete-and-checkout does not re-smudge under Git Bash — which voids that run's seeded pass there
+too. It did establish that DC-030's `--baseline` survives real CRLF bytes under MSYS2's sed.
+Re-smudge, vacuity assertion and `git ls-files --eol` diagnostics are in (**DC-037**); the grep
+half stays CONFIRMED on run 33432523501 (**DC-033**); `verify.sh` (rung 3) has still never run on
+Windows or macOS. Check: read that job on the newest run — the CRLF half resolves once the step
+is green on BOTH legs, run id recorded here; the grep half while its printed grep stays <= 3.4.
+
+**OPEN — the `printf | grep -q` class survives at 39 further sites, and 10 are NOT fixture
+harnesses.** Unit 3 fixed the two with reachable unbounded input; the residue is safe on BOUNDED,
+mostly single-line input rather than on a loud direction, and at least three are the same
+fail-OPEN shape — `ladder.sh:1358` is the one to watch (**DC-038**). Not queued as work; reopen
+if any starts matching something unbounded. Check: `grep -rn "printf.*| *grep -q" --include=*.sh
+scripts/ harness/templates/` prints 44 lines, 5 of them comments — resolved only if that stops
+matching the description, which it deliberately does not.
 
 **OPEN — the 2026-08-29 `path-refs.sh` false failure on `` `session-start.sh` `` still has no
-reproducer.** It was closed in `b2a9ae3` as the EPIPE defect **DC-034** fixes; the pass
-falsified that (**DC-035**) and the item is restored rather than left retired on a coincidence
-of symptoms. The mechanism cannot have produced it: the basename list is 1127 bytes over 71
-entries, the old pipeline gives 0/200 false failures against the real listing, and
-`session-start.sh` is entry 64 of 71, so nothing is pending when grep matches. What DC-029 named
-is still uncovered — a listing git completed, reported success for, and cut short anyway. No
-check; only a recurrence settles it.
+reproducer.** Closed in `b2a9ae3` as the EPIPE defect, then restored when the pass falsified that
+(**DC-035**, **DC-029** for the residue): a listing git completed, reported success for, and cut
+short anyway. No check; only a recurrence settles it.
 
-**OPEN — the grep half is CONFIRMED on CI; the CRLF half is BUILT but has never run there; rung
-3 is neither.** Run 33432523501 prints `grep (GNU grep) 3.0` on `portability (windows-latest)`,
-inside the <= 3.4 range where the binary-file notice goes to STDOUT, and the citation rung passed
-there over the committed `scripts/fixtures/binary-citation.bin` — a real regression check for
-`-I`, not just the input being present (**DC-033**). Unit 2 added the `Adopter CRLF tree` step,
-which asserts both directions on a scratch adopter tree at `core.autocrlf=true`; it is green on
-Linux and has executed zero times on the two legs it exists for, so the gap is covered pending
-its first run, not closed (**DC-037**). Read the first Windows run carefully: under the seed,
-seven files are still genuinely CRLF (`.claude/settings.json`, the three `.codex/*`,
-`.gitattributes`, the workflow, `AMH-ADOPT.md`), so that leg runs DC-030's `--baseline`
-subtraction over real CRLF bytes under MSYS2's sed for the first time anywhere — a red there is a
-finding about that fix, NOT a step to loosen. What remains untouched is `verify.sh` (rung 3),
-home of the shipped fixture suite, which has never run on Windows or macOS at all, both legs
-being `--guards-only`. Check: read that job on the newest run — resolved for the grep half while
-its printed grep stays <= 3.4 and the rung passes, a runner image moving grep to >= 3.5 retiring
-that silently; resolved for the CRLF half only once `Adopter CRLF tree` has been green on both
-legs, with the run id recorded here.
-
-**OPEN — the destructive rail sees no Windows shell, and two reported incidents live there.**
-The owner's (2026-08-29) `cmd /c "rd /s /q ..."` lost its target to a backslash-quote mismatch
-and resolved to the root of `D:`; it pairs with the Antigravity `rmdir /s /q d:\` the **DC-027**
-search found. Which layer mis-parsed — outer shell, `cmd.exe`, C-runtime argv split — is
-unsettled and matters to whoever builds the arm. Neither is reachable here, the verbs being
-Windows and `cmd /c` hiding its command as `bash -c` does, and a Windows arm is the owner's call
-since the harness targets bash. No check until a session builds it.
+**OPEN — the destructive rail sees no Windows shell, and two reported incidents live there.** The
+owner's (2026-08-29) `cmd /c "rd /s /q ..."` resolved to the root of `D:` through a
+backslash-quote mismatch, pairing with the Antigravity `rmdir /s /q d:\` (**DC-027**). Which
+layer mis-parsed is unsettled and matters to whoever builds the arm; a Windows arm is the owner's
+call since the harness targets bash. No check until a session builds it.
 
 **OPEN — investigate the forge/API mutation surface as an escape around the local rails.** The
-pre-push rail (DC-009) guards git-CLI pushes only, so an owner-reserved side effect through
-`gh pr merge`, `gh api -X POST` or a `curl`/`wget` mutation bypasses every local rail — not
-merely adversarial, since the **DC-027** search turned up PocketOS, where an agent used a token
-from an unrelated file to delete a production volume AND its backups in one GraphQL mutation.
-No check — nobody but a session actually crossing it settles this.
+pre-push rail guards git-CLI pushes only, so `gh api -X POST` or a `curl` mutation bypasses every
+local rail — not merely adversarial, since PocketOS lost a production volume AND its backups to
+one GraphQL mutation carrying a found token (**DC-009**, **DC-027**). No check — nobody but a
+session actually crossing it settles this.
 
 **OPEN — `amh.conf`'s `LEDGER_ROW_CHAR_CAP` comment calibrates against a figure the rows
 falsify.** It calls ~1450 bytes the longest sentence-compliant row, leaving 2000 "about a quarter
-of headroom"; measured, **DC-030** is 1962, **DC-027** 1866 and **DC-011** 1858, so that headroom
-does not exist. Pre-existing, found by a review pass looking at something else; code is ground
-truth so the prose is wrong, but it is legislation in a `RULE_FILES` file, so repairing it is a
-reviewed unit rather than a typo fix. Check: `awk` the volumes for the longest row under the
-sentence cap and compare with the comment.
+of headroom"; measured, **DC-030** is 1962, **DC-027** 1866, **DC-011** 1858. Legislation in a
+`RULE_FILES` file, so a reviewed unit rather than a typo fix. Check: `awk` the volumes for the
+longest row under the sentence cap and compare with the comment.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
 A pointer index, not an argument: **read the cited row before reopening any of these**, because
-the row is where the reasoning that settled it lives and this line is deliberately too short to
-re-litigate from.
+the row is where the reasoning lives and these lines are deliberately too short to re-litigate
+from.
 
-- **Pre-3.0.0 refusals:** rendered or templated shipped scripts, assurance-level configuration,
-  a packaged CLI, broad doc-fact/link guards, section-granular `RULE_FILES`, machine-consumed
-  self-attestations, a `git log` rail under branch-train, failing ledger caps, hook-invocation
-  detection, a shipped config-schema guard, and a `BRANCH_PREFIX` push check (**D-002**,
-  **D-010**, **D-014**, **D-023**, **DA-001**, **DA-003**, **DA-022**).
-- **RFC refusals:** runtime capability/profile/probe machinery and a second setup extension
-  (**DA-024**); run receipts, transport, CI artifact and status tool (**DA-025**); and five
-  provenance-defective scenarios plus their YAML/oracle/report machinery (**DA-026**).
-- **Later refusals:** the top-decile/inverted-gradient warning (**DB-040**, with **DC-003** the
-  adopted two-unit alternative); a constitution byte cap (**DB-038**); a Python-write advisory
-  (**DC-007**); the two 2026-08-10 review proposals (**DB-024**); any guard that opens a file
-  to classify it (**DB-027**); a configurable ledger-id prefix, which relocates a domain-constant
-  collision into the adopter's taxonomy rather than removing it (**DC-015**); and making ledger
-  immutability hold across commits, which needs a history rail no incident has earned
-  (**DC-020**).
+- **Pre-3.0.0:** templated shipped scripts, assurance levels, a packaged CLI, broad
+  doc-fact/link guards, section-granular `RULE_FILES`, machine-consumed self-attestations, a
+  `git log` rail under branch-train, failing ledger caps, hook-invocation detection, a shipped
+  config-schema guard, a `BRANCH_PREFIX` push check (**D-002**, **D-010**, **D-014**, **D-023**,
+  **DA-001**, **DA-003**, **DA-022**).
+- **RFCs:** capability/profile/probe machinery and a second setup extension (**DA-024**); run
+  receipts, transport, CI artifact and status tool (**DA-025**); five provenance-defective
+  scenarios and their YAML/oracle/report machinery (**DA-026**).
+- **Later:** the top-decile warning (**DB-040**, **DC-003** the adopted alternative); a
+  constitution byte cap (**DB-038**); a Python-write advisory (**DC-007**); the 2026-08-10 review
+  proposals (**DB-024**); a guard that opens a file to classify it (**DB-027**); a configurable
+  ledger-id prefix (**DC-015**); ledger immutability across commits (**DC-020**).
 
 ## Changelog
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-09-01 — **Unit 3: the `printf | grep -q` shape where it fails OPEN, at both sites.** The
-  rail's no-python3 fallback stood down on a Bash command it should have inspected, and the
-  poison-token rung left a token in the newest commit unreported; both are here-strings now, with
-  shipped fixtures that need a payload BOTH multi-line and past the pipe buffer, since size alone
-  does not reproduce it (**DC-038**).
-- 2026-09-01 — **Unit 2: a CI step that checks out the way an adopter does.** The portability job
-  now builds a scratch adopter tree at `core.autocrlf=true` and asserts BOTH directions on it —
-  seeded, byte-bound artifacts LF and the shipped rungs green; unseeded, genuinely CRLF and NOT
-  green — so a step that stopped meeting the condition goes red instead of passing. Demonstrated
-  on Linux against `832dfe2`, HEAD~ of the fix; unrun on the two legs it exists for (**DC-037**).
-- 2026-09-01 — **The EPIPE fix is confirmed on the platform that showed the defect.** `portability
-  (macos-latest)` is green on `f49d446`, the first run at or after `b2a9ae3`; the same leg was red
-  on `7303edb` with `printf: write error: Broken pipe` and a false miss on `AGENTS.md`
-  (**DC-034**).
-- 2026-08-31 — **The pass's five findings, applied.** The guard comment gives the real reason a
-  here-string is immune, fixture (viii) pads with `*.txt` and asserts what the guard resolved
-  (10.9s to 0.13s, same direction against both forms), the state file's one-liner says 141 rather
-  than 1, and two corrections of record land in the ledger because pushed commit bodies cannot be
-  edited (**DC-036**).
-- 2026-08-31 — **The parked `path-refs.sh` unit was reviewed on the owner's authorisation, and
-  the pass kept the fix but broke its story.** The EPIPE mechanism explains the macOS CI failure
-  and cannot explain the older `session-start.sh` sighting, so that queue item is restored; the
-  same shape turned up in `ladder.sh`'s poison-token rung, failing open. Findings recorded
-  unfixed by the owner's instruction (**DC-035**).
-- 2026-08-25 through 2026-08-31 — **The unreleased 10.3.0–10.4.0 train, folded.** A data-plane
-  tier grown by reported incidents; an escaped quote that had been voiding the rails behind it;
-  a PR-time release-number check; an adoption-first README; and a Windows tail in four parts —
-  CRLF falsifying two rungs, grep's binary-file notice falsifying a third, the committed binary
-  fixture that finally puts that input in front of every matrix leg, and a `grep -q` whose early
-  exit turned a match into a failure under `pipefail` (**DC-020**–**DC-034**).
-- 2026-07-25 through 2026-08-26 — **Everything published, folded:** founding through portable
-  rails, the constitution rewrite, the 8.0.0–9.0.0 train, git-native pre-push enforcement, and
-  the 9.2.0–10.2.0 trains tagged `amh-v10.0.0` and `amh-v10.2.0` (immutable rows with correction
-  by pointer, working memory that stopped paying for its own rules, a citation-guard collision
-  with no clean fix, a matrix that stopped running twice, a POSIX-correct `env`, a push rail that
-  polices the push). The ledger volumes carry the detail; this line carries the dates.
+- 2026-08-31 through 2026-09-01 — **The three-unit "CI sees Windows" plan, all units shipped.**
+  The pass's five findings applied; the macOS leg confirmed green on the EPIPE fix; a portability
+  step building a CRLF adopter tree and asserting BOTH directions, whose first Windows run failed
+  on its own vacuity assertion and was repaired; and the `printf | grep -q` shape fixed where it
+  fails OPEN, with shipped fixtures that assert their own input size. The plan file could not be
+  deleted — a committed row cites its path (**DC-036**, **DC-037**, **DC-038**).
+- 2026-07-25 through 2026-08-31 — **Everything before this session, folded.** Founding through
+  portable rails, the constitution rewrite, the 8.0.0–9.0.0 train, git-native pre-push
+  enforcement, the 9.2.0–10.2.0 trains tagged `amh-v10.0.0` and `amh-v10.2.0`, and the unreleased
+  10.3.0–10.4.0 train: a data-plane tier grown by reported incidents, an escaped quote that had
+  been voiding the rails behind it, a PR-time release-number check, an adoption-first README, and
+  a Windows tail in four parts (**DC-020**–**DC-035**, and the volumes for everything older).
