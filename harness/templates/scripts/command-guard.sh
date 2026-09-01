@@ -2576,10 +2576,31 @@ except Exception:
 		'{'*'}') ;;
 		*) return 0 ;;
 		esac
-		printf '%s' "$payload" | grep -qE '"tool_name"[[:space:]]*:[[:space:]]*"Bash"' || return 0
-		printf '%s' "$payload" |
-			sed -n 's/.*"tool_input"[[:space:]]*:[[:space:]]*{[^}]*"command"[[:space:]]*:[[:space:]]*"\(.*\)"[[:space:]]*}.*/\1/p' |
-			head -1
+		#
+		# Here-strings, NOT `printf ... | grep -q` and `... | head -1`, and here the
+		# difference is the rail standing DOWN rather than a false alarm. `grep -q` exits
+		# at its first match; a writer with bytes still pending then takes EPIPE, and this
+		# file runs under `pipefail`, which promotes that to the pipeline's status — so a
+		# SUCCESSFUL match reads as a failure and `|| return 0` fails open on a Bash
+		# command nobody inspected. A here-string's writer is not a pipeline member, so
+		# nothing it does reaches `PIPESTATUS` and there is no status to promote. (On bash
+		# >= 5.1 a here-string is backed by a temporary file only above the pipe-buffer
+		# size, so "it is a file, not a pipe" is NOT the reason and would fail exactly
+		# where this defect lives. Older bash, 3.2 included, uses a temp file for every
+		# here-string whatever its size — which is why the reason has to be PIPESTATUS
+		# and not the backing: only PIPESTATUS is true of every version.) Size alone does
+		# not reproduce it: grep cannot match until it has
+		# a whole LINE, so a single-line payload is consumed entirely no matter how long
+		# it is. It takes a payload that is BOTH multi-line and past the pipe buffer —
+		# pretty-printed JSON — which the `case` above accepts and the fixture builds.
+		grep -qE '"tool_name"[[:space:]]*:[[:space:]]*"Bash"' <<<"$payload" || return 0
+		# `head -1` is the same shape with `head` as the early exit, and there the status
+		# lands on the FUNCTION. Substitute first, then take the first line with a
+		# parameter expansion, so no reader can leave. The `if` keeps the empty case
+		# returning 0, which is what the piped form did and what fail-open means here.
+		local extracted
+		extracted=$(sed -n 's/.*"tool_input"[[:space:]]*:[[:space:]]*{[^}]*"command"[[:space:]]*:[[:space:]]*"\(.*\)"[[:space:]]*}.*/\1/p' <<<"$payload")
+		if [ -n "$extracted" ]; then printf '%s\n' "${extracted%%$'\n'*}"; fi
 	fi
 }
 

@@ -707,3 +707,24 @@
   pre-approved fresh-context pass (DC-033) is consumed here, and acceptance was demonstrated ON
   LINUX by running the YAML-extracted step at HEAD, exit 0, and at `832dfe2` — HEAD~ of the fix,
   where the seed does not yet exist — exit 1 on the first assertion.
+- DC-038: **The same bug class takes a different DIRECTION at each site, and the direction is
+  what decides how bad it is.** `printf | grep -q` under `pipefail` read a false failure in
+  `path-refs.sh`, which was loud and wrong; at `command-guard.sh`'s no-python3 fallback the same
+  shape makes `|| return 0` stand the rail DOWN on a Bash command nobody inspected, and at
+  `ladder.sh`'s poison-token rung it leaves a token in the newest commit simply unreported — both
+  silent, and a rail that stood down is indistinguishable from one that looked and found nothing.
+  The plan's reproduction recipe was insufficient and a fixture built to it would have passed
+  against both versions: size alone does not reproduce this, because grep cannot match until it
+  holds a whole LINE, so a single-line payload is consumed in full however long it is — measured
+  at 100065 bytes extracting correctly through the unfixed form. The payload has to be BOTH
+  multi-line and past the pipe buffer, which pretty-printed JSON is and `extract_command`'s own
+  `case` accepts; commit messages are inherently multi-line, so the rung needs only the size.
+  Fixed with here-strings, whose writer is not a pipeline member and so never reaches
+  `PIPESTATUS`, and the `sed | head -1` beside it — same shape with `head` as the early exit, and
+  there the status lands on the FUNCTION — by substituting into a variable and taking the first
+  line with a parameter expansion. Demonstrated at both sites against the pre-fix scripts: the
+  rail returned 0 on `cat .env` and now returns 2, and the rung printed `ok clean` over a 216023
+  byte stream carrying `[skip ci]` and now reports it — under the owner's grant of 2026-08-31,
+  which added this as the plan's unit 3 after DC-034 turned the class up here, on the same terms
+  as the units before it and with one pre-approved fresh-context pass included (DC-033 records
+  those earlier grants and NOT this one).

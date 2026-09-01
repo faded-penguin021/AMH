@@ -507,6 +507,52 @@ out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash"
 rc=$?
 if [ "$rc" -eq 2 ]; then report ok "a Codex Bash payload is guarded without Python"; else report no "a Codex Bash payload is guarded without Python" "rc=$rc" "$out"; fi
 
+# The same fallback, at a payload size that makes the writer block. This is the fail-OPEN
+# direction of the `grep -q` class: grep exits at its first match, the writer takes EPIPE,
+# `pipefail` promotes that to the pipeline's status, and `|| return 0` stands the rail down
+# on a Bash command nobody inspected. A rail that stood down is indistinguishable from a
+# rail that looked and found nothing, which is the silent-skip class.
+#
+# TWO properties are needed and the obvious fixture has only one. Size alone does NOT
+# reproduce it: grep cannot match until it holds a whole LINE, so a single-line payload is
+# consumed in full however long it is, and the case passes against both versions. The
+# payload must ALSO be multi-line, so that the match lands on an early line with the rest
+# still pending. Pretty-printed JSON is that shape, and `extract_command`'s own `case`
+# accepts it, so this is a payload the rail claims to handle rather than one invented to
+# break it. The token sits on line 2 and the command on the last line, which is where the
+# most bytes are left over.
+d=$(mk codex_hook_payload_large)
+fallback_path="$d/no-python-bin"
+mkdir -p "$fallback_path"
+for tool in bash cat dirname git grep head sed; do
+	tool_path=$(command -v "$tool")
+	ln -s "$tool_path" "$fallback_path/$tool"
+done
+big_pad=$(awk 'BEGIN { for (i = 0; i < 4000; i++) printf "  \"pad%d\": \"%s\",\n", i, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" }')
+big_payload='{
+  "tool_name": "Bash",
+'"$big_pad"'  "tool_input": { "command": "cat .env" }
+}'
+# The payload's SIZE is the fixture, so it is asserted rather than assumed. `awk` failing or
+# missing leaves `big_pad` empty under `set -uo pipefail` with no `-e`, collapsing this to a
+# 68-byte payload that is a duplicate of the case above and green against both versions. Swept
+# against the pre-fix script: 68 and 49957 bytes both return 2 (hollow), 100957 and 202957
+# return 0 (real). The 128 KB floor is therefore CONSERVATIVE — it rejects sizes that do
+# reproduce — which is the right direction for a hollowness guard: a fixture that refuses to
+# run is loud, one that runs on too little is green and worthless.
+if [ "${#big_payload}" -le 131072 ]; then
+	report no "a large multi-line Codex Bash payload is guarded without Python" \
+		"payload is only ${#big_payload} bytes — too small to reach the defect, so this case would pass against the unfixed script too"
+else
+out=$(cd "$d" && printf '%s' "$big_payload" | env PATH="$fallback_path" scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ]; then
+	report ok "a large multi-line Codex Bash payload is guarded without Python"
+else
+	report no "a large multi-line Codex Bash payload is guarded without Python" "rc=$rc (0 means the rail stood down)" "$out"
+fi
+fi
+
 # --- command-guard.sh: the git-native pre-push rail (P13) --------------------
 # The `--self-test` matrix stubs the ancestry seam; this exercises the REAL `git merge-base`
 # glue over real commits, which is the part a string-only self-test cannot see (P12). Every
@@ -2223,6 +2269,42 @@ d=$(mk poison_clean)
 	git commit -qam "an ordinary checkpoint"
 )
 expect_pass "an ordinary commit message passes" "$d"
+
+# The same rung over a message stream past the pipe buffer, which is where it fails OPEN.
+# `git log --format=%B` prints the NEWEST commit first, so a token in the newest commit is
+# matched almost immediately and everything behind it is still pending — grep exits, the
+# writer takes EPIPE, `pipefail` makes a successful match a failed pipeline, and the token
+# is silently not reported. Commit messages are inherently multi-line, so unlike the rail's
+# payload case size alone is enough here.
+#
+# One commit with a long body rather than thousands of commits: the rung reads the message
+# STREAM, so what matters is its total size and where the token sits in it, and a
+# four-thousand-commit fixture would cost minutes to buy the same bytes.
+d=$(mk poison_token_long_stream)
+(
+	cd "$d" || exit 1
+	printf 'a change\n' >>docs/STATE.md
+	{
+		printf 'checkpoint [skip ci]\n\n'
+		awk 'BEGIN { for (i = 0; i < 4000; i++) print "padding line to push this stream past the pipe buffer" }'
+	} >"$d/msg"
+	# `-F`, never `-m "$(cat ...)"`: a message this long as a single argv element is over
+	# MAX_ARG_STRLEN and git dies with "Argument list too long", leaving no commit and a
+	# rung that reports "no new commits to check" — green, for a reason the fixture is not
+	# about. It failed exactly that way once before this comment existed.
+	git commit -qa -F "$d/msg"
+)
+# Same reason as the payload case above: the stream's size IS the fixture. Verified against the
+# pre-fix ladder, which reported the token (hollow) on a 563-byte stream and printed `ok clean`
+# on this one.
+msg_bytes=$(wc -c <"$d/msg")
+rm -f "$d/msg"
+if [ "$msg_bytes" -le 131072 ]; then
+	report no "a poison token early in a long message stream still fails" \
+		"message stream is only $msg_bytes bytes — too small to reach the defect, so this case would pass against the unfixed ladder too"
+else
+	expect_fail "a poison token early in a long message stream still fails" "$d" "[skip ci]"
+fi
 
 # --- git author identity
 # mk() commits as amh@test.invalid and points origin/<default> at that commit, so the

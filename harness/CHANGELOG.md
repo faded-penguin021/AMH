@@ -129,11 +129,22 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   admit them. Neither does the largest incident no verb list can hold: a production volume and
   its backups deleted by a `curl` GraphQL mutation carrying a found token, which is an API
   surface rather than a command word.
+- **A `printf | grep -q` that closes the pipe made two rungs fail OPEN, and both are fixed.** In
+  `command-guard.sh`'s `extract_command`, the fallback used where `python3` is absent matched the
+  hook payload with `printf '%s' "$payload" | grep -qE ...`. `grep -q` exits at its first match; a
+  writer with bytes still pending takes EPIPE; the file runs under `pipefail`, so a SUCCESSFUL
+  match became a failed pipeline and `|| return 0` stood the rail down on a Bash command nobody
+  inspected. `ladder.sh`'s poison-token rung had the same shape and left a token in the newest
+  commit unreported. Both are here-strings now, whose writer is not a pipeline member and so never
+  reaches `PIPESTATUS`; the `| head -1` beside the first is gone for the same reason. Reaching it
+  takes input that is BOTH multi-line and past the pipe buffer — size alone does not do it,
+  because grep cannot match until it holds a whole line — which is why it went unseen: the rail
+  is only exposed where `python3` is missing, and commit messages had to reach ~64 KB.
 
 ### Upgrading
 
-Copy `command-guard.sh` from `harness/templates/scripts/` over your local copy and re-run your
-manifest generator, as for any shipped-script change. No configuration key changes. Expect one
+Copy `command-guard.sh` AND `ladder.sh` from `harness/templates/scripts/` over your local copies
+and re-run your manifest generator, as for any shipped-script change. No configuration key changes. Expect one
 extra prompt the first time a session runs a database reset command, per verb and per named
 target; a rerun of the same command proceeds, exactly as with the filesystem tier. Also expect
 `rm -rf` and `git clean -fd` run through a package runner to start being advised, which they

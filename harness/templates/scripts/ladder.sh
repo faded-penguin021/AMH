@@ -896,7 +896,15 @@ guard_poison_tokens() {
 	fi
 	while IFS= read -r tok; do
 		[ -n "$tok" ] || continue
-		if printf '%s' "$msgs" | grep -qF -- "$tok"; then
+		# A here-string, NOT `printf ... | grep -q`. `grep -q` exits at its first match;
+		# with bytes still pending the writer takes EPIPE, and under `pipefail` that
+		# becomes the pipeline's status — so a token found EARLY in a long enough set of
+		# messages reads as absent and this rung fails OPEN, silently. Commit messages are
+		# inherently multi-line, so unlike the payload case size alone is enough here: at
+		# ~64 KB of `git log` output a token in the newest commit is simply not reported.
+		# A here-string's writer is not a pipeline member and never reaches `PIPESTATUS`
+		# (AMH ledger row DC034, DC035).
+		if grep -qF -- "$tok" <<<"$msgs"; then
 			fail "commit message contains '$tok' — a squash merge would fold it onto $DEFAULT_BRANCH, and force-push is forbidden, so it is permanent until merge"
 			hits=$((hits + 1))
 		fi

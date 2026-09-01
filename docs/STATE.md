@@ -40,7 +40,25 @@ versions, (2) a CI job running the shipped rungs on a genuinely CRLF adopter tre
 `printf | grep -q` fail-open in the command rail. The owner pre-approved the mandated
 fresh-context pass for each — one blocking reviewer, strongest tier, one-pass bound unchanged —
 and asked that the work be paced around the usage window. Checklist: [x] unit 1 [x] unit 2
-[ ] unit 3 [x] PR #58 body corrected [ ] plan archived or deleted.
+[x] unit 3 [x] PR #58 body corrected [ ] plan archived or deleted.
+
+**OPEN — the `printf | grep -q` class survives at 39 further sites, left alone deliberately, and
+10 of them are NOT in fixture harnesses.** Unit 3 fixed the two with reachable unbounded input —
+the rail's fallback and the poison-token rung, both fail-OPEN (**DC-038**). Of the rest, 29 are
+in `local-guards.sh`, `test-init-e2e.sh`, `test-ladder-guards.sh` and `redact.sh`'s self-test;
+the other 10 are live guard and rung code — `ladder.sh:792`, `:810`, `:1024`, `:1358` with their
+template twins, and `guards/adapter-set.sh:104` and `:108`. What makes them safe is that each
+matches against BOUNDED, mostly single-line input, NOT that the direction is loud: at least three
+(`ladder.sh:792`, `redact.sh:383`, `adapter-set.sh:104`/`:108`) are the same fail-OPEN shape and
+would stand a check down rather than shout. `ladder.sh:1358` is the one to watch — it matches
+against `git diff --name-only`, which is git-derived and multi-line, so its input is the least
+bounded of the residue, though its direction is a spurious `warn`. Not queued as work: rewriting
+39 call sites to close a hazard none can currently reach buys churn, and the reopen trigger is
+any of them starting to match against something unbounded. Check: `grep -rn "printf.*| *grep -q"
+--include=*.sh scripts/ harness/templates/` prints 44 lines, 5 of them explanatory comments —
+resolved only if the description above stops matching that output, which it deliberately does
+not. The class in one line, still printing 141: `bash -c 'set -uo pipefail; { printf "a\n";
+sleep 0.1; printf "b\n"; } | grep -qxF a'; echo $?`.
 
 **OPEN — the 2026-08-29 `path-refs.sh` false failure on `` `session-start.sh` `` still has no
 reproducer.** It was closed in `b2a9ae3` as the EPIPE defect **DC-034** fixes; the pass
@@ -50,22 +68,6 @@ entries, the old pipeline gives 0/200 false failures against the real listing, a
 `session-start.sh` is entry 64 of 71, so nothing is pending when grep matches. What DC-029 named
 is still uncovered — a listing git completed, reported success for, and cut short anyway. No
 check; only a recurrence settles it.
-
-**OPEN — `scripts/command-guard.sh` carries the same `printf | grep -q` shape, and there it
-fails OPEN.** `extract_command`'s no-python3 fallback reads a SUCCESSFUL match as a failure
-whenever the writer still had bytes pending, so `|| return 0` stands the rail down on a Bash
-command it should have inspected. **And it is not the only site:** the pass found
-`scripts/ladder.sh:899` and its shipped twin doing the same in the poison-token rung, where a
-token early in a long enough set of commit messages is silently not reported — this branch's own
-messages already stand at 44065 bytes of the ~65536 needed (**DC-035**). Approved by the owner
-(2026-08-31) as **Unit 3** of the plan above on the same terms, pre-approved pass included; the
-defect, acceptance and playbook-2 obligations are written there, and the rung now belongs in
-that unit's scope. A tree-wide survey during the fix pass found ~40 further instances of the
-shape, all in the fixture harnesses (`local-guards.sh`, `test-init-e2e.sh`,
-`test-ladder-guards.sh`) on captured outputs far under a pipe buffer, where the direction is a
-false FAIL rather than a stand-down; they are deliberately left alone. Check: `bash -c 'set -uo
-pipefail; { printf "a\n"; sleep 0.1; printf "b\n"; } | grep -qxF a'; echo $?` prints 141, a
-SIGPIPE death — 1 where SIGPIPE is ignored, as on the CI runner — for a match that succeeded.
 
 **OPEN — the grep half is CONFIRMED on CI; the CRLF half is BUILT but has never run there; rung
 3 is neither.** Run 33432523501 prints `grep (GNU grep) 3.0` on `portability (windows-latest)`,
@@ -135,6 +137,11 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-09-01 — **Unit 3: the `printf | grep -q` shape where it fails OPEN, at both sites.** The
+  rail's no-python3 fallback stood down on a Bash command it should have inspected, and the
+  poison-token rung left a token in the newest commit unreported; both are here-strings now, with
+  shipped fixtures that need a payload BOTH multi-line and past the pipe buffer, since size alone
+  does not reproduce it (**DC-038**).
 - 2026-09-01 — **Unit 2: a CI step that checks out the way an adopter does.** The portability job
   now builds a scratch adopter tree at `core.autocrlf=true` and asserts BOTH directions on it —
   seeded, byte-bound artifacts LF and the shipped rungs green; unseeded, genuinely CRLF and NOT
