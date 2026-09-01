@@ -42,22 +42,6 @@ fresh-context pass for each — one blocking reviewer, strongest tier, one-pass 
 and asked that the work be paced around the usage window. Checklist: [x] unit 1 [ ] unit 2
 [ ] unit 3 [x] PR #58 body corrected [ ] plan archived or deleted.
 
-**OPEN — the `path-refs.sh` pass is DONE and its findings are RECORDED, NOT FIXED — fix them
-first (owner, 2026-08-31).** The fix in `b2a9ae3` is correct; what the pass falsified was the
-story around it (**DC-035**). In priority order, each replayable: (a) the guard comment at
-`path-refs.sh:185` gives the wrong REASON — a here-string works because its writer is not a
-pipeline member and never reaches `PIPESTATUS`, not because bash backs it with a temp file,
-which it does only above the pipe-buffer size, so a reader on bash >= 5.1 would wrongly think
-the fix void; (b) fixture (viii) in `local-guards.sh` pads with `*.md`, which drags 800 files
-through the markdown loop for nothing — `*.txt` still fails against the piped form and takes
-0.13s against 10.9s, currently 23% of the repo-local suite; (c) that fixture is a bare `expect
-pass` with no message substring, so it goes vacuous silently if the padding ever stops clearing
-the pipe buffer — `expect` takes a fifth argument on a pass verdict; (d) the `Check:` one-liner
-below and in `b2a9ae3` prints 141, a SIGPIPE death, not the 1 it claims, except where SIGPIPE is
-ignored as on the CI runner; (e) the commit body's "(DC-034 cites DC-033)" is false — DC-034
-cites no other row. Check: `sed -n '185p' scripts/guards/path-refs.sh` — resolved when the
-comment no longer says "temporary file rather than a pipe".
-
 **OPEN — the 2026-08-29 `path-refs.sh` false failure on `` `session-start.sh` `` still has no
 reproducer.** It was closed in `b2a9ae3` as the EPIPE defect **DC-034** fixes; the pass
 falsified that (**DC-035**) and the item is restored rather than left retired on a coincidence
@@ -76,8 +60,12 @@ token early in a long enough set of commit messages is silently not reported —
 messages already stand at 44065 bytes of the ~65536 needed (**DC-035**). Approved by the owner
 (2026-08-31) as **Unit 3** of the plan above on the same terms, pre-approved pass included; the
 defect, acceptance and playbook-2 obligations are written there, and the rung now belongs in
-that unit's scope. Check: `bash -c 'set -uo pipefail; { printf "a\n"; sleep 0.1;
-printf "b\n"; } | grep -qxF a'; echo $?` prints 1 for a match that succeeded.
+that unit's scope. A tree-wide survey during the fix pass found ~40 further instances of the
+shape, all in the fixture harnesses (`local-guards.sh`, `test-init-e2e.sh`,
+`test-ladder-guards.sh`) on captured outputs far under a pipe buffer, where the direction is a
+false FAIL rather than a stand-down; they are deliberately left alone. Check: `bash -c 'set -uo
+pipefail; { printf "a\n"; sleep 0.1; printf "b\n"; } | grep -qxF a'; echo $?` prints 141, a
+SIGPIPE death — 1 where SIGPIPE is ignored, as on the CI runner — for a match that succeeded.
 
 **OPEN — the grep half is CONFIRMED on Windows CI; the CRLF half and rung 3 are not.** Run
 33432523501 prints `grep (GNU grep) 3.0` on `portability (windows-latest)`, inside the <= 3.4
@@ -140,6 +128,15 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-09-01 — **The EPIPE fix is confirmed on the platform that showed the defect.** `portability
+  (macos-latest)` is green on `f49d446`, the first run at or after `b2a9ae3`; the same leg was red
+  on `7303edb` with `printf: write error: Broken pipe` and a false miss on `AGENTS.md`
+  (**DC-034**).
+- 2026-08-31 — **The pass's five findings, applied.** The guard comment gives the real reason a
+  here-string is immune, fixture (viii) pads with `*.txt` and asserts what the guard resolved
+  (10.9s to 0.13s, same direction against both forms), the state file's one-liner says 141 rather
+  than 1, and two corrections of record land in the ledger because pushed commit bodies cannot be
+  edited (**DC-036**).
 - 2026-08-31 — **The parked `path-refs.sh` unit was reviewed on the owner's authorisation, and
   the pass kept the fix but broke its story.** The EPIPE mechanism explains the macOS CI failure
   and cannot explain the older `session-start.sh` sighting, so that queue item is restored; the

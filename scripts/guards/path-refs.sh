@@ -183,8 +183,13 @@ while IFS= read -r -d '' f; do
 		# single write into a pipe with room never notices the reader leaving, so this
 		# repository's ~1 KB basename list is safe on a host that writes it in one go and
 		# is not on one that does not. It reached CI as `path-refs.sh` failing on
-		# `AGENTS.md` on macOS while every Linux run stayed green. A here-string is a
-		# temporary file rather than a pipe, so there is no reader to leave (DC-034).
+		# `AGENTS.md` on macOS while every Linux run stayed green. The here-string works
+		# because its writer is NOT a pipeline member: nothing it does reaches
+		# `PIPESTATUS`, so `pipefail` has nothing to promote. Bash backs one with a
+		# temporary file only ABOVE the pipe-buffer size — below that it is a pipe too —
+		# so "a file rather than a pipe" would be a reason that fails exactly where the
+		# defect lives, and a reader on bash >= 5.1 could wrongly think the fix void
+		# (DC-034, corrected by DC-035).
 		if ! grep -qxF -- "$target" <<<"$basenames"; then
 			# shellcheck disable=SC2016 # literal backticks: the message quotes the citation
 			# back in the same markdown form the prose used. No expansion wanted.

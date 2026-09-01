@@ -653,7 +653,7 @@
   on a Bash command it should have inspected — and it is queued rather than fixed here, being a
   shipped rail with its own playbook.
   Corrected by DC-035.
-- DC-035: **The owner authorised the parked pass, and it found the fix right and its story
+- DC-035 [cited]: **The owner authorised the parked pass, and it found the fix right and its story
   wrong.** DC-034's mechanism is real and explains the `macos-latest` failure on `AGENTS.md`,
   but its claim to also explain the 2026-08-29 `session-start.sh` sighting — and so to close that
   Owner-queue item — is false, because this repository's basename list is 1127 bytes over 71
@@ -671,3 +671,21 @@
   yesterday's, and retiring an old unreproduced sighting onto a new root cause closes an open
   question on a coincidence of symptoms. Recorded and deliberately NOT fixed tonight, by the
   owner's instruction, so the shipped diff stays as it was reviewed.
+- DC-036: **A recorded finding decays into folklore the moment it is written down instead of
+  applied.** DC-035's five findings were applied rather than left as prose: the guard comment now
+  gives the real reason a here-string works — its writer is not a pipeline member, so nothing it
+  does reaches `PIPESTATUS` and `pipefail` has nothing to promote — instead of the temp-file
+  story, which holds only ABOVE the pipe-buffer size and so fails exactly where the defect lives;
+  fixture (viii) pads with `*.txt` rather than `*.md`, which the markdown loop no longer opens and
+  greps twice apiece, taking the case from 10.9s to 0.13s with the same verdict against both forms
+  of the lookup; and that fixture now asserts a message substring, because a bare `expect pass`
+  whose padding stopped clearing the buffer would go green against both forms in silence. Two
+  corrections of record no edit can reach, both in pushed commit bodies: the published one-liner
+  prints 141, a SIGPIPE death, not the 1 it claims, except where SIGPIPE is ignored as it was on
+  the CI runner; and `6a5d161`'s "(DC-034 cites DC-033)" is false — the owner's pre-approval is
+  recorded in DC-033 alone, and DC-034 cites no row at all. A tree-wide survey found ~40 further
+  instances of the shape, every one in a fixture harness on a captured output far under a pipe
+  buffer where the direction is a false FAIL, and they are left alone deliberately: the two that
+  matter, the rail and the poison-token rung, are the plan's unit 3. The durable lesson beyond the
+  corrections is that a fixture whose padding is built from files the guard also SCANS pays its
+  size twice, once for the listing it needs long and once for a loop it does not.

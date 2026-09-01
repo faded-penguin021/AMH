@@ -919,18 +919,32 @@ expect pass "path-refs: a deleted last-sorted path is not a failed listing" "$d"
 #        sorts to the very front so the match happens as early as possible, leaving the most
 #        pending. Against the piped form this case fails; against the here-string it passes,
 #        and the padding is what makes that difference exist at all on this platform.
+#
+#        The padding is `*.txt` and NOT `*.md`, because only the BASENAME listing has to be
+#        long: the markdown loop opens and greps every file it is given, so `*.md` padding
+#        bought the identical verdict while dragging 800 empty documents through two greps
+#        apiece — 10.9s against 0.13s, which was 23% of this whole suite. Measured both ways
+#        against both forms of the lookup before the change: `*.txt` still fails against the
+#        piped form, which is the only property the padding owes.
+#
+#        The pass verdict carries a message substring, because a bare `expect pass` here goes
+#        vacuous in silence: if the padding ever stops clearing the pipe buffer the case is
+#        green against both forms and says nothing. The substring pins what the guard
+#        actually resolved — one citation across the two markdown files, the pad excluded —
+#        so a fixture that stopped exercising the lookup fails instead of passing quietly.
 d=$(guard_only_tree refs_early_match_long_listing)
 mkdir -p "$d/pad"
 i=0
 while [ "$i" -lt 800 ]; do
-	: >"$d/pad/$(printf 'p%0100d' "$i").md"
+	: >"$d/pad/$(printf 'p%0100d' "$i").txt"
 	i=$((i + 1))
 done
 : >"$d/AAA-first-in-listing.md"
 # shellcheck disable=SC2016 # the backticks are the fixture: the guard reads a markdown
 # code span, so single quotes are required here.
 printf 'cites `AAA-first-in-listing.md`\n' >"$d/doc.md"
-expect pass "path-refs: an early match on a long listing is not a missing file" "$d" path-refs.sh
+expect pass "path-refs: an early match on a long listing is not a missing file" "$d" path-refs.sh \
+	'1 path reference(s) resolve across 2 file(s)'
 
 # --- scripts/bootstrap.sh ----------------------------------------------------
 # Not a guard, so it gets its own runner rather than `expect`. It is repo-local for the
