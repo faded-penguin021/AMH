@@ -786,3 +786,16 @@
   restores `.gitattributes` and re-normalizes the checkout, while every unestablished cause keeps
   the ordinary edited-file explanation. The paired fixtures pin both directions because merely
   adding a CRLF branch can otherwise misdiagnose every content edit as line-ending conversion.
+
+- DC-043: **A local command rail can classify a forge mutation without becoming a security
+  boundary, provided its verdict is structural and its limits are part of the feature.** The
+  shipped guard now walks parsed argv for `gh api` and direct-forge `curl`: safe methods remain
+  reads, body and upload flags imply POST where the clients do, explicit mutation methods stay
+  explicit, and GraphQL is judged only when its document declares a mutation. It blocks the
+  high-consequence endpoint and operation classes that paid for the rail — repository settings,
+  secrets, environments, storage, releases, refs, destructive administration and bulk resource
+  changes — while diagnostics disclose only client, method and class, never payload or credential
+  material. The boundary is just as load-bearing as the classifier: application code, opaque
+  scripts, aliases and external interfaces can initiate identical mutations with no observable
+  command structure, so least-privilege tokens, protected environments, approval requirements and
+  separate destructive-administration credentials remain the controls that bind those paths.
