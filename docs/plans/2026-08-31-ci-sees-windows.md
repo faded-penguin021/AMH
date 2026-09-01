@@ -1,10 +1,16 @@
 # PLAN — make CI able to SEE the Windows failures, not just run on Windows
 
+> **RETAINED IN PLACE — do not archive, move or delete this file (DC-039).** Committed row
+> DC-033 names this file's path, committed rows are immutable, and `scripts/guards/path-refs.sh`
+> fails the moment a cited path stops resolving. Moving or deleting this plan therefore turns
+> the branch red and cannot be undone by editing the row. That citation is why no ledger row may
+> cite a plan's path any more; this file is the one instance predating the rule.
+
 Owner-approved 2026-08-31, drafted at the end of the session that shipped **DC-031**/**DC-032**
-(branch `session/readme-adoption`, PR #58). Provisional: the owner may pivot, every unit ends
-shippable, and the final unit archives this file to `docs/history/` or deletes it. Durable
-outcomes live in Changelog lines and ledger rows either way — code cites ledger rows, never this
-file.
+(branch `session/readme-adoption`, PR #58). Provisional: the owner may pivot and every unit ends
+shippable. This file was to be archived or deleted when its work completed; it is retained in
+place instead, for the reason in the box above. Durable outcomes live in Changelog lines and
+ledger rows either way — code cites ledger rows, never this file.
 
 **Verification of every claim below happens during EXECUTION, not during drafting.** The scope
 facts in Unit 1 were read from `amh.conf` and `scripts/guards/shipped-citations.sh` on

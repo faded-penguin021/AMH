@@ -166,10 +166,13 @@ followed it from every rail. It cuts BOTH ways and the loosening half is worth k
 carrying an escaped quote stops being mistaken for a command, so `echo "a \" | rm -rf x | b"` and
 `grep -q "x \" < .env" f` go quiet, and an unterminated line such as `echo "a\" && git push
 --force` is now allowed rather than blocked — malformed input fails open by design. If you key any
-CI check or transcript review on this guard's output, expect both directions to move. The plan-citation rule is prose in the principles and a seed-runbook line: if you took the seed
-runbook, hand-apply the new sentences in session discipline 5, and check your own ledger for a
-row that already names a plan path — if one exists, retain that plan where it is rather than
-trying to archive it.
+CI check or transcript review on this guard's output, expect both directions to move.
+
+The plan-citation rule is prose in the principles and a seed-runbook line; no shipped guard
+enforces it, so it binds by review. If you took the seed runbook, hand-apply the new sentences in
+session discipline 5, and check your own ledger for a row that already names a plan path — if one
+exists, retain that plan where it is and record the retention in the plan file itself, rather
+than attempting an archive that a path-existence guard will reject.
 
 The same copy pass covers `ladder.sh`, `redact.sh` and `test-ladder-guards.sh` — the manifest
 instruction above already covers all of them. `ladder.sh` and `redact.sh` must move

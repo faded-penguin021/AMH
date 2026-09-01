@@ -284,28 +284,52 @@ cat >>"$d/docs/LEDGER_C.md" <<'ROW'
 - DC-999: **New row citing a plan path.** See `docs/plans/fixture-plan.md` for the checklist.
 ROW
 expect fail "ledger-append-only: a new row cannot cite a plan path in backticks" "$d" \
-	ledger-append-only.sh "cites the plan file 'docs/plans/fixture-plan.md'"
+	ledger-append-only.sh "names the plan file 'docs/plans/fixture-plan.md'"
 
 d=$(snapshot ledger_row_links_plan_path)
 mkdir -p "$d/docs/plans"
 printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
+# `plans/…`, NOT `docs/plans/…`. path-refs.sh resolves a link against the LINKING FILE's
+# directory, and the ledger sits in docs/ — so this is the target that actually pins the plan,
+# and `](docs/plans/…)` is a broken link that pins nothing. The first version of this fixture
+# asserted on the broken form and passed while the real one went undetected.
 cat >>"$d/docs/LEDGER_C.md" <<'ROW'
-- DC-999: **New row linking a plan.** See [the plan](docs/plans/fixture-plan.md) for the checklist.
+- DC-999: **New row linking a plan.** See [the plan](plans/fixture-plan.md) for the checklist.
 ROW
-expect fail "ledger-append-only: a new row cannot cite a plan path as a markdown link" "$d" \
-	ledger-append-only.sh "cites the plan file 'docs/plans/fixture-plan.md'"
+expect fail "ledger-append-only: a new row cannot link a plan path relative to the ledger" "$d" \
+	ledger-append-only.sh "names the plan file 'docs/plans/fixture-plan.md'"
 
+d=$(snapshot ledger_row_links_plan_fragment)
+mkdir -p "$d/docs/plans"
+printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-999: **New row linking a plan section.** See [unit 3](./plans/fixture-plan.md#unit-3) now.
+ROW
+expect fail "ledger-append-only: a leading ./ and a #fragment do not evade the link check" "$d" \
+	ledger-append-only.sh "names the plan file 'docs/plans/fixture-plan.md'"
+
+d=$(snapshot ledger_row_cites_plan_dotslash)
+mkdir -p "$d/docs/plans"
+printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-999: **New row citing a dot-slash plan path.** See `./docs/plans/fixture-plan.md` now.
+ROW
+expect fail "ledger-append-only: a leading ./ does not evade the backticked-path check" "$d" \
+	ledger-append-only.sh "names the plan file 'docs/plans/fixture-plan.md'"
+
+# The escape hatch has to work or the rule is unfollowable: a row may still SAY which plan the
+# work came from, so long as it does so in a form no path guard resolves.
 d=$(snapshot ledger_row_cites_plan_basename)
 mkdir -p "$d/docs/plans"
 printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
+# path-refs section (c) resolves a backticked BARE filename against every tracked basename, so
+# a plan named with no directory pins it exactly as hard as the full path does.
 cat >>"$d/docs/LEDGER_C.md" <<'ROW'
 - DC-999: **New row citing a bare plan filename.** See `fixture-plan.md` for the checklist.
 ROW
 expect fail "ledger-append-only: a new row cannot cite a bare plan filename" "$d" \
-	ledger-append-only.sh "cites the plan file 'fixture-plan.md'"
+	ledger-append-only.sh "names the plan file 'fixture-plan.md'"
 
-# The escape hatch has to work or the rule is unfollowable: a row may still SAY which plan the
-# work came from, so long as it does so in a form no path guard resolves.
 d=$(snapshot ledger_row_names_plan_in_prose)
 mkdir -p "$d/docs/plans"
 printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
@@ -313,6 +337,17 @@ cat >>"$d/docs/LEDGER_C.md" <<'ROW'
 - DC-999: **New row naming a plan in prose.** Delivered under the fixture plan of 2026-08-31.
 ROW
 expect pass "ledger-append-only: a new row may name a plan in prose without a citable path" "$d" ledger-append-only.sh
+
+# Ordinary parentheses are not link syntax: path-refs resolves `](…)` only, so a plan named
+# inside prose parentheses pins nothing and must not fail here. Matching a bare `(` was a real
+# false positive in the first version.
+d=$(snapshot ledger_row_plan_in_parentheses)
+mkdir -p "$d/docs/plans"
+printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-999: **New row with a parenthetical.** Drafted (docs/plans/fixture-plan.md was the source).
+ROW
+expect pass "ledger-append-only: a plan named in bare parentheses is not a link and passes" "$d" ledger-append-only.sh
 
 # DC-033's own shape. Committed rows are immutable, so the check MUST NOT reach them — a
 # version that did would fail forever on the row that motivated it.

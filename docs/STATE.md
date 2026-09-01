@@ -37,7 +37,10 @@ chose the rewrite over the recommended squash-merge. A session cannot carry it o
 **owner-executed** credential-incident process after rotation, and this is not one; the
 `--pre-push` rail independently blocks the non-fast-forward by OUTCOME on every branch, so
 `--no-verify` would be the only route and that is defeating a rail, not using one. The rung's own
-failure text says force-push is forbidden. So this needs the owner AT A LOCAL CLONE:
+failure text says force-push is forbidden. The cost is now larger than a red rung: run
+33470639275 showed the token failing `Portability smoke` on BOTH portability legs, which skips
+the `Adopter CRLF tree` step entirely, so the Windows/macOS verification cannot run at all until
+it clears. So this needs the owner AT A LOCAL CLONE:
 `git rebase -i e23f86a`, mark `e364631` `reword`, drop the token from that body, then
 `git push --force-with-lease`. Verified 2026-09-01: `e364631` is the ONLY commit in the range
 whose body holds the literal token — `9815164` describes the incident without quoting it — so
@@ -48,14 +51,19 @@ available and needs no rewrite. Check: `git log --format=%B origin/main..HEAD | 
 **OPEN — tag and publish AMH 10.4.0 after merge.** Owner-only actions; the release commit is
 prepared on the PR branch. Check: `git tag -l amh-v10.4.0` — resolved when it prints the tag.
 
-**OPEN — the CRLF CI step ran once, half-passed, and its re-run is unverified.** First run
-33468064665 (`e23f86a`): macOS green, Windows RED on the step's own vacuity assertion, because
-delete-and-checkout does not re-smudge under Git Bash — which voids that run's seeded pass there
-too. It did establish that DC-030's `--baseline` survives real CRLF bytes under MSYS2's sed.
-Re-smudge, vacuity assertion and `git ls-files --eol` diagnostics are in (**DC-037**); the grep
-half stays CONFIRMED on run 33432523501 (**DC-033**); `verify.sh` (rung 3) has still never run on
-Windows or macOS. Check: read that job on the newest run — the CRLF half resolves once the step
-is green on BOTH legs, run id recorded here; the grep half while its printed grep stays <= 3.4.
+**OPEN — the CRLF CI step is BLOCKED by the poison token, not defective; round 2 produced no
+data.** Run 33470639275 (`9815164`) DID get check runs, so the Actions skip was specific to
+`e364631`. But `Adopter CRLF tree` was SKIPPED on BOTH legs: the preceding `Portability smoke`
+step runs the guards, and on macOS and Windows alike it died with `1 failure(s)` — the
+poison-token rung — every other rung green. So the token is not merely making the ladder job red,
+it is gating both portability legs, and no round of the three-round budget should be spent until
+it clears. Windows Git Bash did run the whole guard set to completion rather than dying at `set:
+pipefail`, but on an LF checkout, so the unseeded half remains unanswered. First run 33468064665
+(`e23f86a`): macOS green, Windows RED on the step's own vacuity assertion; re-smudge, vacuity
+assertion and `git ls-files --eol` diagnostics are in (**DC-037**); the grep half stays CONFIRMED
+on run 33432523501 (**DC-033**); `verify.sh` (rung 3) has still never run on Windows or macOS.
+Check: read that step on the newest run — it resolves once it is green on BOTH legs, run id
+recorded here; it cannot even execute while the token is in the range.
 
 **OPEN — the `printf | grep -q` class survives at 39 further sites, and 10 are NOT fixture
 harnesses.** Unit 3 fixed the two with reachable unbounded input; the residue is safe on BOUNDED,

@@ -192,9 +192,9 @@ validate_row_cap() { # validate_row_cap <row-file> <id>
 # A new row must not name a plan file — in ANY form `scripts/guards/path-refs.sh` resolves.
 #
 # The incident: DC-033 cited the 2026-08-31 ci-sees-windows plan's path in backticks. Rows are
-# immutable, path-refs checks that a backticked path EXISTS, and session discipline 5 says a
-# finished plan is archived or deleted — so the row pinned the plan in place permanently and
-# the archive-or-delete step could never run. Tried it; path-refs failed, and the plan had to be
+# immutable, path-refs checks that a cited path EXISTS, and session discipline 5 says a finished
+# plan is archived or deleted — so the row pinned the plan in place permanently and the
+# archive-or-delete step could never run. Tried it; path-refs failed, and the plan had to be
 # restored. Neither rule was wrong alone; nothing said they could not both bind the same file.
 #
 # NEW rows only, which is not a softening but the only reachable scope: DC-033 is committed and
@@ -202,39 +202,90 @@ validate_row_cap() { # validate_row_cap <row-file> <id>
 # it — the trap this exists to prevent, rebuilt one layer up. The existing citation stands and
 # its plan is retained in place; see the runbook's session discipline 5.
 #
-# Three forms, because path-refs resolves three and catching two would leave the rule
-# advertising a coverage it does not have:
-#   (a) a backticked or linked path under PLAN_DIR — matched by prefix, no extension assumed;
-#   (b) a markdown link whose target is under PLAN_DIR — same prefix, different syntax;
+# The three forms are path-refs's own, and the FIRST one is why this is not a single grep. That
+# guard resolves a markdown link RELATIVE TO THE LINKING FILE (`dir=$(dirname "$f")`), and every
+# ledger volume sits in LEDGER_DIR — so the target that pins a plan from a row is `plans/<file>`,
+# NOT `docs/plans/<file>`. The obvious spelling is the one that does not pin: `](docs/plans/…)`
+# resolves to `docs/docs/plans/…` and path-refs reports it broken whether or not the plan exists.
+# A first version of this guard matched the obvious spelling and missed the real one, and its
+# fixture asserted on the miss — caught in review by replaying both against path-refs.
+#
+#   (a) a markdown link whose target, resolved against LEDGER_DIR, lands under PLAN_DIR;
+#   (b) a backticked path under PLAN_DIR, resolved from the repo root as path-refs does;
 #   (c) a backticked BARE filename that is currently a file in PLAN_DIR — path-refs section (c)
-#       resolves those against every tracked basename, so `2026-08-31-ci-sees-windows.md` with
-#       no directory pins the plan exactly as hard as the full path does.
+#       resolves those against every tracked basename, so a bare `<plan>.md` pins just as hard.
+#
+# Both extractions are substituted into a variable and read back, never piped into a consumer
+# that exits early. `grep -o ... | head -1` is the fail-OPEN shape DC-034 and DC-038 record: head
+# exits after its first line, the writer takes EPIPE, and under `pipefail` a FOUND citation
+# becomes a non-zero pipeline that reads as no-match. The first version of this guard had exactly
+# that pipeline.
+#
+# Matched with `case` over extracted tokens rather than by interpolating PLAN_DIR into an ERE:
+# the value comes from amh.conf and is adopter-editable, and a regex would silently impose a
+# no-metacharacters constraint on it that nothing documents or checks.
+#
 # (c) can only see plans that exist NOW: a row naming a plan added later is not reachable here,
 # and nothing catches it. Stated rather than papered over — the prose rule is what binds, and
 # this guard is a tripwire for the shape that already bit us.
+
+# Strip a #fragment and any leading `./`, the two spellings path-refs normalizes before it
+# resolves. Without this, `plans/x.md#unit-3` and `./plans/x.md` both pin and both pass.
+normalize_ref() { # normalize_ref <target>
+	local t=${1%%#*}
+	while [ "$t" != "${t#./}" ]; do t=${t#./}; done
+	printf '%s' "$t"
+}
+
 validate_row_plan_path() { # validate_row_plan_path <row-file> <id>
-	local row=$1 id=$2 hit base
+	local row=$1 id=$2 tok target spans
 	[ -n "${PLAN_DIR:-}" ] || return 0
-	# NOT `grep -o ... | head -1`. `head` exits after its first line, the writer takes EPIPE, and
-	# under `pipefail` that turns a FOUND citation into a non-zero pipeline read as "no match" —
-	# the fail-OPEN shape DC-034 and DC-038 record. Substitute the whole output, then take the
-	# first line with a parameter expansion, whose writer is not a pipeline member.
-	hit=$(LC_ALL=C grep -oE "[\`(]${PLAN_DIR}/[A-Za-z0-9_./-]+" "$row")
-	hit=${hit%%$'\n'*}
-	[ -n "$hit" ] && plan_citation_fail "$id" "${hit#[\`(]}"
-	# (c) bare basenames of the plans that exist right now.
-	if [ -d "$PLAN_DIR" ]; then
-		for base in "$PLAN_DIR"/*; do
-			[ -f "$base" ] || continue
-			base=${base##*/}
-			LC_ALL=C grep -qF -- "\`$base\`" "$row" && plan_citation_fail "$id" "$base"
-		done
-	fi
+
+	# (a) markdown links. `](` and not a bare `(`: path-refs only resolves link syntax, so a
+	# plan named inside ordinary parentheses pins nothing and must not fail here.
+	while IFS= read -r tok; do
+		[ -n "$tok" ] || continue
+		tok=${tok#](}
+		tok=${tok%)}
+		case $tok in
+		http*://* | '#'* | mailto:* | /*) continue ;;
+		esac
+		target=$(normalize_ref "$tok")
+		[ -n "$target" ] || continue
+		# Resolved the way path-refs resolves it: against the linking file's directory,
+		# which for every ledger volume is LEDGER_DIR.
+		case "$LEDGER_DIR/$target" in
+		"$PLAN_DIR"/*) plan_citation_fail "$id" "$LEDGER_DIR/$target" ;;
+		esac
+	done < <(LC_ALL=C grep -oE '\]\([^)]+\)' "$row")
+
+	# (b) and (c) backticked spans, resolved from the repo root as path-refs does.
+	# Hoisted out of the loop so the SC2016 waiver covers ONE command: a directive cannot sit
+	# before `done < <(...)` (SC1123), and putting it on the whole `while` would silence the
+	# check for the entire body — the same reasoning path-refs.sh records at its own extraction.
+	# shellcheck disable=SC2016 # backticks are the pattern's own syntax: this matches markdown
+	# code spans literally, so single quotes are required, not a slip.
+	spans=$(LC_ALL=C grep -oE '`[^`]+`' "$row")
+	while IFS= read -r tok; do
+		[ -n "$tok" ] || continue
+		tok=${tok#\`}
+		tok=${tok%\`}
+		target=$(normalize_ref "$tok")
+		[ -n "$target" ] || continue
+		case $target in
+		"$PLAN_DIR"/*) plan_citation_fail "$id" "$target" ;;
+		esac
+		# (c) a bare filename that is a plan in the tree right now.
+		case $target in
+		*/*) ;;
+		*) [ -n "$target" ] && [ -f "$PLAN_DIR/$target" ] && plan_citation_fail "$id" "$target" ;;
+		esac
+	done <<<"$spans"
 	return 0
 }
 
 plan_citation_fail() { # plan_citation_fail <id> <cited>
-	fail "ledger append-only: new row $1 cites the plan file '$2'. A committed row is immutable and $PLAN_DIR files are archived or deleted when their work completes, so a row naming one pins it in the tree forever — and the archive-or-delete step then fails path-refs.sh (DC-033 did exactly this). Record what the plan DELIVERED in the row itself; name the plan in prose without a citable path if you must refer to it at all."
+	fail "ledger append-only: new row $1 names the plan file '$2'. A committed row is immutable and $PLAN_DIR files are archived or deleted when their work completes, so a row naming one pins it in the tree forever — and the archive-or-delete step then fails path-refs.sh (DC-033 did exactly this). Record what the plan DELIVERED in the row itself; name the plan in prose without a citable path if you must refer to it at all."
 }
 
 allowed_metadata_only() { # allowed_metadata_only <base-row> <current-row>
