@@ -9,13 +9,13 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 10.4.1** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 10.4.2** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-AMH **10.4.1** is prepared on this branch and untagged; it carries no shipped-script change and
-exists to date this record. **10.4.0** is RELEASED: PR #58 squash-merged as `f1f25be` on
-2026-09-01 and tagged `amh-v10.4.0`, carrying 10.3.1 inside it. That commit has **no CI run** — the squash folded the
+AMH **10.4.2** is prepared on this branch and untagged; it carries the shipped-integrity CRLF
+diagnostic fix (**DC-042**). **10.4.1** is RELEASED: `b261502` is tagged `amh-v10.4.1` on
+2026-09-01. The preceding 10.4.0 release commit has **no CI run** — its squash folded the
 whole branch's bodies into its message, poison token included, so Actions skipped the push and
 the newest run on `main` is still 10.3.0's; the next PR is the first chance to verify this
 content (**DC-040**). **9.2.0 has a changelog entry and no tag**, and nothing checks that every
@@ -34,21 +34,10 @@ protection is repointed at `ladder`.
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**OPEN — tag and publish AMH 10.4.1 after merge.** Owner-only. When merging, **edit the squash
+**OPEN — tag and publish AMH 10.4.2 after merge.** Owner-only. When merging, **edit the squash
 message**: GitHub's default concatenates every commit body on the branch, which is how 10.4.0's
-release commit lost its CI run (**DC-040**). Check: `git tag -l amh-v10.4.1` — resolved when it
+release commit lost its CI run (**DC-040**). Check: `git tag -l amh-v10.4.2` — resolved when it
 prints the tag.
-
-**OPEN — the integrity rung's remediation text sends a CRLF adopter round a loop.** Now that
-run 33494690202 has PRINTED what an unseeded CRLF tree fails on — five `does not match the hash`
-lines and nothing else — the advice under them is readable, and it is wrong for this cause: it
-offers "you edited it" and "re-run the harness's init script", which re-copies LF files that the
-adopter's own `core.autocrlf=true` re-smudges to CRLF, failing identically next run. Line endings
-are not mentioned. That is a true verdict wrapped in a false account of the cause, the shape this
-rung's own comment block exists to refuse. A fix belongs in `ladder.sh` (a shipped script, so a
-reviewed unit): when a hash mismatch coincides with a CRLF worktree, say so and name
-`.gitattributes`. Check: the rung's failure text against a CRLF tree — resolved when it names
-line endings as a possible cause.
 
 **OPEN — the `printf | grep -q` class survives at 39 further sites, and 10 are NOT fixture
 harnesses.** Unit 3 fixed the two with reachable unbounded input; the residue is safe on BOUNDED,
@@ -105,6 +94,10 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-09-01 — **10.4.2: shipped-integrity failures distinguish CRLF conversion from ordinary
+  edits.** A mismatch asks Git for the affected tracked file's authoritative worktree EOL; only
+  `w/crlf` selects the targeted `.gitattributes`, re-normalize and re-checkout remediation, while
+  every other mismatch retains the existing edited-file explanation (**DC-042**).
 - 2026-09-01 — **The CRLF portability question is answered on both platforms.** Run 33494690202
   is green on both legs and prints what each does: an unseeded CRLF tree on Windows fails on the
   integrity rung and ONLY there — five `does not match the hash` lines, secret scan and rails
