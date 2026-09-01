@@ -140,6 +140,15 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   takes input that is BOTH multi-line and past the pipe buffer — size alone does not do it,
   because grep cannot match until it holds a whole line — which is why it went unseen: the rail
   is only exposed where `python3` is missing, and commit messages had to reach ~64 KB.
+- **A ledger row may no longer cite a plan's path, because two rules that each looked right made
+  a plan undeletable.** Permanent memory is immutable; the plan tier is archive-or-delete; a path
+  guard requires a cited path to exist. A row citing `docs/plans/<file>` satisfies all three and
+  makes them contradict: the plan can never move or go, and the contradiction only surfaces when
+  someone tries, long after the row is beyond repair. Recorded in the principles as prose, since
+  the shipped ladder has no ledger guard to carry it — the reference repository enforces it on
+  NEW rows in its own `ledger-append-only.sh`. Committed rows are exempt of necessity: a check
+  reaching them would fail permanently on the row that motivated the rule, which is the same trap
+  one layer up. A plan already pinned by a committed row is retained in place.
 
 ### Upgrading
 
@@ -157,7 +166,10 @@ followed it from every rail. It cuts BOTH ways and the loosening half is worth k
 carrying an escaped quote stops being mistaken for a command, so `echo "a \" | rm -rf x | b"` and
 `grep -q "x \" < .env" f` go quiet, and an unterminated line such as `echo "a\" && git push
 --force` is now allowed rather than blocked — malformed input fails open by design. If you key any
-CI check or transcript review on this guard's output, expect both directions to move.
+CI check or transcript review on this guard's output, expect both directions to move. The plan-citation rule is prose in the principles and a seed-runbook line: if you took the seed
+runbook, hand-apply the new sentences in session discipline 5, and check your own ledger for a
+row that already names a plan path — if one exists, retain that plan where it is rather than
+trying to archive it.
 
 The same copy pass covers `ladder.sh`, `redact.sh` and `test-ladder-guards.sh` — the manifest
 instruction above already covers all of them. `ladder.sh` and `redact.sh` must move

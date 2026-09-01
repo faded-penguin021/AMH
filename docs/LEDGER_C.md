@@ -611,7 +611,7 @@
   flag with `LC_ALL=C` beside it (grep before 3.5 also calls a file binary on an encoding error
   in the current locale, so the flag alone would have made the scanned set locale-dependent), and
   one took a refusal instead.
-- DC-033: **A rung fixed for a platform its fixtures cannot run on needs its breaking INPUT
+- DC-033 [cited]: **A rung fixed for a platform its fixtures cannot run on needs its breaking INPUT
   committed, not just its execution on that platform.** CI's `portability (windows-latest)` job
   has run the citation rung on every pull request since the matrix existed and could never have
   caught DC-031: no file in `CITATION_SCAN_PATHS` was binary, so the rung met its ordinary input
@@ -707,7 +707,7 @@
   pre-approved fresh-context pass (DC-033) is consumed here, and acceptance was demonstrated ON
   LINUX by running the YAML-extracted step at HEAD, exit 0, and at `832dfe2` — HEAD~ of the fix,
   where the seed does not yet exist — exit 1 on the first assertion.
-- DC-038: **The same bug class takes a different DIRECTION at each site, and the direction is
+- DC-038 [cited]: **The same bug class takes a different DIRECTION at each site, and the direction is
   what decides how bad it is.** `printf | grep -q` under `pipefail` read a false failure in
   `path-refs.sh`, which was loud and wrong; at `command-guard.sh`'s no-python3 fallback the same
   shape makes `|| return 0` stand the rail DOWN on a Bash command nobody inspected, and at
@@ -728,3 +728,18 @@
   which added this as the plan's unit 3 after DC-034 turned the class up here, on the same terms
   as the units before it and with one pre-approved fresh-context pass included (DC-033 records
   those earlier grants and NOT this one).
+- DC-039: **Two rules that were each correct alone made a file undeletable, and the immutable
+  half is the one that cannot yield.** Permanent memory is immutable, the plan tier is
+  archive-or-delete, and `path-refs.sh` requires a cited path to exist; DC-033 cited a plan's
+  path in backticks and thereby satisfied all three into a contradiction, so the archive step
+  failed and the plan had to be restored. The rule added is that no row may cite a plan's PATH
+  in any form that guard resolves — backticked path, markdown link, or bare filename, which is
+  three forms because catching two would advertise a coverage the rule does not have. Enforced
+  on NEW rows only in `ledger-append-only.sh`, since a check reaching committed rows would fail
+  forever on DC-033 itself, rebuilding the trap one layer up; the fixtures make their own plan
+  rather than naming the tree's, and the pass case proves the prose escape hatch is followable.
+  The plan DC-033 pinned is retained in place, which is the honest resolution of a citation that
+  cannot be withdrawn. Recorded as the owner's grant: on 2026-09-01 the owner lifted this
+  session's standing no-subagent policy for the one blocking rule-review pass this unit
+  mandates, the protocol's ask-before-parking clause having made that a question rather than a
+  capability limit.

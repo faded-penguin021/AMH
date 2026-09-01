@@ -273,6 +273,61 @@ PYROW
 (cd "$d" && git add amh.conf docs/LEDGER_C.md && git commit -qm over-cap-history)
 expect pass "ledger-append-only: an already committed over-cap row is historical and exempt" "$d" ledger-append-only.sh
 
+# A new row must not pin a plan file. Each fixture makes its OWN plan rather than naming the
+# one in the tree: the point is the shape, and a fixture that depends on today's plan set would
+# start passing vacuously the day that set changes. The three fail cases are the three forms
+# path-refs.sh resolves — a row that evades two of them pins the plan just as hard.
+d=$(snapshot ledger_row_cites_plan_path)
+mkdir -p "$d/docs/plans"
+printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-999: **New row citing a plan path.** See `docs/plans/fixture-plan.md` for the checklist.
+ROW
+expect fail "ledger-append-only: a new row cannot cite a plan path in backticks" "$d" \
+	ledger-append-only.sh "cites the plan file 'docs/plans/fixture-plan.md'"
+
+d=$(snapshot ledger_row_links_plan_path)
+mkdir -p "$d/docs/plans"
+printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-999: **New row linking a plan.** See [the plan](docs/plans/fixture-plan.md) for the checklist.
+ROW
+expect fail "ledger-append-only: a new row cannot cite a plan path as a markdown link" "$d" \
+	ledger-append-only.sh "cites the plan file 'docs/plans/fixture-plan.md'"
+
+d=$(snapshot ledger_row_cites_plan_basename)
+mkdir -p "$d/docs/plans"
+printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-999: **New row citing a bare plan filename.** See `fixture-plan.md` for the checklist.
+ROW
+expect fail "ledger-append-only: a new row cannot cite a bare plan filename" "$d" \
+	ledger-append-only.sh "cites the plan file 'fixture-plan.md'"
+
+# The escape hatch has to work or the rule is unfollowable: a row may still SAY which plan the
+# work came from, so long as it does so in a form no path guard resolves.
+d=$(snapshot ledger_row_names_plan_in_prose)
+mkdir -p "$d/docs/plans"
+printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-999: **New row naming a plan in prose.** Delivered under the fixture plan of 2026-08-31.
+ROW
+expect pass "ledger-append-only: a new row may name a plan in prose without a citable path" "$d" ledger-append-only.sh
+
+# DC-033's own shape. Committed rows are immutable, so the check MUST NOT reach them — a
+# version that did would fail forever on the row that motivated it.
+d=$(snapshot ledger_committed_row_cites_plan_exempt)
+mkdir -p "$d/docs/plans"
+printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-999: **Committed row citing a plan path.** See `docs/plans/fixture-plan.md` for the checklist.
+ROW
+(cd "$d" && git add docs/LEDGER_C.md docs/plans && git commit -qm plan-citation-history)
+cat >>"$d/docs/LEDGER_C.md" <<'ROW'
+- DC-1000: **A later clean row.** Nothing cited.
+ROW
+expect pass "ledger-append-only: an already committed plan citation is historical and exempt" "$d" ledger-append-only.sh
+
 d=$(snapshot ledger_append_only_superseded_over_cap_existing_row)
 sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=10/' "$d/amh.conf"
 awk '/^- D-002 / && !done { print "  Superseded by DB-999."; done = 1 } { print }' \

@@ -102,6 +102,17 @@ from `docs/plans/` to `docs/history/` rather than deleting it. Its durable outco
 belong in ledger rows and changelog lines: archiving preserves the plan, but does not promote
 it to permanent memory or make it a valid implementation citation.
 
+**A ledger row must never cite a plan's PATH, and this is the corollary that has actually bitten
+a repository.** Permanent memory is immutable and the archive tier is not: a row that names
+`docs/plans/<file>` in backticks, as a link, or as a bare filename makes the two rules
+contradict each other, because a path guard then requires the plan to exist at that path
+forever while the paragraph above requires it to move or go. The plan becomes undeletable, and
+the contradiction surfaces only when someone tries — long after the row is beyond repair. Record
+what the plan DELIVERED in the row itself, which is the durable content anyway; refer to the plan
+in prose if at all, in a form no path guard resolves. A plan already pinned by a committed row is
+retained where it is: the citation cannot be withdrawn, so retention in place is the honest
+resolution rather than a rule that cannot be obeyed.
+
 **And never another tier's live file.** Retiring the working-memory file into the archive and
 starting a fresh one satisfies every word above while defeating the point: it is the same
 relocation at file granularity, it evades the cap that forces the fold, and it moves the

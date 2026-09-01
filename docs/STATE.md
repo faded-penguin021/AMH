@@ -29,23 +29,21 @@ protection is repointed at `ladder`.
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**OPEN — BLOCKER, owner's call: `e364631`'s commit message carries a poison token and I cannot
-remove it.** Writing up unit 3 I quoted the rung's own failure text verbatim. The rung now FAILS
-permanently, scanning every message in `origin/main..HEAD` while pushed history may not be
-rewritten, and Actions SKIPPED the workflow for that push — PR #58 showed zero check runs, the
-exact harm the rung exists to prevent. Options are the owner's: squash-merge with a clean
-message, keeping the token off `main` and accepting a red rung until then (recommended, since
-only the message is wrong); or direct a history rewrite back to `e23f86a`. Check: `git log
---format=%B origin/main..HEAD | grep -c 'skip'` — resolved when the range no longer holds it.
-
-**OPEN — a plan cannot be deleted once a ledger row cites its PATH, which no rule anticipated.**
-Session discipline 5 says a finished plan is archived or deleted, but DC-033 names
-`docs/plans/2026-08-31-ci-sees-windows.md` in backticks and committed rows are immutable, so
-`path-refs.sh` fails the moment the file moves or goes — tried, and it did. The plan is therefore
-restored and its checklist item stays open. The runbook already says code cites ledger rows and
-never plans; nothing said a ROW must not cite a plan's path, and that is the gap. Check: `ls
-docs/plans/` — resolved when the directory is empty AND `path-refs.sh` still passes, which today
-cannot both be true.
+**OPEN — BLOCKER: the owner directed a history rewrite for `e364631`'s poison token, and no
+session may execute one.** The token is in a pushed commit message, so the rung fails
+permanently and Actions SKIPPED that push (PR #58, zero check runs). On 2026-09-01 the owner
+chose the rewrite over the recommended squash-merge. A session cannot carry it out: `AGENTS.md`
+→ Hard boundaries permits a rewrite of pushed history only in the owner-directed,
+**owner-executed** credential-incident process after rotation, and this is not one; the
+`--pre-push` rail independently blocks the non-fast-forward by OUTCOME on every branch, so
+`--no-verify` would be the only route and that is defeating a rail, not using one. The rung's own
+failure text says force-push is forbidden. So this needs the owner AT A LOCAL CLONE:
+`git rebase -i e23f86a`, mark `e364631` `reword`, drop the token from that body, then
+`git push --force-with-lease`. Verified 2026-09-01: `e364631` is the ONLY commit in the range
+whose body holds the literal token — `9815164` describes the incident without quoting it — so
+one reword clears the range, and `e364631` and `9815164` both get new shas. Squash-merge remains
+available and needs no rewrite. Check: `git log --format=%B origin/main..HEAD | grep -c
+'skip'` — resolved when the range no longer holds it.
 
 **OPEN — tag and publish AMH 10.4.0 after merge.** Owner-only actions; the release commit is
 prepared on the PR branch. Check: `git tag -l amh-v10.4.0` — resolved when it prints the tag.
@@ -114,6 +112,12 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-09-01 — **A ledger row may no longer cite a plan's path.** DC-033 cited one, and
+  immutable-row plus archive-or-delete plus the path guard made that plan undeletable. The rule
+  is now in the principles, both runbooks and the seed; `ledger-append-only.sh` enforces it on
+  NEW rows in all three forms `path-refs.sh` resolves, committed rows exempt of necessity.
+  `2026-08-31-ci-sees-windows.md` is retained in `docs/plans/` permanently — DC-033's citation
+  cannot be withdrawn, so do not try to archive it again (**DC-039**).
 - 2026-08-31 through 2026-09-01 — **The three-unit "CI sees Windows" plan, all units shipped.**
   The pass's five findings applied; the macOS leg confirmed green on the EPIPE fix; a portability
   step building a CRLF adopter tree and asserting BOTH directions, whose first Windows run failed

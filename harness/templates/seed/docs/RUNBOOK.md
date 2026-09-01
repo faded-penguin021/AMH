@@ -56,7 +56,12 @@ cut (version invariants; the owner does the tagging), etc.}}
    run sequentially and each ends shippable. At the end, move a completed plan worth retaining
    whole to `docs/history/` if this repository has the archive tier; otherwise delete it. Its
    durable outcomes live in changelog lines and ledger rows either way. Code cites ledger rows,
-   never plans: an archived plan is a historical record, not permanent memory.
+   never plans: an archived plan is a historical record, not permanent memory. **And no ledger
+   row may cite a plan's PATH** — not in backticks, not as a link, not as a bare filename. A
+   committed row is immutable and a path guard checks that a cited path exists, so such a row
+   pins the plan in the tree permanently and the archive-or-delete step above can no longer
+   run. Record what the plan DELIVERED in the row; name the plan in prose if you must refer to
+   it, in a form no path guard resolves.
 6. **Recovery (bounded).** If the unit in flight has gone wrong: reset to the last green
    checkpoint, re-run the ladder to confirm green, re-attempt smaller — recording any durable
    lesson first. Recovery is not infinite: if the SAME blocker survives a second

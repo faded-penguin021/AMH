@@ -19,6 +19,8 @@ set -uo pipefail
 LEDGER_DIR=docs
 LEDGER_BASENAME=LEDGER
 LEDGER_ROW_CHAR_CAP=0
+# Default matches scripts/ladder.sh's; amh.conf overrides it below.
+PLAN_DIR=docs/plans
 # shellcheck source=/dev/null
 [ -f amh.conf ] && . ./amh.conf
 # Two sanctioned pointer verbs, and the difference between them is LINGUISTIC, not mechanical:
@@ -187,6 +189,54 @@ validate_row_cap() { # validate_row_cap <row-file> <id>
 	fi
 }
 
+# A new row must not name a plan file — in ANY form `scripts/guards/path-refs.sh` resolves.
+#
+# The incident: DC-033 cited the 2026-08-31 ci-sees-windows plan's path in backticks. Rows are
+# immutable, path-refs checks that a backticked path EXISTS, and session discipline 5 says a
+# finished plan is archived or deleted — so the row pinned the plan in place permanently and
+# the archive-or-delete step could never run. Tried it; path-refs failed, and the plan had to be
+# restored. Neither rule was wrong alone; nothing said they could not both bind the same file.
+#
+# NEW rows only, which is not a softening but the only reachable scope: DC-033 is committed and
+# immutable, so a check over the whole chain would fail forever on the very row that motivated
+# it — the trap this exists to prevent, rebuilt one layer up. The existing citation stands and
+# its plan is retained in place; see the runbook's session discipline 5.
+#
+# Three forms, because path-refs resolves three and catching two would leave the rule
+# advertising a coverage it does not have:
+#   (a) a backticked or linked path under PLAN_DIR — matched by prefix, no extension assumed;
+#   (b) a markdown link whose target is under PLAN_DIR — same prefix, different syntax;
+#   (c) a backticked BARE filename that is currently a file in PLAN_DIR — path-refs section (c)
+#       resolves those against every tracked basename, so `2026-08-31-ci-sees-windows.md` with
+#       no directory pins the plan exactly as hard as the full path does.
+# (c) can only see plans that exist NOW: a row naming a plan added later is not reachable here,
+# and nothing catches it. Stated rather than papered over — the prose rule is what binds, and
+# this guard is a tripwire for the shape that already bit us.
+validate_row_plan_path() { # validate_row_plan_path <row-file> <id>
+	local row=$1 id=$2 hit base
+	[ -n "${PLAN_DIR:-}" ] || return 0
+	# NOT `grep -o ... | head -1`. `head` exits after its first line, the writer takes EPIPE, and
+	# under `pipefail` that turns a FOUND citation into a non-zero pipeline read as "no match" —
+	# the fail-OPEN shape DC-034 and DC-038 record. Substitute the whole output, then take the
+	# first line with a parameter expansion, whose writer is not a pipeline member.
+	hit=$(LC_ALL=C grep -oE "[\`(]${PLAN_DIR}/[A-Za-z0-9_./-]+" "$row")
+	hit=${hit%%$'\n'*}
+	[ -n "$hit" ] && plan_citation_fail "$id" "${hit#[\`(]}"
+	# (c) bare basenames of the plans that exist right now.
+	if [ -d "$PLAN_DIR" ]; then
+		for base in "$PLAN_DIR"/*; do
+			[ -f "$base" ] || continue
+			base=${base##*/}
+			LC_ALL=C grep -qF -- "\`$base\`" "$row" && plan_citation_fail "$id" "$base"
+		done
+	fi
+	return 0
+}
+
+plan_citation_fail() { # plan_citation_fail <id> <cited>
+	fail "ledger append-only: new row $1 cites the plan file '$2'. A committed row is immutable and $PLAN_DIR files are archived or deleted when their work completes, so a row naming one pins it in the tree forever — and the archive-or-delete step then fails path-refs.sh (DC-033 did exactly this). Record what the plan DELIVERED in the row itself; name the plan in prose without a citable path if you must refer to it at all."
+}
+
 allowed_metadata_only() { # allowed_metadata_only <base-row> <current-row>
 	local base=$1 current=$2 trimmed without_pointer base_cited=0
 	# Normalize only the two sanctioned, additive metadata transitions before comparing:
@@ -280,6 +330,7 @@ for current_row in "$TMPDIR"/work-rows/D*-*; do
 	[ -f "$TMPDIR/head-rows/$id" ] && continue
 	new_checked=$((new_checked + 1))
 	validate_row_cap "$current_row" "$id"
+	validate_row_plan_path "$current_row" "$id"
 	# Two independent ways a new row can be filed wrong, and DB-015 (superseded by DB-020, which
 	# records how a misfiled row is repaired) is the second one, not
 	# the first — a fact worth stating because checking only the obvious half would leave the
