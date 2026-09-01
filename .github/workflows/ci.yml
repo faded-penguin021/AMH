@@ -157,3 +157,114 @@ jobs:
           scripts/amh-init.sh --profile light "$target"
           test -x "$target/scripts/ladder.sh"
           test ! -e "$target/scripts/command-guard.sh.amh-init.tmp"
+
+      # The matrix cell that was green through DC-030 and could not have been anything else.
+      # This job's first step sets `core.autocrlf false` GLOBALLY before the checkout that
+      # follows, and only on the Windows leg (`if: runner.os == 'Windows'`). Deliberate:
+      # these scripts and manifests are byte-bound artifacts and repairing a CRLF tree after
+      # the fact is worse than not making one. The cost is that the Windows leg then tests
+      # Git Bash on an LF tree, which is the one configuration no adopter has — Git for
+      # Windows sets `core.autocrlf=true` in its SYSTEM config at install time, so the
+      # default clone is CRLF, and that is where the 533-failure report came from.
+      #
+      # Dropping the step above would not fix that. This repository's own root
+      # .gitattributes pins `* text=auto eol=lf`, so its checkout is LF regardless; fighting
+      # it would test a configuration the DC-030 fix has deliberately made impossible.
+      #
+      # So the adopter's tree is tested instead of ours. The smoke step above instantiates
+      # one of these to check that init works at all; this builds its OWN, independently, and
+      # gives it the adopter's real condition — core.autocrlf=true, committed and
+      # re-checked-out so the smudge actually runs — then runs ITS shipped rungs. Nothing
+      # here touches this repository's line endings.
+      #
+      # BOTH directions are asserted, because either one alone is a job that cannot fail for
+      # the right reason. Seeded, the byte-bound artifacts must be LF and the rungs green:
+      # that is the fix working. Unseeded, they must be CRLF and the rungs must NOT be green:
+      # that is what proves the seeded green was measured against a condition that actually
+      # materialised, rather than against a checkout that was never CRLF in the first place.
+      # A green-both-ways job would be indistinguishable from a job testing nothing, and this
+      # one goes red if it ever becomes that.
+      #
+      # The unseeded half asserts non-zero and PRINTS rather than matching a message, because
+      # the shape differs by platform and pinning one would make this a test of the failure
+      # text. On a host whose bash rejects a CRLF script it dies at the first `set` line; on
+      # Git Bash it gets further and the rungs report the damage. Which one this leg saw is
+      # then in the log for a reader, asserted by nobody.
+      - name: Adopter CRLF tree — seeded green AND unseeded red, both asserted
+        run: |
+          set -euo pipefail
+
+          cr=$(printf '\r')
+          # A `cr` that came back empty would make `grep -q "$cr"` match every file and turn
+          # the first assertion into a false alarm. It fails closed rather than open, but a
+          # job that goes red for the wrong reason still costs a reader the same hour.
+          test "${#cr}" -eq 1
+          has_cr() { LC_ALL=C grep -q "$cr" "$1"; }
+
+          # A sample, not the whole set: the manifest is parsed for filenames, amh.conf is
+          # sourced into bash where a trailing CR joins every value, and ladder.sh must both
+          # hash to its published LF digest and be a file bash will agree to run. The seed
+          # pins `*.sh` wholesale, so naming one script here samples that arm rather than
+          # covering it. What this list is NOT is the job's CRLF exposure: the secret scan
+          # reads every text file and the seed pins only what it lists, so on the SEEDED tree
+          # the adapter configs, .gitattributes, the workflow and AMH-ADOPT.md are still CRLF
+          # and go through the scan's --baseline subtraction under whatever sed this leg has.
+          # That is the part with real Windows teeth, and a red there is a finding about the
+          # subtraction rather than a reason to loosen anything here.
+          BYTE_BOUND='scripts/ladder.sh amh.conf scripts/MANIFEST.sha256'
+
+          target=$(mktemp -d)
+          log=$(mktemp)
+          trap 'rm -rf "$target" "$log"' EXIT
+
+          git -C "$target" init -q
+          git -C "$target" config core.autocrlf true
+          git -C "$target" config user.email amh-ci@example.invalid
+          git -C "$target" config user.name amh-ci
+          scripts/amh-init.sh --profile light "$target" >/dev/null
+          git -C "$target" add -A
+          git -C "$target" commit -qm 'adopt AMH'
+
+          # `git add` normalises INTO the index; it is the checkout back OUT that applies
+          # core.autocrlf. Without this the worktree keeps the bytes we wrote and the whole
+          # step measures nothing.
+          resmudge() {
+            find "$target" -mindepth 1 -maxdepth 1 -not -name .git -exec rm -rf {} +
+            git -C "$target" checkout -q -- .
+          }
+          resmudge
+          test "$(git -C "$target" config core.autocrlf)" = true
+
+          for f in $BYTE_BOUND; do
+            if has_cr "$target/$f"; then
+              printf 'seeded: %s carries CR — the .gitattributes seed did not hold\n' "$f" >&2
+              exit 1
+            fi
+          done
+          printf 'seeded: byte-bound artifacts are LF under core.autocrlf=true\n'
+
+          ( cd "$target" && bash scripts/ladder.sh --guards-only )
+          printf 'seeded: the shipped rungs are green on a CRLF-configured adopter tree\n'
+
+          # The adopter who never got the seed — AMH 9.1.0, which is the version the report
+          # came from.
+          git -C "$target" rm -q --cached .gitattributes
+          rm -f "$target/.gitattributes"
+          git -C "$target" commit -qm 'an adopter who never got the seed'
+          resmudge
+
+          for f in $BYTE_BOUND; do
+            if ! has_cr "$target/$f"; then
+              printf 'unseeded: %s has no CR — the CRLF condition never materialised, so the green above proved nothing\n' "$f" >&2
+              exit 1
+            fi
+          done
+          printf 'unseeded: byte-bound artifacts are genuinely CRLF\n'
+
+          if ( cd "$target" && bash scripts/ladder.sh --guards-only ) >"$log" 2>&1; then
+            printf 'unseeded CRLF tree came back GREEN — this step has stopped testing anything\n' >&2
+            sed -n '1,40p' "$log" >&2
+            exit 1
+          fi
+          printf 'unseeded: red, as it must be. What this platform printed:\n'
+          sed -n '1,25p' "$log"

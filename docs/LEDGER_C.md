@@ -554,7 +554,7 @@
   it. What none of this reaches is a short listing git completed and reported success for, which
   is why the Owner-queue item is narrowed rather than closed.
 
-- DC-030: **A guard defined as "any byte the filter changed is a credential" was asserting that
+- DC-030 [cited]: **A guard defined as "any byte the filter changed is a credential" was asserting that
   `sed` is byte-transparent, and on the platform most adopters run it is not.** A Windows report
   (AMH 9.1.0, Git Bash, GNU sed 4.9) showed 533 failures on a clean worktree — 529 files
   reported as carrying credentials, `redact.sh` failing its self-test on its own bytes, five
@@ -689,3 +689,21 @@
   matter, the rail and the poison-token rung, are the plan's unit 3. The durable lesson beyond the
   corrections is that a fixture whose padding is built from files the guard also SCANS pays its
   size twice, once for the listing it needs long and once for a loop it does not.
+- DC-037: **A matrix cell is not coverage: a platform job that normalises away the platform's own
+  defaults is testing the wrong machine.** The Windows leg stayed green right through the CRLF
+  class because its first step sets `core.autocrlf false` before checkout, so what it exercised
+  was Git Bash on an LF tree — the one configuration no adopter has, Git for Windows setting
+  `core.autocrlf=true` in its SYSTEM config at install time. That step stays, this repository's
+  root `.gitattributes` pinning `* text=auto eol=lf` regardless, so the ADOPTER's tree is tested
+  instead: `amh-init.sh --profile light` into a scratch repo configured `core.autocrlf=true`,
+  committed and re-checked-out so the smudge actually runs, then its own `--guards-only`. BOTH
+  directions are asserted, because either alone is a job that cannot fail for the right reason —
+  seeded, the byte-bound artifacts must be LF and the rungs green; unseeded, they must carry CR,
+  and it is that CR assertion rather than the red ladder beside it that proves the first half met
+  a condition which materialised rather than a checkout that was never CRLF. The unseeded ladder
+  run asserts non-zero and PRINTS rather than matching a message, the shape being
+  platform-dependent and on most platforms a tautology: a bash that refuses a CRLF script dies at
+  its first `set`, and only Git Bash gets far enough for a rung to report the damage. The owner's
+  pre-approved fresh-context pass (DC-033) is consumed here, and acceptance was demonstrated ON
+  LINUX by running the YAML-extracted step at HEAD, exit 0, and at `832dfe2` — HEAD~ of the fix,
+  where the seed does not yet exist — exit 1 on the first assertion.

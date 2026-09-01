@@ -39,7 +39,7 @@ sequential shippable units: (1) a binary file inside `CITATION_SCAN_PATHS` plus 
 versions, (2) a CI job running the shipped rungs on a genuinely CRLF adopter tree, (3) the
 `printf | grep -q` fail-open in the command rail. The owner pre-approved the mandated
 fresh-context pass for each — one blocking reviewer, strongest tier, one-pass bound unchanged —
-and asked that the work be paced around the usage window. Checklist: [x] unit 1 [ ] unit 2
+and asked that the work be paced around the usage window. Checklist: [x] unit 1 [x] unit 2
 [ ] unit 3 [x] PR #58 body corrected [ ] plan archived or deleted.
 
 **OPEN — the 2026-08-29 `path-refs.sh` false failure on `` `session-start.sh` `` still has no
@@ -67,16 +67,23 @@ false FAIL rather than a stand-down; they are deliberately left alone. Check: `b
 pipefail; { printf "a\n"; sleep 0.1; printf "b\n"; } | grep -qxF a'; echo $?` prints 141, a
 SIGPIPE death — 1 where SIGPIPE is ignored, as on the CI runner — for a match that succeeded.
 
-**OPEN — the grep half is CONFIRMED on Windows CI; the CRLF half and rung 3 are not.** Run
-33432523501 prints `grep (GNU grep) 3.0` on `portability (windows-latest)`, inside the <= 3.4
-range where the binary-file notice goes to STDOUT, and the citation rung passed there over the
-committed `scripts/fixtures/binary-citation.bin` — a real regression check for `-I`, not just the
-input being present (**DC-033**). Two gaps remain: a CRLF worktree needs the `.gitattributes`
-seed and CI's Windows job sets `core.autocrlf false` before checkout, so it has never seen one
-(unit 2); and `verify.sh` (rung 3), home of the shipped fixture suite, has never run on Windows
-or macOS at all, both legs being `--guards-only`. Check: read that job on the newest run —
-resolved for the grep half while its printed grep stays <= 3.4 and the rung passes, a runner
-image moving grep to >= 3.5 retiring that silently.
+**OPEN — the grep half is CONFIRMED on CI; the CRLF half is BUILT but has never run there; rung
+3 is neither.** Run 33432523501 prints `grep (GNU grep) 3.0` on `portability (windows-latest)`,
+inside the <= 3.4 range where the binary-file notice goes to STDOUT, and the citation rung passed
+there over the committed `scripts/fixtures/binary-citation.bin` — a real regression check for
+`-I`, not just the input being present (**DC-033**). Unit 2 added the `Adopter CRLF tree` step,
+which asserts both directions on a scratch adopter tree at `core.autocrlf=true`; it is green on
+Linux and has executed zero times on the two legs it exists for, so the gap is covered pending
+its first run, not closed (**DC-037**). Read the first Windows run carefully: under the seed,
+seven files are still genuinely CRLF (`.claude/settings.json`, the three `.codex/*`,
+`.gitattributes`, the workflow, `AMH-ADOPT.md`), so that leg runs DC-030's `--baseline`
+subtraction over real CRLF bytes under MSYS2's sed for the first time anywhere — a red there is a
+finding about that fix, NOT a step to loosen. What remains untouched is `verify.sh` (rung 3),
+home of the shipped fixture suite, which has never run on Windows or macOS at all, both legs
+being `--guards-only`. Check: read that job on the newest run — resolved for the grep half while
+its printed grep stays <= 3.4 and the rung passes, a runner image moving grep to >= 3.5 retiring
+that silently; resolved for the CRLF half only once `Adopter CRLF tree` has been green on both
+legs, with the run id recorded here.
 
 **OPEN — the destructive rail sees no Windows shell, and two reported incidents live there.**
 The owner's (2026-08-29) `cmd /c "rd /s /q ..."` lost its target to a backslash-quote mismatch
@@ -128,6 +135,11 @@ re-litigate from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-09-01 — **Unit 2: a CI step that checks out the way an adopter does.** The portability job
+  now builds a scratch adopter tree at `core.autocrlf=true` and asserts BOTH directions on it —
+  seeded, byte-bound artifacts LF and the shipped rungs green; unseeded, genuinely CRLF and NOT
+  green — so a step that stopped meeting the condition goes red instead of passing. Demonstrated
+  on Linux against `832dfe2`, HEAD~ of the fix; unrun on the two legs it exists for (**DC-037**).
 - 2026-09-01 — **The EPIPE fix is confirmed on the platform that showed the defect.** `portability
   (macos-latest)` is green on `f49d446`, the first run at or after `b2a9ae3`; the same leg was red
   on `7303edb` with `printf: write error: Broken pipe` and a false miss on `AGENTS.md`
