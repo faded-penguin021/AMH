@@ -6,10 +6,11 @@
 # byte-identical except for the two sanctioned metadata additions: adding `[cited]` to
 # the row header and appending a strict standalone pointer line (see POINTER_RE below for
 # the two verbs and why the distinction is unenforceable). Rows absent from
-# HEAD are new rows and are length-checked before commit — against LEDGER_ROW_CHAR_CAP,
-# which since DC-003 is the runaway BACKSTOP and not the working limit. The
-# working limit counts sentences and lives in the ladder's own rung; nothing is duplicated
-# here, because a second sentence counter is a second thing to keep in step. The
+# HEAD are new rows and are length-checked before commit against the byte-counted rejection
+# boundary, LEDGER_ROW_CHAR_CAP. The paired-unit rationale is DC-003. The sentence-counted
+# rejection boundary lives in the ladder's
+# own rung; nothing is duplicated here, because a second sentence counter is a second thing to
+# keep in step. The
 # implementation deliberately counts bytes under LC_ALL=C: that is locale-stable across
 # POSIX shells and matches the harness's existing byte-oriented size checks. ASCII text therefore counts as one byte per
 # character; non-ASCII UTF-8 counts by encoded bytes, not Unicode scalar values. See DB-012.
@@ -185,7 +186,7 @@ validate_row_cap() { # validate_row_cap <row-file> <id>
 	count=$(LC_ALL=C wc -c <"$row") || exit 1
 	count=${count//[[:space:]]/}
 	if [ "$count" -gt "$LEDGER_ROW_CHAR_CAP" ]; then
-		fail "ledger append-only: $id is a new ledger row with $count byte-counted character(s), over LEDGER_ROW_CHAR_CAP=$LEDGER_ROW_CHAR_CAP — that is the runaway backstop rather than the working limit, so the narrative belongs in docs/history/ with a pointer from the state changelog, not in tighter wording; historical committed rows and sanctioned metadata-only additions are exempt"
+		fail "ledger append-only: $id is a new ledger row with $count byte-counted character(s), over LEDGER_ROW_CHAR_CAP=$LEDGER_ROW_CHAR_CAP — approaching this rejection boundary means the material probably contains narrative or multiple lessons; split it, keep only the durable conclusion, or route it to docs/history/ with a concise pointer; historical committed rows and sanctioned metadata-only additions are exempt"
 	fi
 }
 

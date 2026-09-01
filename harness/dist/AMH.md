@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 10.5.0.** Repos that adopt it record the version they took
+**Harness version 10.5.1.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -893,19 +893,17 @@ LEDGER_DIR=docs
 LEDGER_BASENAME=LEDGER
 # Keep in lockstep with the number stated in the ledger's own header.
 LEDGER_LINE_CAP={{LINE_CAP}}
-# The working limit on a new row, and the only one a draft is written toward. It counts
-# SENTENCES for the reason COMPRESS_TO does: an over-length draft cannot be reworded into
-# compliance, only shortened by a whole sentence, so "a maximum, not a target" stops
-# depending on the author's restraint. Set it above the shape your rows already have, so
-# a row that states its lesson and stops is never near it. Historical rows already
-# committed at HEAD are exempt so append-only history is never rewritten.
+# A rejection boundary for unusually long new rows, never a desired size. Write the smallest
+# self-contained durable lesson first; one or two sentences are preferable when sufficient.
+# Counting sentences discourages word-by-word shaving. Approaching this boundary is evidence
+# that the material probably contains narrative or multiple lessons: split it, reduce it to
+# the durable conclusion, or route the narrative to a history tier with a concise pointer.
+# Historical rows already committed at HEAD are exempt so append-only history is never rewritten.
 LEDGER_ROW_SENTENCE_CAP=6
-# The backstop, not the working limit and not a number to draft against: it exists for the
-# one shape the sentence cap cannot see, a row inside its sentence budget whose sentences
-# each run hundreds of bytes. Measure your own longest compliant row and leave real
-# headroom above it — and do not expect to get far above it, since a value that high stops
-# bounding read cost at all. If a draft approaches it, the answer is an archive tier with a
-# pointer from the state changelog, never tighter wording. Counted as bytes under LC_ALL=C.
+# A second rejection boundary for unusually long new rows, never a desired size. This byte
+# limit catches pathologically dense sentences that the sentence limit cannot. Approaching
+# it is the same evidence: split multiple lessons, keep only the durable conclusion, or route
+# narrative to a history tier with a concise pointer. Counted as bytes under LC_ALL=C.
 # Not the same unit as LEDGER_LINE_CAP above, which counts lines in a whole volume.
 LEDGER_ROW_CHAR_CAP=2000
 
@@ -1101,16 +1099,12 @@ perfectly good pass, "is 8 enough?" has no answer, and a second number in the SA
 second number to hug. Two numbers in two units is not that shape; it is one aim-point that
 cannot be met sideways.
 
-Apply the same pair to the ledger's new-row limit. `LEDGER_ROW_SENTENCE_CAP` is the working
-limit and it is a **maximum, not a target**: its job is to bound the retrieval cost of one row,
-not to prescribe a standard row length, and a draft over it loses a whole sentence of narrative
-rather than a handful of clauses. Set it at the top of the shape your rows already have — if it
-never binds it teaches nothing. `LEDGER_ROW_CHAR_CAP` stays underneath as a **backstop** against
-the shape a sentence count cannot see, a row inside its sentence budget whose sentences run away.
-Measure your longest compliant row before you set it, and expect the honest answer to be
-"some headroom", not "far above": a backstop high enough to be invisible has stopped bounding
-read cost. When it does fire, the answer is an archive tier with a pointer from the state
-changelog, not tighter wording.
+Both ledger controls are rejection boundaries for unusually long new rows, never desired
+sizes. Write the smallest self-contained durable lesson first; one or two sentences are
+preferable when sufficient. `LEDGER_ROW_SENTENCE_CAP` discourages word-by-word shaving, while
+`LEDGER_ROW_CHAR_CAP` catches pathologically dense sentences. Approaching either boundary is
+evidence that the material probably contains narrative or multiple lessons: split it, reduce it
+to the durable conclusion, or route the narrative to history with a concise pointer.
 
 The landing check judges the shrink's *size* as well as where it lands, which is why
 `STATE_EDIT_DELTA_BYTES` exists. Its first form treated every byte lost above the soft cap as a
@@ -1570,12 +1564,10 @@ shipped bug teaches session N+9's review pass.
 > **Search before appending.** Grep the ledger for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes D-NNN") and the old row gets a `Superseded by` pointer, never deletion.
-> **Keep new rows concise and at or below `LEDGER_ROW_SENTENCE_CAP`.** The working limit counts
-> SENTENCES, which is what stops "a maximum, not a target" depending on restraint: a draft over
-> it cannot be reworded into compliance, only shortened by a whole sentence. It is not a claim
-> that the count cannot be gamed — repunctuating would move it — which is why the byte backstop
-> below stays underneath and a new row satisfies both. Write only the durable lesson, even when
-> that takes far less space; do not draft a narrative and shave it toward the cap, because
+> **Keep new rows concise and at or below `LEDGER_ROW_SENTENCE_CAP`.** This is a rejection
+> boundary for unusually long rows, never a desired size. Write the smallest self-contained
+> durable lesson first; one or two sentences are preferable when sufficient. Counting sentences
+> discourages word-by-word shaving. Do not draft a narrative and shave it toward the cap, because
 > shaving buys nothing here. Put larger narratives in `docs/history/` and link them from the
 > `docs/STATE.md` changelog.
 >
@@ -1588,11 +1580,11 @@ shipped bug teaches session N+9's review pass.
 > cap, deliberately: the number a clean run puts in front of you is the number the next row gets
 > drafted toward, which is how a cap written as a maximum is read as a length.
 > New rows must also stay at or below `LEDGER_ROW_CHAR_CAP`, counted as bytes under `LC_ALL=C`;
-> ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. That one
-> is a backstop against sentences that run away, not the limit you write toward. Set it with
-> real headroom over your longest compliant row, but do not expect to get FAR above it — a
-> backstop that high has stopped bounding read cost. If it fires, the row is a narrative and
-> belongs in an archive tier with a pointer from the changelog. Rows
+> ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. This is
+> also a rejection boundary, never a desired size; it catches pathologically dense sentences.
+> Approaching either boundary is evidence that the material probably contains narrative or
+> multiple lessons: split it, reduce it to the durable conclusion, or route it to a history tier
+> with a concise pointer. Rows
 > already committed when checked are historical and exempt. The final row may finish past the
 > file cap, but no row may ever *start* past it: when the file stands over the
 > cap, create the next volume with this same header discipline and number its rows from the

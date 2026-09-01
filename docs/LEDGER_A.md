@@ -37,17 +37,19 @@
 > **Search before appending.** Grep BOTH volumes for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes D-NNN") and the old row gets a `Superseded by` pointer, never deletion.
-> **Keep new rows concise and at or below `LEDGER_ROW_SENTENCE_CAP`.** The working limit counts
-> SENTENCES (**DC-003**), beneath a `LEDGER_ROW_CHAR_CAP` backstop, and a new row satisfies both:
-> shaving words cannot move the sentence count, and repunctuating cannot move the bytes. Write
-> only the durable lesson, even when that takes far less space. Put larger narratives in
-> `docs/history/` and link them from the `docs/STATE.md` changelog. This volume is closed, so
+> **Both row caps are rejection boundaries for unusually long rows, never desired sizes.** Write
+> the smallest self-contained durable lesson first; one or two sentences are preferable when
+> sufficient. `LEDGER_ROW_SENTENCE_CAP` discourages word-by-word shaving, while
+> `LEDGER_ROW_CHAR_CAP` catches pathologically dense sentences. Approaching either boundary means
+> the material probably contains narrative or multiple lessons: split it, keep only the durable
+> conclusion, or route it to `docs/history/` with a concise pointer from the `docs/STATE.md`
+> changelog. This volume is closed, so
 > the rule is here for a reader following a citation into it — new rows go to the live volume
 > `docs/STATE.md` names.
 >
 > **File cap & rollover.** This file holds at most `LEDGER_LINE_CAP` lines from `amh.conf` (the
 > cap bounds LINES, not rows — it is read cost that is being bounded). New rows are capped by
-> `LEDGER_ROW_SENTENCE_CAP` and, beneath it, `LEDGER_ROW_CHAR_CAP`; the guard counts bytes under
+> `LEDGER_ROW_SENTENCE_CAP` and `LEDGER_ROW_CHAR_CAP`; the guard counts bytes under
 > `LC_ALL=C` for a locale-stable result, so ASCII text is one byte per character and non-ASCII
 > UTF-8 is charged by encoded bytes. Neither
 > value is restated here as a number, and neither should be: nothing checks preamble prose

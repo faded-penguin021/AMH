@@ -9,12 +9,14 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 10.5.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 10.5.1** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-AMH **10.5.0** is prepared on this branch and untagged; it adds the structural forge/API
-mutation rail (**DC-043**) atop the shipped-integrity CRLF diagnostic fix (**DC-042**). **10.4.1** is RELEASED: `b261502` is tagged `amh-v10.4.1` on
+AMH **10.5.1** is prepared on this branch and untagged; it clarifies that ledger row limits are
+rejection boundaries, not desired sizes. **10.5.0** is RELEASED and tagged `amh-v10.5.0`; it
+adds the structural forge/API mutation rail (**DC-043**) atop the shipped-integrity CRLF
+diagnostic fix (**DC-042**). **10.4.1** is RELEASED: `b261502` is tagged `amh-v10.4.1` on
 2026-09-01. The preceding 10.4.0 release commit has **no CI run** — its squash folded the
 whole branch's bodies into its message, poison token included, so Actions skipped the push and
 the newest run on `main` is still 10.3.0's; the next PR is the first chance to verify this
@@ -34,9 +36,9 @@ protection is repointed at `ladder`.
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**OPEN — tag and publish AMH 10.5.0 after merge.** Owner-only. When merging, **edit the squash
+**OPEN — tag and publish AMH 10.5.1 after merge.** Owner-only. When merging, **edit the squash
 message**: GitHub's default concatenates every commit body on the branch, which is how 10.4.0's
-release commit lost its CI run (**DC-040**). Check: `git tag -l amh-v10.5.0` — resolved when it
+release commit lost its CI run (**DC-040**). Check: `git tag -l amh-v10.5.1` — resolved when it
 prints the tag.
 
 **OPEN — the `printf | grep -q` class survives at 39 further sites, and 10 are NOT fixture
@@ -57,12 +59,6 @@ owner's (2026-08-29) `cmd /c "rd /s /q ..."` resolved to the root of `D:` throug
 backslash-quote mismatch, pairing with the Antigravity `rmdir /s /q d:\` (**DC-027**). Which
 layer mis-parsed is unsettled and matters to whoever builds the arm; a Windows arm is the owner's
 call since the harness targets bash. No check until a session builds it.
-
-**OPEN — `amh.conf`'s `LEDGER_ROW_CHAR_CAP` comment calibrates against a figure the rows
-falsify.** It calls ~1450 bytes the longest sentence-compliant row, leaving 2000 "about a quarter
-of headroom"; measured, **DC-030** is 1962, **DC-027** 1866, **DC-011** 1858. Legislation in a
-`RULE_FILES` file, so a reviewed unit rather than a typo fix. Check: `awk` the volumes for the
-longest row under the sentence cap and compare with the comment.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -88,6 +84,11 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-09-01 — **10.5.1: ledger row limits are rejection boundaries, never desired sizes.**
+  Config comments, scaffold guidance and the ledger seed now lead with the smallest
+  self-contained durable lesson, prefer one or two sentences when sufficient, distinguish the
+  sentence anti-shaving control from the dense-sentence byte backstop, and route near-boundary
+  material to splitting, durable conclusions or history instead of boundary optimization.
 - 2026-09-01 — **10.5.0: structural forge/API mutation classification closes the observable local escape.** Parsed `gh api` and direct-forge `curl` reads stay allowed; high-consequence mutation methods, implicit POST bodies/uploads and GraphQL mutation documents block with payload-free diagnostics, while the documented application/script/interface boundary remains covered only by least privilege and server approvals (**DC-043**).
 - 2026-09-01 — **10.4.2: shipped-integrity failures distinguish CRLF conversion from ordinary
   edits.** A mismatch asks Git for the affected tracked file's authoritative worktree EOL; only

@@ -84,19 +84,17 @@ LEDGER_DIR=docs
 LEDGER_BASENAME=LEDGER
 # Keep in lockstep with the number stated in the ledger's own header.
 LEDGER_LINE_CAP={{LINE_CAP}}
-# The working limit on a new row, and the only one a draft is written toward. It counts
-# SENTENCES for the reason COMPRESS_TO does: an over-length draft cannot be reworded into
-# compliance, only shortened by a whole sentence, so "a maximum, not a target" stops
-# depending on the author's restraint. Set it above the shape your rows already have, so
-# a row that states its lesson and stops is never near it. Historical rows already
-# committed at HEAD are exempt so append-only history is never rewritten.
+# A rejection boundary for unusually long new rows, never a desired size. Write the smallest
+# self-contained durable lesson first; one or two sentences are preferable when sufficient.
+# Counting sentences discourages word-by-word shaving. Approaching this boundary is evidence
+# that the material probably contains narrative or multiple lessons: split it, reduce it to
+# the durable conclusion, or route the narrative to a history tier with a concise pointer.
+# Historical rows already committed at HEAD are exempt so append-only history is never rewritten.
 LEDGER_ROW_SENTENCE_CAP=6
-# The backstop, not the working limit and not a number to draft against: it exists for the
-# one shape the sentence cap cannot see, a row inside its sentence budget whose sentences
-# each run hundreds of bytes. Measure your own longest compliant row and leave real
-# headroom above it — and do not expect to get far above it, since a value that high stops
-# bounding read cost at all. If a draft approaches it, the answer is an archive tier with a
-# pointer from the state changelog, never tighter wording. Counted as bytes under LC_ALL=C.
+# A second rejection boundary for unusually long new rows, never a desired size. This byte
+# limit catches pathologically dense sentences that the sentence limit cannot. Approaching
+# it is the same evidence: split multiple lessons, keep only the durable conclusion, or route
+# narrative to a history tier with a concise pointer. Counted as bytes under LC_ALL=C.
 # Not the same unit as LEDGER_LINE_CAP above, which counts lines in a whole volume.
 LEDGER_ROW_CHAR_CAP=2000
 
