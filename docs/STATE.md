@@ -20,7 +20,8 @@ whole branch's bodies into its message, poison token included, so Actions skippe
 the newest run on `main` is still 10.3.0's; the next PR is the first chance to verify this
 content (**DC-040**). **9.2.0 has a changelog entry and no tag**, and nothing checks that every
 changelog version got one. The live ledger
-volume is `docs/LEDGER_C.md`, at 745 of its 800-line cap, so a rollover is near;
+volume is `docs/LEDGER_C.md`, at 779 of its 800-line cap — 21 lines of headroom, so the
+rollover is the next unit with a deadline;
 `docs/LEDGER_B.md` is closed at **DB-040**. Row immutability, the correction verbs and the
 ` [cited]` exception are in that volume's preamble; the append-only guard's exceptions and
 draft-row rule are **DB-008** and **DB-013** (**DC-020** for its HEAD baseline). `main`'s
