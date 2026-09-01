@@ -38,18 +38,16 @@ message**: GitHub's default concatenates every commit body on the branch, which 
 release commit lost its CI run (**DC-040**). Check: `git tag -l amh-v10.4.1` — resolved when it
 prints the tag.
 
-**OPEN — an unseeded CRLF tree's failing rung has still never been PRINTED, only inferred.**
-The CRLF portability question is otherwise answered: run 33494124046 (`c4e3ab1`) is green on
-BOTH legs, macOS and Windows. What each platform does is now observed, not assumed — Windows
-runs an unseeded CRLF tree far enough to report rung verdicts and its secret scan comes back
-`ok no credential-shaped strings`, while macOS bash refuses a CRLF script outright and dies
-before the first rung. The residue is narrow: the step printed `sed -n '1,25p'` of the red log,
-which on Windows ended one line above the failing rung, so "it fails on the integrity rung
-because a CRLF script cannot match its published LF hash" remains an inference from the
-manifest's design rather than something any log has shown. The excerpt now prints verdict lines
-instead (**DC-041**). Check: read `unseeded: red, as it must be` on the newest run — resolved
-when a `FAIL` line appears under it naming the rung. `verify.sh` (rung 3) has still never run on
-Windows or macOS.
+**OPEN — the integrity rung's remediation text sends a CRLF adopter round a loop.** Now that
+run 33494690202 has PRINTED what an unseeded CRLF tree fails on — five `does not match the hash`
+lines and nothing else — the advice under them is readable, and it is wrong for this cause: it
+offers "you edited it" and "re-run the harness's init script", which re-copies LF files that the
+adopter's own `core.autocrlf=true` re-smudges to CRLF, failing identically next run. Line endings
+are not mentioned. That is a true verdict wrapped in a false account of the cause, the shape this
+rung's own comment block exists to refuse. A fix belongs in `ladder.sh` (a shipped script, so a
+reviewed unit): when a hash mismatch coincides with a CRLF worktree, say so and name
+`.gitattributes`. Check: the rung's failure text against a CRLF tree — resolved when it names
+line endings as a possible cause.
 
 **OPEN — the `printf | grep -q` class survives at 39 further sites, and 10 are NOT fixture
 harnesses.** Unit 3 fixed the two with reachable unbounded input; the residue is safe on BOUNDED,
@@ -106,6 +104,12 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-09-01 — **The CRLF portability question is answered on both platforms.** Run 33494690202
+  is green on both legs and prints what each does: an unseeded CRLF tree on Windows fails on the
+  integrity rung and ONLY there — five `does not match the hash` lines, secret scan and rails
+  green — while macOS bash refuses the script outright. The inference from the manifest's design
+  is now an observation, which also made the rung's remediation text readable and wrong for this
+  cause (**DC-041**, and a new queue item).
 - 2026-09-01 — **The Windows bug report is closed on Windows.** A CRLF-configured adopter tree
   with the `.gitattributes` seed runs every rung green on `windows-latest` — secret scan and
   shipped-script integrity included — and even WITHOUT the seed the secret scan comes back clean
