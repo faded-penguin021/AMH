@@ -11,6 +11,24 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 10.5.0 — 2026-09-01
+
+- **Forge/API mutations now have a dedicated hard rail.** Parsed `gh api` and direct-forge
+  `curl` requests remain allowed for GET, HEAD and OPTIONS, while mutation-capable methods and
+  body/upload flags are classified by endpoint or GraphQL operation structure. High-consequence
+  settings, secrets, environments, storage, release, ref, destructive and bulk-resource
+  operations stop with diagnostics limited to client, method and operation class.
+- **The rail states its boundary instead of pretending command text is a security perimeter.**
+  Mutations hidden in application code, opaque scripts, aliases or external interfaces remain
+  invisible. Least-privilege tokens, protected environments, required approvals and separate
+  destructive-administration credentials remain the server-side controls for those paths.
+
+### Upgrading
+
+Copy the 10.5.0 shipped scripts and manifest through the normal harness upgrade procedure. Wire
+`command-guard.sh --command` to a pre-execution hook where the agent supports one; adopters
+without that hook receive no local command rail and must rely on the documented server controls.
+
 ## 10.4.2 — 2026-09-01
 
 - **Shipped-integrity mismatches now diagnose Git line-ending conversion.** For each mismatched

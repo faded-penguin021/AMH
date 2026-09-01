@@ -138,7 +138,12 @@
 #     reason — the verb is not in the command text at all. And one reported shape is outside any
 #     list a command scanner could hold: the PocketOS wipe was a `curl` GraphQL call carrying a
 #     token the agent found in an unrelated file, which is the forge/API surface the state file
-#     tracks separately.
+#     tracks separately. The forge/API rail below closes the command shapes it can actually
+#     parse: `gh api`, direct forge API URLs passed to `curl`, their explicit methods, and
+#     inline GraphQL mutation documents. It cannot see mutations initiated inside application
+#     code, an opaque script, an alias, a shell string such as `bash -c`, or an external UI.
+#     Those remain a server-side problem: use least-privilege tokens, protected environments,
+#     required approvals, and credentials separate from destructive administration.
 #     THE LIMIT THAT MATTERS MOST IS NOT THE LIST. This tier cannot tell production from local
 #     and never will: the target is not in the command, it is in a linked project, a config
 #     file resolved from the working directory, or `$DATABASE_URL`, and the two invocations are
@@ -1251,6 +1256,106 @@ env_prefix_width() {
 	return 1
 }
 
+# Classify mutation-capable forge API commands from parsed argv, not substrings of the shell
+# text. Ordinary issue/comment writes are outside this deliberately high-consequence inventory.
+FORGE_CLIENT=''
+FORGE_METHOD=''
+FORGE_CLASS=''
+forge_operation_class() {
+	local lower path tail repo
+	lower=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+	path=${lower#https://*/}
+	path=${path%%\?*}
+	# Repository-root administration has no `/settings` or `/delete` suffix: the method is
+	# the only structural distinction between reading the repo and changing or deleting it.
+	case $path in repos/*/*)
+		tail=${path#repos/}; repo=${tail#*/}
+		case $repo in */*) ;; *)
+			case $FORGE_METHOD in PATCH | PUT) FORGE_CLASS=repository-settings; return 0 ;; DELETE) FORGE_CLASS=destructive; return 0 ;; esac
+			;;
+		esac
+		;;
+	esac
+	case /$lower/ in
+	*/settings/* | */rulesets/* | */branch_protection/* | */hooks/*) FORGE_CLASS=repository-settings ;;
+	*/secrets/* | */variables/* | */public-key/* | */deploy-keys/* | */keys/* | */tokens/*) FORGE_CLASS=secrets ;;
+	*/environments/* | */deployments/* | *environment*) FORGE_CLASS=environments ;;
+	*/actions/caches/* | */artifacts/* | */packages/* | */storage/* | *deletevolume* | *removevolume*) FORGE_CLASS=storage ;;
+	*/releases/* | */release-assets/*) FORGE_CLASS=releases ;;
+	*/git/refs/* | */git/tags/* | */branches/* | *deleteref* | *createref* | *updateref*) FORGE_CLASS=refs ;;
+	*/repos/*/transfer* | *deleterepository* | *archiverepository* | *transferrepository*) FORGE_CLASS=destructive ;;
+	*/orgs/*/repos* | */user/repos* | */enterprises/* | *delete*repositories* | *bulk* | *batch*) FORGE_CLASS=bulk-resources ;;
+	*) return 1 ;;
+	esac
+}
+
+forge_api_mutation() {
+	local client=$1
+	shift
+	local method=GET endpoint='' graphql='' a next_method=0 next_field=0 next_skip=0 body=0 get=0 forge=0 lower rest
+	case $client in gh | curl) ;; *) return 1 ;; esac
+	if [ "$client" = gh ]; then
+		[ "${1:-}" = api ] || return 1
+		shift; FORGE_CLIENT='gh api'; forge=1
+		for a in "$@"; do
+			if [ "$next_method" -eq 1 ]; then method=$(printf '%s' "$a" | tr '[:lower:]' '[:upper:]'); next_method=0; continue; fi
+			if [ "$next_skip" -eq 1 ]; then next_skip=0; continue; fi
+			if [ "$next_field" -eq 1 ]; then case $a in query=*) graphql=${a#query=} ;; esac; next_field=0; continue; fi
+			case $a in
+			-X | --method) next_method=1 ;; -X?*) method=${a#-X}; method=$(printf '%s' "$method" | tr '[:lower:]' '[:upper:]') ;;
+			--method=*) method=${a#*=}; method=$(printf '%s' "$method" | tr '[:lower:]' '[:upper:]') ;;
+			-f | -F | --raw-field | --field) body=1; next_field=1 ;;
+			-f* | -F*) body=1; case ${a#??} in query=*) graphql=${a#??query=} ;; esac ;;
+			--raw-field=* | --field=*) body=1; case ${a#*=} in query=*) graphql=${a#*=query=} ;; esac ;;
+			--input) body=1; next_skip=1 ;; --input=*) body=1 ;;
+			-H | --header | -p | --preview | --hostname) next_skip=1 ;;
+			-H?* | --header=* | -p?* | --preview=* | --hostname=*) ;;
+			-*) ;; *) [ -n "$endpoint" ] || endpoint=$a ;;
+			esac
+		done
+		[ "$method" != GET ] || [ "$body" -eq 0 ] || method=POST
+	else
+		FORGE_CLIENT=curl
+		for a in "$@"; do
+			if [ "$next_method" -eq 1 ]; then method=$(printf '%s' "$a" | tr '[:lower:]' '[:upper:]'); next_method=0; continue; fi
+			if [ "$next_skip" -eq 1 ]; then next_skip=0; continue; fi
+			if [ "$next_field" -eq 1 ]; then graphql=$a; next_field=0; continue; fi
+			case $a in
+			-X | --request) next_method=1 ;; -X?*) method=${a#-X}; method=$(printf '%s' "$method" | tr '[:lower:]' '[:upper:]') ;;
+			--request=*) method=${a#*=}; method=$(printf '%s' "$method" | tr '[:lower:]' '[:upper:]') ;; -G | --get) get=1 ;;
+			-d | --data | --data-raw | --data-binary | --data-urlencode | -F | --form | --form-string | -T | --upload-file) body=1; next_field=1 ;;
+			-d?* | --data=* | --data-raw=* | --data-binary=* | --data-urlencode=* | -F?* | --form=* | --form-string=* | -T?* | --upload-file=*) body=1; graphql="$graphql ${a#*=}" ;;
+			-H | --header | -A | --user-agent | -u | --user | -e | --referer | -b | --cookie | -c | --cookie-jar | --proxy | --resolve | --connect-to | -o | --output) next_skip=1 ;;
+			-H?* | --header=* | -A?* | --user-agent=* | -u?* | --user=* | --referer=* | --cookie=* | --cookie-jar=* | --proxy=* | --resolve=* | --connect-to=* | -o?* | --output=*) ;;
+			https://*) lower=$(printf '%s' "$a" | tr '[:upper:]' '[:lower:]'); case $lower in https://api.github.com/* | https://github.com/api/* | https://gitlab.com/api/* | https://api.bitbucket.org/*) endpoint=$lower; forge=1 ;; esac ;;
+			esac
+		done
+		[ "$get" -eq 1 ] || [ "$method" != GET ] || [ "$body" -eq 0 ] || method=POST
+	fi
+	case $method in GET | HEAD | OPTIONS) return 1 ;; esac
+	FORGE_METHOD=$method
+	case $endpoint in *graphql*)
+		if [ "$client" = curl ]; then
+			# Isolate the JSON query member from variables before looking for the GraphQL
+			# operation keyword. This is intentionally not a general JSON parser.
+			lower=$(printf '%s' "$graphql" | tr '[:upper:]' '[:lower:]')
+			lower=${lower//\\/}
+			# split_words removes the JSON member-name quotes, so accept that parsed form as
+			# well as the quoted form curl receives.
+			case $lower in
+			*'"query"'*) rest=${lower#*'"query"'}; rest=${rest%%'"variables"'*}; graphql=$rest ;;
+			*query:*) rest=${lower#*query:}; rest=${rest%%variables:*}; graphql=$rest ;;
+			*) return 1 ;;
+			esac
+		fi
+		case $graphql in *mutation*) forge_operation_class "$graphql" && return 0 ;; esac
+		return 1
+		;;
+	esac
+	[ "$forge" -eq 1 ] || return 1
+	forge_operation_class "$endpoint"
+}
+
 check_segment() {
 	local raw=$1
 	local words=() i=0 w
@@ -1324,6 +1429,11 @@ check_segment() {
 	local cmd=${words[$i]}
 	cmd=${cmd##*/}
 	local args=("${words[@]:$((i + 1))}")
+
+	if forge_api_mutation "$cmd" ${args[@]+"${args[@]}"}; then
+		BLOCK_REASON="Forge/API mutation blocked: client=$FORGE_CLIENT method=$FORGE_METHOD operation-class=$FORGE_CLASS. This local rail never prints payloads or credentials. Use an explicit owner-approved administrative workflow with least-privilege credentials, protected environments and required approvals."
+		return 1
+	fi
 
 	case $cmd in
 	printenv)
@@ -3279,6 +3389,32 @@ self_test() {
 
 	# --- must block: the rails themselves
 	st_blocked 'git push --force origin feature'
+	# --- forge/API mutation rail: argv structure separates reads from writes. Diagnostics
+	# deliberately contain only client, method and operation class, never these payloads.
+	st_allowed 'gh api repos/acme/widget/releases'
+	st_allowed 'gh api --method GET repos/acme/widget/environments/prod'
+	st_allowed 'curl https://api.github.com/repos/acme/widget/git/refs/heads/main'
+	st_allowed 'curl --get --data page=2 https://api.github.com/repos/acme/widget/releases'
+	st_allowed 'gh api graphql -f query="query { viewer { login } }" -F environment=mutation'
+	st_allowed 'curl --data "{\"query\":\"query { viewer { login } }\",\"variables\":{\"environment\":\"mutation\"}}" https://api.github.com/graphql'
+	st_allowed 'curl -H https://api.github.com/repos/acme/widget/releases -X DELETE https://example.com'
+	st_blocked 'gh api repos/acme/widget/releases -X DELETE'
+	st_blocked 'gh api -X PATCH repos/acme/widget -f visibility=private'
+	st_blocked 'gh api -X DELETE repos/acme/widget'
+	st_blocked 'gh api --hostname github.example repos/acme/widget/releases -X DELETE'
+	st_blocked 'gh api --input body.json repos/acme/widget/releases'
+	st_blocked 'gh api repos/acme/widget/actions/variables/PROD -X DELETE'
+	st_blocked 'gh api --method PATCH repos/acme/widget/settings -f visibility=private'
+	st_blocked 'env FOO=1 gh api -F value="quoted payload" repos/acme/widget/actions/secrets/DEPLOY_KEY'
+	st_blocked 'gh api graphql -f variables="{\"name\":\"prod\"}" -f query="mutation { deleteEnvironment(input: {}) { clientMutationId } }"'
+	st_blocked 'command gh api graphql --method POST --raw-field query="mutation Drop { deleteRef(input: {}) { clientMutationId } }" -F variables="{\"ref\":\"main\"}"'
+	st_blocked 'curl https://api.github.com/repos/acme/widget/releases/1 --request DELETE'
+	st_blocked 'curl -X DELETE https://api.github.com/repos/acme/widget'
+	st_blocked 'curl -X DELETE https://API.GITHUB.COM/repos/acme/widget/releases/1'
+	st_blocked 'curl --data "{\"private\":true}" https://api.github.com/repos/acme/widget/settings'
+	st_blocked 'sudo curl https://gitlab.com/api/v4/projects/1/environments/2 -X DELETE'
+	st_blocked 'curl -F "file=@artifact.zip" https://api.github.com/repos/acme/widget/releases/1/assets'
+	st_blocked 'curl --data-raw "{\"query\":\"mutation { deleteRepository(input: {}) { clientMutationId } }\",\"variables\":{\"id\":\"opaque\"}}" https://api.github.com/graphql'
 	st_blocked 'git push -f origin feature'
 	st_blocked 'git push --force-with-lease'
 	st_blocked "git push origin $DEFAULT_BRANCH"
