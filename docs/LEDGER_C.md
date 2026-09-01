@@ -743,3 +743,19 @@
   session's standing no-subagent policy for the one blocking rule-review pass this unit
   mandates, the protocol's ask-before-parking clause having made that a question rather than a
   capability limit.
+
+- DC-040: **A guard whose failure text names the consequence still does not prevent it, and the
+  cheap fix was in a field nobody read as part of the repository.** The poison-token rung failed
+  for four sessions on `e364631`'s body, saying in as many words that a squash merge would fold
+  the token onto `main` and that force-push is forbidden; the queue carried it as a BLOCKER whose
+  only routes were an owner-executed rewrite or a squash, and the squash is what happened. The
+  fold was not the surprising part — GitHub's DEFAULT squash message concatenates every commit
+  body on the branch, 24 of them and 1271 lines here, so the token arrived on `main` without
+  anyone choosing to carry it, and Actions skipped the push: the tagged release commit
+  `f1f25be` has no CI run and never will, on a train whose whole subject was verification on
+  platforms CI alone could reach. The durable part is that the merge dialog's message box is
+  editable and dropping one line there would have cost nothing, which no rule, rung or queue item
+  mentioned, because every one of them modelled the token as a property of the branch's history
+  rather than of the message the merge composes from it. The rung's scope makes this self-closing
+  and worth stating so nobody re-opens it: it reads `origin/main..HEAD`, so a token inside `main`
+  is invisible to every future branch, and the residue is exactly one unverifiable commit.

@@ -13,10 +13,13 @@ Adopted harness version: **AMH 10.4.0** — see `harness/VERSION`, the copy that
 
 ## Current state
 
-AMH **10.4.0** is prepared on this branch and untagged, carrying 10.3.1 with it; the newest tag
-is `amh-v10.3.0` and the PR-time check wants exactly one bump above it. **9.2.0 has a changelog
-entry and no tag**, and nothing checks that every changelog version got one. The live ledger
-volume is `docs/LEDGER_C.md`, at 730 of its 800-line cap, so a rollover is near;
+AMH **10.4.0** is RELEASED: PR #58 squash-merged as `f1f25be` on 2026-09-01 and tagged
+`amh-v10.4.0`, carrying 10.3.1 inside it. That commit has **no CI run** — the squash folded the
+whole branch's bodies into its message, poison token included, so Actions skipped the push and
+the newest run on `main` is still 10.3.0's; the next PR is the first chance to verify this
+content (**DC-040**). **9.2.0 has a changelog entry and no tag**, and nothing checks that every
+changelog version got one. The live ledger
+volume is `docs/LEDGER_C.md`, at 745 of its 800-line cap, so a rollover is near;
 `docs/LEDGER_B.md` is closed at **DB-040**. Row immutability, the correction verbs and the
 ` [cited]` exception are in that volume's preamble; the append-only guard's exceptions and
 draft-row rule are **DB-008** and **DB-013** (**DC-020** for its HEAD baseline). `main`'s
@@ -29,41 +32,17 @@ protection is repointed at `ladder`.
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**OPEN — BLOCKER: the owner directed a history rewrite for `e364631`'s poison token, and no
-session may execute one.** The token is in a pushed commit message, so the rung fails
-permanently and Actions SKIPPED that push (PR #58, zero check runs). On 2026-09-01 the owner
-chose the rewrite over the recommended squash-merge. A session cannot carry it out: `AGENTS.md`
-→ Hard boundaries permits a rewrite of pushed history only in the owner-directed,
-**owner-executed** credential-incident process after rotation, and this is not one; the
-`--pre-push` rail independently blocks the non-fast-forward by OUTCOME on every branch, so
-`--no-verify` would be the only route and that is defeating a rail, not using one. The rung's own
-failure text says force-push is forbidden. The cost is now larger than a red rung: run
-33470639275 showed the token failing `Portability smoke` on BOTH portability legs, which skips
-the `Adopter CRLF tree` step entirely, so the Windows/macOS verification cannot run at all until
-it clears. So this needs the owner AT A LOCAL CLONE:
-`git rebase -i e23f86a`, mark `e364631` `reword`, drop the token from that body, then
-`git push --force-with-lease`. Verified 2026-09-01: `e364631` is the ONLY commit in the range
-whose body holds the literal token — `9815164` describes the incident without quoting it — so
-one reword clears the range, and `e364631` and `9815164` both get new shas. Squash-merge remains
-available and needs no rewrite. Check: `git log --format=%B origin/main..HEAD | grep -c
-'skip'` — resolved when the range no longer holds it.
-
-**OPEN — tag and publish AMH 10.4.0 after merge.** Owner-only actions; the release commit is
-prepared on the PR branch. Check: `git tag -l amh-v10.4.0` — resolved when it prints the tag.
-
-**OPEN — the CRLF CI step is BLOCKED by the poison token, not defective; round 2 produced no
-data.** Run 33470639275 (`9815164`) DID get check runs, so the Actions skip was specific to
-`e364631`. But `Adopter CRLF tree` was SKIPPED on BOTH legs: the preceding `Portability smoke`
-step runs the guards, and on macOS and Windows alike it died with `1 failure(s)` — the
-poison-token rung — every other rung green. So the token is not merely making the ladder job red,
-it is gating both portability legs, and no round of the three-round budget should be spent until
-it clears. Windows Git Bash did run the whole guard set to completion rather than dying at `set:
-pipefail`, but on an LF checkout, so the unseeded half remains unanswered. First run 33468064665
-(`e23f86a`): macOS green, Windows RED on the step's own vacuity assertion; re-smudge, vacuity
-assertion and `git ls-files --eol` diagnostics are in (**DC-037**); the grep half stays CONFIRMED
-on run 33432523501 (**DC-033**); `verify.sh` (rung 3) has still never run on Windows or macOS.
-Check: read that step on the newest run — it resolves once it is green on BOTH legs, run id
-recorded here; it cannot even execute while the token is in the range.
+**OPEN — the portability legs have still never produced CRLF data, and the release commit
+carries no CI run.** The blocker is gone (the token now sits INSIDE `main`, where the rung's
+`origin/main..HEAD` range cannot see it), but nothing has run since: `f1f25be` was skipped by
+Actions entirely, and `ci.yml` has no `workflow_dispatch`, so only a fresh PR can produce the
+run. Before the merge, `Adopter CRLF tree` was SKIPPED on BOTH legs because the preceding
+`Portability smoke` step died on the poison-token rung — every other rung green (run
+33470639275). Windows Git Bash did run the whole guard set to completion, but on an LF checkout,
+so the unseeded half is unanswered; re-smudge, vacuity assertion and `git ls-files --eol`
+diagnostics are in (**DC-037**), the grep half stays CONFIRMED on run 33432523501 (**DC-033**),
+and `verify.sh` (rung 3) has still never run on Windows or macOS. Check: read that step on the
+first run this branch's PR produces — it resolves once it is green on BOTH legs.
 
 **OPEN — the `printf | grep -q` class survives at 39 further sites, and 10 are NOT fixture
 harnesses.** Unit 3 fixed the two with reachable unbounded input; the residue is safe on BOUNDED,
@@ -120,6 +99,12 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-09-01 — **10.4.0 shipped, and the squash folded a poison token onto `main`.** PR #58
+  merged as `f1f25be` and was tagged, resolving the release item and dissolving the rewrite
+  BLOCKER by taking the route that needed no rewrite. The cost landed where the rung said it
+  would: the default squash message concatenated 24 commit bodies, so Actions skipped the push
+  and the tagged commit has no CI run — the message was editable at merge time, which is the
+  cheap fix nobody reached for (**DC-040**).
 - 2026-09-01 — **A ledger row may no longer cite a plan's path.** DC-033 cited one, and
   immutable-row plus archive-or-delete plus the path guard made that plan undeletable. The rule
   is now in the principles, both runbooks and the seed; `ledger-append-only.sh` enforces it on
