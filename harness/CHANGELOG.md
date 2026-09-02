@@ -11,6 +11,24 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 13.0.0 — 2026-09-02
+
+- **Threshold vocabulary states behavior.** State warning and edit-delta keys are triggers,
+  the state hard and ledger-row keys are rejection boundaries, compression-to keys are
+  post-action ceilings, the ledger line key is a rollover boundary, and live-ledger bytes are
+  measurement only. The former ledger warning band is removed.
+- **Immutable ledger paths tolerate later tree changes.** New row paths must resolve when
+  authored; a committed ledger reference to a target that existed at HEAD is historical drift
+  after a rename or deletion and no longer blocks the path guard.
+- **Ledger preambles are concise action references.** They no longer enumerate every volume or
+  repeat extended rationale.
+
+### Upgrading
+
+Copy the shipped scripts normally. Replace the threshold explanations in `amh.conf` and
+`docs/RUNBOOK.md`, and replace each ledger-volume preamble, from the 13.0.0 seeds. Apply the
+path-reference historical-drift exemption to any equivalent local documentation guard.
+
 ## 12.0.0 — 2026-09-02
 
 - **Counter acceptance is not an authoring-quality verdict.** Passing the paired byte and

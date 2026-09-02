@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 12.0.0.** Repos that adopt it record the version they took
+**Harness version 13.0.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -859,12 +859,12 @@ REQUIRED_TOOLS=
 ADAPTER_FILES=
 
 # --- Working memory: the state file's size band (hysteresis) ----------------
-# Grow freely to WARN. Over WARN, one deep compression pass must land at or below
-# COMPRESS_TO — landing between them fails, because a micro-trim to just under the
-# warning re-arms it a session later. Over HARD fails outright.
+# Threshold inventory: WARN is a trigger; HARD is a rejection boundary; both COMPRESS_TO
+# values are post-action ceilings; EDIT_DELTA is a trigger. Boundaries determine when
+# machinery intervenes, not how much content an author should produce.
 #
-# The floor is BOTH keys below and a landing satisfies both, because neither works alone.
-# A byte floor is reachable by shaving words, which removes no content; a sentence floor is
+# A landing must satisfy BOTH post-action ceilings below, because neither works alone.
+# A byte ceiling is reachable by shaving words, which removes no content; a sentence ceiling is
 # reachable by rewriting `. T` to `; t`, which frees no space. Each blocks the cheap move
 # that satisfies the other, and folding whole stages is what satisfies both at once. WARN
 # and HARD stay byte-only: they answer WHEN to compress, and nobody drafts toward them.
@@ -873,10 +873,6 @@ ADAPTER_FILES=
 # replace punctuation, remove useful qualifiers, or otherwise rewrite solely to change a
 # counter. Near a limit, reconsider multiple ledger lessons, debugging chronology, completed
 # state, and material that belongs in history instead of optimizing the measurement.
-# Set COMPRESS_TO_SENTENCES so it bites at about the same place as the byte floor at your
-# file's rough bytes-per-sentence — otherwise one of the two is decorative — and leave
-# HARD − WARN as one long session of margin. Nothing checks that alignment; it is a
-# property of prose, so re-read the number if your file's density changes markedly.
 STATE_FILE=docs/STATE.md
 STATE_COMPRESS_TO_KB={{COMPRESS_TO_KB}}
 STATE_COMPRESS_TO_SENTENCES={{COMPRESS_TO_SENTENCES}}
@@ -884,8 +880,7 @@ STATE_WARN_KB={{WARN_KB}}
 STATE_HARD_KB={{HARD_KB}}
 # Above WARN, a shrink smaller than this is an ordinary edit (a typo fix, a closed queue
 # item) and is allowed with the warning still armed; a shrink this size or larger is a
-# compression pass and must reach COMPRESS_TO. Put it in the empty gap between the two
-# populations — an edit that large and a compression that small should both be unlikely.
+# compression pass and must satisfy both post-action ceilings.
 STATE_EDIT_DELTA_BYTES=1024
 
 # Section headers that must survive compression ('|' separated); a missing one fails.
@@ -896,7 +891,9 @@ STATE_OWNER_QUEUE_SECTION='## Owner queue'
 # --- Permanent memory: the append-only ledger -------------------------------
 LEDGER_DIR=docs
 LEDGER_BASENAME=LEDGER
-# Keep in lockstep with the number stated in the ledger's own header.
+# Rollover boundary: a row that would start after this line opens the next volume. The live
+# volume's byte size is measurement only. Boundaries determine when machinery intervenes,
+# not how much content an author should produce.
 LEDGER_LINE_CAP={{LINE_CAP}}
 # A rejection boundary for unusually long new rows, never a desired size. Write the smallest
 # self-contained durable lesson first; one or two sentences are preferable when sufficient.
@@ -1036,16 +1033,16 @@ RULE_FILES='AGENTS.md docs/RUNBOOK.md amh.conf scripts/ladder.sh scripts/test-la
 ### 3.2 `docs/STATE.md` — working memory (bounded, compressible)
 
 Note the hysteresis band and the *landing* check. Size thresholds alone are Goodhart-able: a
-micro-trim to just under the soft cap passes the guard and re-arms the warning a session later.
+micro-trim to just under the compression trigger passes the guard and re-arms the warning a session later.
 The guard therefore also fails a change that trims the file out of warn territory but stops
-inside the debounce band instead of reaching the compression floor.
+inside the debounce band instead of reaching the post-action ceilings.
 
-**The floor is two post-compression acceptance ceilings in two units, and a landing satisfies
+**The pair of post-action ceilings comprises two post-compression acceptance ceilings in two units, and a landing satisfies
 both.** A byte-only check can be cleared by shaving words, while a sentence-only check can be
 cleared by repunctuation that frees no space. The pair blocks those two cheap mechanical moves;
 it does not decide what content stays or establish a preferred landing size. Lifecycle does:
 fold a stage when it is complete, route its durable lesson, and retain everything still live.
-The soft and hard caps stay byte-only because they classify size rather than content.
+The soft and rejection boundarys stay byte-only because they classify size rather than content.
 
 In the *rule* prose that explains these thresholds, name the `amh.conf` keys rather than
 restating their values. Nothing checks such a number, and a guard for it would have to lift a
@@ -1059,10 +1056,10 @@ does not need the number from the prose: `amh.conf` is the source, and a verdict
 threshold it **turns on** — a rejection has to say what it rejected against.
 
 **A verdict that rejects nothing should quote nothing, and this is the harder half.** A green
-rung reporting "8 KB (soft cap 14 KB)" or "checked 2 rows against `LEDGER_ROW_CHAR_CAP`=800"
+rung reporting "8 KB (compression trigger 14 KB)" or "checked 2 rows against `LEDGER_ROW_CHAR_CAP`=800"
 puts the limit in front of the agent who is about to write against it, every clean run, and the
 limit is what gets optimized toward: the reported instances shaved a state file to seven bytes
-under its floor and drafted 828-byte ledger rows to trim them to just fit, one of them having
+under its ceiling and drafted 828-byte ledger rows to trim them to just fit, one of them having
 copied "the cap is a maximum, not a target" into its own preamble by hand in the same session.
 Prose loses to salience, so the harness removed the anchor rather than adding another clause —
 print the measurement, print the headroom, name the threshold when a verdict depends on it.
@@ -1072,7 +1069,7 @@ found by watching it fail: the session builds its own draft and measures it agai
 read from `amh.conf`, so the anchor survives in the one place no change to a rung's output can
 reach. What reached it was giving the cap a second unit, so that no single-measure trick satisfies it. And check what your rungs actually print before
 you promise a reader they can rely on it — the value a passing run never shows is one they must
-read from `amh.conf`, which since 8.0.0 is every threshold rather than the compression floor
+read from `amh.conf`, which since 8.0.0 is every threshold rather than the post-action ceilings
 alone.
 
 Four kinds of restatement stay legitimate, and saying so keeps the rule from being read as a
@@ -1097,16 +1094,16 @@ evidence that the material probably contains narrative or multiple lessons: spli
 to the durable conclusion, or route the narrative to history with a concise pointer.
 
 The landing check judges the shrink's *size* as well as where it lands, which is why
-`STATE_EDIT_DELTA_BYTES` exists. Its first form treated every byte lost above the soft cap as a
-compression pass in progress, and that reading fails a three-byte typo fix: go to the floor or
+`STATE_EDIT_DELTA_BYTES` exists. Its first form treated every byte lost above the compression trigger as a
+compression pass in progress, and that reading fails a three-byte typo fix: go to the post-action ceilings or
 revert the correction, both worse than the typo. So a shrink smaller than the delta and still
 above the cap is an ordinary edit and is allowed, with the size warning left armed; one that
-reaches the delta is a compression pass and must land on the floor. Set the delta in the empty
+reaches the delta is a compression pass and must land on the post-action ceilings. Set the delta in the empty
 gap between the two populations — no ordinary edit runs to a kilobyte, no real compression pass
 comes in under several. Widen the *delta* if your file is unusual; never widen the *band*, which
 is the hole the landing check was built for.
 
-The delta stays byte-only while the floor beside it is a pair, and that is the rule rather than
+The delta stays byte-only while the post-action ceilings beside it is a pair, and that is the rule rather than
 an oversight: the paired ceilings reject two cheap mechanical landings, while the delta merely
 classifies a shrink that already happened.
 
@@ -1380,19 +1377,32 @@ invocation. CI's verification step invokes THIS script, so there is no hand-main
 lockstep between what the agent runs and what CI runs. `--guards-only` covers docs-only
 changes in seconds.
 
+| Configuration key | Behavioral category | Action point |
+|---|---|---|
+| `STATE_WARN_KB` | trigger | crossing it makes compression mandatory |
+| `STATE_HARD_KB` | rejection boundary | crossing it fails the state-size rung |
+| `STATE_COMPRESS_TO_KB`, `STATE_COMPRESS_TO_SENTENCES` | post-action ceiling | a compression result must satisfy both |
+| `STATE_EDIT_DELTA_BYTES` | trigger | a shrink at or above it is treated as a compression pass |
+| `LEDGER_ROW_SENTENCE_CAP`, `LEDGER_ROW_CHAR_CAP` | rejection boundary | crossing either rejects a new row |
+| `LEDGER_LINE_CAP` | rollover boundary | a later row starts a new volume |
+| live-ledger byte size | measurement only | the rung reports it and never judges it |
+
+At every authoring action point, boundaries determine when machinery intervenes, not how much
+content an author should produce.
+
 **What the working-memory size rung prints — and what it deliberately does not.** It reads
-`STATE_WARN_KB`, both compression-floor keys and `STATE_HARD_KB` from `amh.conf`, falling back to its
+`STATE_WARN_KB`, both post-compression ceiling keys and `STATE_HARD_KB` from `amh.conf`, falling back to its
 own defaults for a key you leave out, and **names a threshold only in a verdict that turns on
-one**: the hard cap and the floor when it fails over the hard cap, the soft cap and the floor
-when it warns above the soft cap, and the floor in the landing failures. A verdict that rejects
+one**: the rejection boundary and the post-action ceilings when it fails over the rejection boundary, the compression trigger and the post-action ceilings
+when it warns above the compression trigger, and the post-action ceilings in the landing failures. A verdict that rejects
 nothing names nothing — the plain size line reports your file's size and stops, and the `ok`
-confirming a completed landing reports how far **clear of the floor** you landed, in both of
-its units, rather than the floor itself. That headroom is a measurement, not a score or an
+confirming a completed landing reports how far **below the post-action ceilings** you landed, in both of
+its units, rather than the post-action ceilings themselves. That headroom is a measurement, not a score or an
 invitation to retain more: a file gutted to stubs also prints a large number and passes.
 
 Note the units, because they are what the removal above could not achieve on its own: the
-landing verdict is a byte floor AND a sentence floor, and neither is satisfied alone. A pass
-that shaved words to cross the soft cap arrives carrying every sentence it started with and
+landing verdict is a byte ceiling AND a sentence ceiling, and neither is satisfied alone. A pass
+that shaved words to cross the compression trigger arrives carrying every sentence it started with and
 fails on one; a pass that repunctuated to collapse the sentence count freed no space and fails
 on the other. The size lines stay byte-only — they say *when* to compress, and nobody drafts
 toward them. What still cannot be checked is whether the sentences
@@ -1407,7 +1417,7 @@ where the config cannot answer you. Where a verdict does print a configured valu
 **verbatim**; only the landing lines do arithmetic, working in bytes where the key is in KB.
 
 Two honest exceptions, so the discipline is not read as wider than it is. The boot banner still
-prints your state file's size **against the soft cap**, deliberately: it is read before a session
+prints your state file's size **against the compression trigger**, deliberately: it is read before a session
 writes, where knowing you are near the cap is the whole point. The `ok` for a small edit above the cap names
 `STATE_EDIT_DELTA_BYTES`, which is the threshold that verdict turns on. This paragraph lives here
 rather than in `docs/STATE.md`: a description of a guard's output is not working memory and
@@ -1424,7 +1434,7 @@ the byte cap on `docs/STATE.md` exists to force *volatile* content out. A block 
 rules sitting inside that cap spends the budget every compression pass is fighting for, and it
 cannot itself be compressed — folding a live rule is repeal. Measure it in your own repository
 rather than trusting a proportion: in the harness's own, the two preambles were 2,499 bytes of
-a 9,216-byte compression floor, and in this scaffold they were 4,859 bytes of 6,045 before the
+a 9,216-byte post-action ceilings, and in this scaffold they were 4,859 bytes of 6,045 before the
 adopter had written a line.
 
 **Relocating a live rule is legislation, not tidying — and the destination decides whether it
@@ -1437,16 +1447,19 @@ deletable in silence, which is how a relocation quietly finishes becoming a repe
 such a guard the pointer is prose only; say so rather than implying a check you do not have.
 Moving any further passage out of working memory stays the owner's call, one grant at a time.
 
-**Thresholds.** `STATE_WARN_KB`, both compression-floor keys and `STATE_HARD_KB` live in
+**Thresholds.** `STATE_WARN_KB`, both post-compression ceiling keys and `STATE_HARD_KB` live in
 `amh.conf` and are deliberately **not** restated here as numbers: nothing checks this prose
 against the config, so a copied number drifts silently the first time a threshold moves. Which
 of them the size rung prints, and why a number it printed is never a value to copy back into
 prose, are in **Acceptance ladder** above.
 
 **When to compress.** Compress by lifecycle, not by file size: once a stage is complete, fold
-its narrative and route its durable lessons even below the soft cap. The soft cap only makes a
-compression pass mandatory before further substantive work; the hard cap remains a byte-only
-failure boundary. A typo fix above the soft cap is allowed and still owes the pass.
+its narrative and route its durable lessons even below the compression trigger. The compression trigger only makes a
+compression pass mandatory before further substantive work; the rejection boundary remains a byte-only
+failure boundary. A typo fix above the compression trigger is allowed and still owes the pass.
+
+Here, boundaries determine when machinery intervenes, not how much content an author should
+produce.
 
 **How far.** After compression, keep only current state, unresolved Owner-queue items,
 immediate operational gotchas, and concise Changelog pointers. The configured byte and sentence
@@ -1467,7 +1480,7 @@ Owner-queue item's prose, never drop an open one — closing them is the owner's
 **What the ladder checks, and what it does not.** `scripts/ladder.sh` machine-checks the band,
 the required sections and their non-empty bodies, that no level-2 heading appears twice, that
 the Owner-queue heading is still there (a warning, not a failure — the section is the owner's),
-and that a compression pass lands on the floor rather than just clearing the warning; above the
+and that a compression pass lands on the post-action ceilings rather than just clearing the warning; above the
 cap it tells a pass from an ordinary edit by how much the file shrank
 (`STATE_EDIT_DELTA_BYTES`), so the ladder will not fail you for fixing a typo up there — which
 is a statement about the guard, not a release: the size warning stays armed and the pass is
@@ -1523,85 +1536,34 @@ distinct sessions touch the repo, because it is the only channel through which s
 shipped bug teaches session N+9's review pass.
 -->
 
-> **Append-only registry — NEVER archived, compressed or truncated.** This is the canonical,
-> permanent home for every numbered deviation and discovery. Code and docs cite entries as
-> bare `D-NNN` and those citations must always resolve here; no entry is ever deleted or
-> summarised away. Append new entries at the bottom, one continuous sequence.
-> Code and fixtures are ground truth: where an entry conflicts with the current code, the code
-> wins and the entry stays exactly as written. **Rows are immutable — never edit one in
-> place**, with one exception named below: the ` [cited]` marker is metadata rather than
-> content, and syncing it — adding it or dropping it — is the one in-place edit this rule does
-> not cover. A correction is a NEW row plus one appended pointer line on the old one, and there
-> are two verbs: `Superseded by D-NNN.` when the whole row is replaced, `Corrected by D-NNN.`
-> when one detail went stale under a principle that still stands. Both are append-only and
-> mechanically identical. **Appending the pointer is required, not optional, whenever a change
-> knowingly falsifies part of a committed row** — nothing can detect an omitted one, which is
-> why it is written here. If your ladder carries an append-only guard, it can check the FORM
-> and never which verb is honest, so that half is the reviewer's; if you have no such guard,
-> all of this is prose only for you and worth saying so out loud. A row should carry at most
-> one pointer, and treat the first as final.
+> **Append-only retrieval storage.** Append rows at the bottom in sequence; never move,
+> renumber, summarize, or delete them. Search by topic or identifier rather than reading a
+> volume whole. Code and fixtures settle current behavior; a stale row remains historical.
 >
-> **This file is RETRIEVAL storage: grep it and cite it, never read it whole.** A `D-NNN`
-> citation resolves to one row, and one row is what you read. A volume at its cap is tens of
-> kilobytes of prose whose overwhelming majority is irrelevant to any given session, so
-> reading it end to end spends a context budget better spent on the code you came to change.
-> The ladder's cap rung prints a size in KB beside the line count so the read cost the cap
-> stands in for stays visible. It measures the **live** volume only: once this file rolls over,
-> its own size stops being reported, which is one more reason to grep it rather than open it.
+> **Rows are immutable.** The ` [cited]` marker is metadata and may be synchronized in place.
+> Otherwise correct a detail with a new row and append `Corrected by D-NNN.` to the old row, or
+> replace its whole conclusion with a new row and append `Superseded by D-NNN.` The first pointer
+> is final. The guard checks pointer form, not whether the chosen verb is honest.
 >
-> **Search before appending.** Grep the ledger for the topic first; extend or cite an
-> existing row rather than append a near-duplicate. A row that supersedes an older one says
-> so ("supersedes D-NNN") and the old row gets a `Superseded by` pointer, never deletion.
-> **Mechanical acceptance and authoring quality are separate.**
-> `LEDGER_ROW_SENTENCE_CAP` and `LEDGER_ROW_CHAR_CAP` are rejection boundaries for unusually
-> long rows, never desired sizes. Passing both counters establishes only that a row is not
-> obviously oversized; it does not establish concision, correct scope, or information quality.
-> Write the smallest self-contained durable lesson first; one or two sentences are preferable
-> when sufficient. Do not merge sentences, replace punctuation, remove useful qualifiers, or
-> otherwise rewrite solely to change a counter. If a draft approaches a limit, reconsider whether
-> it contains multiple ledger lessons, debugging chronology, completed state, or material that
-> belongs in history; split the lessons, retain the durable conclusion, or route the narrative to
-> a history tier with a concise pointer from the `docs/STATE.md` changelog.
+> **Authoring.** Search the volume chain before appending. Write the smallest self-contained
+> durable lesson; route debugging narrative to history and point to it from the STATE changelog.
+> `LEDGER_ROW_SENTENCE_CAP` and `LEDGER_ROW_CHAR_CAP` are rejection boundaries for new rows.
+> Crossing either rejects the row; passing them proves no more than absence of obvious oversizing.
+> Boundaries determine when machinery intervenes, not how much content an author should produce.
 >
-> **File cap & rollover.** This file holds at most `LEDGER_LINE_CAP` lines from `amh.conf` (the
-> cap bounds LINES, not rows — rows vary in length, and it is read and context cost that is
-> being bounded). Neither this cap nor the row cap below is restated here as a number, and
-> neither should be: nothing checks preamble prose against `amh.conf`, so a copied number goes
-> stale the first time a cap moves. Read a live value from `amh.conf`, or from the verdict that
-> **turns on** it — a rejection has to say what it rejected against. A green run quotes neither
-> cap, deliberately: the number a clean run puts in front of you is the number the next row gets
-> drafted toward, which is how a cap written as a maximum is read as a length.
-> New rows must also stay at or below `LEDGER_ROW_CHAR_CAP`, counted as bytes under `LC_ALL=C`;
-> ASCII text is one byte per character and non-ASCII UTF-8 is charged by encoded bytes. This is
-> also a rejection boundary, never a desired size; it catches pathologically dense sentences.
-> Approaching either boundary is evidence that the material probably contains narrative or
-> multiple lessons: split it, reduce it to the durable conclusion, or route it to a history tier
-> with a concise pointer. Rows
-> already committed when checked are historical and exempt. The final row may finish past the
-> file cap, but no row may ever *start* past it: when the file stands over the
-> cap, create the next volume with this same header discipline and number its rows from the
-> matching prefix — `LEDGER.md`/`D-` rolls to `LEDGER_A.md`/`DA-`, then `_B.md`/`DB-`. The
-> suffix advances as an odometer over A–Z, not a list with a last entry: `_Z` rolls to `_AA`,
-> `_AZ` to `_BA`, `_ZZ` to `_AAA`, without limit. The ladder computes that name and prints it
-> in the failure telling you to roll over, so you never have to spell it yourself.
+> **Rollover.** `LEDGER_LINE_CAP` is a rollover boundary: the final row may finish after it, but
+> a later row starts the next volume. The suffix advances as an A–Z odometer, and existing rows
+> never move. The live volume's byte size is measurement only: it is reported but never judged.
+> Boundaries determine when machinery intervenes, not how much content an author should produce.
 >
-> **The volumes form a CHAIN, and the ladder walks it from `LEDGER.md`, stopping at the first
-> missing link.** A volume is a file the scheme can reach, not a file whose name looks right:
-> a `LEDGER_X.md` with no `LEDGER_A.md`…`LEDGER_W.md` before it is unreachable, and its rows
-> are read by nothing. The rung says so rather than ignoring it quietly — one warning naming
-> the unreachable file, and a failure if `LEDGER.md` itself is the one missing. Existing rows
-> are never moved or renumbered — the cap bounds file size, not history. A citation's prefix
-> names its file.
+> **Paths in rows.** A new path reference must resolve when authored. If a committed row's path
+> later moves or disappears, leave the historical text immutable, append a correction pointer
+> when meaning changed, and update editable documentation. The local path guard exempts only a
+> reference whose exact token and target both existed at HEAD; it continues to reject new nonexistent paths.
 >
-> **`[cited]` marker (machine-CHECKED — you write it, the ladder verifies it).** A row cited
-> from the ladder's scan scope carries ` [cited]` after its number. The ladder checks it BOTH
-> directions — cited-but-unmarked and marked-but-uncited each fail the build — but it never
-> edits this file: nothing syncs the marker for you. The marker warns you that code resolves
-> here before you lean on or reword a row. Syncing it by hand means editing a committed row in
-> place, which is why the immutability rule above carves it out: an append-only guard of your
-> own must permit the marker in BOTH directions, or it will refuse the very edit this rung
-> demands. Dropping a marker is not optional housekeeping — a marked row nothing cites any
-> more fails the build until you drop it, and the row itself is never what goes.
+> **Citations.** Bare ledger IDs resolve through the volume chain. A row cited from configured
+> code or workflow scan paths carries ` [cited]`; the ladder checks that marker in both
+> directions. Documentation mentions are intentionally outside that machine check.
 
 - D-001: {{terse entry: what was discovered, decided or broken; what to do about it; what it
   affects. One entry per durable fact. Solved mistakes AND standing invariants both live
@@ -1616,7 +1578,7 @@ One bash script, run by both the agent and CI. Structure: fast guards (seconds, 
 The guards it ships with:
 
 - **State length (hysteresis)** — quiet below the warn line; over it, warn with the deep
-  compress-to target in the message; fail over the hard cap. Never make the warn line the
+  compress-to target in the message; fail over the rejection boundary. Never make the warn line the
   compression target: the gap between them is the debounce. Plus the landing check described
   above, which supplies the state the size thresholds lack by comparing against the committed
   size (working tree vs HEAD, falling back to HEAD~1 for a just-committed trim). It fires only

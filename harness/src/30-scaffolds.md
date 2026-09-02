@@ -16,16 +16,16 @@ hand-applied list for the prose.
 ### 3.2 `docs/STATE.md` — working memory (bounded, compressible)
 
 Note the hysteresis band and the *landing* check. Size thresholds alone are Goodhart-able: a
-micro-trim to just under the soft cap passes the guard and re-arms the warning a session later.
+micro-trim to just under the compression trigger passes the guard and re-arms the warning a session later.
 The guard therefore also fails a change that trims the file out of warn territory but stops
-inside the debounce band instead of reaching the compression floor.
+inside the debounce band instead of reaching the post-action ceilings.
 
-**The floor is two post-compression acceptance ceilings in two units, and a landing satisfies
+**The pair of post-action ceilings comprises two post-compression acceptance ceilings in two units, and a landing satisfies
 both.** A byte-only check can be cleared by shaving words, while a sentence-only check can be
 cleared by repunctuation that frees no space. The pair blocks those two cheap mechanical moves;
 it does not decide what content stays or establish a preferred landing size. Lifecycle does:
 fold a stage when it is complete, route its durable lesson, and retain everything still live.
-The soft and hard caps stay byte-only because they classify size rather than content.
+The soft and rejection boundarys stay byte-only because they classify size rather than content.
 
 In the *rule* prose that explains these thresholds, name the `amh.conf` keys rather than
 restating their values. Nothing checks such a number, and a guard for it would have to lift a
@@ -39,10 +39,10 @@ does not need the number from the prose: `amh.conf` is the source, and a verdict
 threshold it **turns on** — a rejection has to say what it rejected against.
 
 **A verdict that rejects nothing should quote nothing, and this is the harder half.** A green
-rung reporting "8 KB (soft cap 14 KB)" or "checked 2 rows against `LEDGER_ROW_CHAR_CAP`=800"
+rung reporting "8 KB (compression trigger 14 KB)" or "checked 2 rows against `LEDGER_ROW_CHAR_CAP`=800"
 puts the limit in front of the agent who is about to write against it, every clean run, and the
 limit is what gets optimized toward: the reported instances shaved a state file to seven bytes
-under its floor and drafted 828-byte ledger rows to trim them to just fit, one of them having
+under its ceiling and drafted 828-byte ledger rows to trim them to just fit, one of them having
 copied "the cap is a maximum, not a target" into its own preamble by hand in the same session.
 Prose loses to salience, so the harness removed the anchor rather than adding another clause —
 print the measurement, print the headroom, name the threshold when a verdict depends on it.
@@ -52,7 +52,7 @@ found by watching it fail: the session builds its own draft and measures it agai
 read from `amh.conf`, so the anchor survives in the one place no change to a rung's output can
 reach. What reached it was giving the cap a second unit, so that no single-measure trick satisfies it. And check what your rungs actually print before
 you promise a reader they can rely on it — the value a passing run never shows is one they must
-read from `amh.conf`, which since 8.0.0 is every threshold rather than the compression floor
+read from `amh.conf`, which since 8.0.0 is every threshold rather than the post-action ceilings
 alone.
 
 Four kinds of restatement stay legitimate, and saying so keeps the rule from being read as a
@@ -77,16 +77,16 @@ evidence that the material probably contains narrative or multiple lessons: spli
 to the durable conclusion, or route the narrative to history with a concise pointer.
 
 The landing check judges the shrink's *size* as well as where it lands, which is why
-`STATE_EDIT_DELTA_BYTES` exists. Its first form treated every byte lost above the soft cap as a
-compression pass in progress, and that reading fails a three-byte typo fix: go to the floor or
+`STATE_EDIT_DELTA_BYTES` exists. Its first form treated every byte lost above the compression trigger as a
+compression pass in progress, and that reading fails a three-byte typo fix: go to the post-action ceilings or
 revert the correction, both worse than the typo. So a shrink smaller than the delta and still
 above the cap is an ordinary edit and is allowed, with the size warning left armed; one that
-reaches the delta is a compression pass and must land on the floor. Set the delta in the empty
+reaches the delta is a compression pass and must land on the post-action ceilings. Set the delta in the empty
 gap between the two populations — no ordinary edit runs to a kilobyte, no real compression pass
 comes in under several. Widen the *delta* if your file is unusual; never widen the *band*, which
 is the hole the landing check was built for.
 
-The delta stays byte-only while the floor beside it is a pair, and that is the rule rather than
+The delta stays byte-only while the post-action ceilings beside it is a pair, and that is the rule rather than
 an oversight: the paired ceilings reject two cheap mechanical landings, while the delta merely
 classifies a shrink that already happened.
 
@@ -108,7 +108,7 @@ One bash script, run by both the agent and CI. Structure: fast guards (seconds, 
 The guards it ships with:
 
 - **State length (hysteresis)** — quiet below the warn line; over it, warn with the deep
-  compress-to target in the message; fail over the hard cap. Never make the warn line the
+  compress-to target in the message; fail over the rejection boundary. Never make the warn line the
   compression target: the gap between them is the debounce. Plus the landing check described
   above, which supplies the state the size thresholds lack by comparing against the committed
   size (working tree vs HEAD, falling back to HEAD~1 for a just-committed trim). It fires only

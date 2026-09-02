@@ -367,7 +367,7 @@ expect_pass_not_saying() { # <name> <dir> <ERE the green output must NOT match> 
 	#
 	# Two deliberate choices, both learned the hard way in review. The absent needle is an
 	# ERE, not a fixed string, so it can be written WITHOUT the fixture's configured value:
-	# `soft cap 14` passes the moment someone changes the fixture conf to 13 while the
+	# `compression trigger 14` passes the moment someone changes the fixture conf to 13 while the
 	# anchor is still printed — the DB-022 trap rebuilt inside the guard against it. And the
 	# fourth argument is the checked-NOTHING arm the runbook requires: an assertion about
 	# absence is satisfied by a rung that never ran, printed nothing, or was renamed out of
@@ -620,14 +620,14 @@ d=$(mk state_hard)
 	echo
 	filler $((17 * 1024))
 } >>"$d/docs/STATE.md"
-expect_fail "STATE over the hard cap fails" "$d" "hard cap"
+expect_fail "STATE over the rejection boundary fails" "$d" "rejection boundary"
 
 d=$(mk state_warn)
 {
 	echo
 	filler $((15 * 1024))
 } >>"$d/docs/STATE.md"
-expect_warn "STATE over the soft cap warns only" "$d" "soft cap"
+expect_warn "STATE over the compression trigger warns only" "$d" "compression trigger"
 
 # Landing check, one fixture per branch. Sizes are set with `state_bytes` — grow past
 # the target with filler, then truncate to an EXACT byte count — so every shrink these
@@ -638,7 +638,7 @@ expect_warn "STATE over the soft cap warns only" "$d" "soft cap"
 # The filler is sized FROM the request, and the result is checked. A fixed 18 KB of filler
 # was the first form and it is the same defect one level up: `head -c` on a file shorter
 # than the request silently yields a shorter file and exits 0, so the first fixture that
-# asked for a size past the filler — a hard-cap landing case is the obvious one — would
+# asked for a size crossing the filler — a hard-cap landing case is the obvious one — would
 # have asserted against a size it never got, and passed.
 state_bytes() { # <dir> <bytes> — leaves docs/STATE.md exactly <bytes> long
 	local f=$1/docs/STATE.md have got
@@ -659,7 +659,7 @@ state_bytes() { # <dir> <bytes> — leaves docs/STATE.md exactly <bytes> long
 	fi
 }
 
-# Countable sentences for the branches whose verdict turns on the floor. One per line,
+# Countable sentences for the branches whose verdict turns on the post-action ceilings. One per line,
 # each terminator followed by the next line's capital once the counter joins them.
 state_sentences() { # <n> — n sentences of fixture prose on stdout
 	local i=0
@@ -669,59 +669,59 @@ state_sentences() { # <n> — n sentences of fixture prose on stdout
 	done
 }
 
-# Branch 1 — a shrink that crosses from above the soft cap to below it must reach the
-# floor, not stop in the debounce band. This is the Goodhart hole the size thresholds
+# Branch 1 — a shrink that crosses from above the compression trigger to below it must reach the
+# post-action ceilings, not stop in the debounce band. This is the Goodhart hole the size thresholds
 # alone leave, and the branch split must not reopen it.
 #
-# The floor is two conditions, so this branch takes three fixtures: one for each cheap move
+# The post-action ceilings is two conditions, so this branch takes three fixtures: one for each cheap move
 # that satisfies one condition while removing nothing, and one for a real pass. They share
-# a construction — a committed file of N sentences padded past the soft cap — so the
+# a construction — a committed file of N sentences padded crossing the compression trigger — so the
 # "compressed" file below is genuinely the committed one with words taken out of it, which
 # is what makes the word MICRO-TRIM in the first fixture's name true of what it does.
-state_grown() { # <dir> <sentences> — commit a file of <sentences> sentences past the cap
+state_grown() { # <dir> <sentences> — commit a file of <sentences> sentences crossing the cap
 	cp "$1/docs/STATE.md" "$1/base.md"
 	{ state_sentences "$2"; } >>"$1/docs/STATE.md"
 	cp "$1/docs/STATE.md" "$1/sentences.md"
 	state_bytes "$1" $((15 * 1024))
-	(cd "$1" && git commit -qam "grow past the soft cap")
+	(cd "$1" && git commit -qam "grow crossing the compression trigger")
 }
 
 # THE MICRO-TRIM CASE. The committed file carries 60 sentences and 15 KB; the landing keeps
 # every one of those sentences and throws away 14 KB of the padding around them. That is
 # the reflex in its purest form — a 93% cut by bytes, removing no content — and the byte
-# floor alone passed it, which is why the sentence floor stands beside it.
+# post-action ceiling alone passed it, which is why the sentence post-action ceiling stands beside it.
 d=$(mk state_landing_micro_trim)
 state_grown "$d" 60
 cp "$d/sentences.md" "$d/docs/STATE.md"
 # Greps branch 1's OWN wording, not the "stops short" both failing branches share: with the
 # shared phrase, rewriting branch 1's message in branch 3's words left the suite green, so
 # the fixture could not tell which branch had fired.
-expect_fail "micro-trim that crosses below the cap but misses the floor fails" "$d" "crossed below the soft cap but stops short"
+expect_fail "micro-trim that crosses below the cap but misses the post-action ceilings fails" "$d" "compression result is"
 
-# THE REPUNCTUATION CASE, which is the same defect through the other floor. The body is
+# THE REPUNCTUATION CASE, which is the same defect through the other post-action ceiling. The body is
 # joined onto one line and every `. F` boundary rewritten to `; f`, so the sentence count
 # collapses to nearly nothing while not one byte is freed. Sized to sit BETWEEN the byte
-# floor and the soft cap, so the sentence half of the condition is satisfied and only the
+# post-action ceilings and the compression trigger, so the sentence half of the condition is satisfied and only the
 # byte half can reject it: delete that half and this fixture goes green.
 d=$(mk state_landing_repunctuated)
 state_grown "$d" 60
 { cat "$d/base.md"; state_sentences 200 | tr '\n' ' ' | sed 's/\.  *F/; f/g'; } >"$d/docs/STATE.md"
-expect_fail "collapsing the sentence count without freeing bytes fails" "$d" "crossed below the soft cap but stops short"
+expect_fail "collapsing the sentence count without freeing bytes fails" "$d" "compression result is"
 
-# The real pass, and the pair that proves the floors come from the config rather than from
-# constants: the same landing that fails above passes once both floors admit it.
+# The real pass, and the pair that proves the post-action ceilings come from the config rather than from
+# constants: the same landing that fails above passes once both post-action ceilings admit it.
 d=$(mk state_landing_floor_from_config)
 state_grown "$d" 60
 cp "$d/sentences.md" "$d/docs/STATE.md"
 sed_in_place 's/^STATE_COMPRESS_TO_SENTENCES=.*/STATE_COMPRESS_TO_SENTENCES=70/' "$d/amh.conf"
 sed_in_place 's/^STATE_COMPRESS_TO_KB=.*/STATE_COMPRESS_TO_KB=14/' "$d/amh.conf"
-expect_pass_saying "the configured floors decide the landing" "$d" "clear of the floor"
+expect_pass_saying "the configured post-action ceilings decide the landing" "$d" "below the post-action ceilings"
 
-# A malformed floor must be loud and must not silently decide the branch — the same
+# A malformed post-action ceiling must be loud and must not silently decide the branch — the same
 # contract the edit delta below has, and for the same reason.
 d=$(mk state_floor_malformed)
 sed_in_place 's/^STATE_COMPRESS_TO_SENTENCES=.*/STATE_COMPRESS_TO_SENTENCES=9KB/' "$d/amh.conf"
-expect_warn "a malformed compression floor warns and falls back rather than deciding quietly" "$d" \
+expect_warn "a malformed post-action ceiling warns and falls back rather than deciding quietly" "$d" \
 	"is not a positive sentence count"
 
 # Branch 3 — the same hole one band higher: a compression pass that never crosses below
@@ -729,7 +729,7 @@ expect_warn "a malformed compression floor warns and falls back rather than deci
 # repeat forever under a mere warning. 1.5 KB lost, against a 1 KB delta.
 d=$(mk state_landing_above_warn)
 state_bytes "$d" $((16 * 1024))
-(cd "$d" && git commit -qam "grow well past the soft cap")
+(cd "$d" && git commit -qam "grow well crossing the compression trigger")
 head -c $((14848)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
 expect_fail "a trim that stops short while still over the cap fails" "$d" "unfinished compression pass"
 
@@ -739,9 +739,9 @@ expect_fail "a trim that stops short while still over the cap fails" "$d" "unfin
 # above it stays armed, which is what `expect_warn` is checking alongside the branch line.
 d=$(mk state_landing_edit)
 state_bytes "$d" $((15 * 1024))
-(cd "$d" && git commit -qam "grow past the soft cap")
+(cd "$d" && git commit -qam "grow crossing the compression trigger")
 head -c $((15 * 1024 - 100)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
-expect_warn "a small edit above the cap is allowed and says so" "$d" "edit above the soft cap (shrank 100 bytes"
+expect_warn "a small edit above the cap is allowed and says so" "$d" "edit above the compression trigger (shrank 100 bytes"
 
 # The delta's plumbing, both directions. Neither the script's default nor the config read
 # was exercised by anything above: every fixture conf sets the key, so deleting the default
@@ -751,16 +751,16 @@ expect_warn "a small edit above the cap is allowed and says so" "$d" "edit above
 d=$(mk state_delta_default)
 grep -v '^STATE_EDIT_DELTA_BYTES=' "$d/amh.conf" >"$d/t" && mv "$d/t" "$d/amh.conf"
 state_bytes "$d" $((15 * 1024))
-(cd "$d" && git commit -qam "grow past the soft cap")
+(cd "$d" && git commit -qam "grow crossing the compression trigger")
 head -c $((15 * 1024 - 100)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
-expect_warn "a conf without the delta key falls back to the shipped default" "$d" "edit above the soft cap (shrank 100 bytes"
+expect_warn "a conf without the delta key falls back to the shipped default" "$d" "edit above the compression trigger (shrank 100 bytes"
 
 # Same 100-byte shrink, a delta of 64: it must now read as a compression pass. This is what
 # proves the value comes from the config rather than from a constant in the script.
 d=$(mk state_delta_configured)
 sed_in_place 's/^STATE_EDIT_DELTA_BYTES=.*/STATE_EDIT_DELTA_BYTES=64/' "$d/amh.conf"
 state_bytes "$d" $((15 * 1024))
-(cd "$d" && git commit -qam "grow past the soft cap")
+(cd "$d" && git commit -qam "grow crossing the compression trigger")
 head -c $((15 * 1024 - 100)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
 expect_fail "the configured delta decides the branch" "$d" "unfinished compression pass"
 
@@ -768,35 +768,35 @@ expect_fail "the configured delta decides the branch" "$d" "unfinished compressi
 d=$(mk state_delta_malformed)
 sed_in_place 's/^STATE_EDIT_DELTA_BYTES=.*/STATE_EDIT_DELTA_BYTES=1KB/' "$d/amh.conf"
 state_bytes "$d" $((15 * 1024))
-(cd "$d" && git commit -qam "grow past the soft cap")
+(cd "$d" && git commit -qam "grow crossing the compression trigger")
 head -c $((15 * 1024 - 100)) "$d/docs/STATE.md" >"$d/docs/STATE.tmp" && mv "$d/docs/STATE.tmp" "$d/docs/STATE.md"
 expect_warn "a malformed delta warns and falls back rather than deciding quietly" "$d" "is not a positive byte count"
 
 # A real compression pass: the sentences go WITH the bytes, which is the only move that
-# satisfies both floors at once.
+# satisfies both post-action ceilings at once.
 d=$(mk state_landing_good)
 state_grown "$d" 60
 { cat "$d/base.md"; state_sentences 2; } >"$d/docs/STATE.md"
-expect_pass "compression landing on the floor passes" "$d"
-# Landing well under the floor reports the HEADROOM in both units, and the gradient it
-# teaches is the whole point: a line that answered "at or under the floor" would read
+expect_pass "compression landing on the post-action ceilings passes" "$d"
+# Landing well under the post-action ceilings reports the HEADROOM in both units, and the gradient it
+# teaches is the whole point: a line that answered "at or under the post-action ceilings" would read
 # identically for a landing one sentence clear.
-expect_pass_saying "the landing line reports how far clear of the floor it landed" "$d" \
-	"clear of the floor"
+expect_pass_saying "the landing line reports how far below the post-action ceilings it landed" "$d" \
+	"below the post-action ceilings"
 expect_pass_not_saying "a green state landing reports measurements without a quality claim" "$d" \
-	"concise|well-compressed|well compressed" "clear of the floor"
+	"concise|well-compressed|well compressed" "below the post-action ceilings"
 
 # --- Anti-anchor: a green verdict names no threshold ------------------------
 # Two reported Goodhart failures, one shape: the number a clean run prints becomes the
 # number the next session optimizes toward. An instance shaved STATE across a dozen edits
-# to land 7 bytes under the floor, and drafted ledger rows at 828 and 805 to trim them to
+# to land 7 bytes under the post-action ceilings, and drafted ledger rows at 828 and 805 to trim them to
 # just fit — after copying "the cap is a maximum, not a target" into its own preamble by
 # hand. Prose lost to salience, so the anchor is removed from the lines that reject
 # nothing. These fixtures fail the moment a threshold returns to a pass.
 d=$(mk state_size_green_anchor)
 state_bytes "$d" $((5 * 1024))
 expect_pass_not_saying "a green STATE size verdict names no threshold" "$d" \
-	"soft cap|hard cap|hard [0-9]" "KB, within the band"
+	"compression trigger|rejection boundary|hard [0-9]" "KB, within the band"
 
 # --- STATE structure
 d=$(mk state_section)
@@ -845,8 +845,8 @@ expect_warn "a deleted Owner queue warns" "$d" "Owner queue"
 # --- ledger rollover
 d=$(mk ledger_cap)
 sed_in_place 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
-printf -- '- D-003: past the cap.\n' >>"$d/docs/LEDGER.md"
-expect_fail "a row starting past the line cap fails" "$d" "past the"
+printf -- '- D-003: crossing the cap.\n' >>"$d/docs/LEDGER.md"
+expect_fail "a row starting crossing the line cap fails" "$d" "crossing the"
 
 # The cap gates LINES; the rung also REPORTS size, because read cost is what the cap
 # stands in for and prose rows make the two drift. ALL THREE branches must carry the
@@ -879,19 +879,18 @@ ledger_tenths=$(($(wc -c <"$d/docs/LEDGER.md") * 10 / 1024))
 expect_pass_saying "the reported size is measured, not a hardcoded zero" "$d" \
 	"lines, $((ledger_tenths / 10)).$((ledger_tenths % 10)) KB"
 
-d=$(mk ledger_bytes_warn)
-# Cap set to the volume's own length: inside the 90% warning band by construction, and
-# with no row able to start past it — derived, because a hardcoded number silently moves
-# into the FAIL branch the moment a shipped script cites one more row.
+d=$(mk ledger_bytes_near_rollover)
+# Nearness has no separate warning band: until a later row crosses the rollover boundary,
+# line count and byte size are measurement only.
 ledger_lines=$(wc -l <"$d/docs/LEDGER.md")
 sed_in_place "s/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=$ledger_lines/" "$d/amh.conf"
-expect_warn "the approaching-cap warning reports the size too" "$d" "KB, approaching the ${ledger_lines}-line cap"
+expect_pass_saying "nearing rollover remains measurement only" "$d" "lines, "
 
 d=$(mk ledger_bytes_fail)
 sed_in_place 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
-printf -- '- D-003: a row past the cap.\n' >>"$d/docs/LEDGER.md"
+printf -- '- D-003: a row crossing the cap.\n' >>"$d/docs/LEDGER.md"
 expect_fail "the rollover FAILURE reports the size too — that is the branch that needs it" "$d" \
-	"KB), past the 4-line cap"
+	"KB measured), crossing the 4-line rollover boundary"
 
 
 # The row caps. Every `sed` below matches `^KEY=` rather than the shipped value, so a
@@ -1002,13 +1001,13 @@ d=$(mk ledger_row_sentences_over_cap)
 sed_in_place 's/^LEDGER_ROW_SENTENCE_CAP=.*/LEDGER_ROW_SENTENCE_CAP=2/' "$d/amh.conf"
 printf -- '- D-003: **A finding that took three sentences to state.** The second sentence carries narrative nobody will need again. The third repeats it at greater length still.\n' >>"$d/docs/LEDGER.md"
 expect_fail "a new ledger row over the sentence cap fails" "$d" \
-	"over LEDGER_ROW_SENTENCE_CAP=2"
+	"crossing rejection boundary LEDGER_ROW_SENTENCE_CAP=2"
 
 d=$(mk ledger_row_sentences_shaved)
 sed_in_place 's/^LEDGER_ROW_SENTENCE_CAP=.*/LEDGER_ROW_SENTENCE_CAP=2/' "$d/amh.conf"
 printf -- '- D-003: **A finding.** The narrative. It repeats.\n' >>"$d/docs/LEDGER.md"
 expect_fail "shaving that row to a third of its bytes buys nothing" "$d" \
-	"over LEDGER_ROW_SENTENCE_CAP=2"
+	"crossing rejection boundary LEDGER_ROW_SENTENCE_CAP=2"
 
 # The sentence cap is read from the config like every other threshold, and a malformed one
 # fails loudly rather than switching the rung off — a cap that silently stops checking is
@@ -1025,7 +1024,7 @@ d=$(mk ledger_row_char_over_cap)
 sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
 printf -- '- D-003: long row. %s\n' "$(filler 120)" >>"$d/docs/LEDGER.md"
 expect_fail "a new ledger row over the byte-counted character cap fails" "$d" \
-	"over LEDGER_ROW_CHAR_CAP=80; historical committed rows"
+	"crossing rejection boundary LEDGER_ROW_CHAR_CAP=80; historical committed rows"
 
 d=$(mk ledger_row_char_committed_over_cap)
 sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
@@ -1085,7 +1084,7 @@ sed_in_place 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
 add_volume "$d" A
 printf '# archived notes\n' >"$d/docs/LEDGER_ARCHIVE.md"
 expect_fail "an all-caps stray file does not become the live volume" "$d" \
-	"docs/LEDGER_A.md: a row STARTS at line 5"
+	"docs/LEDGER_A.md: a row starts at line 5"
 
 # The same file, on a tree that is under its cap: the rung reports the chain's volume and
 # says out loud that something volume-shaped is unreachable. A warning, not a failure —
@@ -1118,8 +1117,8 @@ expect_fail "a missing base volume with continuations fails instead of skipping"
 d=$(mk ledger_volume_multiletter_cap)
 sed_in_place 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
 add_chain "$d" {A..Z} AA
-expect_fail "a multi-letter row past the cap fails instead of passing invisibly" "$d" \
-	"docs/LEDGER_AA.md: a row STARTS at line 5"
+expect_fail "a multi-letter row crossing the cap fails instead of passing invisibly" "$d" \
+	"docs/LEDGER_AA.md: a row starts at line 5"
 
 # The next volume's name is computed by carry, not looked up in a table that ends at Z.
 # One case per transition the odometer has to get right; each is anchored on its own
@@ -1128,7 +1127,7 @@ expect_fail "a multi-letter row past the cap fails instead of passing invisibly"
 # builds seven hundred volumes rather than one.
 d=$(mk ledger_next_base)
 sed_in_place 's/^LEDGER_LINE_CAP=800/LEDGER_LINE_CAP=4/' "$d/amh.conf"
-printf -- '- D-003: past the cap.\n' >>"$d/docs/LEDGER.md"
+printf -- '- D-003: crossing the cap.\n' >>"$d/docs/LEDGER.md"
 expect_fail "the base volume rolls to _A / DA-" "$d" \
 	"open docs/LEDGER_A.md, numbering from DA-001"
 
@@ -1395,7 +1394,7 @@ fi
 # The other end of the same subtraction, and the one that decides whether it is safe: a
 # platform whose `sed` TRUNCATES. The filter's stream and the baseline's are both cut off in
 # the same place, so they agree — and a scan that trusted the agreement would print a green
-# over bytes it never read, with a live credential sitting past the cut. The baseline has to
+# over bytes it never read, with a live credential sitting crossing the cut. The baseline has to
 # earn its place as the file's stand-in, which is why the rung compares it against the file
 # itself (apart from carriage returns) before subtracting anything.
 #
@@ -2301,7 +2300,7 @@ d=$(mk poison_clean)
 )
 expect_pass "an ordinary commit message passes" "$d"
 
-# The same rung over a message stream past the pipe buffer, which is where it fails OPEN.
+# The same rung over a message stream crossing the pipe buffer, which is where it fails OPEN.
 # `git log --format=%B` prints the NEWEST commit first, so a token in the newest commit is
 # matched almost immediately and everything behind it is still pending — grep exits, the
 # writer takes EPIPE, `pipefail` makes a successful match a failed pipeline, and the token
@@ -2317,7 +2316,7 @@ d=$(mk poison_token_long_stream)
 	printf 'a change\n' >>docs/STATE.md
 	{
 		printf 'checkpoint [skip ci]\n\n'
-		awk 'BEGIN { for (i = 0; i < 4000; i++) print "padding line to push this stream past the pipe buffer" }'
+		awk 'BEGIN { for (i = 0; i < 4000; i++) print "padding line to push this stream crossing the pipe buffer" }'
 	} >"$d/msg"
 	# `-F`, never `-m "$(cat ...)"`: a message this long as a single argv element is over
 	# MAX_ARG_STRLEN and git dies with "Argument list too long", leaving no commit and a

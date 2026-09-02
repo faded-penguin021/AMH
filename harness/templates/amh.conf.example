@@ -50,12 +50,12 @@ REQUIRED_TOOLS=
 ADAPTER_FILES=
 
 # --- Working memory: the state file's size band (hysteresis) ----------------
-# Grow freely to WARN. Over WARN, one deep compression pass must land at or below
-# COMPRESS_TO — landing between them fails, because a micro-trim to just under the
-# warning re-arms it a session later. Over HARD fails outright.
+# Threshold inventory: WARN is a trigger; HARD is a rejection boundary; both COMPRESS_TO
+# values are post-action ceilings; EDIT_DELTA is a trigger. Boundaries determine when
+# machinery intervenes, not how much content an author should produce.
 #
-# The floor is BOTH keys below and a landing satisfies both, because neither works alone.
-# A byte floor is reachable by shaving words, which removes no content; a sentence floor is
+# A landing must satisfy BOTH post-action ceilings below, because neither works alone.
+# A byte ceiling is reachable by shaving words, which removes no content; a sentence ceiling is
 # reachable by rewriting `. T` to `; t`, which frees no space. Each blocks the cheap move
 # that satisfies the other, and folding whole stages is what satisfies both at once. WARN
 # and HARD stay byte-only: they answer WHEN to compress, and nobody drafts toward them.
@@ -64,10 +64,6 @@ ADAPTER_FILES=
 # replace punctuation, remove useful qualifiers, or otherwise rewrite solely to change a
 # counter. Near a limit, reconsider multiple ledger lessons, debugging chronology, completed
 # state, and material that belongs in history instead of optimizing the measurement.
-# Set COMPRESS_TO_SENTENCES so it bites at about the same place as the byte floor at your
-# file's rough bytes-per-sentence — otherwise one of the two is decorative — and leave
-# HARD − WARN as one long session of margin. Nothing checks that alignment; it is a
-# property of prose, so re-read the number if your file's density changes markedly.
 STATE_FILE=docs/STATE.md
 STATE_COMPRESS_TO_KB={{COMPRESS_TO_KB}}
 STATE_COMPRESS_TO_SENTENCES={{COMPRESS_TO_SENTENCES}}
@@ -75,8 +71,7 @@ STATE_WARN_KB={{WARN_KB}}
 STATE_HARD_KB={{HARD_KB}}
 # Above WARN, a shrink smaller than this is an ordinary edit (a typo fix, a closed queue
 # item) and is allowed with the warning still armed; a shrink this size or larger is a
-# compression pass and must reach COMPRESS_TO. Put it in the empty gap between the two
-# populations — an edit that large and a compression that small should both be unlikely.
+# compression pass and must satisfy both post-action ceilings.
 STATE_EDIT_DELTA_BYTES=1024
 
 # Section headers that must survive compression ('|' separated); a missing one fails.
@@ -87,7 +82,9 @@ STATE_OWNER_QUEUE_SECTION='## Owner queue'
 # --- Permanent memory: the append-only ledger -------------------------------
 LEDGER_DIR=docs
 LEDGER_BASENAME=LEDGER
-# Keep in lockstep with the number stated in the ledger's own header.
+# Rollover boundary: a row that would start after this line opens the next volume. The live
+# volume's byte size is measurement only. Boundaries determine when machinery intervenes,
+# not how much content an author should produce.
 LEDGER_LINE_CAP={{LINE_CAP}}
 # A rejection boundary for unusually long new rows, never a desired size. Write the smallest
 # self-contained durable lesson first; one or two sentences are preferable when sufficient.

@@ -200,19 +200,32 @@ invocation. CI's verification step invokes THIS script, so there is no hand-main
 lockstep between what the agent runs and what CI runs. `--guards-only` covers docs-only
 changes in seconds.
 
+| Configuration key | Behavioral category | Action point |
+|---|---|---|
+| `STATE_WARN_KB` | trigger | crossing it makes compression mandatory |
+| `STATE_HARD_KB` | rejection boundary | crossing it fails the state-size rung |
+| `STATE_COMPRESS_TO_KB`, `STATE_COMPRESS_TO_SENTENCES` | post-action ceiling | a compression result must satisfy both |
+| `STATE_EDIT_DELTA_BYTES` | trigger | a shrink at or above it is treated as a compression pass |
+| `LEDGER_ROW_SENTENCE_CAP`, `LEDGER_ROW_CHAR_CAP` | rejection boundary | crossing either rejects a new row |
+| `LEDGER_LINE_CAP` | rollover boundary | a later row starts a new volume |
+| live-ledger byte size | measurement only | the rung reports it and never judges it |
+
+At every authoring action point, boundaries determine when machinery intervenes, not how much
+content an author should produce.
+
 **What the working-memory size rung prints — and what it deliberately does not.** It reads
-`STATE_WARN_KB`, both compression-floor keys and `STATE_HARD_KB` from `amh.conf`, falling back to its
+`STATE_WARN_KB`, both post-compression ceiling keys and `STATE_HARD_KB` from `amh.conf`, falling back to its
 own defaults for a key you leave out, and **names a threshold only in a verdict that turns on
-one**: the hard cap and the floor when it fails over the hard cap, the soft cap and the floor
-when it warns above the soft cap, and the floor in the landing failures. A verdict that rejects
+one**: the rejection boundary and the post-action ceilings when it fails over the rejection boundary, the compression trigger and the post-action ceilings
+when it warns above the compression trigger, and the post-action ceilings in the landing failures. A verdict that rejects
 nothing names nothing — the plain size line reports your file's size and stops, and the `ok`
-confirming a completed landing reports how far **clear of the floor** you landed, in both of
-its units, rather than the floor itself. That headroom is a measurement, not a score or an
+confirming a completed landing reports how far **below the post-action ceilings** you landed, in both of
+its units, rather than the post-action ceilings themselves. That headroom is a measurement, not a score or an
 invitation to retain more: a file gutted to stubs also prints a large number and passes.
 
 Note the units, because they are what the removal above could not achieve on its own: the
-landing verdict is a byte floor AND a sentence floor, and neither is satisfied alone. A pass
-that shaved words to cross the soft cap arrives carrying every sentence it started with and
+landing verdict is a byte ceiling AND a sentence ceiling, and neither is satisfied alone. A pass
+that shaved words to cross the compression trigger arrives carrying every sentence it started with and
 fails on one; a pass that repunctuated to collapse the sentence count freed no space and fails
 on the other. The size lines stay byte-only — they say *when* to compress, and nobody drafts
 toward them. What still cannot be checked is whether the sentences
@@ -227,7 +240,7 @@ where the config cannot answer you. Where a verdict does print a configured valu
 **verbatim**; only the landing lines do arithmetic, working in bytes where the key is in KB.
 
 Two honest exceptions, so the discipline is not read as wider than it is. The boot banner still
-prints your state file's size **against the soft cap**, deliberately: it is read before a session
+prints your state file's size **against the compression trigger**, deliberately: it is read before a session
 writes, where knowing you are near the cap is the whole point. The `ok` for a small edit above the cap names
 `STATE_EDIT_DELTA_BYTES`, which is the threshold that verdict turns on. This paragraph lives here
 rather than in `docs/STATE.md`: a description of a guard's output is not working memory and
@@ -244,7 +257,7 @@ the byte cap on `docs/STATE.md` exists to force *volatile* content out. A block 
 rules sitting inside that cap spends the budget every compression pass is fighting for, and it
 cannot itself be compressed — folding a live rule is repeal. Measure it in your own repository
 rather than trusting a proportion: in the harness's own, the two preambles were 2,499 bytes of
-a 9,216-byte compression floor, and in this scaffold they were 4,859 bytes of 6,045 before the
+a 9,216-byte post-action ceilings, and in this scaffold they were 4,859 bytes of 6,045 before the
 adopter had written a line.
 
 **Relocating a live rule is legislation, not tidying — and the destination decides whether it
@@ -257,16 +270,19 @@ deletable in silence, which is how a relocation quietly finishes becoming a repe
 such a guard the pointer is prose only; say so rather than implying a check you do not have.
 Moving any further passage out of working memory stays the owner's call, one grant at a time.
 
-**Thresholds.** `STATE_WARN_KB`, both compression-floor keys and `STATE_HARD_KB` live in
+**Thresholds.** `STATE_WARN_KB`, both post-compression ceiling keys and `STATE_HARD_KB` live in
 `amh.conf` and are deliberately **not** restated here as numbers: nothing checks this prose
 against the config, so a copied number drifts silently the first time a threshold moves. Which
 of them the size rung prints, and why a number it printed is never a value to copy back into
 prose, are in **Acceptance ladder** above.
 
 **When to compress.** Compress by lifecycle, not by file size: once a stage is complete, fold
-its narrative and route its durable lessons even below the soft cap. The soft cap only makes a
-compression pass mandatory before further substantive work; the hard cap remains a byte-only
-failure boundary. A typo fix above the soft cap is allowed and still owes the pass.
+its narrative and route its durable lessons even below the compression trigger. The compression trigger only makes a
+compression pass mandatory before further substantive work; the rejection boundary remains a byte-only
+failure boundary. A typo fix above the compression trigger is allowed and still owes the pass.
+
+Here, boundaries determine when machinery intervenes, not how much content an author should
+produce.
 
 **How far.** After compression, keep only current state, unresolved Owner-queue items,
 immediate operational gotchas, and concise Changelog pointers. The configured byte and sentence
@@ -287,7 +303,7 @@ Owner-queue item's prose, never drop an open one — closing them is the owner's
 **What the ladder checks, and what it does not.** `scripts/ladder.sh` machine-checks the band,
 the required sections and their non-empty bodies, that no level-2 heading appears twice, that
 the Owner-queue heading is still there (a warning, not a failure — the section is the owner's),
-and that a compression pass lands on the floor rather than just clearing the warning; above the
+and that a compression pass lands on the post-action ceilings rather than just clearing the warning; above the
 cap it tells a pass from an ordinary edit by how much the file shrank
 (`STATE_EDIT_DELTA_BYTES`), so the ladder will not fail you for fixing a typo up there — which
 is a statement about the guard, not a release: the size warning stays armed and the pass is

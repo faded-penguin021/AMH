@@ -18,6 +18,18 @@ fails=0
 checked=0
 listed=0
 scanned=0
+historical_ledger_paths=0
+
+# Ledger rows are immutable, so a later rename cannot repair their path text. New ledger
+# citations must resolve when authored; after the cited tracked path is removed or renamed,
+# the reference and target both existing at HEAD identify historical drift and exempt that old wording. The row's
+# correction pointer carries the current meaning. This is deliberately ledger-only: ordinary
+# documentation is editable and must follow renames.
+ledger_path_existed_at_head() { # ledger_path_existed_at_head <markdown-file> <repo-path> <reference-token>
+	case $1 in docs/LEDGER*.md) ;; *) return 1 ;; esac
+	git cat-file -e "HEAD:$2" 2>/dev/null || return 1
+	git show "HEAD:$1" 2>/dev/null | grep -Fq -- "$3"
+}
 
 # Both listings this guard takes come from `git ls-files`, and neither could tell a listing
 # that FAILED from a tree with nothing to say. The two hollow states are opposite failures:
@@ -114,8 +126,13 @@ while IFS= read -r -d '' f; do
 		[ -n "$target" ] || continue
 		checked=$((checked + 1))
 		if [ ! -e "$dir/$target" ]; then
-			printf 'broken link in %s: [..](%s)\n' "$f" "$target"
-			fails=$((fails + 1))
+			repo_target=$(realpath -m --relative-to=. "$dir/$target")
+			if ledger_path_existed_at_head "$f" "$repo_target" "]($target)"; then
+				historical_ledger_paths=$((historical_ledger_paths + 1))
+			else
+				printf 'broken link in %s: [..](%s)\n' "$f" "$target"
+				fails=$((fails + 1))
+			fi
 		fi
 	done < <(grep -oE '\]\([^)]+\)' "$f" | sed 's/^](//; s/)$//')
 
@@ -137,10 +154,14 @@ while IFS= read -r -d '' f; do
 		esac
 		checked=$((checked + 1))
 		if [ ! -e "$target" ]; then
-			# shellcheck disable=SC2016 # literal backticks: the message quotes the citation
-			# back in the same markdown form the prose used. No expansion wanted.
-			printf 'nonexistent path cited in %s: `%s`\n' "$f" "$target"
-			fails=$((fails + 1))
+			if ledger_path_existed_at_head "$f" "$target" "\`$target\`"; then
+				historical_ledger_paths=$((historical_ledger_paths + 1))
+			else
+				# shellcheck disable=SC2016 # literal backticks: the message quotes the citation
+				# back in the same markdown form the prose used. No expansion wanted.
+				printf 'nonexistent path cited in %s: `%s`\n' "$f" "$target"
+				fails=$((fails + 1))
+			fi
 		fi
 	done <<<"$backticked"
 
@@ -210,4 +231,4 @@ if [ "$scanned" -eq 0 ]; then
 fi
 
 [ "$fails" -eq 0 ] || exit 1
-printf '%s path reference(s) resolve across %d file(s)\n' "$checked" "$scanned"
+printf '%s path reference(s) resolve across %d file(s); %d historical ledger path drift exemption(s)\n' "$checked" "$scanned" "$historical_ledger_paths"

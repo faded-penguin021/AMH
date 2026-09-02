@@ -261,7 +261,7 @@ import sys
 Path(sys.argv[1]).write_text(Path(sys.argv[1]).read_text() + "- DD-999: **Long new row fails.** " + ("x" * 120) + "\n")
 PYROW
 expect fail "ledger-append-only: a new row over the byte-counted character cap fails" "$d" \
-	ledger-append-only.sh "over LEDGER_ROW_CHAR_CAP=80"
+	ledger-append-only.sh "crossing rejection boundary LEDGER_ROW_CHAR_CAP=80"
 
 d=$(snapshot ledger_append_only_committed_over_cap_exempt)
 sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
@@ -825,6 +825,41 @@ d=$(snapshot refs_backtick)
 # citation inside a markdown code span, so expanding them would delete what is on trial.
 printf '\nRun `scripts/does-not-exist.sh` first.\n' >>"$d/docs/RUNBOOK.md"
 expect fail "path-refs: a cited path that does not exist" "$d" path-refs.sh "nonexistent path"
+
+# Immutable ledger prose cannot follow a later rename. A path that resolved in the committed
+# baseline is historical drift after deletion and is exempt there only; a new broken ledger
+# path still fails because it never existed at HEAD.
+d=$(snapshot refs_historical_ledger_path)
+printf '# old target\n' >"$d/docs/old-target.md"
+# shellcheck disable=SC2016 # literal backticks are the fixture input.
+printf '\n- DD-999: Historical location was `docs/old-target.md`.\n' >>"$d/docs/LEDGER_D.md"
+(cd "$d" && git add docs/old-target.md docs/LEDGER_D.md && git commit -qm historical-ledger-path)
+rm "$d/docs/old-target.md"
+expect pass "path-refs: a committed ledger path may drift after a rename" "$d" path-refs.sh \
+	"1 historical ledger path drift exemption(s)"
+
+d=$(snapshot refs_new_reference_to_deleted_old_path)
+printf '# old target\n' >"$d/docs/old-target.md"
+(cd "$d" && git add docs/old-target.md && git commit -qm old-target)
+rm "$d/docs/old-target.md"
+# shellcheck disable=SC2016 # literal backticks are the fixture input.
+printf '\n- DD-999: New reference is `docs/old-target.md`.\n' >>"$d/docs/LEDGER_D.md"
+expect fail "path-refs: a new row cannot inherit a historical target exemption" "$d" path-refs.sh \
+	"nonexistent path"
+
+d=$(snapshot refs_historical_ledger_link)
+printf '# old target\n' >"$d/docs/old-target.md"
+printf '\n- DD-999: Historical [location](old-target.md).\n' >>"$d/docs/LEDGER_D.md"
+(cd "$d" && git add docs/old-target.md docs/LEDGER_D.md && git commit -qm historical-ledger-link)
+rm "$d/docs/old-target.md"
+expect pass "path-refs: a committed ledger link may drift after a rename" "$d" path-refs.sh \
+	"1 historical ledger path drift exemption(s)"
+
+d=$(snapshot refs_new_broken_ledger_path)
+# shellcheck disable=SC2016 # literal backticks are the fixture input.
+printf '\n- DD-999: Missing location is `docs/never-existed.md`.\n' >>"$d/docs/LEDGER_D.md"
+expect fail "path-refs: a new ledger path must resolve when authored" "$d" path-refs.sh \
+	"nonexistent path"
 
 # A file name with a space: `for f in $files` word-splits it away, and the guard then
 # prints a resolved count and a green line for a file it never opened.

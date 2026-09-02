@@ -9,11 +9,11 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 12.0.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 13.0.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-AMH **12.0.0** is prepared on this branch and untagged; it separates counter acceptance from
+AMH **13.0.0** is prepared on this branch and untagged; it separates counter acceptance from
 authoring quality (**DD-001**, **DD-002**). **11.0.0** is released and tagged `amh-v11.0.0`. The 10.4.0 release commit has no CI run because its squash
 message carried the poison token; edit future squash messages before merge (**DC-040**).
 **9.2.0 has a changelog entry and no tag**, and nothing checks that every changelog version got
@@ -65,6 +65,8 @@ from.
   ledger-id prefix (**DC-015**); ledger immutability across commits (**DC-020**).
 
 ## Changelog
+
+- 2026-09-02 — **Thresholds name their behavior and historical ledger paths stay immutable.** Classified every configured content boundary at its action point, removed target-like wording and the ledger warning band, shortened ledger preambles, and made path validation strict at authoring while exempting committed targets that later move (**DD-003**).
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
