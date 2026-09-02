@@ -65,14 +65,19 @@ cap, the next row opens the next file, `D-… → DA-…` (`_A.md`) `→ DB-…`
    **A queue item is a claim about the world, not a fact: test it before you act on it or
    restate it.** Items whose truth is observable carry the command that settles them; run it.
    Read its OUTPUT against the resolution the item states, never its exit status; an item the
-   output shows resolved is done in this session, not repeated with a caveat.
+   output shows resolved is done in this session, not repeated with a caveat. The same caution
+   reaches `Current state`: it is tree-relative by rule, but a legacy sentence about the world —
+   merged, tagged, released, CI, branch protection — may predate that, so check one against a live
+   source before acting on or repeating it.
 3. Open the matching change-type playbook in `docs/RUNBOOK.md`; read the reference docs it
    names before touching code.
 4. Do the work under RUNBOOK **Session discipline**: sequential, small checkpointed units,
    binary acceptance.
 5. Run the acceptance ladder until green. **Never leave the branch red.**
-6. Update `docs/STATE.md` (honour its length guard) and, if the runbook itself was
-   insufficient, fix the runbook in the same change.
+6. Update `docs/STATE.md` with what stays true of the checked-out tree (and honour its length
+   guard). Never cache world-controlled status — merged, tagged, released, PR/CI, deployments,
+   remote branches, forge settings — as current truth: point at the live probe, route it to the
+   Owner queue, or keep it as an observation scoped in the sentence to when it was seen. If the runbook itself was insufficient, fix the runbook in the same change.
 7. Commit and push: `git push -u origin <your-session-branch>`.
 
 ## Build & verify commands

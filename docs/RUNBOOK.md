@@ -618,9 +618,40 @@ history. Never shave clauses until the guard goes quiet, and never cut text into
 is not compression, it is the owner's call, and it has now been granted exactly twice: the
 guard-output description (owner, 2026-08-11) and this section (owner, 2026-08-25).
 
+**What may be in `Current state` at all — the content rule beside the size rule.** Compression
+decides how much survives; this decides what is eligible. Three categories, and only the first is
+unqualified truth here:
+
+1. **Repository-controlled** — true of the checked-out tree until another repository change alters
+   it: the version the tree declares, implemented behaviour, tracked active work, the live ledger
+   volume — the VOLUME, never its latest row id, which every append moves and no sentence
+   follows. This is what `Current state` is for.
+2. **World-controlled** — can change with no change to the tree: whether a branch merged, whether a
+   remote tag or release exists, PR and CI status, deployments, remote branches, forge protection
+   settings. Never cached here as current truth.
+3. **Historical observation** — a past external fact kept because it is still useful, scoped in the
+   sentence to when or where it was observed so it cannot read as present status.
+
+Apply the test before writing a sentence: *would it still be accurate if this same commit were
+cloned tomorrow, under another branch name, after forge state had moved?* If not, route it. Where
+a live probe already computes the fact, point at the probe rather than copying its output —
+`scripts/session-start.sh` prints the release-tag state every session, so the state file names the
+probe and not its last answer. Where a session cannot inspect the setting (branch protection, a
+remote's configuration), state the expectation or the unresolved owner action without claiming to
+have observed it. Where the resolution is an external action, it belongs in the Owner queue with
+its `Check:`, not in `Current state`.
+
+Two limits, so this is not read wider than it is. The scope is `Current state`; it does not reach
+the Changelog or the ledger pointers, which are historical storage by construction — a dated line
+calling a train "unreleased" records when it was written, and no session owes a re-validation of
+what a past row said. And it
+is **prose-only** — no guard reads a State sentence for temporal validity, none is proposed, and
+making startup or a rung grep this file for forbidden phrases is a decided non-item, because the
+discriminator is meaning and P3 forbids building a gate on that.
+
 **What the ladder does not check.** It checks sizes, structure and repeated headings
-(**D-034**) and nothing else — not whether what survived is any good, and not whether you
-dropped an open Owner-queue item. Never drop one.
+(**D-034**) and nothing else — not whether what survived is any good, not whether what survived is
+still *true*, and not whether you dropped an open Owner-queue item. Never drop one.
 
 ## When CI fails (workflow vs code)
 

@@ -1,7 +1,7 @@
 # AMH meta-repository — maintenance guide
 
 This repository is the source of truth for the **Agentic Maintenance Harness** (AMH) and its
-reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 13.0.0**
+reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 14.0.0**
 (`harness/VERSION`).
 
 This file states the harness and this repository as they are now. Rules are rewritten in place
@@ -38,13 +38,18 @@ the rule-review protocol.
 
 1. Run `scripts/session-start.sh` if the host has not already run it.
 2. Read `docs/STATE.md`, including the Owner queue; verify observable queue claims before
-   acting on or repeating them.
+   acting on or repeating them. The file is tree-relative by rule, but a legacy sentence about
+   the world — merged, tagged, released, CI, branch protection — may predate that: check such a
+   claim against a live source before acting on or repeating it, whichever section it sits in.
 3. Select the relevant procedure under `docs/RUNBOOK.md` → **Change-type playbooks**, and
    read everything it names before editing.
 4. Work sequentially in a small, shippable unit with binary acceptance.
 5. Follow `docs/RUNBOOK.md` → **Acceptance ladder** and review the command's actual output.
-6. Update `docs/STATE.md`; over its soft cap, follow **Working-memory compression** before
-   editing. Improve the runbook in the same change if its procedure proved insufficient.
+6. Update `docs/STATE.md` with what stays true of the checked-out tree; never cache
+   world-controlled status (merged, tagged, released, PR/CI, deployments, remote branches, forge
+   settings) as current truth — point at the live probe, route it to the Owner queue, or keep it as
+   an observation scoped in the sentence to when it was seen. Over the compression trigger, follow
+   **Working-memory compression** before editing; that section carries both rules in full. Improve the runbook in the same change if its procedure proved insufficient.
 7. Commit with an honest verification disclosure, then push the permitted
    `BRANCH_PREFIX/<codename>` session branch.
 

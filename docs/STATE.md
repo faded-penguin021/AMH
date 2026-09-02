@@ -2,28 +2,39 @@
 
 > **Length guard.** Thresholds are in `amh.conf`; the rules for compressing this file are
 > `docs/RUNBOOK.md` → **Working-memory compression**, and they bind whether or not you follow
-> this pointer. Read them before any edit that takes this file over the soft cap.
+> this pointer. Read them before any edit that takes this file over the compression trigger.
+>
+> **Tree-relative.** That same section says what may be in `Current state` at all — the Changelog
+> and ledger pointers below are historical storage and are exempt: what stays true of the
+> checked-out tree, never world-controlled status (merged, tagged, released, PR and CI state,
+> deployments, remote branches, forge settings) as current truth. Point at a live probe instead
+> of storing its last answer, route an unresolved external action to the Owner queue, and scope a
+> retained past observation to when it was observed. Prose-only — no guard judges it.
 
 ## Project
 
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 13.0.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 14.0.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-AMH **13.0.0** is prepared on this branch and untagged; it separates counter acceptance from
-authoring quality (**DD-001**, **DD-002**). **11.0.0** is released and tagged `amh-v11.0.0`. The 10.4.0 release commit has no CI run because its squash
-message carried the poison token; edit future squash messages before merge (**DC-040**).
-**9.2.0 has a changelog entry and no tag**, and nothing checks that every changelog version got
-one. `docs/LEDGER_D.md` is live at **DD-002**. `main` protection targets `ladder`.
+This tree declares **14.0.0**: ledger rows pin their text rather than the files they name, and
+working memory is tree-relative (**DD-004**, **DD-006**). Whether that version is tagged or
+released is not recorded here — `scripts/session-start.sh` probes it every session and reports
+present, absent or could-not-ask, which is the only answer that can be right twice.
 
-**ACTIVE — RFC "Correct mutability boundaries in State and ledger references", unit 2 of 2.**
-Unit 1 shipped (**DD-004**). Unit 2 makes `docs/STATE.md` tree-relative and carries the combined
-MAJOR release for both units; the version is deliberately still 13.0.0 until it runs. What it
-owes, and what unit 1 already delivered, are in `docs/plans/2026-09-02-state-ledger-mutability.md`
-— read that file, not this line, before starting. Delete or archive it when unit 2 completes.
+`docs/LEDGER_D.md` is the live ledger volume. No active multi-unit work.
+
+Operational gotchas:
+
+- A poison token in a squash-merge message suppresses the release commit's CI run entirely. Edit
+  the squash message before merging; the guard checks commits on a branch, not the message the
+  forge composes at merge time (**DC-040**).
+- Nothing checks that every version with a changelog entry actually got a tag, so a merged
+  release can sit untagged with every rung green (**DA-010**). The release Owner-queue item below
+  carries the command that settles it for this version.
 
 ## Owner queue
 
@@ -31,6 +42,19 @@ owes, and what unit 1 already delivered, are in `docs/plans/2026-09-02-state-led
 > Items leave only when done, answered or triaged — then delete the item and record the outcome
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
+
+**PENDING OWNER ACTION — merge this branch, then tag 14.0.0, in that order.** The tree declares
+14.0.0 and the changelog carries its entry; both steps are yours. Merge
+`claude/state-ledger-mutability-qvj27g` into `main` first, then tag the merge commit — tagging
+before the merge points the release at a commit `main` never gets, and the README's clone command
+targets `amh-v14.0.0`, so until the tag exists that documented install 404s (**DA-010**). Edit the
+squash message before merging: a poison token in it suppresses the release commit's CI run
+(**DC-040**). Expected, not observed — no session here can inspect a forge setting with the tools
+this harness assumes — `main` protection requires the `ladder` check; if that is no longer so, the
+merge gate is not what this assumes.
+Check: `git ls-remote --tags origin 'refs/tags/amh-v14.0.0'` — a line back means the tag is cut;
+confirm it sits on `main`'s history before closing, since the check cannot see the ordering this
+item exists to enforce.
 
 **OPEN — the `printf | grep -q` class survives at 39 further sites, and 10 are NOT fixture
 harnesses.** Unit 3 fixed the two with reachable unbounded input; the residue is safe on BOUNDED,
@@ -41,7 +65,7 @@ scripts/ harness/templates/` prints 45 lines, 6 of them comments — resolved on
 matching the description, which it deliberately does not.
 
 **OPEN — the 2026-08-29 `path-refs.sh` false failure on `` `session-start.sh` `` still has no
-reproducer.** Closed in `b2a9ae3` as the EPIPE defect, then restored when the pass falsified that
+reproducer.** Closed once as the EPIPE defect, then restored when the pass falsified that
 (**DC-035**, **DC-029** for the residue): a listing git completed, reported success for, and cut
 short anyway. No check; only a recurrence settles it.
 
@@ -68,9 +92,16 @@ from.
 - **Later:** the top-decile warning (**DB-040**, **DC-003** the adopted alternative); a
   constitution byte cap (**DB-038**); a Python-write advisory (**DC-007**); the 2026-08-10 review
   proposals (**DB-024**); a guard that opens a file to classify it (**DB-027**); a configurable
-  ledger-id prefix (**DC-015**); ledger immutability across commits (**DC-020**).
+  ledger-id prefix (**DC-015**); ledger immutability across commits (**DC-020**); a guard that
+  judges a State sentence's temporal validity (**DD-006**).
 
 ## Changelog
+
+- 2026-09-02 — **14.0.0: working memory is tree-relative.** `Current state` records what stays
+  true of the checked-out tree and stops caching merge, tag, release, CI and forge-setting status;
+  live facts point at the probe that recomputes them, external actions route to the Owner queue,
+  and retained past facts are scoped to when they were observed. Prose-only, at P2/P9, both
+  runbooks, both constitutions and the seeds (**DD-006**).
 
 - 2026-09-02 — **A ledger row pins its text, not the file it names.** The path guard now classifies
   a missing ledger target against the commit that introduced the citing row — exempting historical

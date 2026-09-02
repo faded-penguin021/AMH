@@ -25,7 +25,7 @@ both.** A byte-only check can be cleared by shaving words, while a sentence-only
 cleared by repunctuation that frees no space. The pair blocks those two cheap mechanical moves;
 it does not decide what content stays or establish a preferred landing size. Lifecycle does:
 fold a stage when it is complete, route its durable lesson, and retain everything still live.
-The soft and rejection boundarys stay byte-only because they classify size rather than content.
+The compression trigger and the rejection boundary stay byte-only because they classify size rather than content.
 
 In the *rule* prose that explains these thresholds, name the `amh.conf` keys rather than
 restating their values. Nothing checks such a number, and a guard for it would have to lift a
@@ -61,6 +61,17 @@ paragraph is one), a **historical statement** of what a threshold was at some pa
 **script default** sitting beside the code that uses it, and a **self-contained fixture** with
 no `amh.conf` to be authoritative. What the rule forbids is a live rule-statement asserting a
 value it is not the source of.
+
+**The size rule has a content rule beside it, and the scaffold is where an adopter meets it.**
+`Current state` holds what stays true of the checked-out tree until a repository change alters it;
+it does not cache world-controlled status — merged, tagged, released, PR and CI state,
+deployments, remote branches, forge settings — which changes with no change to the tree and is
+therefore stale as written. Where a live probe computes such a fact, the file points at the probe
+rather than storing its last answer; where the resolution is an external action, it is an
+Owner-queue item; where a session cannot inspect the setting, the file states the expectation
+without claiming an observation. A past external fact may stay as a historical observation, scoped
+in the sentence to when it was observed — prose, not a metadata schema. Prose-only throughout: the
+discriminator is meaning, so no guard judges it, and the seed says so where the writer reads.
 
 Say in the file itself that both values are **acceptance ceilings, not targets**. There is no
 reward for retaining text because space remains, no preferred landing size, and no need to add,

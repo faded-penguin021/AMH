@@ -11,6 +11,66 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 14.0.0 — 2026-09-02
+
+- **A ledger row's immutability covers its text, not the files it names.** A committed path
+  citation must resolve in the tree where its row was authored; a later rename or deletion of the
+  target is historical path drift and no longer blocks a path guard. A completed plan therefore
+  finishes archive-or-delete even when an immutable row names its old location — the previous
+  "retained in place" exception is withdrawn. New rows still may not cite a plan's path, now
+  because a plan is provisional context whose citation dies when it retires.
+- **A path guard must tell three states apart.** A new citation must resolve; an established one
+  whose target later moved does not fail; one it cannot classify — no reachable history showing
+  which commit introduced the row, and no informative default-branch baseline — is reported as
+  unknown, never as author-time proof and never as a newly broken path. A baseline resolving to
+  the same commit as `HEAD` carries no information and does not classify.
+- **The frozen archive is out of path scanning.** Requiring an archived document's paths to keep
+  resolving rebuilds the same trap one tier down, where the only repair is an edit the archive
+  tier forbids.
+- **Working memory is tree-relative.** The state file records what stays true of the checked-out
+  tree; it does not cache world-controlled status — merged, tagged, released, PR and CI state,
+  deployments, remote branches, forge protection — as current truth. Where a live probe computes
+  such a fact the file points at the probe instead of storing its last answer; where the
+  resolution is an external action it is an Owner-queue item; where a session cannot inspect the
+  setting it states the expectation without claiming an observation. Past external facts may be
+  retained as observations scoped to when they were seen. Prose-only: no guard judges the temporal
+  validity of a State sentence, and none is proposed.
+
+### Upgrading
+
+Copy the shipped scripts normally; no shipped script changed behaviour in this release, but the
+manifest header carries the version, so copy `MANIFEST.sha256` beside them.
+
+Then, by hand. **Nothing in your ladder checks any of items 1–7**: no guard reads a State sentence
+for temporal validity, none is proposed, and none should be — the discriminator is meaning, which
+is what this harness refuses to build gates on. Your run stays green whether or not you do this,
+so the audit in item 2 is the only thing that finds what you already wrote.
+
+1. Apply the revised State-writing rule from the 14.0.0 seed `docs/STATE.md` — both its header
+   and the guidance comment inside `## Current state`, which is the part a writer reads mid-edit —
+   plus the **Working-memory compression** section of the 14.0.0 seed `docs/RUNBOOK.md` and the
+   State-reading and State-writing steps in the 14.0.0 seed `AGENTS.md`.
+2. Audit your `Current state` for world-controlled claims — anything that would stop being true
+   if the same commit were cloned tomorrow, under another branch name, after forge state moved.
+3. Replace each one with a pointer to a runtime check, or an Owner-queue item carrying the command
+   that settles it. If you set `VERSION_FILE` and `RELEASE_TAG_PREFIX`, your session-start banner's
+   release line is already such a check; both are empty by default, so otherwise name whatever
+   probe you do have, or make the item the answer.
+4. Remove advancing "live at D…-NNN" ledger identifiers from the state file, and keep naming the
+   live VOLUME. This is the derived-fact case in the rule, not the world-controlled one: the row
+   id is recomputed by the tree on every append, so storing it is a cache with no invalidation
+   even though nothing outside the repository moves it. The volume is stable and other rules
+   depend on it being named.
+5. Update your plan-lifecycle wording from **Session discipline** item 5 of the 14.0.0 seed
+   `docs/RUNBOOK.md`, and the
+   "Paths in rows" paragraph of every ledger-volume preamble from the 14.0.0 seed
+   `docs/LEDGER.md`, so a legacy ledger citation no longer pins a completed plan.
+6. Archive or delete any completed plan you were retaining only because an immutable row names its
+   old path. No redirect, tombstone or symlink is left behind.
+7. If you run a local path-reference guard, apply the three-verdict classification above and
+   exclude your archive directory from its scan. A guard that tests the target at `HEAD` lapses on
+   the commit that removes the target, which is what 13.0.0 shipped.
+
 ## 13.0.0 — 2026-09-02
 
 - **Threshold vocabulary states behavior.** State warning and edit-delta keys are triggers,

@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 13.0.0.** Repos that adopt it record the version they took
+**Harness version 14.0.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -86,6 +86,45 @@ prevent. Working memory is capped so it can be read whole every session; permane
 capped so no single volume grows past what a *search* over it stays cheap on. That is why the
 ledger's cap counts lines while the rung beside it reports the live volume's size: the cap is a
 proxy, and a proxy that drifts from the cost it stands for should at least show you the drift.
+
+**Working memory is TREE-RELATIVE, and that is the second bound on it — the cap says how much
+may be there, this says what may be there at all.** The state file records what stays true of
+the checked-out tree until another repository change alters it: the version the tree declares,
+implemented behaviour, tracked active work, the live ledger volume, and the immediate
+operational gotchas a session needs. It must not cache **world-controlled** status as current
+truth — whether a branch merged, whether a remote tag or release exists, PR and CI status,
+deployments, remote branches, forge protection settings. Those change without the tree changing,
+so such a sentence is stale from the moment it is written and every later session reads it as
+current. The test is one question: *would this still be accurate if the same commit were cloned
+tomorrow, under another branch name, after forge state had moved?* If not, it is not unqualified
+truth here. Where a live probe already computes the fact, point at the probe instead of copying
+its most recent output — a stored answer is a cache with no invalidation, and the probe is the
+only thing that can be right twice. Where a session cannot inspect the setting at all, state the
+expectation or the unresolved owner action and do not claim to have observed it. Where the
+resolution is an external action, it is an Owner-queue item (P9), not a line of current state.
+
+**A fact the tree itself recomputes is a cache too, and this is the half that is not about the
+world at all.** A live ledger volume's latest row identifier is repository-controlled and passes
+the cloned-tomorrow test perfectly — and it is still wrong to store, because every append moves it
+and nothing makes the sentence follow. Name the volume, which is stable and which other rules
+depend on being named; never its newest row. The general form: if writing a fact down creates a
+second copy that some ordinary future edit will silently invalidate, point at the thing that
+recomputes it instead.
+
+**The scope is `Current state`, not the whole file.** The Changelog and the ledger pointers are
+historical storage by construction — dated lines about what shipped — and nothing above asks a
+session to re-validate them; a changelog line calling a train "unreleased" is a record of when it
+was written, not a claim about now. Read wider, the rule would turn every past pointer into a
+maintenance obligation, which is the accretion the tier exists to prevent.
+
+A past external fact may still be RETAINED, and the rule would be a memory-hole without that:
+keep it as a **historical observation**, scoped in the sentence to when or where it was observed
+so it cannot be read as present status. No metadata schema, no required fields — the scope is
+prose, because a schema here would be ceremony charged against the tier's own budget. Ledger rows
+and changelog lines are historical storage already and are never revalidated; nothing above asks
+a session to re-check the past. This whole rule is **prose-only** by construction: no guard judges
+the temporal validity of a natural-language claim, and one that tried would be reading meaning out
+of a sentence — exactly what P3 refuses to build machinery on.
 
 **The constitution is bounded by KIND, not by size — the one tier with no number on it.**
 Every other tier above is bounded by a threshold a script can read, and this one deliberately
@@ -251,6 +290,13 @@ reading the state file is protocol step 1 of the next session). Items leave the 
 done, answered or triaged, with the outcome recorded as a changelog line or a ledger row. Every
 session's **final chat message restates the queue**, so the human never has to open the file to
 know what is pending. A guard warns if a compression pass deletes the section.
+
+**This is also where world-controlled work lands, and routing it here is what keeps current state
+tree-relative** (P2). An unresolved external action — merge, tag, publish, a forge setting only
+the owner can change — is a queue item, never a sentence of current state, because the queue is
+read as a claim to be tested while current state is read as fact. The two rules are one mechanism:
+the state file stops asserting what it cannot know, and the queue carries it with the command that
+settles it.
 
 **A queue item is a claim about the world, and restating one without testing it is how the
 channel fills with confident nonsense.** The item is written at the moment of maximum knowledge
@@ -668,14 +714,19 @@ cap, the next row opens the next file, `D-… → DA-…` (`_A.md`) `→ DB-…`
    **A queue item is a claim about the world, not a fact: test it before you act on it or
    restate it.** Items whose truth is observable carry the command that settles them; run it.
    Read its OUTPUT against the resolution the item states, never its exit status; an item the
-   output shows resolved is done in this session, not repeated with a caveat.
+   output shows resolved is done in this session, not repeated with a caveat. The same caution
+   reaches `Current state`: it is tree-relative by rule, but a legacy sentence about the world —
+   merged, tagged, released, CI, branch protection — may predate that, so check one against a live
+   source before acting on or repeating it.
 3. Open the matching change-type playbook in `docs/RUNBOOK.md`; read the reference docs it
    names before touching code.
 4. Do the work under RUNBOOK **Session discipline**: sequential, small checkpointed units,
    binary acceptance.
 5. Run the acceptance ladder until green. **Never leave the branch red.**
-6. Update `docs/STATE.md` (honour its length guard) and, if the runbook itself was
-   insufficient, fix the runbook in the same change.
+6. Update `docs/STATE.md` with what stays true of the checked-out tree (and honour its length
+   guard). Never cache world-controlled status — merged, tagged, released, PR/CI, deployments,
+   remote branches, forge settings — as current truth: point at the live probe, route it to the
+   Owner queue, or keep it as an observation scoped in the sentence to when it was seen. If the runbook itself was insufficient, fix the runbook in the same change.
 7. Commit and push: `git push -u origin <your-session-branch>`.
 
 ## Build & verify commands
@@ -1054,7 +1105,7 @@ both.** A byte-only check can be cleared by shaving words, while a sentence-only
 cleared by repunctuation that frees no space. The pair blocks those two cheap mechanical moves;
 it does not decide what content stays or establish a preferred landing size. Lifecycle does:
 fold a stage when it is complete, route its durable lesson, and retain everything still live.
-The soft and rejection boundarys stay byte-only because they classify size rather than content.
+The compression trigger and the rejection boundary stay byte-only because they classify size rather than content.
 
 In the *rule* prose that explains these thresholds, name the `amh.conf` keys rather than
 restating their values. Nothing checks such a number, and a guard for it would have to lift a
@@ -1090,6 +1141,17 @@ paragraph is one), a **historical statement** of what a threshold was at some pa
 **script default** sitting beside the code that uses it, and a **self-contained fixture** with
 no `amh.conf` to be authoritative. What the rule forbids is a live rule-statement asserting a
 value it is not the source of.
+
+**The size rule has a content rule beside it, and the scaffold is where an adopter meets it.**
+`Current state` holds what stays true of the checked-out tree until a repository change alters it;
+it does not cache world-controlled status — merged, tagged, released, PR and CI state,
+deployments, remote branches, forge settings — which changes with no change to the tree and is
+therefore stale as written. Where a live probe computes such a fact, the file points at the probe
+rather than storing its last answer; where the resolution is an external action, it is an
+Owner-queue item; where a session cannot inspect the setting, the file states the expectation
+without claiming an observation. A past external fact may stay as a historical observation, scoped
+in the sentence to when it was observed — prose, not a metadata schema. Prose-only throughout: the
+discriminator is meaning, so no guard judges it, and the seed says so where the writer reads.
 
 Say in the file itself that both values are **acceptance ceilings, not targets**. There is no
 reward for retaining text because space remains, no preferred landing size, and no need to add,
@@ -1137,6 +1199,14 @@ be compressed to make room, since folding a live rule is repeal.
 > `docs/RUNBOOK.md` → **Working-memory compression**, and they bind whether or not you follow
 > this pointer. Fold completed narrative when its stage completes; retain only current state,
 > unresolved owner items, immediate operational gotchas and concise changelog pointers.
+>
+> **Tree-relative.** That same section also says what may be in `Current state` at all — the
+> Changelog and ledger pointers are historical storage and are exempt: it records what stays true
+> of the checked-out tree, never world-controlled status (merged, tagged, released, PR
+> and CI state, deployments, remote branches, forge settings) as current truth. Point at a live
+> probe instead of storing its last answer, route an unresolved external action to the Owner
+> queue, and scope a retained past observation to when it was observed. Prose-only — no guard
+> judges it.
 
 ## Project
 
@@ -1144,8 +1214,16 @@ be compressed to make room, since folding a live rule is repeal.
 
 ## Current state
 
-{{WHAT_IS_SHIPPED / what is code-complete awaiting owner action / active multi-unit work with
-its checklist / "no active work".}}
+{{WHAT_IS_SHIPPED, as the tree declares it / what is code-complete awaiting owner action / active
+multi-unit work with its checklist / "no active work".}}
+
+<!--
+Write what a fresh clone of THIS COMMIT would still find true. Test each sentence: would it hold
+tomorrow, under another branch name, after forge state had moved? If not, it belongs at a live
+probe, in the Owner queue, or scoped as a dated observation — not here as fact. Do not write
+"released", "tagged", "merged", "CI is green" or "protection is configured" as current state.
+-->
+
 
 ## Owner queue
 
@@ -1490,6 +1568,36 @@ another file — that is not compression, it is the relocation the second paragr
 the owner's call.
 **Project**, **Current state** and **Owner queue** must always survive it: compress an
 Owner-queue item's prose, never drop an open one — closing them is the owner's call.
+
+**What may be in `Current state` at all — the content rule beside the size rule.** Compression
+decides how much survives; this decides what is eligible. Three categories, and only the first is
+unqualified truth here:
+
+1. **Repository-controlled** — true of the checked-out tree until another repository change alters
+   it: the version the tree declares, implemented behaviour, tracked active work, the live ledger
+   volume — the VOLUME, never its latest row id, which every append moves and no sentence
+   follows. This is what `Current state` is for.
+2. **World-controlled** — can change with no change to the tree: whether a branch merged, whether a
+   remote tag or release exists, PR and CI status, deployments, remote branches, forge protection
+   settings. Never cached here as current truth.
+3. **Historical observation** — a past external fact kept because it is still useful, scoped in the
+   sentence to when or where it was observed so it cannot read as present status.
+
+Apply the test before writing a sentence: *would it still be accurate if this same commit were
+cloned tomorrow, under another branch name, after forge state had moved?* If not, route it. Where
+a live probe already computes the fact, point at the probe rather than copying its output — the
+session-start banner's release line is one, so name the probe and not its last answer. Where a
+session cannot inspect the setting (branch protection, a remote's configuration), state the
+expectation or the unresolved owner action without claiming to have observed it. Where the
+resolution is an external action, it belongs in the Owner queue with its `Check:`, not here.
+
+Two limits, so this is not read wider than it is. The scope is `Current state`; it does not reach
+the Changelog or the ledger pointers, which are historical storage by construction — a dated line
+calling a train "unreleased" records when it was written, and no session owes a re-validation of
+what a past row said. And it
+is **prose-only** — no guard reads a State sentence for temporal validity, and none is proposed:
+the discriminator is meaning, which is what this harness refuses to build gates on. Do not add one,
+and do not make startup grep this file for forbidden phrases.
 
 **What the ladder checks, and what it does not.** `scripts/ladder.sh` machine-checks the band,
 the required sections and their non-empty bodies, that no level-2 heading appears twice, that
