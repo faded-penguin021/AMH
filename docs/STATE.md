@@ -9,17 +9,15 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 11.0.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 12.0.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-AMH **11.0.0** is prepared on this branch and untagged; it makes working-memory compression
-content-based while leaving every guard threshold unchanged (**DC-044**). **10.5.1** is
-released and tagged `amh-v10.5.1`. The 10.4.0 release commit has no CI run because its squash
+AMH **12.0.0** is prepared on this branch and untagged; it separates counter acceptance from
+authoring quality (**DD-001**, **DD-002**). **11.0.0** is released and tagged `amh-v11.0.0`. The 10.4.0 release commit has no CI run because its squash
 message carried the poison token; edit future squash messages before merge (**DC-040**).
 **9.2.0 has a changelog entry and no tag**, and nothing checks that every changelog version got
-one. `docs/LEDGER_C.md` is closed at **DC-044**; the next ledger row must open volume D at
-**DD-001**. `main` protection targets `ladder`.
+one. `docs/LEDGER_D.md` is live at **DD-002**. `main` protection targets `ladder`.
 
 ## Owner queue
 
@@ -27,11 +25,6 @@ one. `docs/LEDGER_C.md` is closed at **DC-044**; the next ledger row must open v
 > Items leave only when done, answered or triaged — then delete the item and record the outcome
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
-
-**OPEN — tag and publish AMH 11.0.0 after merge.** Owner-only. When merging, **edit the squash
-message**: GitHub's default concatenates every commit body on the branch, which is how 10.4.0's
-release commit lost its CI run (**DC-040**). Check: `git tag -l amh-v11.0.0` — resolved when it
-prints the tag.
 
 **OPEN — the `printf | grep -q` class survives at 39 further sites, and 10 are NOT fixture
 harnesses.** Unit 3 fixed the two with reachable unbounded input; the residue is safe on BOUNDED,
@@ -75,6 +68,13 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-09-02 — **Counter-check fixture baselines follow the live ledger.** Updated shipped and
+  local fixture expectations after the objective-verdict rewrite and volume-D rollover (**DD-002**).
+
+- 2026-09-02 — **Counter checks report size, not writing quality.** Runbook, configuration and
+  ledger preambles separate binary byte-and-sentence acceptance from authoring judgement, ban
+  counter-only rewrites, and keep successful verdicts factual (**DD-001**).
 
 - 2026-09-01 — **11.0.0: working-memory compression follows content lifecycle.** Completed
   narrative is folded when its stage completes; configured byte and sentence values remain

@@ -36,12 +36,16 @@ shipped bug teaches session N+9's review pass.
 > **Search before appending.** Grep the ledger for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes D-NNN") and the old row gets a `Superseded by` pointer, never deletion.
-> **Keep new rows concise and at or below `LEDGER_ROW_SENTENCE_CAP`.** This is a rejection
-> boundary for unusually long rows, never a desired size. Write the smallest self-contained
-> durable lesson first; one or two sentences are preferable when sufficient. Counting sentences
-> discourages word-by-word shaving. Do not draft a narrative and shave it toward the cap, because
-> shaving buys nothing here. Put larger narratives in `docs/history/` and link them from the
-> `docs/STATE.md` changelog.
+> **Mechanical acceptance and authoring quality are separate.**
+> `LEDGER_ROW_SENTENCE_CAP` and `LEDGER_ROW_CHAR_CAP` are rejection boundaries for unusually
+> long rows, never desired sizes. Passing both counters establishes only that a row is not
+> obviously oversized; it does not establish concision, correct scope, or information quality.
+> Write the smallest self-contained durable lesson first; one or two sentences are preferable
+> when sufficient. Do not merge sentences, replace punctuation, remove useful qualifiers, or
+> otherwise rewrite solely to change a counter. If a draft approaches a limit, reconsider whether
+> it contains multiple ledger lessons, debugging chronology, completed state, or material that
+> belongs in history; split the lessons, retain the durable conclusion, or route the narrative to
+> a history tier with a concise pointer from the `docs/STATE.md` changelog.
 >
 > **File cap & rollover.** This file holds at most `LEDGER_LINE_CAP` lines from `amh.conf` (the
 > cap bounds LINES, not rows — rows vary in length, and it is read and context cost that is

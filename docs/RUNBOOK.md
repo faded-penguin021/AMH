@@ -517,9 +517,9 @@ all** on the plain `ok`, which reports the file's size and stops. The landing `o
 reports how far **clear of the floor** it landed, in bytes and in sentences, rather than the
 floor — a measurement, not a score, since a file gutted to stubs prints a large one and passes.
 Read the units off those verdicts rather than assuming one: the caps are byte sizes, and the
-floor is a byte size AND a sentence count that a landing satisfies together. Both are
-post-compression acceptance ceilings: they reject shallow mechanical folds but do not decide
-what stays or provide a size to write toward (**DC-003**, corrected by **DC-044**). This is 8.0.0's change and it reverses part
+floor is a byte size AND a sentence count that a landing satisfies together. Together they are a binary post-compression acceptance check: passing establishes only that
+`docs/STATE.md` is not obviously oversized. It does not establish concision, correct scope,
+information quality, or that the file is well-compressed, and it provides no size to write toward (**DC-003**, corrected by **DC-044**). This is 8.0.0's change and it reverses part
 of what 5.2.1 said:
 that release was cut to record that the landing line names the floor, which was true and is now
 deliberately not, because the anchor turned out to cost more than the description bought
@@ -581,15 +581,19 @@ cap is allowed and still owes the pass (**D-027**).
 **How far.** After compression, this file contains only current state, unresolved Owner-queue
 items, immediate operational gotchas, and concise Changelog pointers. The configured byte and
 sentence values are post-compression acceptance ceilings, satisfied together (**DC-003**), not
-instructions about how much prose to retain. There is no reward for keeping text merely because
+instructions about how much prose to retain. Passing both establishes only that the result is not
+obviously oversized; it does not establish concision, correct scope, information quality, or that
+the file is well-compressed. There is no reward for keeping text merely because
 space remains, no preferred landing size, and no need to add, preserve or reshape content to
 approach either ceiling. A substantially smaller file is equally successful — and often better
 — when it retains everything live.
 
 **How.** Decide each fold by whether the stage is complete, never by proximity to a number.
 Fold completed stages into concise Changelog pointer lines, move durable lessons to the ledger
-before deleting their narrative, and retain only immediate operational gotchas. Never shave
-clauses until the guard goes quiet, and never cut text into another file — moving a passage OUT
+before deleting their narrative, and retain only immediate operational gotchas. Do not merge sentences, replace punctuation, remove useful qualifiers, or otherwise rewrite
+solely to change either counter. If a draft approaches a limit, reconsider whether it contains
+multiple ledger lessons, debugging chronology, completed state, or material that belongs in
+history. Never shave clauses until the guard goes quiet, and never cut text into another file — moving a passage OUT
 is not compression, it is the owner's call, and it has now been granted exactly twice: the
 guard-output description (owner, 2026-08-11) and this section (owner, 2026-08-25).
 

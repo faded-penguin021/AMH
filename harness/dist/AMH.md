@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 11.0.0.** Repos that adopt it record the version they took
+**Harness version 12.0.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -868,6 +868,11 @@ ADAPTER_FILES=
 # reachable by rewriting `. T` to `; t`, which frees no space. Each blocks the cheap move
 # that satisfies the other, and folding whole stages is what satisfies both at once. WARN
 # and HARD stay byte-only: they answer WHEN to compress, and nobody drafts toward them.
+# Passing both counters establishes only that the result is not obviously oversized; it does
+# not establish concision, correct scope, or information quality. Do not merge sentences,
+# replace punctuation, remove useful qualifiers, or otherwise rewrite solely to change a
+# counter. Near a limit, reconsider multiple ledger lessons, debugging chronology, completed
+# state, and material that belongs in history instead of optimizing the measurement.
 # Set COMPRESS_TO_SENTENCES so it bites at about the same place as the byte floor at your
 # file's rough bytes-per-sentence — otherwise one of the two is decorative — and leave
 # HARD − WARN as one long session of margin. Nothing checks that alignment; it is a
@@ -895,6 +900,9 @@ LEDGER_BASENAME=LEDGER
 LEDGER_LINE_CAP={{LINE_CAP}}
 # A rejection boundary for unusually long new rows, never a desired size. Write the smallest
 # self-contained durable lesson first; one or two sentences are preferable when sufficient.
+# Passing both counters establishes only that a row is not obviously oversized; it does not
+# establish concision, correct scope, or information quality. Do not merge sentences, replace
+# punctuation, remove useful qualifiers, or otherwise rewrite solely to change a counter.
 # Counting sentences discourages word-by-word shaving. Approaching this boundary is evidence
 # that the material probably contains narrative or multiple lessons: split it, reduce it to
 # the durable conclusion, or route the narrative to a history tier with a concise pointer.
@@ -1544,12 +1552,16 @@ shipped bug teaches session N+9's review pass.
 > **Search before appending.** Grep the ledger for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes D-NNN") and the old row gets a `Superseded by` pointer, never deletion.
-> **Keep new rows concise and at or below `LEDGER_ROW_SENTENCE_CAP`.** This is a rejection
-> boundary for unusually long rows, never a desired size. Write the smallest self-contained
-> durable lesson first; one or two sentences are preferable when sufficient. Counting sentences
-> discourages word-by-word shaving. Do not draft a narrative and shave it toward the cap, because
-> shaving buys nothing here. Put larger narratives in `docs/history/` and link them from the
-> `docs/STATE.md` changelog.
+> **Mechanical acceptance and authoring quality are separate.**
+> `LEDGER_ROW_SENTENCE_CAP` and `LEDGER_ROW_CHAR_CAP` are rejection boundaries for unusually
+> long rows, never desired sizes. Passing both counters establishes only that a row is not
+> obviously oversized; it does not establish concision, correct scope, or information quality.
+> Write the smallest self-contained durable lesson first; one or two sentences are preferable
+> when sufficient. Do not merge sentences, replace punctuation, remove useful qualifiers, or
+> otherwise rewrite solely to change a counter. If a draft approaches a limit, reconsider whether
+> it contains multiple ledger lessons, debugging chronology, completed state, or material that
+> belongs in history; split the lessons, retain the durable conclusion, or route the narrative to
+> a history tier with a concise pointer from the `docs/STATE.md` changelog.
 >
 > **File cap & rollover.** This file holds at most `LEDGER_LINE_CAP` lines from `amh.conf` (the
 > cap bounds LINES, not rows — rows vary in length, and it is read and context cost that is

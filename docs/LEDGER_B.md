@@ -37,13 +37,15 @@
 > **Search before appending.** Grep ALL volumes for the topic first; extend or cite an
 > existing row rather than append a near-duplicate. A row that supersedes an older one says
 > so ("supersedes DA-NNN") and the old row gets a `Superseded by` pointer, never deletion.
-> **Both row caps are rejection boundaries for unusually long rows, never desired sizes.** Write
-> the smallest self-contained durable lesson first; one or two sentences are preferable when
-> sufficient. `LEDGER_ROW_SENTENCE_CAP` discourages word-by-word shaving, while
-> `LEDGER_ROW_CHAR_CAP` catches pathologically dense sentences. Approaching either boundary means
-> the material probably contains narrative or multiple lessons: split it, keep only the durable
-> conclusion, or route it to `docs/history/` with a concise pointer from the `docs/STATE.md`
-> changelog. This volume is closed, so
+> **Mechanical acceptance and authoring quality are separate.** The two row caps are rejection
+> boundaries for unusually long rows, never desired sizes. Passing both counters establishes only
+> that a row is not obviously oversized; it does not establish concision, correct scope, or
+> information quality. Write the smallest self-contained durable lesson first; one or two
+> sentences are preferable when sufficient. Do not merge sentences, replace punctuation, remove
+> useful qualifiers, or otherwise rewrite solely to change a counter. If a draft approaches a
+> limit, reconsider whether it contains multiple ledger lessons, debugging chronology, completed
+> state, or material that belongs in history; split the lessons, keep the durable conclusion, or
+> route the narrative to `docs/history/` with a concise pointer from the `docs/STATE.md` changelog. This volume is closed, so
 > the rule is here for a reader following a citation into it — new rows go to the live volume
 > `docs/STATE.md` names.
 >

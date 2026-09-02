@@ -195,9 +195,9 @@ guard_state_size() {
 	esac
 
 	if [ "$cur" -gt "$hard_b" ]; then
-		fail "$((cur / 1024)) KB exceeds the ${STATE_HARD_KB} KB hard cap — compress to ≤ ${STATE_COMPRESS_TO_KB} KB AND ≤ ${floor} sentences now"
+		fail "$((cur / 1024)) KB exceeds the ${STATE_HARD_KB} KB hard cap; post-compression acceptance requires ≤ ${STATE_COMPRESS_TO_KB} KB AND ≤ ${floor} sentences"
 	elif [ "$cur" -gt "$warn_b" ]; then
-		warn "$((cur / 1024)) KB is over the ${STATE_WARN_KB} KB soft cap — run ONE deep compression pass to ≤ ${STATE_COMPRESS_TO_KB} KB AND ≤ ${floor} sentences (fold whole stages: the two floors together admit nothing else)"
+		warn "$((cur / 1024)) KB is over the ${STATE_WARN_KB} KB soft cap; post-compression acceptance requires ≤ ${STATE_COMPRESS_TO_KB} KB AND ≤ ${floor} sentences"
 	else
 		# The green line prints the MEASUREMENT and no threshold, deliberately. A clean
 		# run that says "8 KB (soft cap 14 KB)" re-anchors the cap in the context of the
@@ -283,7 +283,7 @@ guard_state_size() {
 			return
 		}
 		if [ "$cur" -gt "$comp_b" ] || [ "$cur_s" -gt "$floor" ]; then
-			fail "crossed below the soft cap but stops short at $cur bytes and $cur_s sentences — the floor is $comp_b bytes (${STATE_COMPRESS_TO_KB} KB) AND $floor sentences, and landing in the band re-arms the warning next session. Fold whole completed stages into single Changelog lines or move content to the ledger: trimming words moves the sentence count by nothing, and repunctuating moves no bytes."
+			fail "crossed below the soft cap but stops short at $cur bytes and $cur_s sentences — the floor is $comp_b bytes (${STATE_COMPRESS_TO_KB} KB) AND $floor sentences, and landing in the band re-arms the warning next session."
 		else
 			# Reports the MARGIN, not the floor it was measured against. The landing
 			# line is the one an agent reads immediately after compressing, so the
@@ -302,7 +302,7 @@ guard_state_size() {
 	elif [ "$shrank" -lt "$delta" ]; then
 		ok "edit above the soft cap (shrank $shrank bytes, under the $delta-byte edit delta); compression still owed"
 	else
-		fail "unfinished compression pass: shrank $shrank bytes, at or over the $delta-byte edit delta, and stopped at $cur bytes — still above the soft cap ($warn_b bytes), and the floor is $comp_b bytes AND $floor sentences. Fold whole completed stages into single Changelog lines or move content to the ledger: trimming words moves the sentence count by nothing, and repunctuating moves no bytes."
+		fail "unfinished compression pass: shrank $shrank bytes, at or over the $delta-byte edit delta, and stopped at $cur bytes — still above the soft cap ($warn_b bytes), and the floor is $comp_b bytes AND $floor sentences."
 	fi
 }
 
@@ -509,7 +509,7 @@ guard_new_ledger_row_lengths() {
 			return
 		}
 		if [ "$sent_cap" -gt 0 ] && [ "$sentences" -gt "$sent_cap" ]; then
-			fail "$id: new ledger row runs to $sentences sentences, over LEDGER_ROW_SENTENCE_CAP=$sent_cap — cut a whole sentence of narrative, not words; trimming clauses moves this count by nothing. Historical committed rows and sanctioned metadata-only additions are exempt"
+			fail "$id: new ledger row runs to $sentences sentences, over LEDGER_ROW_SENTENCE_CAP=$sent_cap; historical committed rows and sanctioned metadata-only additions are exempt"
 			return
 		fi
 		# The second rejection boundary, in bytes, catches pathologically dense sentences
@@ -520,7 +520,7 @@ guard_new_ledger_row_lengths() {
 		count=$(LC_ALL=C wc -c <"$row") || return
 		count=${count//[[:space:]]/}
 		if [ "$cap" -gt 0 ] && [ "$count" -gt "$cap" ]; then
-			fail "$id: new ledger row is $count byte-counted character(s), over LEDGER_ROW_CHAR_CAP=$cap — approaching this rejection boundary means the material probably contains narrative or multiple lessons; split it, keep only the durable conclusion, or route it to docs/history/ with a concise pointer; historical committed rows and sanctioned metadata-only additions are exempt"
+			fail "$id: new ledger row is $count byte-counted character(s), over LEDGER_ROW_CHAR_CAP=$cap; historical committed rows and sanctioned metadata-only additions are exempt"
 			return
 		fi
 		lengths="$lengths $id=$sentences"

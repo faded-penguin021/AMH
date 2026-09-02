@@ -11,6 +11,21 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 12.0.0 — 2026-09-02
+
+- **Counter acceptance is not an authoring-quality verdict.** Passing the paired byte and
+  sentence checks establishes only that state or a ledger row is not obviously oversized; it
+  does not establish concision, correct scope, information quality, or successful compression.
+- **Counter-only rewrites are forbidden.** Authors must not merge sentences, repunctuate, remove
+  useful qualifiers, or otherwise rewrite solely to change a counter. Successful guard verdicts
+  report only the measured property.
+
+### Upgrading
+
+Replace the paired-counter explanation and anti-gaming guidance in your `docs/RUNBOOK.md`,
+`amh.conf`, and ledger-volume preambles with the 12.0.0 seed wording. Copy the shipped scripts
+normally. Do not change configured thresholds.
+
 ## 11.0.0 — 2026-09-01
 
 - **Working-memory compression is content-based.** Completed narrative and durable lessons are
