@@ -37,7 +37,7 @@ harnesses.** Unit 3 fixed the two with reachable unbounded input; the residue is
 mostly single-line input rather than on a loud direction, and at least three are the same
 fail-OPEN shape — `ladder.sh:1358` is the one to watch (**DC-038**). Not queued as work; reopen
 if any starts matching something unbounded. Check: `grep -rn "printf.*| *grep -q" --include=*.sh
-scripts/ harness/templates/` prints 44 lines, 5 of them comments — resolved only if that stops
+scripts/ harness/templates/` prints 45 lines, 6 of them comments — resolved only if that stops
 matching the description, which it deliberately does not.
 
 **OPEN — the 2026-08-29 `path-refs.sh` false failure on `` `session-start.sh` `` still has no
