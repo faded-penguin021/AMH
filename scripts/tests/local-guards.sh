@@ -251,7 +251,7 @@ sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=120/' "$d/amh.conf"
 cat >>"$d/docs/LEDGER_C.md" <<'ROW'
 - DC-999: **Short new row passes.** Small enough.
 ROW
-expect pass "ledger-append-only: a concise new row under the byte-counted character cap passes" "$d" ledger-append-only.sh
+expect pass "ledger-append-only: a new row under the byte-counted character cap passes" "$d" ledger-append-only.sh
 
 d=$(snapshot ledger_append_only_new_row_over_cap)
 sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"

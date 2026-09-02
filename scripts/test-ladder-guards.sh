@@ -783,6 +783,8 @@ expect_pass "compression landing on the floor passes" "$d"
 # identically for a landing one sentence clear.
 expect_pass_saying "the landing line reports how far clear of the floor it landed" "$d" \
 	"clear of the floor"
+expect_pass_not_saying "a green state landing reports measurements without a quality claim" "$d" \
+	"concise|well-compressed|well compressed" "clear of the floor"
 
 # --- Anti-anchor: a green verdict names no threshold ------------------------
 # Two reported Goodhart failures, one shape: the number a clean run prints becomes the
@@ -897,10 +899,10 @@ expect_fail "the rollover FAILURE reports the size too — that is the branch th
 d=$(mk ledger_row_under_cap)
 sed_in_place 's/^LEDGER_ROW_SENTENCE_CAP=.*/LEDGER_ROW_SENTENCE_CAP=3/' "$d/amh.conf"
 printf -- '- D-003: **Short enough.** Two sentences, and it stops.\n' >>"$d/docs/LEDGER.md"
-expect_pass_saying "a concise new ledger row reports its own sentence count, not the cap" "$d" \
+expect_pass_saying "a new ledger row under both caps reports only its measured sentence count" "$d" \
 	"checked 1 new ledger row(s) — D-003=2 sentence(s)"
-expect_pass_not_saying "a green ledger-row verdict re-states neither row cap" "$d" \
-	"LEDGER_ROW_SENTENCE_CAP|LEDGER_ROW_CHAR_CAP|[0-9]+ byte" "checked 1 new ledger row(s) — D-003="
+expect_pass_not_saying "a green ledger-row verdict claims neither authoring quality nor either row cap" "$d" \
+	"concise|well-compressed|LEDGER_ROW_SENTENCE_CAP|LEDGER_ROW_CHAR_CAP|[0-9]+ byte" "checked 1 new ledger row(s) — D-003="
 
 # What the counter treats as a sentence boundary, pinned where an author can see it. Each
 # of these fixtures dies if ONE branch of the regex is removed, which the first draft of

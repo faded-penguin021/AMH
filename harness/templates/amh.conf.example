@@ -59,6 +59,11 @@ ADAPTER_FILES=
 # reachable by rewriting `. T` to `; t`, which frees no space. Each blocks the cheap move
 # that satisfies the other, and folding whole stages is what satisfies both at once. WARN
 # and HARD stay byte-only: they answer WHEN to compress, and nobody drafts toward them.
+# Passing both counters establishes only that the result is not obviously oversized; it does
+# not establish concision, correct scope, or information quality. Do not merge sentences,
+# replace punctuation, remove useful qualifiers, or otherwise rewrite solely to change a
+# counter. Near a limit, reconsider multiple ledger lessons, debugging chronology, completed
+# state, and material that belongs in history instead of optimizing the measurement.
 # Set COMPRESS_TO_SENTENCES so it bites at about the same place as the byte floor at your
 # file's rough bytes-per-sentence — otherwise one of the two is decorative — and leave
 # HARD − WARN as one long session of margin. Nothing checks that alignment; it is a
@@ -86,6 +91,9 @@ LEDGER_BASENAME=LEDGER
 LEDGER_LINE_CAP={{LINE_CAP}}
 # A rejection boundary for unusually long new rows, never a desired size. Write the smallest
 # self-contained durable lesson first; one or two sentences are preferable when sufficient.
+# Passing both counters establishes only that a row is not obviously oversized; it does not
+# establish concision, correct scope, or information quality. Do not merge sentences, replace
+# punctuation, remove useful qualifiers, or otherwise rewrite solely to change a counter.
 # Counting sentences discourages word-by-word shaving. Approaching this boundary is evidence
 # that the material probably contains narrative or multiple lessons: split it, reduce it to
 # the durable conclusion, or route the narrative to a history tier with a concise pointer.

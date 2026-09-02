@@ -18,15 +18,19 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   cap. After a pass, only current state, unresolved owner items, immediate operational gotchas
   and concise changelog pointers remain.
 - **The configured byte and sentence values are post-compression acceptance ceilings only.**
-  They establish no preferred landing size and never justify retaining, adding or reshaping
-  content. Guard thresholds and verdicts are unchanged.
+  Passing both establishes only that content is not obviously oversized, not concision, correct
+  scope, information quality, or successful compression. Authoring guidance now expressly
+  forbids merging sentences, repunctuating, removing useful qualifiers, or otherwise rewriting
+  solely to affect a counter. Successful guard verdicts report measurements, not quality claims.
 
 ### Upgrading
 
 Replace the **Working-memory compression** section of your `docs/RUNBOOK.md` with the 11.0.0
 seed wording, and copy the concise action point from the 11.0.0 seed `docs/STATE.md` length-guard
-pointer. Then fold any completed state narrative regardless of remaining space; do not change
-your configured thresholds.
+pointer. Copy the paired-counter explanation and anti-gaming wording from
+`harness/templates/amh.conf.example` and the ledger seed preamble into the corresponding owned
+files. Then fold any completed state narrative regardless of remaining space; do not change your
+configured thresholds.
 
 ## 10.5.1 — 2026-09-01
 
