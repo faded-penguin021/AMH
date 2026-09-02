@@ -11,6 +11,23 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 11.0.0 — 2026-09-01
+
+- **Working-memory compression is content-based.** Completed narrative and durable lessons are
+  folded or routed when their stage completes, even while the state file remains below its soft
+  cap. After a pass, only current state, unresolved owner items, immediate operational gotchas
+  and concise changelog pointers remain.
+- **The configured byte and sentence values are post-compression acceptance ceilings only.**
+  They establish no preferred landing size and never justify retaining, adding or reshaping
+  content. Guard thresholds and verdicts are unchanged.
+
+### Upgrading
+
+Replace the **Working-memory compression** section of your `docs/RUNBOOK.md` with the 11.0.0
+seed wording, and copy the concise action point from the 11.0.0 seed `docs/STATE.md` length-guard
+pointer. Then fold any completed state narrative regardless of remaining space; do not change
+your configured thresholds.
+
 ## 10.5.1 — 2026-09-01
 
 - **Ledger row limits are described only as rejection boundaries.** The configuration template,

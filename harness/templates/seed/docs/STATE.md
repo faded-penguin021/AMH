@@ -13,7 +13,8 @@ be compressed to make room, since folding a live rule is repeal.
 
 > **Length guard.** Thresholds are in `amh.conf`; the rules for compressing this file are
 > `docs/RUNBOOK.md` → **Working-memory compression**, and they bind whether or not you follow
-> this pointer. Read them before any edit that takes this file over the soft cap.
+> this pointer. Fold completed narrative when its stage completes; retain only current state,
+> unresolved owner items, immediate operational gotchas and concise changelog pointers.
 
 ## Project
 

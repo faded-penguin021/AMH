@@ -9,25 +9,17 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 10.5.1** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 11.0.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-AMH **10.5.1** is prepared on this branch and untagged; it clarifies that ledger row limits are
-rejection boundaries, not desired sizes. **10.5.0** is RELEASED and tagged `amh-v10.5.0`; it
-adds the structural forge/API mutation rail (**DC-043**) atop the shipped-integrity CRLF
-diagnostic fix (**DC-042**). **10.4.1** is RELEASED: `b261502` is tagged `amh-v10.4.1` on
-2026-09-01. The preceding 10.4.0 release commit has **no CI run** — its squash folded the
-whole branch's bodies into its message, poison token included, so Actions skipped the push and
-the newest run on `main` is still 10.3.0's; the next PR is the first chance to verify this
-content (**DC-040**). **9.2.0 has a changelog entry and no tag**, and nothing checks that every
-changelog version got one. The live ledger
-volume is `docs/LEDGER_C.md`, at 798 lines and approaching its rollover boundary; opening the next
-ledger volume is the next unit with a deadline;
-`docs/LEDGER_B.md` is closed at **DB-040**. Row immutability, the correction verbs and the
-` [cited]` exception are in that volume's preamble; the append-only guard's exceptions and
-draft-row rule are **DB-008** and **DB-013** (**DC-020** for its HEAD baseline). `main`'s
-protection is repointed at `ladder`.
+AMH **11.0.0** is prepared on this branch and untagged; it makes working-memory compression
+content-based while leaving every guard threshold unchanged (**DC-044**). **10.5.1** is
+released and tagged `amh-v10.5.1`. The 10.4.0 release commit has no CI run because its squash
+message carried the poison token; edit future squash messages before merge (**DC-040**).
+**9.2.0 has a changelog entry and no tag**, and nothing checks that every changelog version got
+one. `docs/LEDGER_C.md` is closed at **DC-044**; the next ledger row must open volume D at
+**DD-001**. `main` protection targets `ladder`.
 
 ## Owner queue
 
@@ -36,9 +28,9 @@ protection is repointed at `ladder`.
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**OPEN — tag and publish AMH 10.5.1 after merge.** Owner-only. When merging, **edit the squash
+**OPEN — tag and publish AMH 11.0.0 after merge.** Owner-only. When merging, **edit the squash
 message**: GitHub's default concatenates every commit body on the branch, which is how 10.4.0's
-release commit lost its CI run (**DC-040**). Check: `git tag -l amh-v10.5.1` — resolved when it
+release commit lost its CI run (**DC-040**). Check: `git tag -l amh-v11.0.0` — resolved when it
 prints the tag.
 
 **OPEN — the `printf | grep -q` class survives at 39 further sites, and 10 are NOT fixture
@@ -84,53 +76,18 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-09-01 — **11.0.0: working-memory compression follows content lifecycle.** Completed
+  narrative is folded when its stage completes; configured byte and sentence values remain
+  unchanged and serve only as post-compression acceptance ceilings (**DC-044**).
 - 2026-09-01 — **10.5.1: ledger row limits are rejection boundaries, never desired sizes.**
   Config comments, scaffold guidance and the ledger seed now lead with the smallest
   self-contained durable lesson, prefer one or two sentences when sufficient, distinguish the
   sentence anti-shaving control from the dense-sentence byte backstop, and route near-boundary
   material to splitting, durable conclusions or history instead of boundary optimization.
-- 2026-09-01 — **10.5.0: structural forge/API mutation classification closes the observable local escape.** Parsed `gh api` and direct-forge `curl` reads stay allowed; high-consequence mutation methods, implicit POST bodies/uploads and GraphQL mutation documents block with payload-free diagnostics, while the documented application/script/interface boundary remains covered only by least privilege and server approvals (**DC-043**).
-- 2026-09-01 — **10.4.2: shipped-integrity failures distinguish CRLF conversion from ordinary
-  edits.** A mismatch asks Git for the affected tracked file's authoritative worktree EOL; only
-  `w/crlf` selects the targeted `.gitattributes`, re-normalize and re-checkout remediation, while
-  every other mismatch retains the existing edited-file explanation (**DC-042**).
-- 2026-09-01 — **The CRLF portability question is answered on both platforms.** Run 33494690202
-  is green on both legs and prints what each does: an unseeded CRLF tree on Windows fails on the
-  integrity rung and ONLY there — five `does not match the hash` lines, secret scan and rails
-  green — while macOS bash refuses the script outright. The inference from the manifest's design
-  is now an observation, which also made the rung's remediation text readable and wrong for this
-  cause (**DC-041**, and a new queue item).
-- 2026-09-01 — **The Windows bug report is closed on Windows.** A CRLF-configured adopter tree
-  with the `.gitattributes` seed runs every rung green on `windows-latest` — secret scan and
-  shipped-script integrity included — and even WITHOUT the seed the secret scan comes back clean
-  there, which is the 529 false findings the report opened with, gone on the platform that filed
-  it. The step could only say so once its own assertion stopped grepping for a CR that MSYS2
-  grep reads past (**DC-041**).
-- 2026-09-01 — **A CRLF worktree does not run at all on macOS or Linux, and the CI step that
-  should have said so could not.** The first portability run since the merge proved the seed
-  holds on a CRLF adopter tree and that an unseeded one dies before the first rung, because bash
-  refuses a script whose every line ends in CR — Git Bash tolerating it is why the original
-  report saw 533 findings instead of a dead shell. The Windows leg could not answer either way:
-  its vacuity assertion grepped for a CR byte that MSYS2 grep reads past, the same tool-family
-  assumption one layer up from the defect it guards (**DC-041**).
-- 2026-09-01 — **10.4.1: 10.4.0 shipped, and the squash folded a poison token onto `main`.** PR #58
-  merged as `f1f25be` and was tagged, resolving the release item and dissolving the rewrite
-  BLOCKER by taking the route that needed no rewrite. The cost landed where the rung said it
-  would: the default squash message concatenated 24 commit bodies, so Actions skipped the push
-  and the tagged commit has no CI run — the message was editable at merge time, which is the
-  cheap fix nobody reached for (**DC-040**).
-- 2026-09-01 — **A ledger row may no longer cite a plan's path.** DC-033 cited one, and
-  immutable-row plus archive-or-delete plus the path guard made that plan undeletable. The rule
-  is now in the principles, both runbooks and the seed; `ledger-append-only.sh` enforces it on
-  NEW rows in all three forms `path-refs.sh` resolves, committed rows exempt of necessity.
-  `2026-08-31-ci-sees-windows.md` is retained in `docs/plans/` permanently — DC-033's citation
-  cannot be withdrawn, so do not try to archive it again (**DC-039**).
-- 2026-08-31 through 2026-09-01 — **The three-unit "CI sees Windows" plan, all units shipped.**
-  The pass's five findings applied; the macOS leg confirmed green on the EPIPE fix; a portability
-  step building a CRLF adopter tree and asserting BOTH directions, whose first Windows run failed
-  on its own vacuity assertion and was repaired; and the `printf | grep -q` shape fixed where it
-  fails OPEN, with shipped fixtures that assert their own input size. The plan file could not be
-  deleted — a committed row cites its path (**DC-036**, **DC-037**, **DC-038**).
+- 2026-09-01 — **10.4.0–10.5.0, folded.** The train shipped the Windows/CRLF portability
+  proof and remediation, fixed reachable fail-open `printf | grep -q` pipelines, prohibited
+  ledger citations to plan paths, and added structural forge/API mutation classification
+  (**DC-036**–**DC-043**).
 - 2026-07-25 through 2026-08-31 — **Everything before this session, folded.** Founding through
   portable rails, the constitution rewrite, the 8.0.0–9.0.0 train, git-native pre-push
   enforcement, the 9.2.0–10.2.0 trains tagged `amh-v10.0.0` and `amh-v10.2.0`, and the unreleased

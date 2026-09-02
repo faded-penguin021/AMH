@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 10.5.1.** Repos that adopt it record the version they took
+**Harness version 11.0.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -1032,22 +1032,12 @@ micro-trim to just under the soft cap passes the guard and re-arms the warning a
 The guard therefore also fails a change that trims the file out of warn territory but stops
 inside the debounce band instead of reaching the compression floor.
 
-**The floor is two numbers in two units, and a landing satisfies both. That is the whole of the
-8.0.0 change, and the reason it is two is worth more than the change itself.** A byte floor can
-be reached by shaving — drop an adjective, re-measure, repeat — which removes no content, and a
-landing 7 bytes under one is a reported instance rather than a worry. A sentence floor cannot be
-shaved, because the smallest edit that moves that count deletes a whole sentence. But it can be
-reached by rewriting `. T` to `; t`, which frees no space: measured on this repository's own
-state file, one `sed` pass took 85 sentences to 41 and zero bytes. **Every single measure of a
-document has a cheap satisfier; the pair does not, because each number is the other's
-countermeasure.** Bytes make the repunctuation pointless, sentences make the shave pointless,
-and folding whole completed stages is the move that satisfies both at once — which is the move
-the rule was always asking for. The soft and hard caps stay byte-only: they answer *when* to
-compress, not how far, and nobody drafts toward them. Set the sentence floor so it bites at
-about the same place as the byte floor at your file's rough bytes-per-sentence, or one of the
-two is decorative — 9 KB / 50 sentences / 14 KB / 16 KB is a working example at roughly 170
-bytes a sentence. Nothing checks that alignment, because nothing can: it is a property of prose,
-so re-read the number if the file's density changes markedly.
+**The floor is two post-compression acceptance ceilings in two units, and a landing satisfies
+both.** A byte-only check can be cleared by shaving words, while a sentence-only check can be
+cleared by repunctuation that frees no space. The pair blocks those two cheap mechanical moves;
+it does not decide what content stays or establish a preferred landing size. Lifecycle does:
+fold a stage when it is complete, route its durable lesson, and retain everything still live.
+The soft and hard caps stay byte-only because they classify size rather than content.
 
 In the *rule* prose that explains these thresholds, name the `amh.conf` keys rather than
 restating their values. Nothing checks such a number, and a guard for it would have to lift a
@@ -1084,20 +1074,12 @@ paragraph is one), a **historical statement** of what a threshold was at some pa
 no `amh.conf` to be authoritative. What the rule forbids is a live rule-statement asserting a
 value it is not the source of.
 
-Say in the file itself that the compression floor is a **ceiling, not a target** — and note what
-that sentence could not do on its own. Every phrasing of the rule is naturally read as "land at
-the floor", and an agent that reads it that way shaves words one at a time until the guard goes
-quiet. Two countermeasures were tried against that reflex before the unit change: the prose
-above, which a session copied into its own preamble by hand and then disregarded in the same
-session, and removing the number from green output, which does not reach a session that measures
-its own draft. Adding the second unit is the countermeasure that does not depend on restraint.
-Note what it still is not: **not proof against gaming, only against the two cheap moves.** A
-determined rewrite that genuinely removes content in the wrong places passes both floors, and no
-guard can see the difference — that is what the fold-whole-stages rule is for, and it stays
-prose. Do not answer this by adding a *third* threshold: a top-decile warning would fire on a
-perfectly good pass, "is 8 enough?" has no answer, and a second number in the SAME unit is a
-second number to hug. Two numbers in two units is not that shape; it is one aim-point that
-cannot be met sideways.
+Say in the file itself that both values are **acceptance ceilings, not targets**. There is no
+reward for retaining text because space remains, no preferred landing size, and no need to add,
+preserve or reshape content to approach either ceiling. A substantially smaller state file is
+equally successful — and often better — when it retains everything live. The pair is still not
+proof against gaming: no guard can tell a correct lifecycle fold from a file gutted in the wrong
+places, so the content rule remains prose.
 
 Both ledger controls are rejection boundaries for unusually long new rows, never desired
 sizes. Write the smallest self-contained durable lesson first; one or two sentences are
@@ -1117,9 +1099,8 @@ comes in under several. Widen the *delta* if your file is unusual; never widen t
 is the hole the landing check was built for.
 
 The delta stays byte-only while the floor beside it is a pair, and that is the rule rather than
-an oversight: **a number an agent writes toward is bounded in two units; a number the guard
-merely observes needs only one.** The delta classifies a shrink that already happened, and
-nobody drafts toward it.
+an oversight: the paired ceilings reject two cheap mechanical landings, while the delta merely
+classifies a shrink that already happened.
 
 ``````
 # STATE — project state & session memory
@@ -1137,7 +1118,8 @@ be compressed to make room, since folding a live rule is repeal.
 
 > **Length guard.** Thresholds are in `amh.conf`; the rules for compressing this file are
 > `docs/RUNBOOK.md` → **Working-memory compression**, and they bind whether or not you follow
-> this pointer. Read them before any edit that takes this file over the soft cap.
+> this pointer. Fold completed narrative when its stage completes; retain only current state,
+> unresolved owner items, immediate operational gotchas and concise changelog pointers.
 
 ## Project
 
@@ -1397,11 +1379,8 @@ one**: the hard cap and the floor when it fails over the hard cap, the soft cap 
 when it warns above the soft cap, and the floor in the landing failures. A verdict that rejects
 nothing names nothing — the plain size line reports your file's size and stops, and the `ok`
 confirming a completed landing reports how far **clear of the floor** you landed, in both of
-its units, rather than the floor itself. That is not brevity, it is the point: the number a clean run puts
-in front of you is the number the next compression aims at, and an instance that had copied "the
-cap is a maximum, not a target" into its own prose still shaved a dozen edits to land seven bytes
-under the floor. Headroom removes that pull; it is **not a score to maximise** in the other
-direction, because a file gutted to stubs prints a large number and passes.
+its units, rather than the floor itself. That headroom is a measurement, not a score or an
+invitation to retain more: a file gutted to stubs also prints a large number and passes.
 
 Note the units, because they are what the removal above could not achieve on its own: the
 landing verdict is a byte floor AND a sentence floor, and neither is satisfied alone. A pass
@@ -1421,8 +1400,7 @@ where the config cannot answer you. Where a verdict does print a configured valu
 
 Two honest exceptions, so the discipline is not read as wider than it is. The boot banner still
 prints your state file's size **against the soft cap**, deliberately: it is read before a session
-writes, where knowing you are near the cap is the whole point, and it names the cap rather than
-the floor that compression aims at. And the `ok` for a small edit above the cap names
+writes, where knowing you are near the cap is the whole point. The `ok` for a small edit above the cap names
 `STATE_EDIT_DELTA_BYTES`, which is the threshold that verdict turns on. This paragraph lives here
 rather than in `docs/STATE.md`: a description of a guard's output is not working memory and
 should not be charged to that file's byte cap. The rules that governed that file have since
@@ -1457,22 +1435,24 @@ against the config, so a copied number drifts silently the first time a threshol
 of them the size rung prints, and why a number it printed is never a value to copy back into
 prose, are in **Acceptance ladder** above.
 
-**When to compress.** Grow freely to the soft cap; no trimming below that line. Over it, ONE
-deep pass landing at or below the compression floor — a ceiling, not a target: anywhere below
-is fine, and you do not keep shaving once under. Never trim to just under the soft cap, because
-micro-trims re-arm the warning a session later and the wide band IS the debounce, statelessly.
-Fail above the hard cap, which is byte-only like the soft cap: those two say WHEN to compress,
-and read cost is bytes. A typo fix above the cap is allowed and still owes the pass.
+**When to compress.** Compress by lifecycle, not by file size: once a stage is complete, fold
+its narrative and route its durable lessons even below the soft cap. The soft cap only makes a
+compression pass mandatory before further substantive work; the hard cap remains a byte-only
+failure boundary. A typo fix above the soft cap is allowed and still owes the pass.
 
-**How far.** The floor is a byte size **AND** a sentence count, and a landing satisfies both.
-That is what keeps "a ceiling, not a target" from depending on your restraint: shaving words
-cannot move the sentence count, repunctuating cannot move the bytes, and folding whole
-completed stages is the only move that clears both. Land short and you fold MORE stages.
+**How far.** After compression, keep only current state, unresolved Owner-queue items,
+immediate operational gotchas, and concise Changelog pointers. The configured byte and sentence
+values are post-compression acceptance ceilings, satisfied together, not retention goals. There
+is no reward for keeping text because space remains, no preferred landing size, and no need to
+add, preserve or reshape content to approach either ceiling. A substantially smaller file is
+equally successful — and often better — when it retains everything live.
 
-**How.** Collapse each completed work stage into one Changelog line, fold changelog clusters,
-move durable gotchas into the append-only ledger, and delete narrative prose. Never shave
-clauses until the guard goes quiet, and never cut text into another file — that is not
-compression, it is the relocation the second paragraph above makes the owner's call.
+**How.** Decide each fold by whether the stage is complete, never by proximity to a number.
+Collapse completed stages into concise Changelog pointers, fold changelog clusters, move durable
+lessons into the append-only ledger before deleting their narrative, and retain only immediate
+operational gotchas. Never shave clauses until the guard goes quiet, and never cut text into
+another file — that is not compression, it is the relocation the second paragraph above makes
+the owner's call.
 **Project**, **Current state** and **Owner queue** must always survive it: compress an
 Owner-queue item's prose, never drop an open one — closing them is the owner's call.
 
