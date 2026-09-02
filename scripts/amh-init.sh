@@ -66,10 +66,10 @@ usage: scripts/amh-init.sh [options] <target-repo>
   --branch-prefix NAME      session-branch namespace              (default: session)
   --merge-mode MODE         branch-per-change | branch-train      (default: branch-per-change)
   --remote-flag NAME        env var marking a remote container    (default: AMH_REMOTE)
-  --compress-to-kb N        state-file compression floor, in KB         (default: 9)
-  --compress-to-sentences N state-file compression floor, in sentences (default: 50)
-  --warn-kb N               state-file soft cap                   (default: 14)
-  --hard-kb N               state-file hard cap                   (default: 16)
+  --compress-to-kb N        state-file post-action ceiling, in KB         (default: 9)
+  --compress-to-sentences N state-file post-action ceiling, in sentences (default: 50)
+  --warn-kb N               state-file compression trigger                   (default: 14)
+  --hard-kb N               state-file rejection boundary                   (default: 16)
   --line-cap N              lines per ledger volume               (default: 800)
   --citation-paths 'A B'    trees scanned for D-NNN citations     (default: scripts .github)
   -n, --dry-run             report what would be written, write nothing
@@ -242,12 +242,12 @@ for pair in "COMPRESS_TO_KB:$COMPRESS_TO_KB" "COMPRESS_TO_SENTENCES:$COMPRESS_TO
 	esac
 done
 [ "$WARN_KB" -gt "$COMPRESS_TO_KB" ] || die "--warn-kb ($WARN_KB) must exceed --compress-to-kb ($COMPRESS_TO_KB): the band between them IS the debounce"
-# The sentence floor has no unit in common with the soft cap, so it cannot be ordered
+# The sentence post-action ceiling has no unit in common with the compression trigger, so it cannot be ordered
 # against it. What CAN be checked is that it is a real limit rather than a vacuous one: a
-# floor of 0 asks for an empty file, and a floor larger than the soft cap could hold at any
+# ceiling of 0 asks for an empty file, and a ceiling larger than the compression trigger could hold at any
 # plausible sentence length is a landing check that can never fail. One sentence per 20
 # bytes is denser than any prose and leaves the bound loose enough never to argue with.
-[ "$COMPRESS_TO_SENTENCES" -gt 0 ] || die "--compress-to-sentences must be a positive sentence count, not 0: a zero floor asks for an empty file"
+[ "$COMPRESS_TO_SENTENCES" -gt 0 ] || die "--compress-to-sentences must be a positive sentence count, not 0: a zero ceiling asks for an empty file"
 [ "$COMPRESS_TO_SENTENCES" -le $((WARN_KB * 1024 / 20)) ] || die "--compress-to-sentences ($COMPRESS_TO_SENTENCES) is more sentences than $WARN_KB KB can hold at 20 bytes each: the landing check would never fail, which is a vacuous gate rather than a lenient one"
 [ "$HARD_KB" -gt "$WARN_KB" ] || die "--hard-kb ($HARD_KB) must exceed --warn-kb ($WARN_KB)"
 

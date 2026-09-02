@@ -47,13 +47,13 @@ DEFAULT_BRANCH=main
 # script does not use is a claim it honours one — command-guard.sh and session-start.sh
 # are where the prefix lives.
 STATE_FILE=docs/STATE.md
-# The compression floor is BOTH of these, and a landing has to satisfy both: see
+# The pair of post-action ceilings comprises BOTH of these, and a landing has to satisfy both: see
 # count_sentences for why one number cannot do this job alone.
 STATE_COMPRESS_TO_KB=9
 STATE_COMPRESS_TO_SENTENCES=50
 STATE_WARN_KB=14
 STATE_HARD_KB=16
-# Largest shrink above the soft cap that still counts as an ordinary edit rather than a
+# Largest shrink above the compression trigger that still counts as an ordinary edit rather than a
 # compression pass that stopped short. See guard_state_size for why this exists.
 STATE_EDIT_DELTA_BYTES=1024
 STATE_REQUIRED_SECTIONS='## Project|## Current state|## Changelog'
@@ -122,7 +122,7 @@ upstream_ref() {
 # adjective, tighten a clause, re-measure, repeat until the guard goes quiet. Two reported
 # instances, one shape — a ledger row drafted at 874 bytes against an 800-byte cap and
 # trimmed until it fit, and a state file shaved across a dozen edits to land 7 bytes under
-# its floor. Removing the threshold from green output (AMH ledger row DB040) did not reach
+# its ceiling. Removing the threshold from green output (AMH ledger row DB040) did not reach
 # either one: the session measures its own draft, so the anchor is the cap itself and not
 # the report of it.
 #
@@ -130,11 +130,11 @@ upstream_ref() {
 # about content and exactly the move the compression rules ask for. That is the whole of
 # what this unit buys, and it is deliberately NOT the claim that the count cannot be gamed:
 # rewriting `. T` to `; t` across a file halves it while removing nothing at all, verified
-# on this repository's own state file (85 → 41, zero bytes). So a sentence floor cannot
-# stand alone either, and the aim-points are bounded in BOTH units — the byte floor stops
-# the punctuation rewrite, which frees no space, and the sentence floor stops the shave,
+# on this repository's own state file (85 → 41, zero bytes). So a sentence ceiling cannot
+# stand alone either, and the aim-points are bounded in BOTH units — the byte ceiling stops
+# the punctuation rewrite, which frees no space, and the sentence ceiling stops the shave,
 # which removes no content. Neither number is sufficient; together neither cheap move
-# passes. Bytes still stand alone where nobody aims: the soft and hard caps, which decide
+# passes. Bytes still stand alone where nobody aims: the soft and rejection boundarys, which decide
 # WHEN to compress rather than how far, and the edit delta, which classifies a shrink
 # already made.
 #
@@ -178,32 +178,32 @@ guard_state_size() {
 		fail "$STATE_FILE is missing — it is protocol step 1 for every session"
 		return
 	fi
-	local cur warn_b hard_b comp_b floor prev prev_file prev_s cur_s shrank delta
+	local cur warn_b hard_b comp_b ceiling prev prev_file prev_s cur_s shrank delta
 	cur=$(wc -c <"$STATE_FILE")
 	warn_b=$((STATE_WARN_KB * 1024))
 	hard_b=$((STATE_HARD_KB * 1024))
 	comp_b=$((STATE_COMPRESS_TO_KB * 1024))
 
-	# Same loud fallback as the edit delta below, for the same reason: a malformed floor
+	# Same loud fallback as the edit delta below, for the same reason: a malformed ceiling
 	# arriving from config must not decide anything quietly.
-	floor=$STATE_COMPRESS_TO_SENTENCES
-	case $floor in
+	ceiling=$STATE_COMPRESS_TO_SENTENCES
+	case $ceiling in
 	'' | 0 | *[!0-9]*)
-		warn "STATE_COMPRESS_TO_SENTENCES='$floor' is not a positive sentence count — using 50. Fix it in amh.conf; a guard that reads a malformed threshold and carries on quietly is how a band gets widened by accident."
-		floor=50
+		warn "STATE_COMPRESS_TO_SENTENCES='$ceiling' is not a positive sentence count — using 50. Fix it in amh.conf; a guard that reads a malformed threshold and carries on quietly is how a band gets widened by accident."
+		ceiling=50
 		;;
 	esac
 
 	if [ "$cur" -gt "$hard_b" ]; then
-		fail "$((cur / 1024)) KB exceeds the ${STATE_HARD_KB} KB hard cap; post-compression acceptance requires ≤ ${STATE_COMPRESS_TO_KB} KB AND ≤ ${floor} sentences"
+		fail "$((cur / 1024)) KB crosses the ${STATE_HARD_KB} KB rejection boundary; post-action ceilings require ≤ ${STATE_COMPRESS_TO_KB} KB AND ≤ ${ceiling} sentences"
 	elif [ "$cur" -gt "$warn_b" ]; then
-		warn "$((cur / 1024)) KB is over the ${STATE_WARN_KB} KB soft cap; post-compression acceptance requires ≤ ${STATE_COMPRESS_TO_KB} KB AND ≤ ${floor} sentences"
+		warn "$((cur / 1024)) KB crosses the ${STATE_WARN_KB} KB compression trigger; post-action ceilings require ≤ ${STATE_COMPRESS_TO_KB} KB AND ≤ ${ceiling} sentences"
 	else
 		# The green line prints the MEASUREMENT and no threshold, deliberately. A clean
-		# run that says "8 KB (soft cap 14 KB)" re-anchors the cap in the context of the
+		# run that says "8 KB (compression trigger 14 KB)" re-anchors the cap in the context of the
 		# agent who will next compress this file, and the number in front of you is the
 		# number you optimize toward: a reported instance shaved clauses across a dozen
-		# edits to land 7 bytes under the floor, having never considered 7 KB. Every
+		# edits to land 7 bytes under the post-action ceilings, having never considered 7 KB. Every
 		# verdict that TURNS ON a threshold still names it — the warn, both fails, and
 		# the landing line below — because a rejection must say what it rejected
 		# against. A pass rejects nothing, so it owes no number.
@@ -211,9 +211,9 @@ guard_state_size() {
 	fi
 
 	# Landing check. Size thresholds alone are Goodhart-able: a trim that stops short of
-	# the floor passes and re-arms the warning a session later. Compare against the
+	# the post-action ceilings passes and re-arms the warning a session later. Compare against the
 	# committed size and require a compression, once started, to actually LAND on the
-	# floor.
+	# ceiling.
 	#
 	# "Any shrink above the cap IS a compression pass" was the first form of that, and it
 	# is wrong in the other direction: it failed a 15-byte deletion twice, once for fixing
@@ -221,13 +221,13 @@ guard_state_size() {
 	# time was to pad the file back. So judge the shrink's SIZE and whether it CROSSES
 	# the cap, in three branches:
 	#
-	#   1. crosses from above the cap to at or below it — must land on the floor. This is
+	#   1. crosses from above the cap to at or below it — must land on the post-action ceilings. This is
 	#      the original hole verbatim and stays closed.
 	#   2. stays above the cap and is smaller than the edit delta — an ordinary edit.
 	#      Allowed; the size warning above is still armed, so the compression is still owed.
 	#   3. stays above the cap and reaches the delta — a compression pass that stopped
 	#      short, which is the grow-to-15.5 / trim-to-14.2 loop the debounce exists to
-	#      prevent. Must reach the floor.
+	#      prevent. Must reach the post-action ceilings.
 	#
 	# The delta sits in a wide empty gap: no plausible ordinary edit runs to 1 KB, and no
 	# real compression pass on a file this size comes in under about 5 KB. It is the SHRINK
@@ -263,46 +263,46 @@ guard_state_size() {
 
 	# Byte counts, not KB, wherever a verdict below reports a SIZE. Integer KB rounds toward
 	# zero on both sides of a comparison, so the honest outcome prints as a contradiction:
-	# a 14848-byte stop reads `stops short at 14 KB, still above the 14 KB soft cap`. Bytes
+	# a 14848-byte stop reads `stops short at 14 KB, still above the 14 KB compression trigger`. Bytes
 	# are what the guard actually compared. The landing verdict reports neither, because
 	# what it compares is a sentence count.
 	if [ "$cur" -le "$warn_b" ]; then
 		# Branch 1 deliberately does NOT consult the shrink: once the file is back under
-		# the cap, how it got there does not matter — the floor is the floor. So the
+		# the cap, how it got there does not matter — the post-action ceilings are the post-action ceilings. So the
 		# wording describes the CROSSING, and claims no classification the guard did not
 		# make. A one-byte deletion from 14337 lands here, and that is the owner's rule.
 		#
-		# The floor is TWO conditions and a landing satisfies both, which is what puts
+		# The pair of post-action ceilings comprises TWO conditions and a landing satisfies both, which is what puts
 		# "how it got there" partly back inside the guard's reach. A pass that shaved words
 		# to cross the cap arrives carrying every sentence it started with and fails on the
-		# sentence floor; a pass that rewrote `. T` to `; t` to halve the sentence count
-		# frees no space and fails on the byte floor. Either number alone is satisfiable by
+		# sentence ceiling; a pass that rewrote `. T` to `; t` to halve the sentence count
+		# frees no space and fails on the byte ceiling. Either number alone is satisfiable by
 		# a move that removes nothing, and that is why neither stands here alone.
 		cur_s=$(count_sentences "$STATE_FILE") || {
 			fail "could not count the sentences in $STATE_FILE — this landing check judged NOTHING, and a green line here would say it had"
 			return
 		}
-		if [ "$cur" -gt "$comp_b" ] || [ "$cur_s" -gt "$floor" ]; then
-			fail "crossed below the soft cap but stops short at $cur bytes and $cur_s sentences — the floor is $comp_b bytes (${STATE_COMPRESS_TO_KB} KB) AND $floor sentences, and landing in the band re-arms the warning next session."
+		if [ "$cur" -gt "$comp_b" ] || [ "$cur_s" -gt "$ceiling" ]; then
+			fail "compression result is $cur bytes and $cur_s sentences — post-action ceilings require ≤ $comp_b bytes (${STATE_COMPRESS_TO_KB} KB) AND ≤ $ceiling sentences"
 		else
-			# Reports the MARGIN, not the floor it was measured against. The landing
+			# Reports the MARGIN, not the post-action ceilings it was measured against. The landing
 			# line is the one an agent reads immediately after compressing, so the
 			# quantity it makes salient is the quantity the next pass aims at: "at or
-			# under the 50-sentence floor" teaches that the floor is the target, and
-			# landing ON it reads as a job well done. Headroom below the floor is the
+			# under the 50-sentence ceiling" teaches that the post-action ceilings are the target, and
+			# landing ON it reads as a job well done. Headroom below the post-action ceilings are the
 			# same fact without that pull. It is NOT a score to maximise either: a file
 			# gutted to stubs prints a big number and passes, and no guard can see the
 			# difference — the rule that governs it is the state file's own (fold whole
 			# completed stages; do not shave), and this line is a measurement, not a
-			# grade. The floor is still one addition away for anyone who wants it, and
+			# grade. The configured ceilings remain one addition away for anyone who wants it, and
 			# the fail branch beside this one names it outright.
 			prev_s=$(count_sentences "$prev_file") || prev_s='?'
-			ok "crossed below the soft cap and landed at $cur bytes and $cur_s sentences, $((comp_b - cur)) bytes and $((floor - cur_s)) sentences clear of the floor (from $prev bytes and $prev_s sentences)"
+			ok "crossed below the compression trigger and landed at $cur bytes and $cur_s sentences, $((comp_b - cur)) bytes and $((ceiling - cur_s)) sentences below the post-action ceilings (from $prev bytes and $prev_s sentences)"
 		fi
 	elif [ "$shrank" -lt "$delta" ]; then
-		ok "edit above the soft cap (shrank $shrank bytes, under the $delta-byte edit delta); compression still owed"
+		ok "edit above the compression trigger (shrank $shrank bytes, below the $delta-byte edit-delta trigger); compression still owed"
 	else
-		fail "unfinished compression pass: shrank $shrank bytes, at or over the $delta-byte edit delta, and stopped at $cur bytes — still above the soft cap ($warn_b bytes), and the floor is $comp_b bytes AND $floor sentences."
+		fail "unfinished compression pass: shrank $shrank bytes, crossing the $delta-byte edit-delta trigger, and stopped at $cur bytes — still above the compression trigger ($warn_b bytes); post-action ceilings require ≤ $comp_b bytes AND ≤ $ceiling sentences"
 	fi
 }
 
@@ -509,7 +509,7 @@ guard_new_ledger_row_lengths() {
 			return
 		}
 		if [ "$sent_cap" -gt 0 ] && [ "$sentences" -gt "$sent_cap" ]; then
-			fail "$id: new ledger row runs to $sentences sentences, over LEDGER_ROW_SENTENCE_CAP=$sent_cap; historical committed rows and sanctioned metadata-only additions are exempt"
+			fail "$id: new ledger row runs to $sentences sentences, crossing rejection boundary LEDGER_ROW_SENTENCE_CAP=$sent_cap; historical committed rows and sanctioned metadata-only additions are exempt"
 			return
 		fi
 		# The second rejection boundary, in bytes, catches pathologically dense sentences
@@ -520,7 +520,7 @@ guard_new_ledger_row_lengths() {
 		count=$(LC_ALL=C wc -c <"$row") || return
 		count=${count//[[:space:]]/}
 		if [ "$cap" -gt 0 ] && [ "$count" -gt "$cap" ]; then
-			fail "$id: new ledger row is $count byte-counted character(s), over LEDGER_ROW_CHAR_CAP=$cap; historical committed rows and sanctioned metadata-only additions are exempt"
+			fail "$id: new ledger row is $count byte-counted character(s), crossing rejection boundary LEDGER_ROW_CHAR_CAP=$cap; historical committed rows and sanctioned metadata-only additions are exempt"
 			return
 		fi
 		lengths="$lengths $id=$sentences"
@@ -634,15 +634,11 @@ guard_ledger_rollover() {
 		# suffix and a rollover that gets one of them wrong is not caught by anything.
 		suffix=$(volume_suffix "$live")
 		next=$(next_volume_suffix "$suffix")
-		fail "$live: a row STARTS at line $last_row (${size} KB), past the ${LEDGER_LINE_CAP}-line cap — open $LEDGER_DIR/${LEDGER_BASENAME}_$next.md, numbering from D$next-001 (rows are never moved or renumbered)"
-	elif [ "$lines" -ge $((LEDGER_LINE_CAP * 9 / 10)) ]; then
-		warn "$live: $lines lines / ${size} KB, approaching the ${LEDGER_LINE_CAP}-line cap — the next rollover is near"
+		fail "$live: a row starts at line $last_row (${size} KB measured), crossing the ${LEDGER_LINE_CAP}-line rollover boundary — open $LEDGER_DIR/${LEDGER_BASENAME}_$next.md, numbering from D$next-001 (rows are never moved or renumbered)"
 	else
 		# Lines and size, not lines-over-cap: this is the third green line to lose its
 		# threshold, and the one that most nearly escaped, because `800/2000 lines` reads
-		# as context rather than as an anchor. It is the same anchor. The warn branch
-		# above it fires at nine tenths and names the cap, which is the moment the number
-		# is load-bearing.
+		# as context rather than as an anchor. It is the same anchor.
 		ok "$live: $lines lines, ${size} KB (grep it; a volume is retrieval storage, not a read)"
 	fi
 }

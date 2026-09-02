@@ -303,9 +303,9 @@ fi
 if [ -f "$STATE_FILE" ]; then
 	bytes=$(wc -c <"$STATE_FILE")
 	warn_b=$((STATE_WARN_KB * 1024))
-	printf '· %s: %s KB of %s KB soft cap\n' "$STATE_FILE" "$((bytes / 1024))" "$STATE_WARN_KB"
+	printf '· %s: %s KB measured; compression trigger is %s KB\n' "$STATE_FILE" "$((bytes / 1024))" "$STATE_WARN_KB"
 	if [ "$bytes" -gt "$warn_b" ]; then
-		say "    ⚠ over the soft cap — run ONE deep compression pass to ≤ ${STATE_COMPRESS_TO_KB} KB AND ≤ ${STATE_COMPRESS_TO_SENTENCES} sentences before adding to it."
+		say "    ⚠ compression trigger crossed — run ONE deep compression pass; post-action ceilings require ≤ ${STATE_COMPRESS_TO_KB} KB AND ≤ ${STATE_COMPRESS_TO_SENTENCES} sentences before adding to it."
 	fi
 else
 	say "· ⚠ $STATE_FILE is missing — working memory is where every session starts."
