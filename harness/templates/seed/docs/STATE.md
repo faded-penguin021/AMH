@@ -15,6 +15,14 @@ be compressed to make room, since folding a live rule is repeal.
 > `docs/RUNBOOK.md` → **Working-memory compression**, and they bind whether or not you follow
 > this pointer. Fold completed narrative when its stage completes; retain only current state,
 > unresolved owner items, immediate operational gotchas and concise changelog pointers.
+>
+> **Tree-relative.** That same section also says what may be in `Current state` at all — the
+> Changelog and ledger pointers are historical storage and are exempt: it records what stays true
+> of the checked-out tree, never world-controlled status (merged, tagged, released, PR
+> and CI state, deployments, remote branches, forge settings) as current truth. Point at a live
+> probe instead of storing its last answer, route an unresolved external action to the Owner
+> queue, and scope a retained past observation to when it was observed. Prose-only — no guard
+> judges it.
 
 ## Project
 
@@ -22,8 +30,16 @@ be compressed to make room, since folding a live rule is repeal.
 
 ## Current state
 
-{{WHAT_IS_SHIPPED / what is code-complete awaiting owner action / active multi-unit work with
-its checklist / "no active work".}}
+{{WHAT_IS_SHIPPED, as the tree declares it / what is code-complete awaiting owner action / active
+multi-unit work with its checklist / "no active work".}}
+
+<!--
+Write what a fresh clone of THIS COMMIT would still find true. Test each sentence: would it hold
+tomorrow, under another branch name, after forge state had moved? If not, it belongs at a live
+probe, in the Owner queue, or scoped as a dated observation — not here as fact. Do not write
+"released", "tagged", "merged", "CI is green" or "protection is configured" as current state.
+-->
+
 
 ## Owner queue
 

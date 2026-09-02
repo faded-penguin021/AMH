@@ -256,12 +256,17 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
    whole to `docs/history/`; otherwise delete it. Its durable outcomes live in changelog lines
    and ledger rows either way. Code cites ledger rows, never plans: an archived plan is a
    historical record, not permanent memory. **And no ledger row may cite a plan's PATH** — not
-   in backticks, not as a link, not as a bare filename. A committed row is immutable and the
-   path guard checks that a cited path exists, so such a row pins the plan in the tree
-   permanently and the archive-or-delete step above can no longer run. Record what the plan
-   DELIVERED in the row; name the plan in prose if you must refer to it, in a form no path
-   guard resolves. A plan already pinned by a committed row stays where it is — that citation
-   cannot be withdrawn, so the plan is retained in place rather than archived.
+   in backticks, not as a link, not as a bare filename. A plan is provisional context, not
+   permanent evidence, and the citation goes dead the moment the plan retires, in a row that can
+   never be repaired. Record what the plan DELIVERED in the row; name the plan in prose if you
+   must refer to it, in a form no path guard resolves. **A legacy citation does NOT pin its
+   plan.** A row's immutability covers the row's text, not the lifetime or location of a file it
+   names: the row keeps its historical wording and the plan completes the archive-or-delete step
+   like any other. `scripts/guards/path-refs.sh` implements that — a citation must resolve in the
+   tree where its row is authored, and a target that moves or disappears afterwards is historical
+   path drift. On a checkout too shallow to show the commit that introduced the citing row, and
+   with no default-branch baseline carrying it, that guard WARNs rather than guessing; a
+   full-history checkout (CI uses `fetch-depth: 0`) answers it.
 6. **Recovery (bounded).** If the unit in flight has gone wrong: reset to the last green
    checkpoint, re-run the ladder to confirm green, re-attempt smaller — recording any durable
    lesson first. Recovery is not infinite: if the SAME blocker survives a second
@@ -613,9 +618,40 @@ history. Never shave clauses until the guard goes quiet, and never cut text into
 is not compression, it is the owner's call, and it has now been granted exactly twice: the
 guard-output description (owner, 2026-08-11) and this section (owner, 2026-08-25).
 
+**What may be in `Current state` at all — the content rule beside the size rule.** Compression
+decides how much survives; this decides what is eligible. Three categories, and only the first is
+unqualified truth here:
+
+1. **Repository-controlled** — true of the checked-out tree until another repository change alters
+   it: the version the tree declares, implemented behaviour, tracked active work, the live ledger
+   volume — the VOLUME, never its latest row id, which every append moves and no sentence
+   follows. This is what `Current state` is for.
+2. **World-controlled** — can change with no change to the tree: whether a branch merged, whether a
+   remote tag or release exists, PR and CI status, deployments, remote branches, forge protection
+   settings. Never cached here as current truth.
+3. **Historical observation** — a past external fact kept because it is still useful, scoped in the
+   sentence to when or where it was observed so it cannot read as present status.
+
+Apply the test before writing a sentence: *would it still be accurate if this same commit were
+cloned tomorrow, under another branch name, after forge state had moved?* If not, route it. Where
+a live probe already computes the fact, point at the probe rather than copying its output —
+`scripts/session-start.sh` prints the release-tag state every session, so the state file names the
+probe and not its last answer. Where a session cannot inspect the setting (branch protection, a
+remote's configuration), state the expectation or the unresolved owner action without claiming to
+have observed it. Where the resolution is an external action, it belongs in the Owner queue with
+its `Check:`, not in `Current state`.
+
+Two limits, so this is not read wider than it is. The scope is `Current state`; it does not reach
+the Changelog or the ledger pointers, which are historical storage by construction — a dated line
+calling a train "unreleased" records when it was written, and no session owes a re-validation of
+what a past row said. And it
+is **prose-only** — no guard reads a State sentence for temporal validity, none is proposed, and
+making startup or a rung grep this file for forbidden phrases is a decided non-item, because the
+discriminator is meaning and P3 forbids building a gate on that.
+
 **What the ladder does not check.** It checks sizes, structure and repeated headings
-(**D-034**) and nothing else — not whether what survived is any good, and not whether you
-dropped an open Owner-queue item. Never drop one.
+(**D-034**) and nothing else — not whether what survived is any good, not whether what survived is
+still *true*, and not whether you dropped an open Owner-queue item. Never drop one.
 
 ## When CI fails (workflow vs code)
 

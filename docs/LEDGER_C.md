@@ -20,10 +20,11 @@
 > never move. The live volume's byte size is measurement only: it is reported but never judged.
 > Boundaries determine when machinery intervenes, not how much content an author should produce.
 >
-> **Paths in rows.** A new path reference must resolve when authored. If a committed row's path
-> later moves or disappears, leave the historical text immutable, append a correction pointer
-> when meaning changed, and update editable documentation. The local path guard exempts only a
-> reference whose exact token and target both existed at HEAD; it continues to reject new nonexistent paths.
+> **Paths in rows.** A row's immutability covers its text, not the lifetime or location of a file
+> it names. A new path reference must resolve in the tree where the row is authored; a committed
+> row's target may later move or disappear, and that drift leaves the historical text alone.
+> Append a correction pointer only when meaning changed, and update editable documentation —
+> including this preamble — to follow the target. New nonexistent paths are still rejected.
 >
 > **Citations.** Bare ledger IDs resolve through the volume chain. A row cited from configured
 > code or workflow scan paths carries ` [cited]`; the ladder checks that marker in both
@@ -646,7 +647,7 @@ Corrected by DC-044.
   which added this as the plan's unit 3 after DC-034 turned the class up here, on the same terms
   as the units before it and with one pre-approved fresh-context pass included (DC-033 records
   those earlier grants and NOT this one).
-- DC-039: **Two rules that were each correct alone made a file undeletable, and the immutable
+- DC-039 [cited]: **Two rules that were each correct alone made a file undeletable, and the immutable
   half is the one that cannot yield.** Permanent memory is immutable, the plan tier is
   archive-or-delete, and `path-refs.sh` requires a cited path to exist; DC-033 cited a plan's
   path in backticks and thereby satisfied all three into a contradiction, so the archive step
@@ -661,6 +662,7 @@ Corrected by DC-044.
   session's standing no-subagent policy for the one blocking rule-review pass this unit
   mandates, the protocol's ask-before-parking clause having made that a question rather than a
   capability limit.
+  Corrected by DD-004.
 
 - DC-040: **A guard whose failure text names the consequence still does not prevent it, and the
   cheap fix was in a field nobody read as part of the repository.** The poison-token rung failed

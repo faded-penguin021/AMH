@@ -53,6 +53,45 @@ capped so no single volume grows past what a *search* over it stays cheap on. Th
 ledger's cap counts lines while the rung beside it reports the live volume's size: the cap is a
 proxy, and a proxy that drifts from the cost it stands for should at least show you the drift.
 
+**Working memory is TREE-RELATIVE, and that is the second bound on it — the cap says how much
+may be there, this says what may be there at all.** The state file records what stays true of
+the checked-out tree until another repository change alters it: the version the tree declares,
+implemented behaviour, tracked active work, the live ledger volume, and the immediate
+operational gotchas a session needs. It must not cache **world-controlled** status as current
+truth — whether a branch merged, whether a remote tag or release exists, PR and CI status,
+deployments, remote branches, forge protection settings. Those change without the tree changing,
+so such a sentence is stale from the moment it is written and every later session reads it as
+current. The test is one question: *would this still be accurate if the same commit were cloned
+tomorrow, under another branch name, after forge state had moved?* If not, it is not unqualified
+truth here. Where a live probe already computes the fact, point at the probe instead of copying
+its most recent output — a stored answer is a cache with no invalidation, and the probe is the
+only thing that can be right twice. Where a session cannot inspect the setting at all, state the
+expectation or the unresolved owner action and do not claim to have observed it. Where the
+resolution is an external action, it is an Owner-queue item (P9), not a line of current state.
+
+**A fact the tree itself recomputes is a cache too, and this is the half that is not about the
+world at all.** A live ledger volume's latest row identifier is repository-controlled and passes
+the cloned-tomorrow test perfectly — and it is still wrong to store, because every append moves it
+and nothing makes the sentence follow. Name the volume, which is stable and which other rules
+depend on being named; never its newest row. The general form: if writing a fact down creates a
+second copy that some ordinary future edit will silently invalidate, point at the thing that
+recomputes it instead.
+
+**The scope is `Current state`, not the whole file.** The Changelog and the ledger pointers are
+historical storage by construction — dated lines about what shipped — and nothing above asks a
+session to re-validate them; a changelog line calling a train "unreleased" is a record of when it
+was written, not a claim about now. Read wider, the rule would turn every past pointer into a
+maintenance obligation, which is the accretion the tier exists to prevent.
+
+A past external fact may still be RETAINED, and the rule would be a memory-hole without that:
+keep it as a **historical observation**, scoped in the sentence to when or where it was observed
+so it cannot be read as present status. No metadata schema, no required fields — the scope is
+prose, because a schema here would be ceremony charged against the tier's own budget. Ledger rows
+and changelog lines are historical storage already and are never revalidated; nothing above asks
+a session to re-check the past. This whole rule is **prose-only** by construction: no guard judges
+the temporal validity of a natural-language claim, and one that tried would be reading meaning out
+of a sentence — exactly what P3 refuses to build machinery on.
+
 **The constitution is bounded by KIND, not by size — the one tier with no number on it.**
 Every other tier above is bounded by a threshold a script can read, and this one deliberately
 is not. It states the system as currently built: current rules, current inventory, current
@@ -102,16 +141,28 @@ from `docs/plans/` to `docs/history/` rather than deleting it. Its durable outco
 belong in ledger rows and changelog lines: archiving preserves the plan, but does not promote
 it to permanent memory or make it a valid implementation citation.
 
-**A ledger row must never cite a plan's PATH, and this is the corollary that has actually bitten
-a repository.** Permanent memory is immutable and the archive tier is not: a row that names
-`docs/plans/<file>` in backticks, as a link, or as a bare filename makes the two rules
-contradict each other, because a path guard then requires the plan to exist at that path
-forever while the paragraph above requires it to move or go. The plan becomes undeletable, and
-the contradiction surfaces only when someone tries — long after the row is beyond repair. Record
-what the plan DELIVERED in the row itself, which is the durable content anyway; refer to the plan
-in prose if at all, in a form no path guard resolves. A plan already pinned by a committed row is
-retained where it is: the citation cannot be withdrawn, so retention in place is the honest
-resolution rather than a rule that cannot be obeyed.
+**A ledger row must never cite a plan's PATH.** A plan is provisional context, not permanent
+evidence, so a citation to one is unusable the moment the plan retires — and a row is immutable,
+so the dead reference can never be repaired. Record what the plan DELIVERED in the row itself,
+which is the durable content anyway; refer to the plan in prose if at all, in a form no path
+guard resolves.
+
+**A row's immutability covers its TEXT, not the lifetime or location of a file it names.** These
+are different objects, and conflating them converts one immutable sentence into a permanent
+retention rule for another tier's file: a completed plan stayed undeletable for two releases here
+because a committed row named it and a path guard demanded that path resolve forever. A path
+reference must resolve in the tree in which the row is AUTHORED; after that, a rename or deletion
+of the target is historical path drift, and the row keeps its historical wording while the file
+follows its own tier's lifecycle. Add a `Corrected by` pointer when the row's MEANING went stale,
+never merely because a path stopped resolving. A path guard that implements this must tell three
+states apart — a new citation, which must resolve; an established one whose target later moved,
+which does not fail; and one it cannot classify because the history or baseline it would need is
+absent, which is reported as unknown rather than as proof in either direction. Ordinary editable
+documentation is exempt from none of this: it follows a target when the target moves, and so does
+a ledger volume's preamble, which is editable legislation rather than an immutable row. The
+archive is the one place that is neither: it is frozen, so a path guard must not scan it at all —
+demanding that an archived document's paths keep resolving rebuilds this same trap one tier down,
+where the only repair is an edit the archive tier forbids.
 
 **And never another tier's live file.** Retiring the working-memory file into the archive and
 starting a fresh one satisfies every word above while defeating the point: it is the same
@@ -205,6 +256,13 @@ reading the state file is protocol step 1 of the next session). Items leave the 
 done, answered or triaged, with the outcome recorded as a changelog line or a ledger row. Every
 session's **final chat message restates the queue**, so the human never has to open the file to
 know what is pending. A guard warns if a compression pass deletes the section.
+
+**This is also where world-controlled work lands, and routing it here is what keeps current state
+tree-relative** (P2). An unresolved external action — merge, tag, publish, a forge setting only
+the owner can change — is a queue item, never a sentence of current state, because the queue is
+read as a claim to be tested while current state is read as fact. The two rules are one mechanism:
+the state file stops asserting what it cannot know, and the queue carries it with the command that
+settles it.
 
 **A queue item is a claim about the world, and restating one without testing it is how the
 channel fills with confident nonsense.** The item is written at the moment of maximum knowledge
