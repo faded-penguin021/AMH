@@ -18,7 +18,7 @@ content-based while leaving every guard threshold unchanged (**DC-044**). **10.5
 released and tagged `amh-v10.5.1`. The 10.4.0 release commit has no CI run because its squash
 message carried the poison token; edit future squash messages before merge (**DC-040**).
 **9.2.0 has a changelog entry and no tag**, and nothing checks that every changelog version got
-one. `docs/LEDGER_D.md` is live at **DD-001**. `main` protection targets `ladder`.
+one. `docs/LEDGER_D.md` is live at **DD-002**. `main` protection targets `ladder`.
 
 ## Owner queue
 
@@ -74,6 +74,9 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-09-02 — **Counter-check fixture baselines follow the live ledger.** Updated shipped and
+  local fixture expectations after the objective-verdict rewrite and volume-D rollover (**DD-002**).
 
 - 2026-09-02 — **Counter checks report size, not writing quality.** Runbook, configuration and
   ledger preambles separate binary byte-and-sentence acceptance from authoring judgement, ban

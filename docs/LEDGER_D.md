@@ -117,3 +117,6 @@
   ledger row concise or working memory well-compressed. Authors must not merge sentences,
   repunctuate, remove useful qualifiers, or otherwise rewrite solely to move a counter; nearing a
   limit is a prompt to separate durable lessons from chronology, completed state, and history.
+- DD-002: **Opening a new live ledger volume changes the baseline of fixtures that append rows.**
+  Any fixture that means “live volume” must follow the chain rather than retain the formerly live
+  file and prefix; expected diagnostics must also change when a verdict is deliberately narrowed.

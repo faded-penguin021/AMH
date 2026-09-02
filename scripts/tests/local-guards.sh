@@ -240,37 +240,37 @@ expect fail "ledger-append-only: cited marker removal is still a rewrite" "$d" \
 	ledger-append-only.sh "D-001 existed at HEAD and was edited"
 
 d=$(snapshot ledger_append_only_new_row_draft)
-cat >>"$d/docs/LEDGER_C.md" <<'ROW'
-- DC-999: **Draft row can be rewritten before commit.** First draft.
+cat >>"$d/docs/LEDGER_D.md" <<'ROW'
+- DD-999: **Draft row can be rewritten before commit.** First draft.
 ROW
 expect pass "ledger-append-only: new uncommitted rows are draft-editable" "$d" ledger-append-only.sh
 
 
 d=$(snapshot ledger_append_only_new_row_under_cap)
 sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=120/' "$d/amh.conf"
-cat >>"$d/docs/LEDGER_C.md" <<'ROW'
-- DC-999: **Short new row passes.** Small enough.
+cat >>"$d/docs/LEDGER_D.md" <<'ROW'
+- DD-999: **Short new row passes.** Small enough.
 ROW
 expect pass "ledger-append-only: a new row under the byte-counted character cap passes" "$d" ledger-append-only.sh
 
 d=$(snapshot ledger_append_only_new_row_over_cap)
 sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
-python3 - "$d/docs/LEDGER_C.md" <<'PYROW'
+python3 - "$d/docs/LEDGER_D.md" <<'PYROW'
 from pathlib import Path
 import sys
-Path(sys.argv[1]).write_text(Path(sys.argv[1]).read_text() + "- DC-999: **Long new row fails.** " + ("x" * 120) + "\n")
+Path(sys.argv[1]).write_text(Path(sys.argv[1]).read_text() + "- DD-999: **Long new row fails.** " + ("x" * 120) + "\n")
 PYROW
 expect fail "ledger-append-only: a new row over the byte-counted character cap fails" "$d" \
 	ledger-append-only.sh "over LEDGER_ROW_CHAR_CAP=80"
 
 d=$(snapshot ledger_append_only_committed_over_cap_exempt)
 sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
-python3 - "$d/docs/LEDGER_C.md" <<'PYROW'
+python3 - "$d/docs/LEDGER_D.md" <<'PYROW'
 from pathlib import Path
 import sys
-Path(sys.argv[1]).write_text(Path(sys.argv[1]).read_text() + "- DC-999: **Committed long row is historical.** " + ("x" * 120) + "\n")
+Path(sys.argv[1]).write_text(Path(sys.argv[1]).read_text() + "- DD-999: **Committed long row is historical.** " + ("x" * 120) + "\n")
 PYROW
-(cd "$d" && git add amh.conf docs/LEDGER_C.md && git commit -qm over-cap-history)
+(cd "$d" && git add amh.conf docs/LEDGER_D.md && git commit -qm over-cap-history)
 expect pass "ledger-append-only: an already committed over-cap row is historical and exempt" "$d" ledger-append-only.sh
 
 # A new row must not pin a plan file. Each fixture makes its OWN plan rather than naming the
@@ -280,8 +280,8 @@ expect pass "ledger-append-only: an already committed over-cap row is historical
 d=$(snapshot ledger_row_cites_plan_path)
 mkdir -p "$d/docs/plans"
 printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
-cat >>"$d/docs/LEDGER_C.md" <<'ROW'
-- DC-999: **New row citing a plan path.** See `docs/plans/fixture-plan.md` for the checklist.
+cat >>"$d/docs/LEDGER_D.md" <<'ROW'
+- DD-999: **New row citing a plan path.** See `docs/plans/fixture-plan.md` for the checklist.
 ROW
 expect fail "ledger-append-only: a new row cannot cite a plan path in backticks" "$d" \
 	ledger-append-only.sh "names the plan file 'docs/plans/fixture-plan.md'"
@@ -293,8 +293,8 @@ printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
 # directory, and the ledger sits in docs/ — so this is the target that actually pins the plan,
 # and `](docs/plans/…)` is a broken link that pins nothing. The first version of this fixture
 # asserted on the broken form and passed while the real one went undetected.
-cat >>"$d/docs/LEDGER_C.md" <<'ROW'
-- DC-999: **New row linking a plan.** See [the plan](plans/fixture-plan.md) for the checklist.
+cat >>"$d/docs/LEDGER_D.md" <<'ROW'
+- DD-999: **New row linking a plan.** See [the plan](plans/fixture-plan.md) for the checklist.
 ROW
 expect fail "ledger-append-only: a new row cannot link a plan path relative to the ledger" "$d" \
 	ledger-append-only.sh "names the plan file 'docs/plans/fixture-plan.md'"
@@ -302,8 +302,8 @@ expect fail "ledger-append-only: a new row cannot link a plan path relative to t
 d=$(snapshot ledger_row_links_plan_fragment)
 mkdir -p "$d/docs/plans"
 printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
-cat >>"$d/docs/LEDGER_C.md" <<'ROW'
-- DC-999: **New row linking a plan section.** See [unit 3](./plans/fixture-plan.md#unit-3) now.
+cat >>"$d/docs/LEDGER_D.md" <<'ROW'
+- DD-999: **New row linking a plan section.** See [unit 3](./plans/fixture-plan.md#unit-3) now.
 ROW
 expect fail "ledger-append-only: a leading ./ and a #fragment do not evade the link check" "$d" \
 	ledger-append-only.sh "names the plan file 'docs/plans/fixture-plan.md'"
@@ -311,8 +311,8 @@ expect fail "ledger-append-only: a leading ./ and a #fragment do not evade the l
 d=$(snapshot ledger_row_cites_plan_dotslash)
 mkdir -p "$d/docs/plans"
 printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
-cat >>"$d/docs/LEDGER_C.md" <<'ROW'
-- DC-999: **New row citing a dot-slash plan path.** See `./docs/plans/fixture-plan.md` now.
+cat >>"$d/docs/LEDGER_D.md" <<'ROW'
+- DD-999: **New row citing a dot-slash plan path.** See `./docs/plans/fixture-plan.md` now.
 ROW
 expect fail "ledger-append-only: a leading ./ does not evade the backticked-path check" "$d" \
 	ledger-append-only.sh "names the plan file 'docs/plans/fixture-plan.md'"
@@ -324,8 +324,8 @@ mkdir -p "$d/docs/plans"
 printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
 # path-refs section (c) resolves a backticked BARE filename against every tracked basename, so
 # a plan named with no directory pins it exactly as hard as the full path does.
-cat >>"$d/docs/LEDGER_C.md" <<'ROW'
-- DC-999: **New row citing a bare plan filename.** See `fixture-plan.md` for the checklist.
+cat >>"$d/docs/LEDGER_D.md" <<'ROW'
+- DD-999: **New row citing a bare plan filename.** See `fixture-plan.md` for the checklist.
 ROW
 expect fail "ledger-append-only: a new row cannot cite a bare plan filename" "$d" \
 	ledger-append-only.sh "names the plan file 'fixture-plan.md'"
@@ -333,8 +333,8 @@ expect fail "ledger-append-only: a new row cannot cite a bare plan filename" "$d
 d=$(snapshot ledger_row_names_plan_in_prose)
 mkdir -p "$d/docs/plans"
 printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
-cat >>"$d/docs/LEDGER_C.md" <<'ROW'
-- DC-999: **New row naming a plan in prose.** Delivered under the fixture plan of 2026-08-31.
+cat >>"$d/docs/LEDGER_D.md" <<'ROW'
+- DD-999: **New row naming a plan in prose.** Delivered under the fixture plan of 2026-08-31.
 ROW
 expect pass "ledger-append-only: a new row may name a plan in prose without a citable path" "$d" ledger-append-only.sh
 
@@ -344,8 +344,8 @@ expect pass "ledger-append-only: a new row may name a plan in prose without a ci
 d=$(snapshot ledger_row_plan_in_parentheses)
 mkdir -p "$d/docs/plans"
 printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
-cat >>"$d/docs/LEDGER_C.md" <<'ROW'
-- DC-999: **New row with a parenthetical.** Drafted (docs/plans/fixture-plan.md was the source).
+cat >>"$d/docs/LEDGER_D.md" <<'ROW'
+- DD-999: **New row with a parenthetical.** Drafted (docs/plans/fixture-plan.md was the source).
 ROW
 expect pass "ledger-append-only: a plan named in bare parentheses is not a link and passes" "$d" ledger-append-only.sh
 
@@ -354,12 +354,12 @@ expect pass "ledger-append-only: a plan named in bare parentheses is not a link 
 d=$(snapshot ledger_committed_row_cites_plan_exempt)
 mkdir -p "$d/docs/plans"
 printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
-cat >>"$d/docs/LEDGER_C.md" <<'ROW'
-- DC-999: **Committed row citing a plan path.** See `docs/plans/fixture-plan.md` for the checklist.
+cat >>"$d/docs/LEDGER_D.md" <<'ROW'
+- DD-999: **Committed row citing a plan path.** See `docs/plans/fixture-plan.md` for the checklist.
 ROW
-(cd "$d" && git add docs/LEDGER_C.md docs/plans && git commit -qm plan-citation-history)
-cat >>"$d/docs/LEDGER_C.md" <<'ROW'
-- DC-1000: **A later clean row.** Nothing cited.
+(cd "$d" && git add docs/LEDGER_D.md docs/plans && git commit -qm plan-citation-history)
+cat >>"$d/docs/LEDGER_D.md" <<'ROW'
+- DD-1000: **A later clean row.** Nothing cited.
 ROW
 expect pass "ledger-append-only: an already committed plan citation is historical and exempt" "$d" ledger-append-only.sh
 
@@ -382,13 +382,13 @@ cat >>"$d/docs/LEDGER.md" <<'ROW'
 - D-999: **New row in a closed volume.** It resolves nowhere its prefix promises.
 ROW
 expect warn "ledger-append-only: a new row outside the live volume warns" "$d" \
-	ledger-append-only.sh "live volume is docs/LEDGER_C.md"
+	ledger-append-only.sh "live volume is docs/LEDGER_D.md"
 
 # ...and the live volume itself is silent, or the warning would fire on every ordinary
 # append and be worth nothing inside a month.
 d=$(snapshot ledger_append_only_new_row_live_volume)
-cat >>"$d/docs/LEDGER_C.md" <<'ROW'
-- DC-999: **New row in the live volume.** Exactly where it belongs.
+cat >>"$d/docs/LEDGER_D.md" <<'ROW'
+- DD-999: **New row in the live volume.** Exactly where it belongs.
 ROW
 expect pass "ledger-append-only: a new row in the live volume is silent" "$d" ledger-append-only.sh
 
@@ -396,8 +396,8 @@ expect pass "ledger-append-only: a new row in the live volume is silent" "$d" le
 # volume, so the check above is silent, but its prefix names a different file — which is where
 # a reader following the preamble's rule will look for it, and not find it.
 d=$(snapshot ledger_append_only_new_row_wrong_prefix)
-cat >>"$d/docs/LEDGER_C.md" <<'ROW'
-- D-999: **Live volume, wrong prefix.** A D- id does not resolve in volume C.
+cat >>"$d/docs/LEDGER_D.md" <<'ROW'
+- D-999: **Live volume, wrong prefix.** A D- id does not resolve in volume D.
 ROW
 expect warn "ledger-append-only: a new row whose prefix names another volume warns" "$d" \
 	ledger-append-only.sh "its prefix names docs/LEDGER.md"

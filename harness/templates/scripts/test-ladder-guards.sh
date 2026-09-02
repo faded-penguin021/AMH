@@ -1025,7 +1025,7 @@ d=$(mk ledger_row_char_over_cap)
 sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
 printf -- '- D-003: long row. %s\n' "$(filler 120)" >>"$d/docs/LEDGER.md"
 expect_fail "a new ledger row over the byte-counted character cap fails" "$d" \
-	"over LEDGER_ROW_CHAR_CAP=80 — approaching this rejection boundary"
+	"over LEDGER_ROW_CHAR_CAP=80; historical committed rows"
 
 d=$(mk ledger_row_char_committed_over_cap)
 sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=80/' "$d/amh.conf"
