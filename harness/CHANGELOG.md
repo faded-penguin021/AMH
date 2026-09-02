@@ -11,6 +11,21 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 12.0.0 — 2026-09-02
+
+- **Counter acceptance is not an authoring-quality verdict.** Passing the paired byte and
+  sentence checks establishes only that state or a ledger row is not obviously oversized; it
+  does not establish concision, correct scope, information quality, or successful compression.
+- **Counter-only rewrites are forbidden.** Authors must not merge sentences, repunctuate, remove
+  useful qualifiers, or otherwise rewrite solely to change a counter. Successful guard verdicts
+  report only the measured property.
+
+### Upgrading
+
+Replace the paired-counter explanation and anti-gaming guidance in your `docs/RUNBOOK.md`,
+`amh.conf`, and ledger-volume preambles with the 12.0.0 seed wording. Copy the shipped scripts
+normally. Do not change configured thresholds.
+
 ## 11.0.0 — 2026-09-01
 
 - **Working-memory compression is content-based.** Completed narrative and durable lessons are
@@ -18,19 +33,15 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   cap. After a pass, only current state, unresolved owner items, immediate operational gotchas
   and concise changelog pointers remain.
 - **The configured byte and sentence values are post-compression acceptance ceilings only.**
-  Passing both establishes only that content is not obviously oversized, not concision, correct
-  scope, information quality, or successful compression. Authoring guidance now expressly
-  forbids merging sentences, repunctuating, removing useful qualifiers, or otherwise rewriting
-  solely to affect a counter. Successful guard verdicts report measurements, not quality claims.
+  They establish no preferred landing size and never justify retaining, adding or reshaping
+  content. Guard thresholds and verdicts are unchanged.
 
 ### Upgrading
 
 Replace the **Working-memory compression** section of your `docs/RUNBOOK.md` with the 11.0.0
 seed wording, and copy the concise action point from the 11.0.0 seed `docs/STATE.md` length-guard
-pointer. Copy the paired-counter explanation and anti-gaming wording from
-`harness/templates/amh.conf.example` and the ledger seed preamble into the corresponding owned
-files. Then fold any completed state narrative regardless of remaining space; do not change your
-configured thresholds.
+pointer. Then fold any completed state narrative regardless of remaining space; do not change
+your configured thresholds.
 
 ## 10.5.1 — 2026-09-01
 
