@@ -192,16 +192,20 @@ validate_row_cap() { # validate_row_cap <row-file> <id>
 
 # A new row must not name a plan file — in ANY form `scripts/guards/path-refs.sh` resolves.
 #
-# The incident: DC-033 cited the 2026-08-31 ci-sees-windows plan's path in backticks. Rows are
-# immutable, path-refs checks that a cited path EXISTS, and session discipline 5 says a finished
-# plan is archived or deleted — so the row pinned the plan in place permanently and the
-# archive-or-delete step could never run. Tried it; path-refs failed, and the plan had to be
-# restored. Neither rule was wrong alone; nothing said they could not both bind the same file.
+# The reason is the plan tier's own lifecycle, not a guard interaction: a plan is provisional
+# context that is archived or deleted when its work completes, so a citation to its path is dead
+# the moment that happens — inside a row that is immutable and can never be repaired. Record what
+# the plan DELIVERED; name it in prose if you must.
 #
-# NEW rows only, which is not a softening but the only reachable scope: DC-033 is committed and
-# immutable, so a check over the whole chain would fail forever on the very row that motivated
-# it — the trap this exists to prevent, rebuilt one layer up. The existing citation stands and
-# its plan is retained in place; see the runbook's session discipline 5.
+# The incident: DC-033 cited a plan's path in backticks while path-refs demanded that every cited
+# path exist at HEAD forever, and the archive step went red. That half is FIXED in path-refs, not
+# here — a row's immutability covers the row's text, not the lifetime or location of a file it
+# names, so a committed citation whose target later moves is historical path drift and the plan
+# retires normally. What survives is the rule above, on its own merits.
+#
+# NEW rows only. A check over the whole chain would fail forever on DC-033, which was authored
+# before the rule and whose wording is immutable; the plan it named has since been archived, and
+# nothing had to be un-cited to allow that. See the runbook's session discipline 5.
 #
 # The three forms are path-refs's own, and the FIRST one is why this is not a single grep. That
 # guard resolves a markdown link RELATIVE TO THE LINKING FILE (`dir=$(dirname "$f")`), and every
@@ -286,7 +290,7 @@ validate_row_plan_path() { # validate_row_plan_path <row-file> <id>
 }
 
 plan_citation_fail() { # plan_citation_fail <id> <cited>
-	fail "ledger append-only: new row $1 names the plan file '$2'. A committed row is immutable and $PLAN_DIR files are archived or deleted when their work completes, so a row naming one pins it in the tree forever — and the archive-or-delete step then fails path-refs.sh (DC-033 did exactly this). Record what the plan DELIVERED in the row itself; name the plan in prose without a citable path if you must refer to it at all."
+	fail "ledger append-only: new row $1 names the plan file '$2'. A committed row is immutable and $PLAN_DIR files are archived or deleted when their work completes, so the citation is dead the moment the plan retires and the row can never be repaired — a plan is provisional context, not permanent evidence. Record what the plan DELIVERED in the row itself; name the plan in prose without a citable path if you must refer to it at all."
 }
 
 allowed_metadata_only() { # allowed_metadata_only <base-row> <current-row>

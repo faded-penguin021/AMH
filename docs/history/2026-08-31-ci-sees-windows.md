@@ -1,16 +1,20 @@
-# PLAN — make CI able to SEE the Windows failures, not just run on Windows
+# PLAN (RETIRED) — make CI able to SEE the Windows failures, not just run on Windows
 
-> **RETAINED IN PLACE — do not archive, move or delete this file (DC-039).** Committed row
-> DC-033 names this file's path, committed rows are immutable, and `scripts/guards/path-refs.sh`
-> fails the moment a cited path stops resolving. Moving or deleting this plan therefore turns
-> the branch red and cannot be undone by editing the row. That citation is why no ledger row may
-> cite a plan's path any more; this file is the one instance predating the rule.
+> **Archived after completion.** All three units below shipped; this file was retired whole from
+> `docs/plans/` to the frozen archive, which is the normal end of a plan's lifecycle. Consult it;
+> never edit it.
+>
+> Committed row DC-033 still names this plan's former `docs/plans/` path, and that wording stays
+> as it was written — a ledger row is immutable, and its immutability covers the row's TEXT, not
+> the lifetime or location of a file it happens to name. A citation that resolved in the tree
+> where the row was authored is historical path drift afterwards, so the archive step that this
+> box once forbade is the step the rules now require.
 
 Owner-approved 2026-08-31, drafted at the end of the session that shipped **DC-031**/**DC-032**
-(branch `session/readme-adoption`, PR #58). Provisional: the owner may pivot and every unit ends
-shippable. This file was to be archived or deleted when its work completed; it is retained in
-place instead, for the reason in the box above. Durable outcomes live in Changelog lines and
-ledger rows either way — code cites ledger rows, never this file.
+(branch `session/readme-adoption`, PR #58). Provisional while it was live: the owner could pivot
+and every unit ended shippable. Its durable outcomes live in Changelog lines and ledger rows —
+code cites ledger rows, never this file, and an archived plan is context rather than permanent
+memory or a valid implementation citation.
 
 **Verification of every claim below happens during EXECUTION, not during drafting.** The scope
 facts in Unit 1 were read from `amh.conf` and `scripts/guards/shipped-citations.sh` on

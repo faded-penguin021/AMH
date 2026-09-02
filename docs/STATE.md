@@ -19,6 +19,12 @@ message carried the poison token; edit future squash messages before merge (**DC
 **9.2.0 has a changelog entry and no tag**, and nothing checks that every changelog version got
 one. `docs/LEDGER_D.md` is live at **DD-002**. `main` protection targets `ladder`.
 
+**ACTIVE — RFC "Correct mutability boundaries in State and ledger references", unit 2 of 2.**
+Unit 1 shipped (**DD-004**). Unit 2 makes `docs/STATE.md` tree-relative and carries the combined
+MAJOR release for both units; the version is deliberately still 13.0.0 until it runs. What it
+owes, and what unit 1 already delivered, are in `docs/plans/2026-09-02-state-ledger-mutability.md`
+— read that file, not this line, before starting. Delete or archive it when unit 2 completes.
+
 ## Owner queue
 
 > **Protected section.** Never delete it, and never silently drop items during compression.
@@ -66,7 +72,14 @@ from.
 
 ## Changelog
 
-- 2026-09-02 — **Thresholds name their behavior and historical ledger paths stay immutable.** Classified every configured content boundary at its action point, removed target-like wording and the ledger warning band, shortened ledger preambles, and made path validation strict at authoring while exempting committed targets that later move (**DD-003**).
+- 2026-09-02 — **A ledger row pins its text, not the file it names.** The path guard now classifies
+  a missing ledger target against the commit that introduced the citing row — exempting historical
+  drift past the commit that removes the target, failing a citation already broken when authored,
+  and warning where no history or default-branch baseline can say which — so the completed Windows
+  CI plan retired to `docs/history/` while DC-033 keeps its wording (**DD-004**). The frozen
+  archive left the scan in the same change, on the plan tier's own reasoning (owner, **DD-005**).
+
+- 2026-09-02 — **Thresholds name their behavior and historical ledger paths stay immutable.** Classified every configured content boundary at its action point, removed target-like wording and the ledger warning band, shortened ledger preambles, and made path validation strict at authoring while exempting a committed target that had moved only in the working tree (**DD-003**, corrected by **DD-004**).
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.

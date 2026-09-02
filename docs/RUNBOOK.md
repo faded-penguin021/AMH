@@ -256,12 +256,17 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
    whole to `docs/history/`; otherwise delete it. Its durable outcomes live in changelog lines
    and ledger rows either way. Code cites ledger rows, never plans: an archived plan is a
    historical record, not permanent memory. **And no ledger row may cite a plan's PATH** — not
-   in backticks, not as a link, not as a bare filename. A committed row is immutable and the
-   path guard checks that a cited path exists, so such a row pins the plan in the tree
-   permanently and the archive-or-delete step above can no longer run. Record what the plan
-   DELIVERED in the row; name the plan in prose if you must refer to it, in a form no path
-   guard resolves. A plan already pinned by a committed row stays where it is — that citation
-   cannot be withdrawn, so the plan is retained in place rather than archived.
+   in backticks, not as a link, not as a bare filename. A plan is provisional context, not
+   permanent evidence, and the citation goes dead the moment the plan retires, in a row that can
+   never be repaired. Record what the plan DELIVERED in the row; name the plan in prose if you
+   must refer to it, in a form no path guard resolves. **A legacy citation does NOT pin its
+   plan.** A row's immutability covers the row's text, not the lifetime or location of a file it
+   names: the row keeps its historical wording and the plan completes the archive-or-delete step
+   like any other. `scripts/guards/path-refs.sh` implements that — a citation must resolve in the
+   tree where its row is authored, and a target that moves or disappears afterwards is historical
+   path drift. On a checkout too shallow to show the commit that introduced the citing row, and
+   with no default-branch baseline carrying it, that guard WARNs rather than guessing; a
+   full-history checkout (CI uses `fetch-depth: 0`) answers it.
 6. **Recovery (bounded).** If the unit in flight has gone wrong: reset to the last green
    checkpoint, re-run the ladder to confirm green, re-attempt smaller — recording any durable
    lesson first. Recovery is not infinite: if the SAME blocker survives a second

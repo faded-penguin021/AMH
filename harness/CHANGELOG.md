@@ -17,17 +17,23 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   the state hard and ledger-row keys are rejection boundaries, compression-to keys are
   post-action ceilings, the ledger line key is a rollover boundary, and live-ledger bytes are
   measurement only. The former ledger warning band is removed.
-- **Immutable ledger paths tolerate later tree changes.** New row paths must resolve when
-  authored; a committed ledger reference to a target that existed at HEAD is historical drift
-  after a rename or deletion and no longer blocks the path guard.
+- **Immutable ledger paths tolerate an uncommitted tree change.** New row paths must resolve
+  when authored, and a committed ledger reference whose target still exists at `HEAD` stops
+  blocking the path guard once that target is removed or moved in the WORKING TREE. Read the
+  scope exactly: the exemption tested the reference and the target at `HEAD`, so it lasted only
+  until the removal itself was committed, at which point the guard went red again. The durable
+  form of the rule arrives in the next MAJOR release; this entry is a corrected description of
+  what 13.0.0 shipped, not a restatement of current behaviour.
 - **Ledger preambles are concise action references.** They no longer enumerate every volume or
   repeat extended rationale.
 
 ### Upgrading
 
 Copy the shipped scripts normally. Replace the threshold explanations in `amh.conf` and
-`docs/RUNBOOK.md`, and replace each ledger-volume preamble, from the 13.0.0 seeds. Apply the
-path-reference historical-drift exemption to any equivalent local documentation guard.
+`docs/RUNBOOK.md`, and replace each ledger-volume preamble, from the 13.0.0 seeds. A local
+documentation guard may take the path-reference historical-drift exemption, but read the next
+MAJOR entry before implementing it against `HEAD`: tested that way it lapses on the commit that
+removes the target.
 
 ## 12.0.0 — 2026-09-02
 

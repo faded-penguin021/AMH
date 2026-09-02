@@ -43,9 +43,22 @@ snapshot() { # snapshot <name> -> prints the path
 		(cd "$d" && tar -xf -)
 	(
 		cd "$d" || exit 1
-		git init -q .
+		# The throwaway repo models this repository's real topology — a session branch one
+		# commit ahead of DEFAULT_BRANCH — and both halves are load-bearing for path-refs.sh:
+		#
+		#   `-b main` rather than git's configured default, or the default-branch baseline the
+		#   guard falls back to when history cannot classify a citation would resolve on one
+		#   developer's machine and not on another's.
+		#
+		#   The extra commit, because a baseline that resolves to the SAME COMMIT as HEAD tells
+		#   the guard nothing beyond "this row is committed", and it declines to answer from one.
+		#   A snapshot whose only branch was main would leave every fixture asserting the verdict
+		#   for an uninformative baseline rather than a real one.
+		git init -q -b main .
 		git add -A
 		git commit -qm snapshot
+		git checkout -q -b session/fixture
+		git commit -q --allow-empty -m 'session branch, one ahead of main'
 	)
 	printf '%s' "$d"
 }
@@ -93,7 +106,13 @@ expect pass "copy-drift: clean tree" "$base" copy-drift.sh
 expect pass "dist-drift: clean tree" "$base" dist-drift.sh
 expect pass "placeholder-integrity: clean tree" "$base" placeholder-integrity.sh
 expect pass "version-lockstep: clean tree" "$base" version-lockstep.sh
-expect pass "path-refs: clean tree" "$base" path-refs.sh
+# The count is pinned, and it is not decoration. This repository carries exactly one historical
+# ledger path drift: committed row DC-033 names a plan that has since been archived to
+# docs/history/. Every path-refs case below that asserts an exemption count therefore asserts
+# ITS OWN plus this one, and this line is where a change to the repository's own drift is
+# reported first — with a legible message — instead of as a puzzling off-by-one everywhere else.
+expect pass "path-refs: clean tree" "$base" path-refs.sh \
+	"1 historical ledger path drift exemption(s)"
 expect pass "manifest-drift: clean tree" "$base" manifest-drift.sh
 expect pass "adapter-set: clean tree" "$base" adapter-set.sh
 expect pass "doc-navigation: clean tree" "$base" doc-navigation.sh
@@ -273,10 +292,12 @@ PYROW
 (cd "$d" && git add amh.conf docs/LEDGER_D.md && git commit -qm over-cap-history)
 expect pass "ledger-append-only: an already committed over-cap row is historical and exempt" "$d" ledger-append-only.sh
 
-# A new row must not pin a plan file. Each fixture makes its OWN plan rather than naming the
+# A new row must not cite a plan file. Each fixture makes its OWN plan rather than naming the
 # one in the tree: the point is the shape, and a fixture that depends on today's plan set would
 # start passing vacuously the day that set changes. The three fail cases are the three forms
-# path-refs.sh resolves — a row that evades two of them pins the plan just as hard.
+# path-refs.sh resolves — a row that evades two of them leaves a citation just as dead once the
+# plan retires. The rule is about the plan tier's lifecycle, not about pinning: path-refs no
+# longer holds a target in place for a committed row (see the historical-drift cases below).
 d=$(snapshot ledger_row_cites_plan_path)
 mkdir -p "$d/docs/plans"
 printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
@@ -290,8 +311,8 @@ d=$(snapshot ledger_row_links_plan_path)
 mkdir -p "$d/docs/plans"
 printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
 # `plans/…`, NOT `docs/plans/…`. path-refs.sh resolves a link against the LINKING FILE's
-# directory, and the ledger sits in docs/ — so this is the target that actually pins the plan,
-# and `](docs/plans/…)` is a broken link that pins nothing. The first version of this fixture
+# directory, and the ledger sits in docs/ — so this is the target that actually names the plan,
+# and `](docs/plans/…)` is a broken link that names nothing. The first version of this fixture
 # asserted on the broken form and passed while the real one went undetected.
 cat >>"$d/docs/LEDGER_D.md" <<'ROW'
 - DD-999: **New row linking a plan.** See [the plan](plans/fixture-plan.md) for the checklist.
@@ -323,7 +344,7 @@ d=$(snapshot ledger_row_cites_plan_basename)
 mkdir -p "$d/docs/plans"
 printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
 # path-refs section (c) resolves a backticked BARE filename against every tracked basename, so
-# a plan named with no directory pins it exactly as hard as the full path does.
+# a plan named with no directory is a citation exactly as much as the full path is.
 cat >>"$d/docs/LEDGER_D.md" <<'ROW'
 - DD-999: **New row citing a bare plan filename.** See `fixture-plan.md` for the checklist.
 ROW
@@ -350,7 +371,7 @@ ROW
 expect pass "ledger-append-only: a plan named in bare parentheses is not a link and passes" "$d" ledger-append-only.sh
 
 # DC-033's own shape. Committed rows are immutable, so the check MUST NOT reach them — a
-# version that did would fail forever on the row that motivated it.
+# version that did would fail forever on a row authored before the rule existed.
 d=$(snapshot ledger_committed_row_cites_plan_exempt)
 mkdir -p "$d/docs/plans"
 printf '# fixture plan\n' >"$d/docs/plans/fixture-plan.md"
@@ -826,18 +847,107 @@ d=$(snapshot refs_backtick)
 printf '\nRun `scripts/does-not-exist.sh` first.\n' >>"$d/docs/RUNBOOK.md"
 expect fail "path-refs: a cited path that does not exist" "$d" path-refs.sh "nonexistent path"
 
-# Immutable ledger prose cannot follow a later rename. A path that resolved in the committed
-# baseline is historical drift after deletion and is exempt there only; a new broken ledger
-# path still fails because it never existed at HEAD.
+# --- path-refs: immutable ledger rows vs. the files they name ----------------
+#
+# A ledger ROW is immutable; the file it names is not. The guard therefore reaches one of three
+# verdicts on a ledger citation whose target no longer resolves, and the cases below assert all
+# three plus their boundaries. The one that matters most is the COMMITTED removal: the previous
+# implementation tested `HEAD:<target>`, which survived only while the deletion sat unstaged in
+# the worktree and reverted to red on the very next commit — see the mutation case at the end of
+# this block, which restores that line and watches this suite go red.
+
+# (1) A new row whose target exists resolves like any other reference.
+d=$(snapshot refs_new_ledger_path_resolves)
+# shellcheck disable=SC2016 # literal backticks are the fixture input.
+printf '\n- DD-999: New reference is `docs/RUNBOOK.md`.\n' >>"$d/docs/LEDGER_D.md"
+expect pass "path-refs: a new row referencing an existing target passes" "$d" path-refs.sh
+
+# (2) A new row whose target never existed fails before it can be committed.
+d=$(snapshot refs_new_broken_ledger_path)
+# shellcheck disable=SC2016 # literal backticks are the fixture input.
+printf '\n- DD-999: Missing location is `docs/never-existed.md`.\n' >>"$d/docs/LEDGER_D.md"
+expect fail "path-refs: a new ledger path must resolve when authored" "$d" path-refs.sh \
+	"nonexistent path"
+
+# (3) …and committing it does not launder it. The row is at HEAD, but the commit that introduced
+# it never carried the target, so a CI-like full-history checkout of a clean tree still fails.
+# "It is committed" is not the test; "it resolved where it was authored" is.
+d=$(snapshot refs_committed_bad_row_still_fails)
+# shellcheck disable=SC2016 # literal backticks are the fixture input.
+printf '\n- DD-999: Missing location is `docs/never-existed.md`.\n' >>"$d/docs/LEDGER_D.md"
+(cd "$d" && git add docs/LEDGER_D.md && git commit -qm committed-bad-row)
+expect fail "path-refs: a committed bad row still fails from a clean HEAD" "$d" path-refs.sh \
+	"nonexistent path"
+
+# (3b) The laundering route, and the reason the historical token test is scoped to ONE ROW rather
+# than to the volume. An immutable row already carries a citation whose target has since moved; a
+# NEW citation to that same dead path is then inserted into a DIFFERENT committed row. Matching the
+# token anywhere in the file would classify the new citation against the old row's authoring
+# commit and report it green — a never-resolving path laundered through a neighbour's age.
+d=$(snapshot refs_new_citation_borrows_a_neighbours_age)
+printf '# old target\n' >"$d/docs/old-target.md"
+# shellcheck disable=SC2016 # literal backticks are the fixture input.
+printf '\n- DD-998: Historical location was `docs/old-target.md`.\n' >>"$d/docs/LEDGER_D.md"
+# shellcheck disable=SC2016 # literal backticks are the fixture input.
+printf '\n- DD-999: A neighbour with no path of its own.\n' >>"$d/docs/LEDGER_D.md"
+(cd "$d" && git add docs/old-target.md docs/LEDGER_D.md && git commit -qm two-rows)
+(cd "$d" && git rm -q docs/old-target.md && git commit -qm remove-target)
+# DD-998's citation is genuine historical drift and stays exempt; DD-999's is new and must not be.
+# shellcheck disable=SC2016 # literal backticks are the fixture input.
+sed_in_place 's|^- DD-999: A neighbour with no path of its own.$|- DD-999: A neighbour now citing `docs/old-target.md` too.|' \
+	"$d/docs/LEDGER_D.md"
+expect fail "path-refs: a new citation cannot borrow an older row's exemption" "$d" path-refs.sh \
+	"nonexistent path"
+
+# (4) The transitional state the old implementation could see: row and target committed, target
+# removed in the worktree only.
 d=$(snapshot refs_historical_ledger_path)
 printf '# old target\n' >"$d/docs/old-target.md"
 # shellcheck disable=SC2016 # literal backticks are the fixture input.
 printf '\n- DD-999: Historical location was `docs/old-target.md`.\n' >>"$d/docs/LEDGER_D.md"
 (cd "$d" && git add docs/old-target.md docs/LEDGER_D.md && git commit -qm historical-ledger-path)
 rm "$d/docs/old-target.md"
-expect pass "path-refs: a committed ledger path may drift after a rename" "$d" path-refs.sh \
-	"1 historical ledger path drift exemption(s)"
+expect pass "path-refs: a committed ledger path may drift in the worktree" "$d" path-refs.sh \
+	"2 historical ledger path drift exemption(s)"
 
+# (5) The state the old implementation could NOT see, and the whole point of this change: the
+# removal is COMMITTED, HEAD no longer carries the target, and the tree must still be green.
+d=$(snapshot refs_historical_ledger_path_committed_removal)
+printf '# old target\n' >"$d/docs/old-target.md"
+# shellcheck disable=SC2016 # literal backticks are the fixture input.
+printf '\n- DD-999: Historical location was `docs/old-target.md`.\n' >>"$d/docs/LEDGER_D.md"
+(cd "$d" && git add docs/old-target.md docs/LEDGER_D.md && git commit -qm historical-ledger-path)
+(cd "$d" && git rm -q docs/old-target.md && git commit -qm remove-target)
+expect pass "path-refs: the exemption survives the commit that removes the target" "$d" \
+	path-refs.sh "2 historical ledger path drift exemption(s)"
+
+# (6) …and it keeps surviving. An exemption that decayed as history moved on would be a slow
+# version of the same trap: the branch goes red later, for a change nobody made to the row.
+d=$(snapshot refs_historical_ledger_path_later_commit)
+printf '# old target\n' >"$d/docs/old-target.md"
+# shellcheck disable=SC2016 # literal backticks are the fixture input.
+printf '\n- DD-999: Historical location was `docs/old-target.md`.\n' >>"$d/docs/LEDGER_D.md"
+(cd "$d" && git add docs/old-target.md docs/LEDGER_D.md && git commit -qm historical-ledger-path)
+(cd "$d" && git rm -q docs/old-target.md && git commit -qm remove-target)
+printf '\nUnrelated later work.\n' >>"$d/docs/RUNBOOK.md"
+(cd "$d" && git add docs/RUNBOOK.md && git commit -qm later-work)
+expect pass "path-refs: the exemption persists across later commits" "$d" path-refs.sh \
+	"2 historical ledger path drift exemption(s)"
+
+# (7) The precise thing this must NOT do: exempt a reference because the pathname existed at
+# SOME point. Here the target was already gone when the row was introduced, so the citation was
+# invalid at authoring and no amount of history makes it valid.
+d=$(snapshot refs_row_authored_after_target_left)
+printf '# old target\n' >"$d/docs/old-target.md"
+(cd "$d" && git add docs/old-target.md && git commit -qm old-target)
+(cd "$d" && git rm -q docs/old-target.md && git commit -qm remove-target)
+# shellcheck disable=SC2016 # literal backticks are the fixture input.
+printf '\n- DD-999: Reference authored too late is `docs/old-target.md`.\n' >>"$d/docs/LEDGER_D.md"
+(cd "$d" && git add docs/LEDGER_D.md && git commit -qm late-row)
+expect fail "path-refs: a target already absent when the row was authored still fails" "$d" \
+	path-refs.sh "nonexistent path"
+
+# …and the uncommitted form of the same mistake, which is where it should normally be caught.
 d=$(snapshot refs_new_reference_to_deleted_old_path)
 printf '# old target\n' >"$d/docs/old-target.md"
 (cd "$d" && git add docs/old-target.md && git commit -qm old-target)
@@ -847,19 +957,129 @@ printf '\n- DD-999: New reference is `docs/old-target.md`.\n' >>"$d/docs/LEDGER_
 expect fail "path-refs: a new row cannot inherit a historical target exemption" "$d" path-refs.sh \
 	"nonexistent path"
 
+# (8) The motivating case in its real shape: a completed plan retired from docs/plans/ to
+# docs/history/ while an immutable row keeps naming the old location. The archive-or-delete step
+# is what used to be impossible.
+d=$(snapshot refs_retired_plan_rename)
+mkdir -p "$d/docs/plans"
+printf '# plan\n' >"$d/docs/plans/retired-plan.md"
+# shellcheck disable=SC2016 # literal backticks are the fixture input.
+printf '\n- DD-999: Drafted under `docs/plans/retired-plan.md` before the rule existed.\n' \
+	>>"$d/docs/LEDGER_D.md"
+(cd "$d" && git add docs/plans docs/LEDGER_D.md && git commit -qm plan-and-row)
+(cd "$d" && git mv docs/plans/retired-plan.md docs/history/retired-plan.md &&
+	git commit -qm archive-the-plan)
+expect pass "path-refs: archiving a plan an immutable row names keeps the tree green" "$d" \
+	path-refs.sh "2 historical ledger path drift exemption(s)"
+
+# (9) All three citation forms the guard resolves, each after a COMMITTED removal. Two of them
+# were already covered above (backticked path in (5), the plan rename in (8) is the same form);
+# these are the markdown link and the bare filename, which resolves by basename against the whole
+# tree and so needs the historical commit's tree read, not one path looked up in it.
 d=$(snapshot refs_historical_ledger_link)
 printf '# old target\n' >"$d/docs/old-target.md"
 printf '\n- DD-999: Historical [location](old-target.md).\n' >>"$d/docs/LEDGER_D.md"
 (cd "$d" && git add docs/old-target.md docs/LEDGER_D.md && git commit -qm historical-ledger-link)
-rm "$d/docs/old-target.md"
-expect pass "path-refs: a committed ledger link may drift after a rename" "$d" path-refs.sh \
-	"1 historical ledger path drift exemption(s)"
+(cd "$d" && git rm -q docs/old-target.md && git commit -qm remove-target)
+expect pass "path-refs: a committed ledger link survives the removal commit" "$d" path-refs.sh \
+	"2 historical ledger path drift exemption(s)"
 
-d=$(snapshot refs_new_broken_ledger_path)
+d=$(snapshot refs_historical_ledger_bare_name)
+printf '# old target\n' >"$d/docs/old-target.md"
 # shellcheck disable=SC2016 # literal backticks are the fixture input.
-printf '\n- DD-999: Missing location is `docs/never-existed.md`.\n' >>"$d/docs/LEDGER_D.md"
-expect fail "path-refs: a new ledger path must resolve when authored" "$d" path-refs.sh \
+printf '\n- DD-999: Historical location was `old-target.md`.\n' >>"$d/docs/LEDGER_D.md"
+(cd "$d" && git add docs/old-target.md docs/LEDGER_D.md && git commit -qm historical-bare-name)
+(cd "$d" && git rm -q docs/old-target.md && git commit -qm remove-target)
+expect pass "path-refs: a committed bare filename survives the removal commit" "$d" path-refs.sh \
+	"2 historical ledger path drift exemption(s)"
+
+# …and the bare form does not become a blanket amnesty: a name that never existed anywhere still
+# fails from a committed row, exactly as the path form does in (3).
+d=$(snapshot refs_committed_bare_name_never_existed)
+# shellcheck disable=SC2016 # literal backticks are the fixture input.
+printf '\n- DD-999: Missing bare name is `never-existed-anywhere.md`.\n' >>"$d/docs/LEDGER_D.md"
+(cd "$d" && git add docs/LEDGER_D.md && git commit -qm committed-bad-bare-name)
+expect fail "path-refs: a committed bare name that never existed still fails" "$d" path-refs.sh \
+	"no file by that name"
+
+# (10) Ordinary documentation is editable, so it FOLLOWS a target that moves and gets no
+# exemption — committed or not. Without this the fix would quietly turn a documentation link
+# checker into a no-op for anything already merged.
+d=$(snapshot refs_committed_doc_path_no_exemption)
+printf '# old target\n' >"$d/docs/old-target.md"
+# shellcheck disable=SC2016 # literal backticks are the fixture input.
+printf '\nSee `docs/old-target.md` for the details.\n' >>"$d/docs/RUNBOOK.md"
+(cd "$d" && git add docs/old-target.md docs/RUNBOOK.md && git commit -qm doc-path)
+(cd "$d" && git rm -q docs/old-target.md && git commit -qm remove-target)
+expect fail "path-refs: ordinary documentation still follows a moved target" "$d" path-refs.sh \
 	"nonexistent path"
+
+# (11) A ledger volume's PREAMBLE is editable legislation, not an immutable row, so a reference
+# there follows the target too. The fixture writes above the first row header, which is exactly
+# how the guard tells preamble from row.
+d=$(snapshot refs_ledger_preamble_no_exemption)
+printf '# old target\n' >"$d/docs/old-target.md"
+# shellcheck disable=SC2016 # literal backticks are the fixture input.
+awk '/^- DD-001/ && !done { print "> Preamble note: see `docs/old-target.md`."; print ""; done = 1 } { print }' \
+	"$d/docs/LEDGER_D.md" >"$d/docs/LEDGER_D.md.new" &&
+	mv "$d/docs/LEDGER_D.md.new" "$d/docs/LEDGER_D.md"
+(cd "$d" && git add docs/old-target.md docs/LEDGER_D.md && git commit -qm preamble-path)
+(cd "$d" && git rm -q docs/old-target.md && git commit -qm remove-target)
+expect fail "path-refs: a ledger preamble reference gets no historical exemption" "$d" \
+	path-refs.sh "nonexistent path"
+
+# (12) The unknown verdict. A shallow checkout's boundary commit is grafted to look parentless,
+# so every file in it reads as "added here" and the pickaxe would name it for a row it did not
+# introduce; with no default-branch baseline carrying the row either, nothing in this checkout
+# can classify the citation. WARN is the only honest answer — a failure would redden a clean tree
+# over a property of the CHECKOUT, and a pass would report "I did not manage to look" as
+# author-time proof (DC-002's direction rule).
+d=$(snapshot refs_unclassifiable_history)
+printf '# old target\n' >"$d/docs/old-target.md"
+# shellcheck disable=SC2016 # literal backticks are the fixture input.
+printf '\n- DD-999: Historical location was `docs/old-target.md`.\n' >>"$d/docs/LEDGER_D.md"
+(cd "$d" && git add docs/old-target.md docs/LEDGER_D.md && git commit -qm historical-ledger-path)
+(cd "$d" && git rm -q docs/old-target.md && git commit -qm remove-target)
+shallow="$WORK/refs_unclassifiable_history_shallow"
+git clone -q --depth 1 "file://$d" "$shallow" 2>/dev/null
+# The remote goes and the branch is renamed, so neither `origin/main` nor `main` resolves: the
+# baseline fallback that rescues a real shallow CI checkout is deliberately withdrawn here, or
+# this case would assert the fallback rather than the unknown state.
+(cd "$shallow" && git remote remove origin && git branch -m truncated)
+expect warn "path-refs: missing history is reported as unknown, never as a verdict" "$shallow" \
+	path-refs.sh "could NOT be classified"
+
+# …and a baseline that RESOLVES is not automatically a baseline that says anything. Here the same
+# shallow checkout is given a `main` pointing at its own HEAD: the ref now resolves, and "the row
+# is in the baseline" degrades to "the row is committed", which is true of every row that reaches
+# this arm. The verdict must stay unknown. Without this case the fallback would read as tested
+# while its one degenerate shape — a shallow clone of the default branch, and CI on that branch —
+# silently reported never-valid citations as settled historical drift.
+shallow_degenerate="$WORK/refs_shallow_degenerate_baseline"
+git clone -q --depth 1 "file://$d" "$shallow_degenerate" 2>/dev/null
+(cd "$shallow_degenerate" && git remote remove origin && git branch -f main HEAD)
+expect warn "path-refs: a baseline equal to HEAD is not evidence" "$shallow_degenerate" \
+	path-refs.sh "could NOT be classified"
+
+# The informative direction is asserted by every other case in this suite: `snapshot` puts main
+# one commit behind HEAD, so this repository's own DC-033 drift takes exactly this arm — a
+# parentless import commit, then a baseline that differs from HEAD and carries the row — and is
+# the `+1` in every exemption count above.
+
+# The regression direction, demonstrated rather than asserted. Restoring the old `HEAD:<target>`
+# test is a one-token mutation — ask the question of HEAD instead of of the commit that
+# introduced the row — and the committed-removal case (5) must go red under it. A fixture that
+# cannot fail against the previous implementation proves nothing (RUNBOOK playbook 3).
+d=$(snapshot refs_regression_head_target)
+printf '# old target\n' >"$d/docs/old-target.md"
+# shellcheck disable=SC2016 # literal backticks are the fixture input.
+printf '\n- DD-999: Historical location was `docs/old-target.md`.\n' >>"$d/docs/LEDGER_D.md"
+(cd "$d" && git add docs/old-target.md docs/LEDGER_D.md && git commit -qm historical-ledger-path)
+(cd "$d" && git rm -q docs/old-target.md && git commit -qm remove-target)
+# shellcheck disable=SC2016 # the literal `$intro` is the token being mutated, not an expansion.
+sed_in_place 's/target_exists_at "$intro"/target_exists_at HEAD/' "$d/scripts/guards/path-refs.sh"
+expect fail "path-refs: the old HEAD:<target> test fails the committed-removal case" "$d" \
+	path-refs.sh "nonexistent path"
 
 # A file name with a space: `for f in $files` word-splits it away, and the guard then
 # prints a resolved count and a green line for a file it never opened.
@@ -875,6 +1095,23 @@ mkdir -p "$d/docs/plans"
 # shellcheck disable=SC2016 # literal backticks: same fixture form as above.
 printf 'Build `scripts/does-not-exist.sh` next.\n' >"$d/docs/plans/future.md"
 expect pass "path-refs: a plan may name a path it has not built yet" "$d" path-refs.sh
+
+# The docs/history exclusion is the mirror hole, and it exists because the archive is FROZEN.
+# Without it a path named in an archived document that later moves reds the tree, and the only
+# repair is editing a file the archive's own README forbids editing — DD-004's trap one tier
+# down. Two assertions, because the exclusion has to be bounded as well as present: an archived
+# document may name a path that no longer resolves, and the same citation in an ordinary
+# document still fails.
+d=$(snapshot refs_history_excluded)
+# shellcheck disable=SC2016 # literal backticks: same fixture form as above.
+printf 'It ran `scripts/does-not-exist.sh` at the time.\n' >"$d/docs/history/2020-01-01-retired.md"
+expect pass "path-refs: an archived document may name a path that has since moved" "$d" path-refs.sh
+
+d=$(snapshot refs_history_exclusion_is_bounded)
+# shellcheck disable=SC2016 # literal backticks: same fixture form as above.
+printf 'It ran `scripts/does-not-exist.sh` at the time.\n' >"$d/docs/not-history.md"
+expect fail "path-refs: the archive exclusion does not leak to ordinary documents" "$d" \
+	path-refs.sh "nonexistent path"
 
 # A bare filename with no slash. The backtick pattern required an embedded slash, so a
 # repo-ROOT file could not match it and a citation to one could never fail — which is how

@@ -20,10 +20,11 @@
 > never move. The live volume's byte size is measurement only: it is reported but never judged.
 > Boundaries determine when machinery intervenes, not how much content an author should produce.
 >
-> **Paths in rows.** A new path reference must resolve when authored. If a committed row's path
-> later moves or disappears, leave the historical text immutable, append a correction pointer
-> when meaning changed, and update editable documentation. The local path guard exempts only a
-> reference whose exact token and target both existed at HEAD; it continues to reject new nonexistent paths.
+> **Paths in rows.** A row's immutability covers its text, not the lifetime or location of a file
+> it names. A new path reference must resolve in the tree where the row is authored; a committed
+> row's target may later move or disappear, and that drift leaves the historical text alone.
+> Append a correction pointer only when meaning changed, and update editable documentation —
+> including this preamble — to follow the target. New nonexistent paths are still rejected.
 >
 > **Citations.** Bare ledger IDs resolve through the volume chain. A row cited from configured
 > code or workflow scan paths carries ` [cited]`; the ladder checks that marker in both
@@ -37,4 +38,7 @@
 - DD-002: **Opening a new live ledger volume changes the baseline of fixtures that append rows.**
   Any fixture that means “live volume” must follow the chain rather than retain the formerly live
   file and prefix; expected diagnostics must also change when a verdict is deliberately narrowed.
-- DD-003: **Threshold names must describe behavior, while immutable path prose needs an author-time check and a historical-drift exemption.** State warning and edit-delta values are triggers, state hard and ledger row limits are rejection boundaries, compression results satisfy post-action ceilings, ledger lines define a rollover boundary, and live-volume bytes are measurement only. A ledger path must resolve when authored, but after a committed target moves the row stays immutable and the path guard exempts only a reference and target both demonstrably present at HEAD; editable prose follows the rename and a correction row records changed meaning.
+- DD-003 [cited]: **Threshold names must describe behavior, while immutable path prose needs an author-time check and a historical-drift exemption.** State warning and edit-delta values are triggers, state hard and ledger row limits are rejection boundaries, compression results satisfy post-action ceilings, ledger lines define a rollover boundary, and live-volume bytes are measurement only. A ledger path must resolve when authored, but after a committed target moves the row stays immutable and the path guard exempts only a reference and target both demonstrably present at HEAD; editable prose follows the rename and a correction row records changed meaning.
+  Corrected by DD-004.
+- DD-004 [cited]: **A ledger row's immutability covers its text, not the lifetime or location of a file it names.** Reading a committed citation as a retention rule for another tier's file kept a completed plan out of the archive for two releases, and 13.0.0's exemption tested the reference and the target at HEAD, so it survived only until the removal was itself committed. A path reference must resolve in the tree where its row is authored; a later move or deletion is historical drift, so `scripts/guards/path-refs.sh` now classifies a missing target against the commit that introduced the citing row. A parentless introducing commit — a shallow boundary or a squash import — settles nothing, so the guard falls back to the default-branch baseline and then to an explicit WARN rather than reporting an unread history as author-time proof or as a newly broken path. Editable prose follows a target that moves, ledger preambles included, and new rows still may not cite a plan's path, because a plan is provisional context whose citation dies when it retires.
+- DD-005 [cited]: **A frozen tier must be excluded from path scanning, or it inherits the trap immutability just escaped.** `scripts/guards/path-refs.sh` scanned docs/history/ while the archive's own README and AMH P2 forbid editing what is in it, so a path named in an archived document that later moved could only be repaired by an edit the rules prohibit. The exclusion mirrors the plan tier's, which exists because a plan describes a tree that does not exist yet: an archive describes one that no longer does. Owner, 2026-09-02, choosing this over dropping the frozen rule so history could follow renames — the archive's whole value is that it does not change.

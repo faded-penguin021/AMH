@@ -27,10 +27,11 @@ shipped bug teaches session N+9's review pass.
 > never move. The live volume's byte size is measurement only: it is reported but never judged.
 > Boundaries determine when machinery intervenes, not how much content an author should produce.
 >
-> **Paths in rows.** A new path reference must resolve when authored. If a committed row's path
-> later moves or disappears, leave the historical text immutable, append a correction pointer
-> when meaning changed, and update editable documentation. The local path guard exempts only a
-> reference whose exact token and target both existed at HEAD; it continues to reject new nonexistent paths.
+> **Paths in rows.** A row's immutability covers its text, not the lifetime or location of a file
+> it names. A new path reference must resolve in the tree where the row is authored; a committed
+> row's target may later move or disappear, and that drift leaves the historical text alone.
+> Append a correction pointer only when meaning changed, and update editable documentation —
+> including this preamble — to follow the target. New nonexistent paths are still rejected.
 >
 > **Citations.** Bare ledger IDs resolve through the volume chain. A row cited from configured
 > code or workflow scan paths carries ` [cited]`; the ladder checks that marker in both
