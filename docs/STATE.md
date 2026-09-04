@@ -33,8 +33,7 @@ Operational gotchas:
   the squash message before merging; the guard checks commits on a branch, not the message the
   forge composes at merge time (**DC-040**).
 - Nothing checks that every version with a changelog entry actually got a tag, so a merged
-  release can sit untagged with every rung green (**DA-010**). The release Owner-queue item below
-  carries the command that settles it for this version.
+  release can sit untagged with every rung green (**DA-010**).
 
 ## Owner queue
 
@@ -42,19 +41,6 @@ Operational gotchas:
 > Items leave only when done, answered or triaged — then delete the item and record the outcome
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
-
-**PENDING OWNER ACTION — merge this branch, then tag 14.0.0, in that order.** The tree declares
-14.0.0 and the changelog carries its entry; both steps are yours. Merge
-`claude/state-ledger-mutability-qvj27g` into `main` first, then tag the merge commit — tagging
-before the merge points the release at a commit `main` never gets, and the README's clone command
-targets `amh-v14.0.0`, so until the tag exists that documented install 404s (**DA-010**). Edit the
-squash message before merging: a poison token in it suppresses the release commit's CI run
-(**DC-040**). Expected, not observed — no session here can inspect a forge setting with the tools
-this harness assumes — `main` protection requires the `ladder` check; if that is no longer so, the
-merge gate is not what this assumes.
-Check: `git ls-remote --tags origin 'refs/tags/amh-v14.0.0'` — a line back means the tag is cut;
-confirm it sits on `main`'s history before closing, since the check cannot see the ordering this
-item exists to enforce.
 
 **OPEN — the `printf | grep -q` class survives at 39 further sites, and 10 are NOT fixture
 harnesses.** Unit 3 fixed the two with reachable unbounded input; the residue is safe on BOUNDED,
@@ -96,6 +82,11 @@ from.
   judges a State sentence's temporal validity (**DD-006**).
 
 ## Changelog
+
+- 2026-09-04 — **14.0.0 is merged and tagged.** Observed this date: `amh-v14.0.0` resolves to
+  `35df502`, the tip of `main` and an ancestor of it, so the tag sits on `main`'s history in the
+  order **DA-010** required. Closes the release Owner-queue item; the README's documented clone
+  target now exists.
 
 - 2026-09-02 — **14.0.0: working memory is tree-relative.** `Current state` records what stays
   true of the checked-out tree and stops caching merge, tag, release, CI and forge-setting status;
