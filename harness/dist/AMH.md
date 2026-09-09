@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 14.0.0.** Repos that adopt it record the version they took
+**Harness version 14.1.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -1970,7 +1970,7 @@ A worked adapter, for Claude Code:
 
 ``````
 {
-  "$comment": "AMH adapter for Claude Code — wiring only, no logic. All behaviour lives in AGENTS.md and scripts/. Layers this adapter provides: an instructive pre-execution command guard, a per-spawn speed bump on the Task tool, static deny rails, and pre-allowed verification commands. It does NOT provide output redaction: Claude Code has no output-filter hook, so scripts/redact.sh stays available for manual piping and is what the ladder's secret scan uses. Be honest about this per adapter. The owner mirrors the hardest rails server-side (branch protection, secret-scanning push protection) — these rules bind only agents that load them.",
+  "$comment": "AMH adapter for Claude Code — wiring only, no logic. All behaviour lives in AGENTS.md and scripts/. Layers this adapter provides: an instructive pre-execution command guard, a per-spawn speed bump on the Task tool, static deny rails, and pre-allowed verification commands. It does NOT provide output redaction: Claude Code has no output-filter hook, so scripts/redact.sh stays available for manual piping and is what the ladder's secret scan uses. Be honest about this per adapter. The owner mirrors the hardest rails server-side (branch protection, secret-scanning push protection) — these rules bind only agents that load them. Every hook pins its shell with the `shell` field set to bash. Shell form otherwise resolves per host — the vendor documents the POSIX default both as bash and as `sh -c` — and falls back to PowerShell on Windows when Git Bash is not discoverable; there a bare `.sh` path goes to the Git for Windows file association, whose windowed launcher opens a detached terminal and returns 0 with no output, which is the one broken-hook shape nothing reports. That path needs Git for Windows installed while its bash is not discoverable by the harness process; with no Git for Windows at all, PowerShell cannot resolve the path and is already loud. The pin is inert wherever this adapter already works — each command here is a path plus a literal argument, and each script names its own interpreter in its shebang. Read what it does NOT reach: SessionStart and the Task speed bump fire on any host, but the command guard's Bash matcher does not fire at all on Windows without Git Bash, because no Bash tool is registered there and shell commands are routed through PowerShell instead. Widening that matcher is the documented remedy and is deliberately NOT done here — the guard has no Windows-shell arm, so it would read PowerShell with a bash-shaped parser (AMH ledger row DD007).",
   "permissions": {
     "allow": [
       "Bash(scripts/ladder.sh)",
@@ -2039,6 +2039,7 @@ A worked adapter, for Claude Code:
         "hooks": [
           {
             "type": "command",
+            "shell": "bash",
             "command": "scripts/session-start.sh"
           }
         ]
@@ -2050,6 +2051,7 @@ A worked adapter, for Claude Code:
         "hooks": [
           {
             "type": "command",
+            "shell": "bash",
             "command": "scripts/command-guard.sh"
           }
         ]
@@ -2059,6 +2061,7 @@ A worked adapter, for Claude Code:
         "hooks": [
           {
             "type": "command",
+            "shell": "bash",
             "command": "scripts/command-guard.sh --pre-task"
           }
         ]

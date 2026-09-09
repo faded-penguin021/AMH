@@ -16,12 +16,13 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 14.0.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 14.1.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-This tree declares **14.0.0**: ledger rows pin their text rather than the files they name, and
-working memory is tree-relative (**DD-004**, **DD-006**). Whether that version is tagged or
+This tree declares **14.1.0**: the Claude adapter pins the shell its hooks run under, so that
+layer cannot be silently downgraded per host — and states where the pin does not reach
+(**DD-007**). Whether that version is tagged or
 released is not recorded here — `scripts/session-start.sh` probes it every session and reports
 present, absent or could-not-ask, which is the only answer that can be right twice.
 
@@ -43,18 +44,37 @@ Operational gotchas:
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**PENDING OWNER ACTION — merge this branch, then tag 14.0.0, in that order.** The tree declares
-14.0.0 and the changelog carries its entry; both steps are yours. Merge
-`claude/state-ledger-mutability-qvj27g` into `main` first, then tag the merge commit — tagging
-before the merge points the release at a commit `main` never gets, and the README's clone command
-targets `amh-v14.0.0`, so until the tag exists that documented install 404s (**DA-010**). Edit the
-squash message before merging: a poison token in it suppresses the release commit's CI run
-(**DC-040**). Expected, not observed — no session here can inspect a forge setting with the tools
-this harness assumes — `main` protection requires the `ladder` check; if that is no longer so, the
-merge gate is not what this assumes.
-Check: `git ls-remote --tags origin 'refs/tags/amh-v14.0.0'` — a line back means the tag is cut;
+**PENDING OWNER ACTION — merge this branch, then tag 14.1.0, in that order.** The tree declares
+14.1.0 and the changelog carries its entry; both steps are yours. Merge
+`session/relaxed-mccarthy-da2hvm` into `main` first, then tag the merge commit — tagging before the
+merge points the release at a commit `main` never gets, and the README's clone command targets
+`amh-v14.1.0`, so until the tag exists that documented install 404s (**DA-010**). Edit the squash
+message before merging: a poison token in it suppresses the release commit's CI run (**DC-040**).
+Expected, not observed — no session here can inspect a forge setting with the tools this harness
+assumes — `main` protection requires the `ladder` check; if that is no longer so, the merge gate is
+not what this assumes.
+Check: `git ls-remote --tags origin 'refs/tags/amh-v14.1.0'` — a line back means the tag is cut;
 confirm it sits on `main`'s history before closing, since the check cannot see the ordering this
 item exists to enforce.
+
+**OPEN — the hook-shell pin is unverified on the one host it is for.** 14.1.0 sets the `shell`
+field to bash on all three Claude hooks so a Windows host whose Git Bash is undiscoverable fails
+loudly rather than silently; what such a host actually PRINTS was never observed, here or in the
+report that prompted it (**DD-007**). Settling it takes a clean Windows VM with Git for Windows
+installed but its bash off `PATH`, a pinned agent version, and an A/B of the adapter with and
+without the field, read from the agent's debug log. No check until someone runs that host.
+
+**OWNER FORK — should the command guard's `PreToolUse` matcher widen from `Bash` to
+`Bash|PowerShell`?** On Windows without Git Bash the agent registers no Bash tool and routes shell
+commands through PowerShell, so the guard's hook never fires there at all — an absence that predates
+the shell fallback and that no `shell` value cures (**DD-007**). The vendor documents the widened
+matcher as the remedy. Not taken here, because it would hand PowerShell command text to a parser
+built for bash, and the guard still has no Windows-shell arm — the same gap two reported incidents
+sit in (**DC-027**). Options: (a) leave it, and the guard is honestly absent on that host; (b)
+widen the matcher and accept a bash-shaped parser reading PowerShell, which fails open on shapes it
+cannot parse; (c) build the Windows arm first, then widen. Recommendation: (c), with (a) until
+then — (b) buys coverage that looks real and is not. Check: `grep -n '"matcher"' .claude/settings.json`
+— still `Bash` alone means this is unresolved.
 
 **OPEN — the `printf | grep -q` class survives at 39 further sites, and 10 are NOT fixture
 harnesses.** Unit 3 fixed the two with reachable unbounded input; the residue is safe on BOUNDED,
@@ -96,6 +116,15 @@ from.
   judges a State sentence's temporal validity (**DD-006**).
 
 ## Changelog
+
+- 2026-09-09 — **14.1.0: the Claude adapter pins the shell its hooks run under, and says where
+  the pin stops.** All three hooks set the `shell` field to bash, so a host whose Git Bash is
+  undiscoverable fails visibly instead of handing a bare `.sh` to a file association that opens
+  a detached window and returns 0. The rule-review pass then established that the command
+  guard's `Bash` matcher never fires on that host at all, which the release states and queues as
+  an owner fork rather than fixing under cover of a shell pin (**DD-007**). Observed 2026-09-09
+  while closing the previous release item: 14.0.0 is merged and `amh-v14.0.0` sits on `main`'s
+  history.
 
 - 2026-09-02 — **14.0.0: working memory is tree-relative.** `Current state` records what stays
   true of the checked-out tree and stops caching merge, tag, release, CI and forge-setting status;

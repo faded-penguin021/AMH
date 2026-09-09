@@ -11,6 +11,45 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 14.1.0 — 2026-09-09
+
+- **The Claude adapter pins the shell its hooks run under.** Hook shell form resolves per host and
+  falls back to PowerShell on Windows when Git Bash is not discoverable; there a bare `.sh` path is
+  handed to the Git for Windows file association, whose windowed launcher opens a detached terminal
+  and returns 0 with no output. A hook that fails that way is invisible: no `127`, no
+  non-blocking-error notice, where every other broken hook is loud. All three shipped hooks now set
+  the `shell` field to bash, which is inert on every host where the adapter already works — each
+  command is a path plus a literal argument, and each script names its own interpreter in its
+  shebang. Two bounds this release states rather than hides: the silent path needs Git for Windows
+  installed while its bash is undiscoverable, since that package owns both the association and the
+  shell, and the diagnostic a host with no Bash actually prints was never observed — the mechanism
+  was measured by running the adapter's command strings through PowerShell by hand, on a host that
+  HAS Git Bash.
+- **The pin does not reach the command guard on the host it is for, and this release says so.** On
+  Windows without Git Bash no Bash tool is registered at all and shell commands route through
+  PowerShell, so a `PreToolUse` hook matching only `Bash` never fires — the guard's absence there
+  predates any shell fallback and no `shell` value can cure it. The documented remedy is to match
+  `Bash|PowerShell`, and it is deliberately not taken here: the command guard has no Windows-shell
+  arm, so a widened matcher would hand PowerShell command text to a bash-shaped parser. That is an
+  owner's call and is queued as one.
+- **The Windows toolchain note describes the machine, not the terminal.** Git Bash must be present
+  and discoverable by whatever process runs the scripts, which need not be the terminal an operator
+  opened.
+
+### Upgrading
+
+Copy the shipped scripts normally; no shipped script changed behaviour in this release, but the
+manifest header carries the version, so copy `MANIFEST.sha256` beside them.
+
+Then, by hand, and only if you installed the Claude adapter: add `"shell": "bash"` beside each
+hook's `"type": "command"` in your `.claude/settings.json`, taking the reason from the `$comment`
+in the 14.1.0 `harness/templates/configs/claude-settings.json`. Nothing in your ladder checks
+this — the adapter file is yours once installed, and on a host that already runs Bash it is a
+no-op you may skip. Check that your agent documents the `shell` hook field before adding it; how an
+older version treats an unknown key is not something this repository has tested. If you support
+Windows users without Git Bash, read the second bullet above before assuming your command guard
+runs there.
+
 ## 14.0.0 — 2026-09-02
 
 - **A ledger row's immutability covers its text, not the files it names.** A committed path
