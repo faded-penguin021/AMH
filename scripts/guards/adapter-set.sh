@@ -109,5 +109,63 @@ if [ "$(printf '%s\n' "$pretool_hook" | grep -cF 'scripts/command-guard.sh')" -n
 	note "Codex PreToolUse hook must invoke only the shipped agent-neutral command-guard.sh"
 fi
 
+# The Claude adapter pins the interpreter each hook runs under. That pin is a HAND step for
+# adopters, and until this check nothing anywhere reported its absence: an unpinned hook still
+# exists and still matches, and where the agent's Git-bash discovery fails it hands a bare `.sh`
+# to the Windows file association, which runs it DETACHED under a windowed launcher and reports
+# rc=0 with zero bytes. The work lands where nobody is listening while the caller reads a verdict
+# it never got — so for a guard hook that denies with a non-zero exit, a block silently becomes
+# an allow (DD-008, DD-013).
+#
+# Both ways of getting the pin wrong are equally quiet, which is why this insists on the exact
+# literal rather than on the key alone: a misspelled KEY is stripped and the entry survives
+# UNPINNED, while a recognised key with an invalid VALUE fails the schema's enum and drops the
+# whole hook entry, so a typo here removes a rail outright (DD-011).
+#
+# Structural by necessity — no JSON parser is in the dependency floor — so the pin test reads
+# lines and can only speak for entries written in the shipped one-key-per-line layout. That makes
+# the POPULATION count the load-bearing half: it is taken layout-independently and reconciled
+# against what the line matcher actually consumed, because the dangerous shape is not a file this
+# guard cannot read at all (loud) but one it can read PARTLY — three tidy entries and a fourth,
+# hand-written or reformatted by the adopter applying this very step, that the matcher never sees
+# and therefore never reports. An entry it cannot read is UNVERIFIED, never passed.
+claude_files=0
+claude_hooks=0
+for declaration in "${ADAPTERS[@]}"; do
+	case $declaration in
+	*claude-settings.json*) ;;
+	*) continue ;;
+	esac
+	for settings in "${declaration%|*}" "${declaration#*|}"; do
+		# Its absence is already reported by the loop above; do not say it twice.
+		[ -f "$settings" ] || continue
+		claude_files=$((claude_files + 1))
+		# Occurrences, not matching lines: a minified entry can carry several on one line, and
+		# counting lines there would undercount the population and hide the difference below.
+		# A `grep` that dies yields 0 and lands in the checked-NOTHING branch, never in a pass.
+		total=$(grep -o '"type"[[:space:]]*:[[:space:]]*"command"' "$settings" | wc -l | tr -d ' ')
+		shaped=$(grep -c '^[[:space:]]*"type": "command",$' "$settings")
+		# `pending` still set at EOF is an entry that opened and never got its next line — a
+		# truncated file. Counted as unpinned rather than silently dropped.
+		unpinned=$(awk '
+			/^[[:space:]]*"type": "command",$/ { pending = 1; next }
+			pending { if ($0 !~ /^[[:space:]]*"shell": "bash",$/) bad++; pending = 0 }
+			END { if (pending) bad++; print bad + 0 }
+		' "$settings")
+		if [ "$total" -eq 0 ]; then
+			note "$settings: checked NOTHING — not one \"type\": \"command\" entry found at any layout. Either this adapter declares no hooks at all or this guard has stopped reading the file it checks, and from a green run those look identical"
+		elif [ "$shaped" -ne "$total" ]; then
+			note "$settings: checked NOTHING for $((total - shaped)) of $total command hook entry(ies) — they are not in the one-key-per-line layout this guard can read, so their pin is UNVERIFIED, not present. Re-indent them to one key per line, or teach this guard the new layout; never assume the unread ones are fine"
+		elif [ "$unpinned" -ne 0 ]; then
+			note "$settings: $unpinned of $total command hook(s) are not followed by the exact line \"shell\": \"bash\" — an unpinned hook can be handed to the Windows file association, which runs it detached and reports rc=0, turning a guard's deny into an allow (DD-008); a misspelled key leaves the entry unpinned, an invalid value drops the entry outright (DD-011)"
+		else
+			claude_hooks=$((claude_hooks + total))
+		fi
+	done
+done
+if [ "$claude_files" -eq 0 ]; then
+	note "checked NOTHING for the Claude shell pin — no Claude adapter file was reached at all. The set above no longer names one, so this check iterated zero times while reporting nothing"
+fi
+
 [ "$fails" -eq 0 ] || exit 1
-printf 'first-class adapter set is complete across sources, reference paths, installation and legislation\n'
+printf 'first-class adapter set is complete across sources, reference paths, installation and legislation; %s Claude command hook(s) across %s file(s) pin shell=bash\n' "$claude_hooks" "$claude_files"

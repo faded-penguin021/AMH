@@ -664,6 +664,49 @@ d=$(snapshot adapter_banner_stale_entry)
 sed_in_place "s|^ADAPTER_FILES='|ADAPTER_FILES='.zed/settings.json |" "$d/amh.conf"
 expect fail "adapter-set: the banner lists a file outside the adapter set" "$d" adapter-set.sh "not in the first-class adapter set"
 
+# The Claude `shell` pin is a HAND step with no other reporter, and every mutation below is
+# silent at runtime: an unpinned hook still exists and still matches, and the association route
+# that catches it runs the script detached and returns 0 (DD-008, DD-011, DD-013).
+d=$(snapshot adapter_claude_pin_gone)
+sed_in_place '/^[[:space:]]*"shell": "bash",$/d' "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: the Claude shell pin was dropped from the template" "$d" adapter-set.sh \
+	"3 of 3 command hook(s) are not followed by"
+
+# Exactly ONE entry, so a check that merely counted pins somewhere in the file would pass this.
+d=$(snapshot adapter_claude_pin_value_wrong)
+sed_in_place '/"SessionStart"/,/session-start.sh/ s/"shell": "bash",/"shell": "Bash",/' "$d/.claude/settings.json"
+expect fail "adapter-set: an invalid Claude shell VALUE drops the whole hook entry" "$d" adapter-set.sh \
+	"1 of 3 command hook(s) are not followed by"
+
+d=$(snapshot adapter_claude_pin_key_misspelled)
+sed_in_place 's/"shell": "bash",/"shel": "bash",/' "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: a misspelled Claude shell KEY leaves the entry unpinned" "$d" adapter-set.sh \
+	"3 of 3 command hook(s) are not followed by"
+
+# The hollow branch. Without it a settings file this guard can no longer parse — reformatted,
+# keys renamed, rewritten by a future adapter version — reports a pin it never actually read.
+d=$(snapshot adapter_claude_pin_unreadable)
+sed_in_place 's/"type": "command",/"kind": "command",/' "$d/.claude/settings.json"
+expect fail "adapter-set: a Claude settings file this guard cannot parse is not a pass" "$d" adapter-set.sh \
+	"checked NOTHING"
+
+# The dangerous shape is not a file this guard cannot read at all — that is loud — but one it
+# reads PARTLY: tidy entries beside one the line matcher never sees. Before the population count
+# was reconciled layout-independently, both mutations below produced valid JSON with a genuinely
+# unpinned command-guard hook and a guard that exited 0 (DD-013).
+d=$(snapshot adapter_claude_pin_unreadable_entry)
+sed_in_place '/"SessionStart"/,/session-start.sh/ s/"type": "command",/"type":"command",/' "$d/.claude/settings.json"
+expect fail "adapter-set: one entry outside the readable layout is UNVERIFIED, not passed" "$d" adapter-set.sh \
+	"checked NOTHING for 1 of 3"
+
+# An entry that opens and never gets its next line: without the awk END arm this counted a hook
+# and found nothing unpinned, so a truncated adapter file passed.
+d=$(snapshot adapter_claude_pin_truncated)
+sed -n '1,/"type": "command",/p' "$d/.claude/settings.json" >"$d/.claude/settings.json.cut"
+mv "$d/.claude/settings.json.cut" "$d/.claude/settings.json"
+expect fail "adapter-set: a file truncated after a hook opens is not a pass" "$d" adapter-set.sh \
+	"1 of 1 command hook(s) are not followed by"
+
 d=$(snapshot drift_dist)
 printf 'hand edit\n' >>"$d/harness/dist/AMH.md"
 expect fail "dist-drift: a hand-edited bundle" "$d" dist-drift.sh "stale or hand-edited"

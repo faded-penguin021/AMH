@@ -34,8 +34,8 @@ Operational gotchas:
   the squash message before merging; the guard checks commits on a branch, not the message the
   forge composes at merge time (**DC-040**).
 - Nothing checks that every version with a changelog entry actually got a tag, so a merged
-  release can sit untagged with every rung green (**DA-010**). The release Owner-queue item below
-  carries the command that settles it for this version.
+  release can sit untagged with every rung green (**DA-010**). `scripts/session-start.sh` probes
+  the current version's tag every session; `git ls-remote --tags origin` settles any other.
 
 ## Owner queue
 
@@ -44,24 +44,13 @@ Operational gotchas:
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**PENDING OWNER ACTION — merge this branch, then tag 14.1.0, in that order.** The tree declares
-14.1.0 and the changelog carries its entry; both steps are yours. Merge
-`session/relaxed-mccarthy-da2hvm` into `main` first, then tag the merge commit — tagging before the
-merge points the release at a commit `main` never gets, and the README's clone command targets
-`amh-v14.1.0`, so until the tag exists that documented install 404s (**DA-010**). Edit the squash
-message before merging: a poison token in it suppresses the release commit's CI run (**DC-040**).
-Expected, not observed — no session here can inspect a forge setting with the tools this harness
-assumes — `main` protection requires the `ladder` check; if that is no longer so, the merge gate is
-not what this assumes.
-Check: `git ls-remote --tags origin 'refs/tags/amh-v14.1.0'` — a line back means the tag is cut;
-confirm it sits on `main`'s history before closing, since the check cannot see the ordering this
-item exists to enforce.
-
-**OPEN — nobody has run a pinned hook on a host where Git bash cannot be found at all.** The
-pinned arm was run on a host where discovery SUCCEEDS despite bash being off `PATH`, which is
-why the WSL hazard was withdrawn (**DD-010**); the failing-discovery path is read from the
-shipped code, not observed, and how it fails differs between the bundles read (**DD-011** for
-the method). Low stakes — both readings are loud — and no check settles it short of that host.
+**OPEN — nobody has run a pinned hook on a host where Git bash cannot be found at all.** Two
+hosts have now run the pinned arm where discovery SUCCEEDS — the second, reported 2026-09-10, saw
+a pinned guard pass its self-test and actually fire mid-session, so pinned hooks demonstrably deny
+on Windows (**DD-014**); bash being off `PATH` is not the failing case, which is why the WSL hazard
+was withdrawn (**DD-010**). Still unobserved is discovery finding NOTHING: that path is read from
+the shipped code, and how it fails differs between the bundles read (**DD-011** for the method).
+Low stakes — both readings are loud — and no check settles it short of that host.
 
 **OPEN — the `printf | grep -q` class survives at 39 further sites, and 10 are NOT fixture
 harnesses.** Unit 3 fixed the two with reachable unbounded input; the residue is safe on BOUNDED,
@@ -81,6 +70,17 @@ owner's (2026-08-29) `cmd /c "rd /s /q ..."` resolved to the root of `D:` throug
 backslash-quote mismatch, pairing with the Antigravity `rmdir /s /q d:\` (**DC-027**). Which
 layer mis-parsed is unsettled and matters to whoever builds the arm; a Windows arm is the owner's
 call since the harness targets bash. No check until a session builds it.
+
+**OPEN — the pin check is repo-local, and whether adopters get one is yours.**
+`scripts/guards/adapter-set.sh` now fails on a Claude hook missing `"shell": "bash"`, but it is
+this repository's own guard: an adopter's ladder still checks nothing, exactly as 14.1.0's
+Upgrading note says. Shipping it means a rung in the shipped `ladder.sh` keyed to one vendor's
+adapter file — an agent-agnosticism question as much as a version-semantics one (additive, so
+MINOR), and adjacent to the shipped config-schema guard already declined pre-3.0.0 (**DA-022**),
+which is why it is yours rather than a unit's. Recommendation: ship it gated on the file
+existing, so a repo with no Claude adapter is unaffected (**DD-013**).
+Check: `grep -c '"shell": "bash"' harness/templates/scripts/ladder.sh` — a non-zero count means
+it shipped; `0` means adopters still have only the hand step.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -104,6 +104,9 @@ from.
   matcher to PowerShell before a Windows arm exists (**DD-012**).
 
 ## Changelog
+
+- 2026-09-10 — **A rung now reports an absent Claude `shell` pin, which until now was a hand step nothing checked.** `scripts/guards/adapter-set.sh` requires the exact `"shell": "bash"` line under every `"type": "command"` entry in both the shipped template and the reference copy, and reconciles a layout-independent entry count against what its line matcher actually read, so an entry in a layout it cannot parse reports UNVERIFIED instead of passing. Earned by a downstream 14.1.0 field report whose positive control also showed a pinned guard denying on Windows, and whose headline exposure claim its own bounds withdraw (**DD-013**, **DD-014**). Observed 2026-09-10 while closing the release item: `amh-v14.1.0` is cut and sits on
+  `main`'s history, at the same commit `origin/main` points to.
 
 - 2026-09-09/10 — **14.1.0: the Claude adapter pins the shell its hooks run under, and says
   what the pin does not reach, what it costs, and what nobody has run.** All three hooks set the
