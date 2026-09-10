@@ -16,12 +16,13 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 14.0.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 14.1.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-This tree declares **14.0.0**: ledger rows pin their text rather than the files they name, and
-working memory is tree-relative (**DD-004**, **DD-006**). Whether that version is tagged or
+This tree declares **14.1.0**: the Claude adapter pins the shell its hooks run under, so that
+layer is not replaced by PowerShell per host — and states where the pin does not reach and what
+it costs (**DD-007**–**DD-012**). Whether that version is tagged or
 released is not recorded here — `scripts/session-start.sh` probes it every session and reports
 present, absent or could-not-ask, which is the only answer that can be right twice.
 
@@ -43,18 +44,24 @@ Operational gotchas:
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**PENDING OWNER ACTION — merge this branch, then tag 14.0.0, in that order.** The tree declares
-14.0.0 and the changelog carries its entry; both steps are yours. Merge
-`claude/state-ledger-mutability-qvj27g` into `main` first, then tag the merge commit — tagging
-before the merge points the release at a commit `main` never gets, and the README's clone command
-targets `amh-v14.0.0`, so until the tag exists that documented install 404s (**DA-010**). Edit the
-squash message before merging: a poison token in it suppresses the release commit's CI run
-(**DC-040**). Expected, not observed — no session here can inspect a forge setting with the tools
-this harness assumes — `main` protection requires the `ladder` check; if that is no longer so, the
-merge gate is not what this assumes.
-Check: `git ls-remote --tags origin 'refs/tags/amh-v14.0.0'` — a line back means the tag is cut;
+**PENDING OWNER ACTION — merge this branch, then tag 14.1.0, in that order.** The tree declares
+14.1.0 and the changelog carries its entry; both steps are yours. Merge
+`session/relaxed-mccarthy-da2hvm` into `main` first, then tag the merge commit — tagging before the
+merge points the release at a commit `main` never gets, and the README's clone command targets
+`amh-v14.1.0`, so until the tag exists that documented install 404s (**DA-010**). Edit the squash
+message before merging: a poison token in it suppresses the release commit's CI run (**DC-040**).
+Expected, not observed — no session here can inspect a forge setting with the tools this harness
+assumes — `main` protection requires the `ladder` check; if that is no longer so, the merge gate is
+not what this assumes.
+Check: `git ls-remote --tags origin 'refs/tags/amh-v14.1.0'` — a line back means the tag is cut;
 confirm it sits on `main`'s history before closing, since the check cannot see the ordering this
 item exists to enforce.
+
+**OPEN — nobody has run a pinned hook on a host where Git bash cannot be found at all.** The
+pinned arm was run on a host where discovery SUCCEEDS despite bash being off `PATH`, which is
+why the WSL hazard was withdrawn (**DD-010**); the failing-discovery path is read from the
+shipped code, not observed, and how it fails differs between the bundles read (**DD-011** for
+the method). Low stakes — both readings are loud — and no check settles it short of that host.
 
 **OPEN — the `printf | grep -q` class survives at 39 further sites, and 10 are NOT fixture
 harnesses.** Unit 3 fixed the two with reachable unbounded input; the residue is safe on BOUNDED,
@@ -93,9 +100,26 @@ from.
   constitution byte cap (**DB-038**); a Python-write advisory (**DC-007**); the 2026-08-10 review
   proposals (**DB-024**); a guard that opens a file to classify it (**DB-027**); a configurable
   ledger-id prefix (**DC-015**); ledger immutability across commits (**DC-020**); a guard that
-  judges a State sentence's temporal validity (**DD-006**).
+  judges a State sentence's temporal validity (**DD-006**); widening the command guard's hook
+  matcher to PowerShell before a Windows arm exists (**DD-012**).
 
 ## Changelog
+
+- 2026-09-09/10 — **14.1.0: the Claude adapter pins the shell its hooks run under, and says
+  what the pin does not reach, what it costs, and what nobody has run.** All three hooks set the
+  `shell` field to bash, so a host whose Git bash is undiscoverable should fail visibly instead
+  of handing a bare `.sh` to a file association that runs it detached, feeds it a tty instead of
+  the hook payload, and is not waited on. The rule-review pass established that the command
+  guard's `Bash` matcher never fires on that host at all — queued as an owner fork rather than
+  fixed under cover of a shell pin — and a second pass established that the pinned arm itself
+  was never run, that an invalid VALUE drops a whole hook entry, and that `bash` may resolve to
+  WSL's in another namespace. That last hazard was then withdrawn on measurement — the pinned
+  shell is not resolved through `PATH`, so no host is misrouted to WSL — and the unknown-key
+  question was settled at the shipped schema rather than by proxy: the entry survives, so the
+  pin is inert on a build predating the field (**DD-007**–**DD-011**). The owner declined the
+  `Bash|PowerShell` widening; the guard stays honestly absent there (**DD-012**). Observed
+  2026-09-09 while closing the previous release item: 14.0.0 is merged and `amh-v14.0.0` sits
+  on `main`'s history.
 
 - 2026-09-02 — **14.0.0: working memory is tree-relative.** `Current state` records what stays
   true of the checked-out tree and stops caching merge, tag, release, CI and forge-setting status;

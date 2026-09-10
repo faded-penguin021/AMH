@@ -1,5 +1,5 @@
 {
-  "$comment": "AMH adapter for Claude Code — wiring only, no logic. All behaviour lives in AGENTS.md and scripts/. Layers this adapter provides: an instructive pre-execution command guard, a per-spawn speed bump on the Task tool, static deny rails, and pre-allowed verification commands. It does NOT provide output redaction: Claude Code has no output-filter hook, so scripts/redact.sh stays available for manual piping and is what the ladder's secret scan uses. Be honest about this per adapter. The owner mirrors the hardest rails server-side (branch protection, secret-scanning push protection) — these rules bind only agents that load them.",
+  "$comment": "AMH adapter for Claude Code — wiring only, no logic. All behaviour lives in AGENTS.md and scripts/. Layers this adapter provides: an instructive pre-execution command guard, a per-spawn speed bump on the Task tool, static deny rails, and pre-allowed verification commands. It does NOT provide output redaction: Claude Code has no output-filter hook, so scripts/redact.sh stays available for manual piping and is what the ladder's secret scan uses. Be honest about this per adapter. The owner mirrors the hardest rails server-side (branch protection, secret-scanning push protection) — these rules bind only agents that load them. Every hook pins its shell with the `shell` field set to bash. Shell form otherwise resolves per host and falls back to PowerShell on Windows when Git Bash is not found; a bare `.sh` path then goes to the Git for Windows file association, and the trigger is that association, not `PATH`. What that costs was established on a reporting host: the script DOES run, detached under the association's windowed launcher, with the new terminal's tty on stdin where the hook payload should be, and the caller has already moved on before it exits — so a guard that reads stdin waits forever in a window nobody is watching, and no exit code is ever consulted. An extension with NO association is not the loud case either: it raises the desktop's what-should-open-this picker, still rc=0 and zero bytes to the harness. The pin is inert wherever this adapter already works — each command here is a path plus a literal argument, and each script names its own interpreter in its shebang. What it does NOT resolve through is `PATH`: the agent locates Git's bash from Git's own install (a default-location probe, then `git` on `PATH`, then bash beside it) or from an override variable, so a host with WSL but no Git bash on `PATH` is not misrouted to WSL. When discovery finds nothing the failure is loud but version-dependent — an instructive error and a nonzero exit in one shipped bundle, a per-hook throw naming Git for Windows and CLAUDE_CODE_GIT_BASH_PATH in a later binary — and nobody has yet run a pinned hook on such a host. The hazard the pin adds is a typo in its VALUE: that fails the enum and drops the whole hook entry, where a misspelled KEY is merely stripped with the entry left standing, which is also why the pin is inert rather than fatal on a build predating the field. Read what the pin does NOT reach: SessionStart and the Task speed bump fire on any host, but the command guard's Bash matcher does not fire at all on Windows without Git Bash, because no Bash tool is registered there and shell commands are routed through PowerShell instead. Widening that matcher is the documented remedy and is deliberately NOT done here — the guard has no Windows-shell arm, so it would read PowerShell with a bash-shaped parser (AMH ledger rows DD007 through DD012).",
   "permissions": {
     "allow": [
       "Bash(scripts/ladder.sh)",
@@ -68,6 +68,7 @@
         "hooks": [
           {
             "type": "command",
+            "shell": "bash",
             "command": "scripts/session-start.sh"
           }
         ]
@@ -79,6 +80,7 @@
         "hooks": [
           {
             "type": "command",
+            "shell": "bash",
             "command": "scripts/command-guard.sh"
           }
         ]
@@ -88,6 +90,7 @@
         "hooks": [
           {
             "type": "command",
+            "shell": "bash",
             "command": "scripts/command-guard.sh --pre-task"
           }
         ]
