@@ -20,11 +20,16 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   non-blocking-error notice, where every other broken hook is loud. All three shipped hooks now set
   the `shell` field to bash, which is inert on every host where the adapter already works — each
   command is a path plus a literal argument, and each script names its own interpreter in its
-  shebang. Two bounds this release states rather than hides: the silent path needs Git for Windows
-  installed while its bash is undiscoverable, since that package owns both the association and the
-  shell, and the diagnostic a host with no Bash actually prints was never observed — the mechanism
-  was measured by running the adapter's command strings through PowerShell by hand, on a host that
-  HAS Git Bash.
+  shebang. The failure it replaces has since been characterised by emulating the fallback on a
+  Windows host — the command strings through PowerShell with the hook JSON on stdin, not through the
+  agent's own fallback, which a host that has Git Bash cannot trigger: the script does run, detached
+  beneath the association's windowed launcher, with the terminal's tty on stdin where the payload
+  should be, and the caller moves on before it exits — so a hook that reads stdin waits forever in a
+  window nobody is watching, and no exit code is ever consulted. The trigger is the file association
+  rather than `PATH`, and an extension with no association is no louder to the harness: it raises
+  the desktop's file-type picker and still reports rc=0 with zero bytes. What no one has run is the
+  PINNED arm on a host with no discoverable Git bash, so the loud failure this release expects there
+  is still an expectation.
 - **The pin does not reach the command guard on the host it is for, and this release says so.** On
   Windows without Git Bash no Bash tool is registered at all and shell commands route through
   PowerShell, so a `PreToolUse` hook matching only `Bash` never fires — the guard's absence there
@@ -32,6 +37,13 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   `Bash|PowerShell`, and it is deliberately not taken here: the command guard has no Windows-shell
   arm, so a widened matcher would hand PowerShell command text to a bash-shaped parser. That is an
   owner's call and is queued as one.
+- **Two hazards the pin introduces, stated because they are new.** Hook entries are validated
+  non-strictly: an unrecognised KEY inside one is dropped silently and the entry still stands, but a
+  recognised key with an invalid VALUE drops the whole entry — so a typo in the pinned value removes
+  a hook, a failure mode the unpinned config could not have. And on a Windows host where Git's bash
+  is undiscoverable while WSL is present, `bash` may resolve to WSL's, which runs in a different
+  filesystem namespace, and whether the field resolves through `PATH` or a known Git location is
+  not documented.
 - **The Windows toolchain note describes the machine, not the terminal.** Git Bash must be present
   and discoverable by whatever process runs the scripts, which need not be the terminal an operator
   opened.
@@ -46,9 +58,11 @@ hook's `"type": "command"` in your `.claude/settings.json`, taking the reason fr
 in the 14.1.0 `harness/templates/configs/claude-settings.json`. Nothing in your ladder checks
 this — the adapter file is yours once installed, and on a host that already runs Bash it is a
 no-op you may skip. Check that your agent documents the `shell` hook field before adding it; how an
-older version treats an unknown key is not something this repository has tested. If you support
-Windows users without Git Bash, read the second bullet above before assuming your command guard
-runs there.
+older version treats an unknown key is untested here by direct observation; two current builds
+drop an unknown key and keep the entry, which is the shape that would make the pin inert on an
+older one. Get the VALUE right when you copy it — `"bash"` exactly — because an invalid value drops
+the hook entry entirely. If you support Windows users without Git Bash, read the second and third
+bullets above before assuming your command guard runs there, or that `bash` means Git's.
 
 ## 14.0.0 — 2026-09-02
 

@@ -21,8 +21,8 @@ Adopted harness version: **AMH 14.1.0** — see `harness/VERSION`, the copy that
 ## Current state
 
 This tree declares **14.1.0**: the Claude adapter pins the shell its hooks run under, so that
-layer cannot be silently downgraded per host — and states where the pin does not reach
-(**DD-007**). Whether that version is tagged or
+layer is not replaced by PowerShell per host — and states where the pin does not reach, what it
+costs, and which half of it nobody has run (**DD-007**, corrected by **DD-008**, **DD-009**). Whether that version is tagged or
 released is not recorded here — `scripts/session-start.sh` probes it every session and reports
 present, absent or could-not-ask, which is the only answer that can be right twice.
 
@@ -57,12 +57,21 @@ Check: `git ls-remote --tags origin 'refs/tags/amh-v14.1.0'` — a line back mea
 confirm it sits on `main`'s history before closing, since the check cannot see the ordering this
 item exists to enforce.
 
-**OPEN — the hook-shell pin is unverified on the one host it is for.** 14.1.0 sets the `shell`
-field to bash on all three Claude hooks so a Windows host whose Git Bash is undiscoverable fails
-loudly rather than silently; what such a host actually PRINTS was never observed, here or in the
-report that prompted it (**DD-007**). Settling it takes a clean Windows VM with Git for Windows
-installed but its bash off `PATH`, a pinned agent version, and an A/B of the adapter with and
-without the field, read from the agent's debug log. No check until someone runs that host.
+**OPEN — the pinned arm of the hook-shell change is still unrun, and three residues sit behind
+it.** The reporting host emulated the fallback on 2026-09-10 and settled the UNPINNED path — the
+script runs detached, gets a tty instead of the hook payload, and is not waited on (**DD-008**) —
+but every run there is of the unpinned path, so the original question stands: nobody has observed
+what a host with `"shell": "bash"` and no discoverable Git bash actually prints, and the one `bash`
+control under a stripped `PATH` was loud only because that host has no WSL distro (**DD-009**).
+Behind it: (a) a dangling `.sh` association left by an uninstalled Git, which needs an uninstall on
+that machine and is the owner's call; (b) a pre-`shell` build's treatment of the key by direct
+observation — two current builds drop an unknown key and keep the entry, and one throwaway
+container with an old build and `claude doctor` settles it without Windows; (c) whether the pin
+resolves through `PATH` or a known Git location, which decides whether a WSL host gets WSL's bash
+in another filesystem namespace.
+Check for (c): on that host run `where bash` with Git's bash OFF the harness process's `PATH`, then
+make a hook print `$PWD` — `/c/project` is Git Bash, `/mnt/c/project` is WSL. Run with Git's bash
+still on `PATH` it discriminates nothing, since both answers predict `/c/project` there.
 
 **OWNER FORK — should the command guard's `PreToolUse` matcher widen from `Bash` to
 `Bash|PowerShell`?** On Windows without Git Bash the agent registers no Bash tool and routes shell
@@ -117,14 +126,17 @@ from.
 
 ## Changelog
 
-- 2026-09-09 — **14.1.0: the Claude adapter pins the shell its hooks run under, and says where
-  the pin stops.** All three hooks set the `shell` field to bash, so a host whose Git Bash is
-  undiscoverable fails visibly instead of handing a bare `.sh` to a file association that opens
-  a detached window and returns 0. The rule-review pass then established that the command
-  guard's `Bash` matcher never fires on that host at all, which the release states and queues as
-  an owner fork rather than fixing under cover of a shell pin (**DD-007**). Observed 2026-09-09
-  while closing the previous release item: 14.0.0 is merged and `amh-v14.0.0` sits on `main`'s
-  history.
+- 2026-09-09/10 — **14.1.0: the Claude adapter pins the shell its hooks run under, and says
+  what the pin does not reach, what it costs, and what nobody has run.** All three hooks set the
+  `shell` field to bash, so a host whose Git bash is undiscoverable should fail visibly instead
+  of handing a bare `.sh` to a file association that runs it detached, feeds it a tty instead of
+  the hook payload, and is not waited on. The rule-review pass established that the command
+  guard's `Bash` matcher never fires on that host at all — queued as an owner fork rather than
+  fixed under cover of a shell pin — and a second pass established that the pinned arm itself
+  was never run, that an invalid VALUE drops a whole hook entry, and that `bash` may resolve to
+  WSL's in another namespace (**DD-007**, corrected by **DD-008**, **DD-009**). Observed
+  2026-09-09 while closing the previous release item: 14.0.0 is merged and `amh-v14.0.0` sits
+  on `main`'s history.
 
 - 2026-09-02 — **14.0.0: working memory is tree-relative.** `Current state` records what stays
   true of the checked-out tree and stops caching merge, tag, release, CI and forge-setting status;
