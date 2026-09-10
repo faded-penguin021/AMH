@@ -27,23 +27,28 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   should be, and the caller moves on before it exits — so a hook that reads stdin waits forever in a
   window nobody is watching, and no exit code is ever consulted. The trigger is the file association
   rather than `PATH`, and an extension with no association is no louder to the harness: it raises
-  the desktop's file-type picker and still reports rc=0 with zero bytes. What no one has run is the
-  PINNED arm on a host with no discoverable Git bash, so the loud failure this release expects there
-  is still an expectation.
+  the desktop's file-type picker and still reports rc=0 with zero bytes. A pinned session HAS since
+  been run on a host where Git's bash is off `PATH`, and it resolved Git's bash correctly; what
+  nobody has run is a pinned hook on a host where discovery finds no Git bash at all, so the loud
+  failure expected there is read from the shipped code rather than observed.
 - **The pin does not reach the command guard on the host it is for, and this release says so.** On
   Windows without Git Bash no Bash tool is registered at all and shell commands route through
   PowerShell, so a `PreToolUse` hook matching only `Bash` never fires — the guard's absence there
   predates any shell fallback and no `shell` value can cure it. The documented remedy is to match
   `Bash|PowerShell`, and it is deliberately not taken here: the command guard has no Windows-shell
-  arm, so a widened matcher would hand PowerShell command text to a bash-shaped parser. That is an
-  owner's call and is queued as one.
-- **Two hazards the pin introduces, stated because they are new.** Hook entries are validated
-  non-strictly: an unrecognised KEY inside one is dropped silently and the entry still stands, but a
-  recognised key with an invalid VALUE drops the whole entry — so a typo in the pinned value removes
-  a hook, a failure mode the unpinned config could not have. And on a Windows host where Git's bash
-  is undiscoverable while WSL is present, `bash` may resolve to WSL's, which runs in a different
-  filesystem namespace, and whether the field resolves through `PATH` or a known Git location is
-  not documented.
+  arm, so a widened matcher would hand PowerShell command text to a bash-shaped parser. The owner
+  decided against widening it (2026-09-10); the guard stays honestly absent on that host until the
+  Windows arm exists.
+- **The one hazard the pin introduces, and the one it does not.** Hook entries are validated
+  non-strictly, so a misspelled KEY is stripped and its entry still stands — which is why the pin is
+  inert rather than fatal on a build predating the field; the shipped schema carries no `shell` at
+  2.0.1 or 2.1.42 and does carry it at 2.1.100. The hazard is a typo in the VALUE: that fails the
+  enum and drops the whole hook entry, a failure mode the unpinned config could not have. A
+  WSL-misrouting hazard raised against this pin was withdrawn on measurement — the pinned shell is
+  not resolved through `PATH` at all. The agent locates Git's bash from Git's own install or from
+  `CLAUDE_CODE_GIT_BASH_PATH`, and when it finds nothing it is loud rather than silently falling
+  back to WSL, though how it is loud is version-dependent: a nonzero exit in the 2.1.42 bundle, a
+  per-hook throw naming Git for Windows and that variable in the 2.1.267 binary.
 - **The Windows toolchain note describes the machine, not the terminal.** Git Bash must be present
   and discoverable by whatever process runs the scripts, which need not be the terminal an operator
   opened.

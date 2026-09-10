@@ -21,8 +21,8 @@ Adopted harness version: **AMH 14.1.0** — see `harness/VERSION`, the copy that
 ## Current state
 
 This tree declares **14.1.0**: the Claude adapter pins the shell its hooks run under, so that
-layer is not replaced by PowerShell per host — and states where the pin does not reach, what it
-costs, and which half of it nobody has run (**DD-007**, corrected by **DD-008**, **DD-009**). Whether that version is tagged or
+layer is not replaced by PowerShell per host — and states where the pin does not reach and what
+it costs (**DD-007**–**DD-012**). Whether that version is tagged or
 released is not recorded here — `scripts/session-start.sh` probes it every session and reports
 present, absent or could-not-ask, which is the only answer that can be right twice.
 
@@ -57,33 +57,11 @@ Check: `git ls-remote --tags origin 'refs/tags/amh-v14.1.0'` — a line back mea
 confirm it sits on `main`'s history before closing, since the check cannot see the ordering this
 item exists to enforce.
 
-**OPEN — the pinned arm of the hook-shell change is still unrun, and three residues sit behind
-it.** The reporting host emulated the fallback on 2026-09-10 and settled the UNPINNED path — the
-script runs detached, gets a tty instead of the hook payload, and is not waited on (**DD-008**) —
-but every run there is of the unpinned path, so the original question stands: nobody has observed
-what a host with `"shell": "bash"` and no discoverable Git bash actually prints, and the one `bash`
-control under a stripped `PATH` was loud only because that host has no WSL distro (**DD-009**).
-Behind it: (a) a dangling `.sh` association left by an uninstalled Git, which needs an uninstall on
-that machine and is the owner's call; (b) a pre-`shell` build's treatment of the key by direct
-observation — two current builds drop an unknown key and keep the entry, and one throwaway
-container with an old build and `claude doctor` settles it without Windows; (c) whether the pin
-resolves through `PATH` or a known Git location, which decides whether a WSL host gets WSL's bash
-in another filesystem namespace.
-Check for (c): on that host run `where bash` with Git's bash OFF the harness process's `PATH`, then
-make a hook print `$PWD` — `/c/project` is Git Bash, `/mnt/c/project` is WSL. Run with Git's bash
-still on `PATH` it discriminates nothing, since both answers predict `/c/project` there.
-
-**OWNER FORK — should the command guard's `PreToolUse` matcher widen from `Bash` to
-`Bash|PowerShell`?** On Windows without Git Bash the agent registers no Bash tool and routes shell
-commands through PowerShell, so the guard's hook never fires there at all — an absence that predates
-the shell fallback and that no `shell` value cures (**DD-007**). The vendor documents the widened
-matcher as the remedy. Not taken here, because it would hand PowerShell command text to a parser
-built for bash, and the guard still has no Windows-shell arm — the same gap two reported incidents
-sit in (**DC-027**). Options: (a) leave it, and the guard is honestly absent on that host; (b)
-widen the matcher and accept a bash-shaped parser reading PowerShell, which fails open on shapes it
-cannot parse; (c) build the Windows arm first, then widen. Recommendation: (c), with (a) until
-then — (b) buys coverage that looks real and is not. Check: `grep -n '"matcher"' .claude/settings.json`
-— still `Bash` alone means this is unresolved.
+**OPEN — nobody has run a pinned hook on a host where Git bash cannot be found at all.** The
+pinned arm was run on a host where discovery SUCCEEDS despite bash being off `PATH`, which is
+why the WSL hazard was withdrawn (**DD-010**); the failing-discovery path is read from the
+shipped code, not observed, and how it fails differs between the bundles read (**DD-011** for
+the method). Low stakes — both readings are loud — and no check settles it short of that host.
 
 **OPEN — the `printf | grep -q` class survives at 39 further sites, and 10 are NOT fixture
 harnesses.** Unit 3 fixed the two with reachable unbounded input; the residue is safe on BOUNDED,
@@ -122,7 +100,8 @@ from.
   constitution byte cap (**DB-038**); a Python-write advisory (**DC-007**); the 2026-08-10 review
   proposals (**DB-024**); a guard that opens a file to classify it (**DB-027**); a configurable
   ledger-id prefix (**DC-015**); ledger immutability across commits (**DC-020**); a guard that
-  judges a State sentence's temporal validity (**DD-006**).
+  judges a State sentence's temporal validity (**DD-006**); widening the command guard's hook
+  matcher to PowerShell before a Windows arm exists (**DD-012**).
 
 ## Changelog
 
@@ -134,7 +113,11 @@ from.
   guard's `Bash` matcher never fires on that host at all — queued as an owner fork rather than
   fixed under cover of a shell pin — and a second pass established that the pinned arm itself
   was never run, that an invalid VALUE drops a whole hook entry, and that `bash` may resolve to
-  WSL's in another namespace (**DD-007**, corrected by **DD-008**, **DD-009**). Observed
+  WSL's in another namespace. That last hazard was then withdrawn on measurement — the pinned
+  shell is not resolved through `PATH`, so no host is misrouted to WSL — and the unknown-key
+  question was settled at the shipped schema rather than by proxy: the entry survives, so the
+  pin is inert on a build predating the field (**DD-007**–**DD-011**). The owner declined the
+  `Bash|PowerShell` widening; the guard stays honestly absent there (**DD-012**). Observed
   2026-09-09 while closing the previous release item: 14.0.0 is merged and `amh-v14.0.0` sits
   on `main`'s history.
 

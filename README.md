@@ -44,7 +44,10 @@ On Windows, AMH requires Git Bash (installed with Git for Windows) to be present
 discoverable by whatever process runs the scripts — which need not be the terminal you opened,
 so this is a requirement about the machine rather than about which shell you launch AMH from.
 Run the scripts by hand from Git Bash; native PowerShell and `cmd.exe` are not
-shell-compatible execution environments for AMH. ShellCheck is optional locally and installed
+shell-compatible execution environments for AMH. An agent that cannot find Git's bash where it
+expects it may accept an explicit path: Claude Code reads `CLAUDE_CODE_GIT_BASH_PATH`, the
+escape hatch for a Git installed outside its default location. Check your own agent for an
+equivalent. ShellCheck is optional locally and installed
 by CI. You do not need Homebrew, GNU sed, or GNU coreutils on macOS.
 
 Open your coding agent in the repository you want to adopt AMH in, and paste this:
