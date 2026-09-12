@@ -667,21 +667,37 @@ expect fail "adapter-set: the banner lists a file outside the adapter set" "$d" 
 # The Claude `shell` pin is a HAND step with no other reporter, and every mutation below is
 # silent at runtime: an unpinned hook still exists and still matches, and the association route
 # that catches it runs the script detached and returns 0 (DD-008, DD-011, DD-013).
+#
+# The hook COUNT in the expectations below is derived, never written out. It was hard-coded at
+# three until a fourth hook was wired, and the stale fixture then failed with a message naming
+# three — which reads as a defect in the guard rather than as this line being out of date.
+#
+# Derived PER FILE, because the mutations below do not all target the same one: a template
+# expectation read off the reference copy would pass by coincidence for exactly as long as the
+# two files happen to carry equal counts, and nothing requires them to. Zero is a dead fixture
+# rather than a small number — `0 of 0` would assert nothing and pass — so it aborts here.
+claude_tpl_hooks=$(grep -c '"type": "command",' harness/templates/configs/claude-settings.json)
+claude_ref_hooks=$(grep -c '"type": "command",' .claude/settings.json)
+if [ "$claude_tpl_hooks" -eq 0 ] || [ "$claude_ref_hooks" -eq 0 ]; then
+	printf 'local-guards: counted NOTHING to expect — no "type": "command" entries in a Claude adapter file (template=%s reference=%s). The fixtures below would assert "0 of 0" and pass over a guard that checked nothing.\n' \
+		"$claude_tpl_hooks" "$claude_ref_hooks" >&2
+	exit 1
+fi
 d=$(snapshot adapter_claude_pin_gone)
 sed_in_place '/^[[:space:]]*"shell": "bash",$/d' "$d/harness/templates/configs/claude-settings.json"
 expect fail "adapter-set: the Claude shell pin was dropped from the template" "$d" adapter-set.sh \
-	"3 of 3 command hook(s) are not followed by"
+	"$claude_tpl_hooks of $claude_tpl_hooks command hook(s) are not followed by"
 
 # Exactly ONE entry, so a check that merely counted pins somewhere in the file would pass this.
 d=$(snapshot adapter_claude_pin_value_wrong)
 sed_in_place '/"SessionStart"/,/session-start.sh/ s/"shell": "bash",/"shell": "Bash",/' "$d/.claude/settings.json"
 expect fail "adapter-set: an invalid Claude shell VALUE drops the whole hook entry" "$d" adapter-set.sh \
-	"1 of 3 command hook(s) are not followed by"
+	"1 of $claude_ref_hooks command hook(s) are not followed by"
 
 d=$(snapshot adapter_claude_pin_key_misspelled)
 sed_in_place 's/"shell": "bash",/"shel": "bash",/' "$d/harness/templates/configs/claude-settings.json"
 expect fail "adapter-set: a misspelled Claude shell KEY leaves the entry unpinned" "$d" adapter-set.sh \
-	"3 of 3 command hook(s) are not followed by"
+	"$claude_tpl_hooks of $claude_tpl_hooks command hook(s) are not followed by"
 
 # The hollow branch. Without it a settings file this guard can no longer parse — reformatted,
 # keys renamed, rewritten by a future adapter version — reports a pin it never actually read.
@@ -697,7 +713,7 @@ expect fail "adapter-set: a Claude settings file this guard cannot parse is not 
 d=$(snapshot adapter_claude_pin_unreadable_entry)
 sed_in_place '/"SessionStart"/,/session-start.sh/ s/"type": "command",/"type":"command",/' "$d/.claude/settings.json"
 expect fail "adapter-set: one entry outside the readable layout is UNVERIFIED, not passed" "$d" adapter-set.sh \
-	"checked NOTHING for 1 of 3"
+	"checked NOTHING for 1 of $claude_ref_hooks"
 
 # An entry that opens and never gets its next line: without the awk END arm this counted a hook
 # and found nothing unpinned, so a truncated adapter file passed.
@@ -706,6 +722,37 @@ sed -n '1,/"type": "command",/p' "$d/.claude/settings.json" >"$d/.claude/setting
 mv "$d/.claude/settings.json.cut" "$d/.claude/settings.json"
 expect fail "adapter-set: a file truncated after a hook opens is not a pass" "$d" adapter-set.sh \
 	"1 of 1 command hook(s) are not followed by"
+
+# The PostToolUse redaction hook is the second hand-applied Claude step and, unlike the pin, its
+# absence is invisible in BOTH directions: the host discards a replacement that misses a tool's
+# schema and uses the original output, and a host without python3 stands the rail down — so a
+# tree with the wiring deleted is indistinguishable from a tree whose output held no credential.
+# The hook's own --self-test passes either way, because it tests the script and not the wiring.
+d=$(snapshot adapter_claude_post_hook_gone_template)
+sed_in_place '/"PostToolUse": \[/,/^[[:space:]]*\],$/d' "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: the PostToolUse redaction hook was dropped from the template" "$d" adapter-set.sh \
+	"no \"PostToolUse\" group found"
+
+d=$(snapshot adapter_claude_post_hook_gone_reference)
+sed_in_place '/"PostToolUse": \[/,/^[[:space:]]*\],$/d' "$d/.claude/settings.json"
+expect fail "adapter-set: the PostToolUse redaction hook was dropped from the reference copy" "$d" adapter-set.sh \
+	"no \"PostToolUse\" group found"
+
+# The group present but pointing somewhere else. Without this the guard could be satisfied by a
+# PostToolUse hook that does anything at all, which is the shape a future adapter revision would
+# most plausibly arrive in.
+d=$(snapshot adapter_claude_post_hook_rewired)
+sed_in_place 's|"command": "scripts/redact-tool-output.sh"|"command": "scripts/session-start.sh"|' "$d/.claude/settings.json"
+expect fail "adapter-set: a PostToolUse group that does not invoke the redaction rail" "$d" adapter-set.sh \
+	"does not invoke scripts/redact-tool-output.sh exactly once"
+
+# The rail wired but UNPINNED. The pin loop counts entries across the whole file, so it reports a
+# number without saying which entry; this fixture is what makes the per-entry message load-bearing.
+d=$(snapshot adapter_claude_post_hook_unpinned)
+sed_in_place '/"PostToolUse": \[/,/redact-tool-output.sh/ s/^[[:space:]]*"shell": "bash",$//' "$d/.claude/settings.json"
+expect fail "adapter-set: the PostToolUse hook wired without its shell pin" "$d" adapter-set.sh \
+	"carries no"
+
 
 d=$(snapshot drift_dist)
 printf 'hand edit\n' >>"$d/harness/dist/AMH.md"

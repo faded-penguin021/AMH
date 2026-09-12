@@ -19,8 +19,9 @@ In familiar terms:
 - **A shared scratchpad** (`docs/STATE.md`) records what is happening now and what needs you.
 - **Long-term memory** (`docs/LEDGER.md`) preserves lessons and decisions across sessions.
 - **A “prove it” command** (`scripts/ladder.sh`) runs the real checks before work is accepted.
-- **Seatbelts** (`scripts/command-guard.sh`, `scripts/redact.sh`) block known-dangerous command
-  shapes and redact or detect credentials. They reduce risk; they are not a security sandbox.
+- **Seatbelts** (`scripts/command-guard.sh`, `scripts/redact.sh`, `scripts/redact-tool-output.sh`)
+  block known-dangerous command shapes and redact or detect credentials, before execution and
+  after it. They reduce risk; they are not a security sandbox.
 
 It is agent-agnostic on purpose. The behaviour lives in ordinary files any capable coding
 agent can read, with thin adapters for supported tools. This repository ships the harness and
@@ -57,7 +58,7 @@ Install the latest stable release of the Agentic Maintenance Harness (AMH) into 
 
 Run:
 
-    git clone --depth 1 --branch amh-v14.1.0 https://github.com/faded-penguin021/AMH.git /tmp/amh
+    git clone --depth 1 --branch amh-v14.2.0 https://github.com/faded-penguin021/AMH.git /tmp/amh
     /tmp/amh/scripts/amh-init.sh .
 
 Once the harness has been instantiated, read `AMH-ADOPT.md` and follow it completely.
@@ -152,7 +153,7 @@ The harness is the accumulated answer to those, and every mechanism in it is nar
 | **Permanent memory** (`docs/LEDGER.md`) | Append-only rows: what broke, why, and the generalisation. | Session N's shipped bug being rediscovered by session N+9. | standard, full |
 | **Runbook** (`docs/RUNBOOK.md`) | Playbooks for the recurring jobs. | Re-deriving a procedure badly, under time pressure. | standard, full |
 | **The ladder** (`scripts/ladder.sh`) | One verification entrypoint, run identically by the agent and by CI. | "It passes locally" — and green-by-omission. | light, standard, full |
-| **Rails** (`scripts/command-guard.sh`, `scripts/redact.sh`) | A pre-execution command guard, and a redaction filter that doubles as the repo's secret scan. | Force-pushes, `.env` reads, credentials in output. | light, standard, full |
+| **Rails** (`scripts/command-guard.sh`, `scripts/redact.sh`, `scripts/redact-tool-output.sh`) | A pre-execution command guard, a redaction filter that doubles as the repo's secret scan, and a post-execution hook that runs that filter over a tool result where the agent can rewrite one. | Force-pushes, `.env` reads, credentials in output. | light, standard, full |
 | **Review protocols** | Fresh-context adversarial passes, with a no-self-review rule. | A session grading its own homework. | light, standard, full |
 | **Archive tier** (`docs/history/`, `docs/plans/`) | Frozen archive of completed plans and active multi-session build plans. | Loss of historical context; inability to track and reference past decisions. | full |
 
@@ -242,12 +243,12 @@ harness/             THE PRODUCT — what an adopter copies
   dist/AMH.md        GENERATED single-file bundle — never hand-edited
   templates/
     AMH-ADOPT.md     the adoption brief, written into an adopter's tree for their agent
-    scripts/         the five shipped scripts, plus their generated integrity manifest
+    scripts/         the shipped scripts, plus their generated integrity manifest
     configs/         CI workflow plus Claude Code and Codex adapters; substituted at init
     seed/            prose scaffolds: copied once, then yours forever
     amh.conf.example
 scripts/             THE INSTANCE — this repo living under what it ships
-  ladder.sh redact.sh command-guard.sh session-start.sh test-ladder-guards.sh
+  ladder.sh redact.sh redact-tool-output.sh command-guard.sh session-start.sh test-ladder-guards.sh
                      byte-identical copies of the shipped scripts, held by a cmp guard
   MANIFEST.sha256    their hashes, as shipped — the copy an adopter's ladder checks
   verify.sh          this repo's verification set — the ladder's extension point

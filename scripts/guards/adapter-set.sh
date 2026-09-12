@@ -167,5 +167,44 @@ if [ "$claude_files" -eq 0 ]; then
 	note "checked NOTHING for the Claude shell pin — no Claude adapter file was reached at all. The set above no longer names one, so this check iterated zero times while reporting nothing"
 fi
 
+# The PostToolUse output-redaction hook is the SECOND hand-applied Claude step, and DD-013's
+# durable half applies to it verbatim: a rail whose installation is manual needs a check for its
+# ABSENCE. Nothing else reports this one. The hook is fail-open at the host by design — a
+# replacement that misses the tool's schema, and a host with no python3, both leave the original
+# output standing — so a tree with the wiring deleted behaves identically to a tree with no
+# credential in its output, and no run of the ladder or of the hook's own self-test can tell them
+# apart. That is the same invisibility the shell pin had.
+#
+# Structural, like the pin test above and for the same reason: no JSON parser is in the
+# dependency floor. It reads the PostToolUse group as a line range and looks for the shipped
+# script inside it, so a command placed under some OTHER event does not satisfy this — and a file
+# whose layout the range cannot find is reported as unread rather than passed.
+POST_HOOK_SCRIPT=scripts/redact-tool-output.sh
+claude_post=0
+for declaration in "${ADAPTERS[@]}"; do
+	case $declaration in
+	*claude-settings.json*) ;;
+	*) continue ;;
+	esac
+	for settings in "${declaration%|*}" "${declaration#*|}"; do
+		[ -f "$settings" ] || continue
+		group=$(sed -n '/^[[:space:]]*"PostToolUse": \[$/,/^[[:space:]]*\],$/p' "$settings")
+		if [ -z "$group" ]; then
+			note "$settings: no \"PostToolUse\" group found at the layout this guard reads, so post-execution output redaction is either absent or written in a shape nothing here checked. Either way it is UNVERIFIED, not present — and a deleted redaction hook looks exactly like output with no credential in it (DD-013's lesson, DD-016 for this rail)"
+			continue
+		fi
+		if [ "$(printf '%s\n' "$group" | grep -cF "\"command\": \"$POST_HOOK_SCRIPT\"")" -ne 1 ]; then
+			note "$settings: the \"PostToolUse\" group does not invoke $POST_HOOK_SCRIPT exactly once — the group exists and the rail it is supposed to wire does not run"
+		elif ! printf '%s\n' "$group" | grep -qF '"shell": "bash",'; then
+			note "$settings: the \"PostToolUse\" hook carries no \"shell\": \"bash\" pin. The pin loop above counts entries across the whole file, so it cannot say WHICH entry is unpinned; this says it for the one entry whose failure is silent in both directions"
+		else
+			claude_post=$((claude_post + 1))
+		fi
+	done
+done
+if [ "$claude_post" -eq 0 ] && [ "$claude_files" -gt 0 ]; then
+	note "checked NOTHING for the Claude PostToolUse redaction hook across $claude_files file(s) — every file either lacked the group or failed above, so no file confirmed the rail"
+fi
+
 [ "$fails" -eq 0 ] || exit 1
-printf 'first-class adapter set is complete across sources, reference paths, installation and legislation; %s Claude command hook(s) across %s file(s) pin shell=bash\n' "$claude_hooks" "$claude_files"
+printf 'first-class adapter set is complete across sources, reference paths, installation and legislation; %s Claude command hook(s) across %s file(s) pin shell=bash, and %s of them wire the PostToolUse redaction rail\n' "$claude_hooks" "$claude_files" "$claude_post"

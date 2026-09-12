@@ -1076,7 +1076,7 @@ guard_author_identity() {
 guard_rail_selftests() {
 	section "Rail self-tests (a silently regressed rail is no rail)"
 	local s
-	for s in scripts/redact.sh scripts/command-guard.sh; do
+	for s in scripts/redact.sh scripts/command-guard.sh scripts/redact-tool-output.sh; do
 		# `[ -x ]` here printed nothing at all when the bit was missing — this whole
 		# section went blank and the ladder stayed green. Absence gets a `skip` line,
 		# the script's convention everywhere else; the exec bit gets no vote.

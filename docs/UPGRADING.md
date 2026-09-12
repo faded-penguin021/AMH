@@ -72,8 +72,8 @@ This split is the whole reason upgrades are cheap, so it is worth internalising:
 
 | | Upgradeable | Yours forever |
 |---|---|---|
-| `scripts/ladder.sh`, `session-start.sh`, `command-guard.sh`, `redact.sh`, `test-ladder-guards.sh` | **copy over** — they are parameter-free | — |
-| `scripts/MANIFEST.sha256` | **copy over** — generated at release, it holds the hashes of the five scripts above | — |
+| `scripts/ladder.sh`, `session-start.sh`, `command-guard.sh`, `redact.sh`, `redact-tool-output.sh`, `test-ladder-guards.sh` | **copy over** — they are parameter-free | — |
+| `scripts/MANIFEST.sha256` | **copy over** — generated at release, it holds the hashes of the shipped scripts above | — |
 | `amh.conf` | — | yours; new keys are additive, listed in the changelog |
 | `scripts/verify.sh`, `scripts/guards/*` | — | yours; the ladder's extension points |
 | `AGENTS.md`, `docs/RUNBOOK.md`, `docs/STATE.md`, `docs/LEDGER.md` | — | yours; seed changes arrive as hand-applied notes |
@@ -119,7 +119,7 @@ chmod +x scripts/*.sh
 
 **Copy the whole directory, not just `*.sh`.** `scripts/MANIFEST.sha256` sits beside the
 scripts because it holds their hashes, and your ladder's integrity rung compares the two. New
-scripts against last version's manifest reads exactly like five locally edited scripts — the
+scripts against last version's manifest reads exactly like a trayful of locally edited scripts — the
 rung will say so, and this is the fix. If you have no manifest at all (you upgraded before
 this file existed), the rung warns on every run that the shipped scripts went unchecked;
 copying it is what turns the rung on.

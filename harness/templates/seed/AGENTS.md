@@ -184,7 +184,9 @@ shortlist below is what a session is expected to carry without looking.
   run the bootstrap at session start; mirror the permission deny rails (env dumps,
   force-push, pushing to `{{DEFAULT_BRANCH}}`) if the agent supports permission rules; wire
   `scripts/command-guard.sh` as a pre-execution command check where the agent supports hooks;
-  pipe tool output through `scripts/redact.sh` if the agent has an output-filter hook; honour
+  pipe tool output through `scripts/redact.sh` if the agent has an output-filter hook, using
+  `scripts/redact-tool-output.sh` where that hook rewrites a tool RESULT rather than a stream;
+  honour
   the one-session-one-branch rule; and add its config file to `RULE_FILES` in `amh.conf`.
   State explicitly which of those layers the adapter actually provides.
 - **An agent with no pre-execution hook has no command rail at all.** `scripts/command-guard.sh`

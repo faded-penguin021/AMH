@@ -11,6 +11,120 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 14.2.0 — 2026-09-12
+
+- **The Claude adapter now redacts tool output after execution, closing the half of P17 that
+  had no wiring.** P17 has always said adapters pipe tool output through `scripts/redact.sh`
+  *before the context window sees it, via an output-filter hook if the agent has one*. The
+  Claude adapter carried the sentence "Claude Code has no output-filter hook" and wired
+  nothing. That statement was true when it was written and is now false: `PostToolUse` hooks
+  return `hookSpecificOutput.updatedToolOutput`, which replaces the tool result the model
+  reads. So this is conformance to a standing rule rather than new machinery, and the incident
+  bar does not apply — what earned the change is a rule that already bound plus a capability
+  that arrived.
+- **New shipped script `scripts/redact-tool-output.sh`.** It reads a `PostToolUse` payload on
+  stdin, filters each STRING LEAF of `tool_response` through `redact.sh` in its own invocation,
+  and rebuilds the response with the leaves replaced in place. Numbers stay numbers, booleans stay
+  booleans, object keys and array lengths are untouched, and nothing reconstructs what a tool's
+  response "should" look like. That is load-bearing rather than stylistic: a replacement which
+  does not match the tool's own response schema is discarded by the host as a non-blocking
+  error, and the rail then reads as wired while doing nothing.
+- **One invocation per leaf, not one for the batch — a review caught this and it was a real
+  corruption, not a style point.** `redact.sh`'s private-key stage is a sed line RANGE. Sending
+  every leaf through as one stream let an unterminated opening marker in one leaf hold that range
+  open across every later leaf, where the body pattern matches any all-base64 line — ordinary
+  single words and most slash-only paths. A measured `Read` response came back with its `filePath`
+  replaced by a redaction marker, published under a message asserting a redaction. The
+  marker precondition could not catch it, because the corrupting substitution genuinely adds a
+  marker. A filter with any cross-line state makes batching wrong by construction (**DD-016**).
+- **A changed leaf is accepted only if it GAINED a marker, counted rather than merely present.**
+  `redact.sh` documents that its own stages are not byte-transparent everywhere, so differing
+  bytes are not evidence of redaction. A contains-test had a hole the same review measured: a leaf
+  that already carried the literal `[REDACTED:` — common, since this filter's own output and this
+  repository's prose both contain it — was accepted on any byte change, including exactly the CRLF
+  rewrite the rule exists to reject. Both rules ship with a fixture that fails against the shape
+  it replaced.
+- **`scripts/guards/adapter-set.sh` now fails if the hook goes missing, is rewired, or loses its
+  shell pin.** This is repo-local, and it is here because the rail is invisible when absent in both
+  directions the host provides — so a tree with the wiring deleted behaves identically to one whose
+  output held no credential, and the script's own self-test passes either way because it tests the
+  script and not the wiring. That is **DD-013**'s lesson verbatim: a rail whose installation is
+  manual needs a check for its ABSENCE. Adopters get the hand step and the note, as with the pin.
+- **Why the leaves and not the serialised response, which would have been one line.**
+  `redact.sh` removes a private key in two stages — a line-range stage over the base64 body,
+  then a per-line stage over the opening marker. In serialised JSON the whole key sits inside
+  one string literal with its newlines written as two-character escapes, so the range stage has
+  no lines to open on and only the marker is replaced: `[REDACTED:private_key_block]` printed
+  directly above the key, in the clear. A marker over a live value is worse than no class at
+  all, which is P17's own sentence about this same filter. So the leaf is decoded to real text
+  first, and the fixture asserts the BODY is gone rather than that a marker appeared.
+- **Four bounds, stated in the adapter and in the script header rather than left to be
+  discovered.** The value was already produced and still exists in the tool's execution, the
+  on-disk transcript and any host telemetry — this changes only what the model reads. The host
+  contract is fail-OPEN, so every uncertain path in the script prints nothing and the original
+  output stands. `PostToolUse` fires on a tool call that SUCCEEDED, so a credential printed by
+  a command that failed may never reach it, and prevention stays with the pre-execution guard.
+  And it catches the shapes `redact.sh` enumerates and no more: a private token with no
+  recognisable prefix, a random password or a database credential passes through untouched.
+- **`python3` when present, and nothing when it is absent** — the same optional-tool handling
+  `command-guard.sh` already uses to read a hook payload, which keeps the dependency floor at
+  bash, git and coreutils. A bash fallback was considered and refused: `command-guard.sh` can
+  afford one because it extracts a single documented string from a flat object, while this
+  input is an arbitrary nested response from an arbitrary tool, where a half-parser does not
+  fail open — it emits a document that parses and says something else. The stand-down is reported
+  by one route only: `REQUIRED_TOOLS` in `amh.conf` now names `python3`, so the session banner says
+  whether it is there. The shipped `amh.conf.example` ships that key empty, so an adopter who wants
+  the report adds the name — a hook's stderr on a zero exit reaches the host's debug log and
+  nowhere a reader looks.
+- **What has NOT been observed.** `scripts/redact-tool-output.sh --self-test` runs in the
+  ladder's rail self-test rung and settles payload handling, leaf accounting and result-shape
+  preservation. It settles nothing about whether the host honours `updatedToolOutput`, because
+  a session cannot reload its own hook set to find out. Configured, never observed — the same
+  word the session banner uses for every other adapter claim.
+- **Codex is unchanged and its adapter still says so.** Its hooks can block a shell call before
+  it runs and cannot rewrite tool output, so it has no `PostToolUse` redaction hook, and the
+  sentence saying that remains accurate.
+
+### Upgrading
+
+Shipped scripts are copied for you; the adapter is not. An adopter running the Claude adapter
+applies this by hand, because `amh-init.sh` installs `.claude/settings.json` with `keep` and
+will not overwrite your copy:
+
+1. Re-run the installer, or copy `scripts/redact-tool-output.sh` from this release into your
+   `scripts/`, so the new shipped script sits beside `redact.sh`. It resolves `redact.sh` from
+   its own directory, so the two must stay together.
+2. Add a `PostToolUse` group to the `hooks` object in your `.claude/settings.json`, copying the
+   wording from `harness/templates/configs/claude-settings.json` in this release:
+
+   ```json
+   "PostToolUse": [
+     {
+       "matcher": "*",
+       "hooks": [
+         {
+           "type": "command",
+           "shell": "bash",
+           "command": "scripts/redact-tool-output.sh"
+         }
+       ]
+     }
+   ],
+   ```
+
+   The `"shell": "bash"` line is required for the reason 14.1.0 gives: an unpinned hook can be
+   handed to the Windows file association, which runs it detached and reports rc=0. The
+   `"matcher": "*"` is written out rather than omitted — the two are equivalent to the host, and
+   for a rail the difference between "every tool" and "no tool" should not rest on an absent key.
+3. Replace the sentence in your adapter's `$comment` saying this agent has no output-filter
+   hook. It is now false, and an adapter that understates its layers misleads exactly as much
+   as one that overstates them. The template's wording is there to copy, bounds included — do
+   not claim the rail without them.
+4. Add `python3` to `REQUIRED_TOOLS` in your `amh.conf` if you want the session banner to tell
+   you whether the interpreter this rail needs is present. Without it the stand-down is silent.
+5. Nothing else to do if you run the Codex adapter only, or if your host has no `python3`: in the
+   second case the hook stands down and you are in exactly the state you are in today.
+
 ## 14.1.0 — 2026-09-09
 
 - **The Claude adapter pins the shell its hooks run under.** Hook shell form resolves per host and

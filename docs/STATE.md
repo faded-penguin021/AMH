@@ -16,13 +16,15 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 14.1.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 14.2.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-This tree declares **14.1.0**: the Claude adapter pins the shell its hooks run under, so that
-layer is not replaced by PowerShell per host — and states where the pin does not reach and what
-it costs (**DD-007**–**DD-012**). Whether that version is tagged or
+This tree declares **14.2.0**: the Claude adapter wires post-execution output redaction, so
+`scripts/redact-tool-output.sh` filters the string leaves of a tool result — one `redact.sh`
+invocation per leaf — before the context window reads it, with its bounds stated beside it and
+the host contract's fail-open direction first among them (**DD-015**, **DD-016**). 14.1.0's shell pin still stands under it (**DD-007**–**DD-012**).
+Whether either version is tagged or
 released is not recorded here — `scripts/session-start.sh` probes it every session and reports
 present, absent or could-not-ask, which is the only answer that can be right twice.
 
@@ -43,6 +45,15 @@ Operational gotchas:
 > Items leave only when done, answered or triaged — then delete the item and record the outcome
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
+
+**OPEN — nothing has observed the new `PostToolUse` redaction hook actually firing, and no
+session can.** `scripts/redact-tool-output.sh --self-test` settles this repository's half —
+payload handling, leaf accounting, result-shape preservation — and settles nothing about whether
+the host honours `updatedToolOutput`, because a session cannot reload its own hook set to find
+out. The host contract is fail-open in both directions that matter (a replacement missing the
+tool's schema, or a missing `python3`), so a hook that never fires looks exactly like a tree with
+no credential in its output (**DD-015**). Only a session that starts with this adapter loaded and
+sees a redaction marker in a tool result settles it. Check: `scripts/redact-tool-output.sh --self-test` — all checks passing means the script is sound, and is NOT evidence the hook ran.
 
 **OPEN — nobody has run a pinned hook on a host where Git bash cannot be found at all.** Two
 hosts have now run the pinned arm where discovery SUCCEEDS — the second, reported 2026-09-10, saw
@@ -105,39 +116,40 @@ from.
 
 ## Changelog
 
-- 2026-09-10 — **A rung now reports an absent Claude `shell` pin, which until now was a hand step nothing checked.** `scripts/guards/adapter-set.sh` requires the exact `"shell": "bash"` line under every `"type": "command"` entry in both the shipped template and the reference copy, and reconciles a layout-independent entry count against what its line matcher actually read, so an entry in a layout it cannot parse reports UNVERIFIED instead of passing. Earned by a downstream 14.1.0 field report whose positive control also showed a pinned guard denying on Windows, and whose headline exposure claim its own bounds withdraw (**DD-013**, **DD-014**). Observed 2026-09-10 while closing the release item: `amh-v14.1.0` is cut and sits on
-  `main`'s history, at the same commit `origin/main` points to.
+- 2026-09-12 — **14.2.0: the Claude adapter redacts tool output after execution, completing the
+  half of P17 that had never been wired.** The adapter's "this agent has no output-filter hook"
+  was true when written and is now false, so a `PostToolUse` hook runs the new shipped
+  `scripts/redact-tool-output.sh`, which walks the string LEAVES of `tool_response`, filters each
+  through `redact.sh` in its own invocation and rebuilds the response in place — the RFC's own
+  "filter the response" shorthand was measured and prints a marker over a live private key, and
+  the mandatory review then measured that batching the leaves lets one leaf's open sed range
+  rewrite another's (**DD-016**). Fail-open by the host's design, successful tool calls only,
+  known shapes only, `python3` or nothing, and configured rather than observed: all five bounds
+  ship in the adapter prose, and `scripts/guards/adapter-set.sh` fails on the wiring's absence
+  because that absence is invisible from a green tree (**DD-015**).
 
-- 2026-09-09/10 — **14.1.0: the Claude adapter pins the shell its hooks run under, and says
-  what the pin does not reach, what it costs, and what nobody has run.** All three hooks set the
-  `shell` field to bash, so a host whose Git bash is undiscoverable should fail visibly instead
-  of handing a bare `.sh` to a file association that runs it detached, feeds it a tty instead of
-  the hook payload, and is not waited on. The rule-review pass established that the command
-  guard's `Bash` matcher never fires on that host at all — queued as an owner fork rather than
-  fixed under cover of a shell pin — and a second pass established that the pinned arm itself
-  was never run, that an invalid VALUE drops a whole hook entry, and that `bash` may resolve to
-  WSL's in another namespace. That last hazard was then withdrawn on measurement — the pinned
-  shell is not resolved through `PATH`, so no host is misrouted to WSL — and the unknown-key
-  question was settled at the shipped schema rather than by proxy: the entry survives, so the
-  pin is inert on a build predating the field (**DD-007**–**DD-011**). The owner declined the
-  `Bash|PowerShell` widening; the guard stays honestly absent there (**DD-012**). Observed
-  2026-09-09 while closing the previous release item: 14.0.0 is merged and `amh-v14.0.0` sits
-  on `main`'s history.
+- 2026-09-10 — **A rung now reports an absent Claude `shell` pin.** `scripts/guards/adapter-set.sh`
+  requires the exact `"shell": "bash"` line under every `"type": "command"` entry in both Claude
+  adapter copies, and reports UNVERIFIED for an entry whose layout its line matcher cannot read
+  (**DD-013**, **DD-014**). Observed 2026-09-10: `amh-v14.1.0` was cut and sat on `main`'s history
+  at the commit `origin/main` then pointed to.
+
+- 2026-09-09/10 — **14.1.0: the Claude adapter pins the shell its hooks run under, and says what
+  the pin does not reach.** All hooks set `shell` to bash, so an undiscoverable Git bash fails
+  visibly instead of going to the Windows file association, which runs a bare `.sh` detached and
+  reports rc=0. The rule-review pass established that the guard's `Bash` matcher never fires on
+  that host at all, the WSL hazard was withdrawn on measurement, and the owner declined the
+  `Bash|PowerShell` widening (**DD-007**–**DD-012**).
 
 - 2026-09-02 — **14.0.0: working memory is tree-relative.** `Current state` records what stays
-  true of the checked-out tree and stops caching merge, tag, release, CI and forge-setting status;
-  live facts point at the probe that recomputes them, external actions route to the Owner queue,
-  and retained past facts are scoped to when they were observed. Prose-only, at P2/P9, both
-  runbooks, both constitutions and the seeds (**DD-006**).
+  true of the checked-out tree and stops caching merge, tag, release, CI and forge-setting status
+  (**DD-006**).
 
-- 2026-09-02 — **A ledger row pins its text, not the file it names.** The path guard now classifies
-  a missing ledger target against the commit that introduced the citing row — exempting historical
-  drift past the commit that removes the target, failing a citation already broken when authored,
-  and warning where no history or default-branch baseline can say which — so the completed Windows
-  CI plan retired to `docs/history/` while DC-033 keeps its wording (**DD-004**). The frozen
-  archive left the scan in the same change, on the plan tier's own reasoning (owner, **DD-005**).
+- 2026-09-02 — **A ledger row pins its text, not the file it names**, and the frozen archive left
+  the path scan in the same change (**DD-004**, **DD-005**).
 
-- 2026-09-02 — **Thresholds name their behavior and historical ledger paths stay immutable.** Classified every configured content boundary at its action point, removed target-like wording and the ledger warning band, shortened ledger preambles, and made path validation strict at authoring while exempting a committed target that had moved only in the working tree (**DD-003**, corrected by **DD-004**).
+- 2026-09-02 — **Thresholds name their behavior and historical ledger paths stay immutable**
+  (**DD-003**, corrected by **DD-004**).
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.

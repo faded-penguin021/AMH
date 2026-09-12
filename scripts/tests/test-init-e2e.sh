@@ -337,12 +337,18 @@ fi
 
 # The rung is live in the new tree, not skipping. The count is part of the assertion: a
 # manifest that arrived truncated, or one written before the scripts, would still produce an
-# `ok` line — with a smaller number.
+# `ok` line — with a smaller number. The expected number is DERIVED from the template
+# directory rather than written out: hard-coding it made adding a sixth shipped script fail
+# here with a message naming "five", which reads as a defect in the installer instead of a
+# stale count in this line.
+shipped_count=$(find "$ROOT/harness/templates/scripts" -maxdepth 1 -name '*.sh' | wc -l | tr -d ' ')
 out=$(target_ladder "$d")
-if printf '%s' "$out" | grep -qF '   ok    5 shipped script(s) match the published hashes'; then
+if [ "$shipped_count" -eq 0 ]; then
+	fail "counted NOTHING to expect — no shipped scripts found under harness/templates/scripts" "$out"
+elif printf '%s' "$out" | grep -qF "   ok    $shipped_count shipped script(s) match the published hashes"; then
 	pass
 else
-	fail "the instantiated repo verifies all five shipped scripts against the manifest" "$out"
+	fail "the instantiated repo verifies all $shipped_count shipped script(s) against the manifest" "$out"
 fi
 
 # The conformance lab is repo-local and must never reach an adopter. That is structurally true

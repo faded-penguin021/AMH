@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 14.1.0.** Repos that adopt it record the version they took
+**Harness version 14.2.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -833,7 +833,9 @@ shortlist below is what a session is expected to carry without looking.
   run the bootstrap at session start; mirror the permission deny rails (env dumps,
   force-push, pushing to `{{DEFAULT_BRANCH}}`) if the agent supports permission rules; wire
   `scripts/command-guard.sh` as a pre-execution command check where the agent supports hooks;
-  pipe tool output through `scripts/redact.sh` if the agent has an output-filter hook; honour
+  pipe tool output through `scripts/redact.sh` if the agent has an output-filter hook, using
+  `scripts/redact-tool-output.sh` where that hook rewrites a tool RESULT rather than a stream;
+  honour
   the one-session-one-branch rule; and add its config file to `RULE_FILES` in `amh.conf`.
   State explicitly which of those layers the adapter actually provides.
 - **An agent with no pre-execution hook has no command rail at all.** `scripts/command-guard.sh`
@@ -1959,8 +1961,18 @@ rather than the command.
   and terminal output through `scripts/redact.sh` so known token shapes are scrubbed before
   they reach the context window. Codex hooks can block a shell call before it runs, but cannot
   currently suppress or rewrite tool output, so its adapter deliberately has no `PostToolUse`
-  redaction hook. State explicitly in the adapter which layers it actually provides — rails,
-  redaction, or prose-only.
+  redaction hook. Claude Code can, and `scripts/redact-tool-output.sh` is the entry point its
+  adapter wires. **Filter the string LEAVES of the response the host actually handed you, and
+  rebuild it in place** — never reconstruct what you believe that tool returns. A replacement
+  that misses the tool's own schema is discarded as a non-blocking error and the original output
+  is used, so the rail reads as wired while doing nothing, and the whole layer is fail-open by
+  the host's design. Filtering the SERIALISED response instead is the trap: a private key inside
+  one JSON string has its newlines written as escapes, so the block filter's range stage never
+  opens and only the marker is replaced — a marker printed over a live value, which P17 calls
+  worse than no class at all. State explicitly in the adapter which layers it actually provides
+  — rails, redaction, or prose-only — and state each layer's bounds with it: a redaction hook
+  sees successful tool calls only, cannot unsay what the tool already wrote to the transcript,
+  and catches the enumerated shapes and nothing else.
 - **Server-side:** the owner mirrors the hardest rails at the host — branch protection on the
   default branch (PRs required; force-push and deletion blocked) and secret-scanning push
   protection. The adapter's deny rules bind only agents that load them; the server binds every
@@ -1970,7 +1982,7 @@ A worked adapter, for Claude Code:
 
 ``````
 {
-  "$comment": "AMH adapter for Claude Code — wiring only, no logic. All behaviour lives in AGENTS.md and scripts/. Layers this adapter provides: an instructive pre-execution command guard, a per-spawn speed bump on the Task tool, static deny rails, and pre-allowed verification commands. It does NOT provide output redaction: Claude Code has no output-filter hook, so scripts/redact.sh stays available for manual piping and is what the ladder's secret scan uses. Be honest about this per adapter. The owner mirrors the hardest rails server-side (branch protection, secret-scanning push protection) — these rules bind only agents that load them. Every hook pins its shell with the `shell` field set to bash. Shell form otherwise resolves per host and falls back to PowerShell on Windows when Git Bash is not found; a bare `.sh` path then goes to the Git for Windows file association, and the trigger is that association, not `PATH`. What that costs was established on a reporting host: the script DOES run, detached under the association's windowed launcher, with the new terminal's tty on stdin where the hook payload should be, and the caller has already moved on before it exits — so a guard that reads stdin waits forever in a window nobody is watching, and no exit code is ever consulted. An extension with NO association is not the loud case either: it raises the desktop's what-should-open-this picker, still rc=0 and zero bytes to the harness. The pin is inert wherever this adapter already works — each command here is a path plus a literal argument, and each script names its own interpreter in its shebang. What it does NOT resolve through is `PATH`: the agent locates Git's bash from Git's own install (a default-location probe, then `git` on `PATH`, then bash beside it) or from an override variable, so a host with WSL but no Git bash on `PATH` is not misrouted to WSL. When discovery finds nothing the failure is loud but version-dependent — an instructive error and a nonzero exit in one shipped bundle, a per-hook throw naming Git for Windows and CLAUDE_CODE_GIT_BASH_PATH in a later binary — and nobody has yet run a pinned hook on such a host. The hazard the pin adds is a typo in its VALUE: that fails the enum and drops the whole hook entry, where a misspelled KEY is merely stripped with the entry left standing, which is also why the pin is inert rather than fatal on a build predating the field. Read what the pin does NOT reach: SessionStart and the Task speed bump fire on any host, but the command guard's Bash matcher does not fire at all on Windows without Git Bash, because no Bash tool is registered there and shell commands are routed through PowerShell instead. Widening that matcher is the documented remedy and is deliberately NOT done here — the guard has no Windows-shell arm, so it would read PowerShell with a bash-shaped parser (AMH ledger rows DD007 through DD012).",
+  "$comment": "AMH adapter for Claude Code — wiring only, no logic. All behaviour lives in AGENTS.md and scripts/. Layers this adapter provides: an instructive pre-execution command guard, a per-spawn speed bump on the Task tool, static deny rails, pre-allowed verification commands, and post-execution output redaction. Output redaction IS wired: a PostToolUse hook runs scripts/redact-tool-output.sh, which filters the STRING LEAVES of the tool_response through scripts/redact.sh — one filter, one class list, one place to fix — and rebuilds the response with those leaves replaced in place, so numbers, booleans, object keys and array lengths survive by construction. ONE invocation PER LEAF, which is correctness rather than tidiness: redact.sh's private-key stage is a sed line RANGE, and batching the leaves let an unterminated BEGIN marker in one leaf rewrite every later leaf, replacing a Read response's filePath with a redaction marker under a message asserting a redaction. A changed leaf is accepted only if it GAINED a marker, counted rather than merely present, because redact.sh's own stages are not byte-transparent on every platform and a leaf that already carried that literal was otherwise accepted on any byte change (AMH ledger row DD016). Read that script's header before treating this as containment, because four bounds say it is not. (1) The value was already produced: it exists in the tool's own execution, in the session transcript on disk and in any telemetry the host keeps, and this layer changes only what the MODEL reads. (2) The host contract is fail-OPEN: a replacement that does not match the tool's own response schema is a non-blocking error and the ORIGINAL output is used, as is any non-zero exit from the hook — so every uncertain path in that script prints nothing, which lands in the same place. (3) PostToolUse fires on a tool call that SUCCEEDED, so a credential printed by a command that failed may never reach it; prevention stays with the pre-execution command guard. (4) It catches the shapes redact.sh enumerates and no more — a private token with no recognisable prefix, a random password, a database credential: it sees none of them, and the prose rule is what covers those. It also reads the payload with python3, which is not in the bash/git/coreutils floor; where python3 is absent the hook stands down and this adapter is back to the prose-plus-deny-rails state it was in before, which is a documented state rather than a regression. That stand-down is reported only by the session banner's tool line, and only because REQUIRED_TOOLS in amh.conf now names python3 — the shipped amh.conf.example ships that key EMPTY, so an adopter who wants the report adds the name; a hook's stderr on a zero exit reaches the host's debug log and nowhere a reader looks. scripts/guards/adapter-set.sh fails if this group goes missing, is rewired, or loses its shell pin — DD013's lesson applies verbatim, because a deleted redaction hook looks exactly like output that held no credential. NOTHING HERE HAS BEEN OBSERVED FIRING: `scripts/redact-tool-output.sh --self-test` proves this repository's payload handling and result-shape preservation, and proves nothing about whether the host honours updatedToolOutput — configured, never observed. scripts/redact.sh remains available for manual piping and is what the ladder's secret scan uses. Be honest about this per adapter. The owner mirrors the hardest rails server-side (branch protection, secret-scanning push protection) — these rules bind only agents that load them. Every hook pins its shell with the `shell` field set to bash. Shell form otherwise resolves per host and falls back to PowerShell on Windows when Git Bash is not found; a bare `.sh` path then goes to the Git for Windows file association, and the trigger is that association, not `PATH`. What that costs was established on a reporting host: the script DOES run, detached under the association's windowed launcher, with the new terminal's tty on stdin where the hook payload should be, and the caller has already moved on before it exits — so a guard that reads stdin waits forever in a window nobody is watching, and no exit code is ever consulted. An extension with NO association is not the loud case either: it raises the desktop's what-should-open-this picker, still rc=0 and zero bytes to the harness. The pin is inert wherever this adapter already works — each command here is a path plus a literal argument, and each script names its own interpreter in its shebang. What it does NOT resolve through is `PATH`: the agent locates Git's bash from Git's own install (a default-location probe, then `git` on `PATH`, then bash beside it) or from an override variable, so a host with WSL but no Git bash on `PATH` is not misrouted to WSL. When discovery finds nothing the failure is loud but version-dependent — an instructive error and a nonzero exit in one shipped bundle, a per-hook throw naming Git for Windows and CLAUDE_CODE_GIT_BASH_PATH in a later binary — and nobody has yet run a pinned hook on such a host. The hazard the pin adds is a typo in its VALUE: that fails the enum and drops the whole hook entry, where a misspelled KEY is merely stripped with the entry left standing, which is also why the pin is inert rather than fatal on a build predating the field. Read what the pin does NOT reach: SessionStart and the Task speed bump fire on any host, but the command guard's Bash matcher does not fire at all on Windows without Git Bash, because no Bash tool is registered there and shell commands are routed through PowerShell instead. Widening that matcher is the documented remedy and is deliberately NOT done here — the guard has no Windows-shell arm, so it would read PowerShell with a bash-shaped parser (AMH ledger rows DD007 through DD012).",
   "permissions": {
     "allow": [
       "Bash(scripts/ladder.sh)",
@@ -1979,6 +1991,7 @@ A worked adapter, for Claude Code:
       "Bash(scripts/session-start.sh)",
       "Bash(scripts/test-ladder-guards.sh)",
       "Bash(scripts/redact.sh:*)",
+      "Bash(scripts/redact-tool-output.sh:*)",
       "Bash(scripts/command-guard.sh:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
@@ -2034,6 +2047,18 @@ A worked adapter, for Claude Code:
     ]
   },
   "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "scripts/redact-tool-output.sh"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
@@ -2280,7 +2305,7 @@ places.
 | | What it is | Rule |
 |---|---|---|
 | `scripts/ladder.sh`, `session-start.sh`, `command-guard.sh`, `redact.sh`, `test-ladder-guards.sh` | shipped artifacts | **Never edit them.** They are parameter-free and read `amh.conf` at runtime; that is what makes upgrading a copy instead of a merge. Re-running init overwrites them on purpose. |
-| `scripts/MANIFEST.sha256` | shipped artifact | The hashes of those five scripts, checked by a ladder rung every run — so an edit to one of them is reported rather than discovered a year later by whoever upgrades. Generated at release; never hand-edited. |
+| `scripts/MANIFEST.sha256` | shipped artifact | The hashes of those scripts, checked by a ladder rung every run — so an edit to one of them is reported rather than discovered a year later by whoever upgrades. Generated at release; never hand-edited. |
 | `amh.conf` | your settings | Yours forever. The harness cannot upgrade it, so new keys arrive with defaults in the scripts. |
 | `scripts/verify.sh`, `scripts/guards/*.sh` | the ladder's two extension points | Yours entirely — you write them, you edit them, you delete them. The installer ships a stub `verify.sh` and no guards at all. |
 | `AGENTS.md`, `CLAUDE.md`, `docs/**` | seed prose | Copied once, yours thereafter. Re-running init never touches them. |

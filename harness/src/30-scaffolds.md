@@ -332,8 +332,18 @@ rather than the command.
   and terminal output through `scripts/redact.sh` so known token shapes are scrubbed before
   they reach the context window. Codex hooks can block a shell call before it runs, but cannot
   currently suppress or rewrite tool output, so its adapter deliberately has no `PostToolUse`
-  redaction hook. State explicitly in the adapter which layers it actually provides — rails,
-  redaction, or prose-only.
+  redaction hook. Claude Code can, and `scripts/redact-tool-output.sh` is the entry point its
+  adapter wires. **Filter the string LEAVES of the response the host actually handed you, and
+  rebuild it in place** — never reconstruct what you believe that tool returns. A replacement
+  that misses the tool's own schema is discarded as a non-blocking error and the original output
+  is used, so the rail reads as wired while doing nothing, and the whole layer is fail-open by
+  the host's design. Filtering the SERIALISED response instead is the trap: a private key inside
+  one JSON string has its newlines written as escapes, so the block filter's range stage never
+  opens and only the marker is replaced — a marker printed over a live value, which P17 calls
+  worse than no class at all. State explicitly in the adapter which layers it actually provides
+  — rails, redaction, or prose-only — and state each layer's bounds with it: a redaction hook
+  sees successful tool calls only, cannot unsay what the tool already wrote to the transcript,
+  and catches the enumerated shapes and nothing else.
 - **Server-side:** the owner mirrors the hardest rails at the host — branch protection on the
   default branch (PRs required; force-push and deletion blocked) and secret-scanning push
   protection. The adapter's deny rules bind only agents that load them; the server binds every
