@@ -206,5 +206,39 @@ if [ "$claude_post" -eq 0 ] && [ "$claude_files" -gt 0 ]; then
 	note "checked NOTHING for the Claude PostToolUse redaction hook across $claude_files file(s) — every file either lacked the group or failed above, so no file confirmed the rail"
 fi
 
+# Codex now exposes PostToolUse too. Its current contract cannot replace arbitrary results;
+# the shared rail instead blocks a result only after redaction and supplies filtered feedback
+# (DD-017).
+# That semantic difference lives in the script, while this check proves both Codex adapter
+# copies actually dispatch it for every tool. TOML is line-oriented here by deliberate local
+# convention; an unread layout is UNVERIFIED rather than silently accepted.
+codex_post=0
+codex_files=0
+for declaration in "${ADAPTERS[@]}"; do
+	case $declaration in
+	*codex-config.toml*) ;;
+	*) continue ;;
+	esac
+	for config in "${declaration%|*}" "${declaration#*|}"; do
+		[ -f "$config" ] || continue
+		codex_files=$((codex_files + 1))
+		group=$(sed -n '/^\[\[hooks\.PostToolUse\]\]$/,/^]$/p' "$config")
+		if [ -z "$group" ]; then
+			note "$config: no [[hooks.PostToolUse]] group found at the layout this guard reads, so Codex output redaction is absent or UNVERIFIED"
+		elif ! printf '%s\n' "$group" | grep -qF 'matcher = ".*"'; then
+			note "$config: the PostToolUse matcher is not the explicit all-tools regular expression \".*\""
+		elif [ "$(printf '%s\n' "$group" | grep -Ec '^[[:space:]]*\{ type = "command", command = ".*scripts/redact-tool-output\.sh.*"[, ]')" -ne 1 ]; then
+			note "$config: the [[hooks.PostToolUse]] group does not declare exactly one command hook that invokes $POST_HOOK_SCRIPT"
+		else
+			codex_post=$((codex_post + 1))
+		fi
+	done
+done
+if [ "$codex_files" -eq 0 ]; then
+	note "checked NOTHING for the Codex PostToolUse redaction hook — no Codex adapter file was reached"
+elif [ "$codex_post" -ne "$codex_files" ]; then
+	note "checked NOTHING for $((codex_files - codex_post)) of $codex_files Codex PostToolUse redaction hook(s)"
+fi
+
 [ "$fails" -eq 0 ] || exit 1
-printf 'first-class adapter set is complete across sources, reference paths, installation and legislation; %s Claude command hook(s) across %s file(s) pin shell=bash, and %s of them wire the PostToolUse redaction rail\n' "$claude_hooks" "$claude_files" "$claude_post"
+printf 'first-class adapter set is complete across sources, reference paths, installation and legislation; %s Claude command hook(s) across %s file(s) pin shell=bash, %s Claude and %s Codex adapter(s) wire the PostToolUse redaction rail\n' "$claude_hooks" "$claude_files" "$claude_post" "$codex_post"

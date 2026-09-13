@@ -11,6 +11,26 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 14.3.0 — 2026-09-13
+
+- **The Codex adapter now wires `PostToolUse` output redaction.** Codex exposes the same input
+  fields the shared rail needs, but not Claude Code's arbitrary result replacement. On an
+  actual redaction the script therefore returns Codex's `decision: block` with the filtered
+  result as model-facing feedback. This prevents delivery of the original, at the explicit
+  cost that the successful tool looks failed and a structured result is serialized as text.
+- **The shared hook now selects the host response contract from Codex's `turn_id`.** Claude
+  continues to receive `hookSpecificOutput.updatedToolOutput`; sending that response to Codex
+  is not harmless compatibility, because Codex rejects it and exposes the original result.
+  Unchanged output still produces no response, and every uncertain path still fails open.
+- **The adapter-set guard covers Codex wiring.** Fixtures remove, rewire, and narrow the new
+  all-tool hook so config drift cannot silently remove the rail.
+
+### Upgrading
+
+Shipped scripts are copied for you; the adapter is not. Codex adopters add the
+`[[hooks.PostToolUse]]` group from `harness/templates/configs/codex-config.toml` to their
+`.codex/config.toml`. Claude-only adopters need no adapter change.
+
 ## 14.2.0 — 2026-09-12
 
 - **The Claude adapter now redacts tool output after execution, closing the half of P17 that

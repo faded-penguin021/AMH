@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 14.2.0.** Repos that adopt it record the version they took
+**Harness version 14.3.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -1959,11 +1959,13 @@ rather than the command.
   flag.
 - **Output redaction** (where supported): if the agent exposes an output-filter hook, pipe tool
   and terminal output through `scripts/redact.sh` so known token shapes are scrubbed before
-  they reach the context window. Codex hooks can block a shell call before it runs, but cannot
-  currently suppress or rewrite tool output, so its adapter deliberately has no `PostToolUse`
-  redaction hook. Claude Code can, and `scripts/redact-tool-output.sh` is the entry point its
-  adapter wires. **Filter the string LEAVES of the response the host actually handed you, and
-  rebuild it in place** — never reconstruct what you believe that tool returns. A replacement
+  they reach the context window. Claude Code can replace a result in place. Codex cannot
+  currently rewrite one, but its `PostToolUse` hook can block delivery of the original and
+  substitute model feedback; the Codex adapter uses that path only after redaction, with the
+  cost that the completed tool looks failed and a structured result becomes JSON text.
+  `scripts/redact-tool-output.sh` handles both contracts. **Filter the string LEAVES of the
+  response the host actually handed you, and rebuild it in place** — never reconstruct what
+  you believe that tool returns. A replacement
   that misses the tool's own schema is discarded as a non-blocking error and the original output
   is used, so the rail reads as wired while doing nothing, and the whole layer is fail-open by
   the host's design. Filtering the SERIALISED response instead is the trap: a private key inside
@@ -2103,9 +2105,13 @@ A worked adapter, for Codex (lifecycle hooks plus the static lower command-polic
 # and scripts/. Hooks run the agent-neutral session bootstrap and command guard;
 # the static lower command-policy layer remains .codex/rules/amh.rules.
 #
-# Codex can block a shell call before execution, but its hooks cannot currently
-# suppress or rewrite tool output. There is intentionally no PostToolUse hook:
-# scripts/redact.sh remains available only for adapters with an output filter.
+# Codex cannot rewrite a tool result in place, but PostToolUse can block delivery of
+# the original and substitute model-facing feedback. The redaction hook uses that path
+# only when it finds a known credential shape. This makes the successful tool look failed
+# to the model and serializes structured results as text; those are Codex's current bounds,
+# preferable to returning the unredacted result. Hook failure and an absent python3 fail
+# open, failed tool calls do not reach PostToolUse, and this filter sees only the shapes
+# redact.sh enumerates. The original still exists in execution logs and the transcript.
 
 [[hooks.SessionStart]]
 matcher = "startup|resume|clear|compact"
@@ -2117,6 +2123,12 @@ hooks = [
 matcher = "^Bash$"
 hooks = [
   { type = "command", command = "root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; exec bash \"$root/scripts/command-guard.sh\"", timeout = 10, statusMessage = "Checking shell command" },
+]
+
+[[hooks.PostToolUse]]
+matcher = ".*"
+hooks = [
+  { type = "command", command = "root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; exec bash \"$root/scripts/redact-tool-output.sh\"", timeout = 40, statusMessage = "Redacting tool output" },
 ]
 ``````
 

@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
-# AMH — post-execution tool-output redaction (P17), for agents that can rewrite a tool
-# result before the context window sees it.
+# AMH — post-execution tool-output redaction (P17), for agents that can replace or suppress
+# a tool result before the context window sees it.
 #
-# Reads one PostToolUse hook payload (JSON) on stdin. Walks the STRING leaves of the
-# payload's `tool_response`, runs each through `redact.sh` beside this script, and — only
-# if a leaf actually gained a `[REDACTED:` marker — prints a hook response that replaces
-# the tool result the agent is about to read:
+# Reads one Claude Code or Codex PostToolUse hook payload (JSON) on stdin. Walks the STRING
+# leaves of the payload's `tool_response`, runs each through `redact.sh` beside this script,
+# and — only if a leaf actually gained a `[REDACTED:` marker — prints a host-specific hook
+# response that keeps the original result from the agent's context:
 #
+# Claude Code can replace a result in place:
 #   {"hookSpecificOutput":{"hookEventName":"PostToolUse","updatedToolOutput": <same shape>}}
+# Codex cannot currently rewrite a result. When redaction changed a leaf, its equivalent
+# safe direction is to block delivery of the original and return the filtered result as the
+# hook's model-facing reason:
+#   {"decision":"block","reason":"<filtered result>"}
 #
 # Usage:
 #   redact-tool-output.sh              hook mode: payload on stdin, response on stdout
@@ -22,10 +27,10 @@
 # 1. The value was already produced. The command ran, the file was read, and the bytes exist
 #    in the tool's own execution, in the session transcript on disk, and in whatever
 #    telemetry the host keeps. This layer changes what the MODEL reads, nothing else.
-# 2. The host contract is fail-OPEN by design. A replacement that does not match the tool's
-#    own response schema is a non-blocking error and the ORIGINAL output is used. So is a
-#    non-zero exit here. Every uncertain path in this script therefore prints nothing and
-#    exits 0, which lands in exactly the same place: the unmodified result.
+# 2. Both host contracts fail OPEN on hook failure. Claude also uses the ORIGINAL output when
+#    a replacement misses the tool's response schema; Codex uses it when no blocking response
+#    is produced or honored. Every uncertain path here therefore prints nothing and exits 0,
+#    which lands in exactly the same place: the unmodified result.
 # 3. It sees successful tool calls only, per the host's PostToolUse contract. The
 #    credential printed by a command that FAILED is the common leak and may never reach
 #    this script at all. Prevention stays with the pre-execution command guard.
@@ -252,13 +257,30 @@ except Exception:
 if leftover != "!":
     stand_down("leaf accounting disagreed with the response shape")
 
-body = {
-    "hookSpecificOutput": {
-        "hookEventName": "PostToolUse",
-        "updatedToolOutput": updated,
-        "systemMessage": "AMH redacted one or more known credential shapes from this tool result before it reached the context. The unredacted value still exists where the tool produced it.",
+notice = "AMH redacted one or more known credential shapes from this tool result before it reached the context. The unredacted value still exists where the tool produced it."
+# Codex's payload carries a turn_id; Claude Code's does not. Codex PostToolUse supports
+# blocking and model feedback but not arbitrary result replacement. Returning Claude's
+# updatedToolOutput there is rejected as unsupported and FAILS OPEN, exposing the original.
+# Blocking makes the completed tool look failed to the model, so this path is deliberately
+# used only after a known shape was actually redacted. A string result remains text; a
+# structured result becomes JSON text because Codex's reason field is necessarily a string.
+if "turn_id" in payload:
+    if isinstance(updated, str):
+        filtered = updated
+    else:
+        try:
+            filtered = json.dumps(updated)
+        except Exception:
+            stand_down()
+    body = {"decision": "block", "reason": notice + "\n\n" + filtered}
+else:
+    body = {
+        "hookSpecificOutput": {
+            "hookEventName": "PostToolUse",
+            "updatedToolOutput": updated,
+            "systemMessage": notice,
+        }
     }
-}
 # Serialised FIRST, then written once. Encoding inside the write would let a failure land
 # after a partial document is already on stdout, which contradicts this script's own promise
 # that an uncertain path prints nothing.
@@ -312,6 +334,10 @@ rand_b64() { # <length>
 # what shape it is testing rather than hiding it behind a builder.
 st_payload() { # <tool_response JSON>
 	printf '{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{},"tool_response":%s}' "$1"
+}
+
+st_codex_payload() { # <tool_response JSON>
+	printf '{"hook_event_name":"PostToolUse","turn_id":"turn-test","tool_name":"Bash","tool_input":{},"tool_response":%s}' "$1"
 }
 
 st_run() { # <payload> -> stdout of the hook
@@ -410,6 +436,22 @@ self_test() {
 	else
 		st_fail 'a string tool_response stays a string' "type: $shape"
 	fi
+
+	# Codex accepts PostToolUse blocking plus a string reason, not Claude's arbitrary
+	# updatedToolOutput. The original must be blocked only when a redaction occurred, and the
+	# filtered text must be the feedback the model receives.
+	tok="AKIA$(rand_upper 16)"
+	out=$(st_run "$(st_codex_payload "$(printf '"token %s here"' "$tok")")")
+	shape=$(st_jq "$out" '[d.get("decision"), type(d.get("reason")).__name__, "hookSpecificOutput" in d]')
+	if [ "$shape" = "['block', 'str', False]" ] &&
+		! printf '%s' "$out" | grep -qF "$tok" &&
+		printf '%s' "$out" | grep -qF '[REDACTED:aws_access_key_id]'; then
+		st_pass 'Codex blocks the original and returns filtered model feedback'
+	else
+		st_fail 'Codex blocks the original and returns filtered model feedback' "got: ${out:0:200}"
+	fi
+	st_silent 'Codex does not block an unchanged result' \
+		"$(st_codex_payload '"all tests passed"')"
 
 	# 4. A real JSON null must not consume a filtered leaf. This is the placeholder
 	#    collision the rebuild walks the ORIGINAL to avoid; without that, every leaf after

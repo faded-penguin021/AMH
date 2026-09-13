@@ -753,6 +753,26 @@ sed_in_place '/"PostToolUse": \[/,/redact-tool-output.sh/ s/^[[:space:]]*"shell"
 expect fail "adapter-set: the PostToolUse hook wired without its shell pin" "$d" adapter-set.sh \
 	"carries no"
 
+d=$(snapshot adapter_codex_post_hook_gone)
+sed_in_place '/^\[\[hooks.PostToolUse\]\]$/,/^]$/d' "$d/.codex/config.toml"
+expect fail "adapter-set: the Codex PostToolUse hook was dropped" "$d" adapter-set.sh \
+	"no [[hooks.PostToolUse]] group found"
+
+d=$(snapshot adapter_codex_post_hook_rewired)
+sed_in_place 's|redact-tool-output.sh|session-start.sh|' "$d/harness/templates/configs/codex-config.toml"
+expect fail "adapter-set: the Codex PostToolUse hook was rewired" "$d" adapter-set.sh \
+	"does not declare exactly one command hook"
+
+d=$(snapshot adapter_codex_post_hook_wrong_type)
+sed_in_place '/^\[\[hooks.PostToolUse\]\]$/,/^]$/ s/type = "command"/type = "prompt"/' "$d/.codex/config.toml"
+expect fail "adapter-set: the Codex PostToolUse rail is not a command hook" "$d" adapter-set.sh \
+	"does not declare exactly one command hook"
+
+d=$(snapshot adapter_codex_post_hook_narrowed)
+sed_in_place '/^\[\[hooks.PostToolUse\]\]$/,/^]$/ s/matcher = "\.\*"/matcher = "^Bash$"/' "$d/.codex/config.toml"
+expect fail "adapter-set: the Codex PostToolUse hook no longer covers every tool" "$d" adapter-set.sh \
+	"matcher is not the explicit all-tools"
+
 
 d=$(snapshot drift_dist)
 printf 'hand edit\n' >>"$d/harness/dist/AMH.md"

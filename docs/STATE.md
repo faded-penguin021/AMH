@@ -16,14 +16,15 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 14.2.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 14.3.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-This tree declares **14.2.0**: the Claude adapter wires post-execution output redaction, so
+This tree declares **14.3.0**: both first-class adapters wire post-execution output redaction, so
 `scripts/redact-tool-output.sh` filters the string leaves of a tool result — one `redact.sh`
-invocation per leaf — before the context window reads it, with its bounds stated beside it and
-the host contract's fail-open direction first among them (**DD-015**, **DD-016**). 14.1.0's shell pin still stands under it (**DD-007**–**DD-012**).
+invocation per leaf — before the context window reads it. Claude replaces the result in place;
+Codex blocks the original and supplies filtered feedback because its PostToolUse contract does
+not rewrite arbitrary results (**DD-015**–**DD-017**). 14.1.0's shell pin still stands under it (**DD-007**–**DD-012**).
 Whether either version is tagged or
 released is not recorded here — `scripts/session-start.sh` probes it every session and reports
 present, absent or could-not-ask, which is the only answer that can be right twice.
@@ -46,14 +47,20 @@ Operational gotchas:
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
+**OPEN — tag the drafted 14.3.0 release after its PR merges.** Tagging is an owner action, and
+the README Quick Start follows the release playbook by naming the draft tag before it exists.
+Check: `git ls-remote --exit-code --tags origin refs/tags/amh-v14.3.0` — a matching ref resolves
+this item; no output means the documented install command is not live yet.
+
 **OPEN — nothing has observed the new `PostToolUse` redaction hook actually firing, and no
 session can.** `scripts/redact-tool-output.sh --self-test` settles this repository's half —
 payload handling, leaf accounting, result-shape preservation — and settles nothing about whether
-the host honours `updatedToolOutput`, because a session cannot reload its own hook set to find
-out. The host contract is fail-open in both directions that matter (a replacement missing the
-tool's schema, or a missing `python3`), so a hook that never fires looks exactly like a tree with
-no credential in its output (**DD-015**). Only a session that starts with this adapter loaded and
-sees a redaction marker in a tool result settles it. Check: `scripts/redact-tool-output.sh --self-test` — all checks passing means the script is sound, and is NOT evidence the hook ran.
+Claude honours `updatedToolOutput` or Codex honours block-and-feedback, because a session cannot
+reload its own hook set to find out. Both contracts fail open on hook failure, as does a missing
+`python3`, so a hook that never fires looks exactly like a tree with no credential in its output
+(**DD-015**, **DD-017**). Only a session that starts with either adapter loaded and sees a
+redaction marker in a tool result settles that adapter. Check: `scripts/redact-tool-output.sh
+--self-test` — all checks passing means the script is sound, and is NOT evidence either hook ran.
 
 **OPEN — nobody has run a pinned hook on a host where Git bash cannot be found at all.** Two
 hosts have now run the pinned arm where discovery SUCCEEDS — the second, reported 2026-09-10, saw
@@ -63,13 +70,13 @@ was withdrawn (**DD-010**). Still unobserved is discovery finding NOTHING: that 
 the shipped code, and how it fails differs between the bundles read (**DD-011** for the method).
 Low stakes — both readings are loud — and no check settles it short of that host.
 
-**OPEN — the `printf | grep -q` class survives at 39 further sites, and 10 are NOT fixture
-harnesses.** Unit 3 fixed the two with reachable unbounded input; the residue is safe on BOUNDED,
-mostly single-line input rather than on a loud direction, and at least three are the same
-fail-OPEN shape — `ladder.sh:1358` is the one to watch (**DC-038**). Not queued as work; reopen
-if any starts matching something unbounded. Check: `grep -rn "printf.*| *grep -q" --include=*.sh
-scripts/ harness/templates/` prints 45 lines, 6 of them comments — resolved only if that stops
-matching the description, which it deliberately does not.
+**OPEN — the `printf | grep -q` class survives at 61 non-comment sites.** Unit 3 fixed the two
+with reachable unbounded input; the residue was safe on bounded, mostly single-line input rather
+than on a loud direction when last classified, but the fixture/non-fixture split has not been
+recounted since the output-redaction rail landed. Not queued as work; reopen if any starts
+matching something unbounded. Check: `grep -rn "printf.*| *grep -q" --include=*.sh scripts/
+harness/templates/` prints 67 lines, 6 of them comments — resolved only if that stops matching
+the description, which it deliberately does not (**DC-038**).
 
 **OPEN — the 2026-08-29 `path-refs.sh` false failure on `` `session-start.sh` `` still has no
 reproducer.** Closed once as the EPIPE defect, then restored when the pass falsified that
@@ -115,6 +122,11 @@ from.
   matcher to PowerShell before a Windows arm exists (**DD-012**).
 
 ## Changelog
+
+- 2026-09-13 — **14.3.0: the Codex adapter now redacts successful tool output.** Its new
+  all-tool PostToolUse hook runs the shared leaf filter; when a known shape changes, Codex's
+  block-and-feedback contract withholds the original from the model and returns filtered text,
+  while Claude's existing path still replaces the native result in place (**DD-017**).
 
 - 2026-09-12 — **14.2.0: the Claude adapter redacts tool output after execution, completing the
   half of P17 that had never been wired.** The adapter's "this agent has no output-filter hook"
