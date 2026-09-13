@@ -11,7 +11,7 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
-## 14.3.0 — 2026-09-13
+## 14.2.0 — 2026-09-13
 
 - **The Codex adapter now wires `PostToolUse` output redaction.** Codex exposes the same input
   fields the shared rail needs, but not Claude Code's arbitrary result replacement. On an
@@ -24,14 +24,6 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   Unchanged output still produces no response, and every uncertain path still fails open.
 - **The adapter-set guard covers Codex wiring.** Fixtures remove, rewire, and narrow the new
   all-tool hook so config drift cannot silently remove the rail.
-
-### Upgrading
-
-Shipped scripts are copied for you; the adapter is not. Codex adopters add the
-`[[hooks.PostToolUse]]` group from `harness/templates/configs/codex-config.toml` to their
-`.codex/config.toml`. Claude-only adopters need no adapter change.
-
-## 14.2.0 — 2026-09-12
 
 - **The Claude adapter now redacts tool output after execution, closing the half of P17 that
   had no wiring.** P17 has always said adapters pipe tool output through `scripts/redact.sh`
@@ -101,20 +93,17 @@ Shipped scripts are copied for you; the adapter is not. Codex adopters add the
   preservation. It settles nothing about whether the host honours `updatedToolOutput`, because
   a session cannot reload its own hook set to find out. Configured, never observed — the same
   word the session banner uses for every other adapter claim.
-- **Codex is unchanged and its adapter still says so.** Its hooks can block a shell call before
-  it runs and cannot rewrite tool output, so it has no `PostToolUse` redaction hook, and the
-  sentence saying that remains accurate.
-
 ### Upgrading
 
-Shipped scripts are copied for you; the adapter is not. An adopter running the Claude adapter
-applies this by hand, because `amh-init.sh` installs `.claude/settings.json` with `keep` and
-will not overwrite your copy:
+Shipped scripts are copied for you; adapter files are not. `amh-init.sh` preserves both
+`.claude/settings.json` and `.codex/config.toml`, so apply the common step and the steps for
+the adapter or adapters you use:
 
 1. Re-run the installer, or copy `scripts/redact-tool-output.sh` from this release into your
    `scripts/`, so the new shipped script sits beside `redact.sh`. It resolves `redact.sh` from
    its own directory, so the two must stay together.
-2. Add a `PostToolUse` group to the `hooks` object in your `.claude/settings.json`, copying the
+2. **Claude adopters:** add a `PostToolUse` group to the `hooks` object in your
+   `.claude/settings.json`, copying the
    wording from `harness/templates/configs/claude-settings.json` in this release:
 
    ```json
@@ -136,14 +125,17 @@ will not overwrite your copy:
    handed to the Windows file association, which runs it detached and reports rc=0. The
    `"matcher": "*"` is written out rather than omitted — the two are equivalent to the host, and
    for a rail the difference between "every tool" and "no tool" should not rest on an absent key.
-3. Replace the sentence in your adapter's `$comment` saying this agent has no output-filter
+3. **Claude adopters:** replace the sentence in your adapter's `$comment` saying this agent has no output-filter
    hook. It is now false, and an adapter that understates its layers misleads exactly as much
    as one that overstates them. The template's wording is there to copy, bounds included — do
    not claim the rail without them.
 4. Add `python3` to `REQUIRED_TOOLS` in your `amh.conf` if you want the session banner to tell
    you whether the interpreter this rail needs is present. Without it the stand-down is silent.
-5. Nothing else to do if you run the Codex adapter only, or if your host has no `python3`: in the
-   second case the hook stands down and you are in exactly the state you are in today.
+5. **Codex adopters:** add the `[[hooks.PostToolUse]]` group from
+   `harness/templates/configs/codex-config.toml` to `.codex/config.toml`. Its block-and-feedback
+   behavior and bounds are stated beside the template entry.
+6. Nothing else to do if your host has no `python3`: the hook stands down and you are in exactly
+   the state you are in today.
 
 ## 14.1.0 — 2026-09-09
 

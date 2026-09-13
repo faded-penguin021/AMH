@@ -16,16 +16,16 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 14.3.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 14.2.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-This tree declares **14.3.0**: both first-class adapters wire post-execution output redaction, so
+This tree declares **14.2.0**: both first-class adapters wire post-execution output redaction, so
 `scripts/redact-tool-output.sh` filters the string leaves of a tool result — one `redact.sh`
 invocation per leaf — before the context window reads it. Claude replaces the result in place;
 Codex blocks the original and supplies filtered feedback because its PostToolUse contract does
 not rewrite arbitrary results (**DD-015**–**DD-017**). 14.1.0's shell pin still stands under it (**DD-007**–**DD-012**).
-Whether either version is tagged or
+Whether this draft is tagged or
 released is not recorded here — `scripts/session-start.sh` probes it every session and reports
 present, absent or could-not-ask, which is the only answer that can be right twice.
 
@@ -47,9 +47,9 @@ Operational gotchas:
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**OPEN — tag the drafted 14.3.0 release after its PR merges.** Tagging is an owner action, and
+**OPEN — tag the drafted 14.2.0 release after its PR merges.** Tagging is an owner action, and
 the README Quick Start follows the release playbook by naming the draft tag before it exists.
-Check: `git ls-remote --exit-code --tags origin refs/tags/amh-v14.3.0` — a matching ref resolves
+Check: `git ls-remote --exit-code --tags origin refs/tags/amh-v14.2.0` — a matching ref resolves
 this item; no output means the documented install command is not live yet.
 
 **OPEN — nothing has observed the new `PostToolUse` redaction hook actually firing, and no
@@ -123,7 +123,7 @@ from.
 
 ## Changelog
 
-- 2026-09-13 — **14.3.0: the Codex adapter now redacts successful tool output.** Its new
+- 2026-09-13 — **14.2.0: the Codex adapter now redacts successful tool output.** Its new
   all-tool PostToolUse hook runs the shared leaf filter; when a known shape changes, Codex's
   block-and-feedback contract withholds the original from the model and returns filtered text,
   while Claude's existing path still replaces the native result in place (**DD-017**).
