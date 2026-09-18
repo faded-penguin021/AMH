@@ -59,6 +59,26 @@
 #     a read. Note the shape of the miss for a listed one: `awk '{print}' .env` is blocked
 #     because `awk` leads the segment, while `awk 'BEGIN{while((getline<".env")>0)print}'`
 #     hides the read inside the program text and is not.
+#   * INTERPRETER DELETIONS GET AN ADVISORY, AND ONLY AN ADVISORY. It fires when THREE things
+#     hold: the segment's leading command is an enumerated interpreter (`python`, `python2`,
+#     `python3`, `node`, `nodejs`, `ruby`, `perl`, `deno`, `bun`, `php`); the segment carries
+#     INLINE program text (`-c`, `-e`, `-E`, `-r`, `-p`, `--eval`, `--print`, or an
+#     `--eval=`/`--print=` spelling); and THAT ARGUMENT — not the segment, not the operands —
+#     names an enumerated deletion call (`rmtree`, `remove_tree`, `removedirs`, `rm_rf`,
+#     `rmSync`, `rmdirSync`, `rimraf`, `remove_dir_all`, `unlink`, `os.remove`) followed by an
+#     opening parenthesis. The command is then stopped once and the rerun proceeds, rearmed per
+#     command text. Every one of those three is a LIST. The first two are what keep this tier
+#     compatible with the first design rule above — program text in a commit message, a doc
+#     heredoc or a grep pattern is not judged, and fixtures pin all four — and the parenthesis is
+#     what keeps `unlink_count`, `help(os.unlink)` and a file named `test_unlink.py` out of it.
+#     Accepted misses in exchange, on top of the obvious ones: a paren-less call
+#     (`FileUtils.rm_rf "path"`), and a call spelled through an alias or built at run time. It
+#     sees no script file (`python3 cleanup.py`), no test suite (`pytest` — the shape the
+#     incident that earned this actually ran), no heredoc body, nothing behind `bash -c`, and no
+#     language or spelling off the lists, `os.system("rm -rf /")` first among them. A broader advisory
+#     over interpreter WRITES was declined once for blocking ordinary work while missing every
+#     other language (AMH ledger row DC007); this one is narrower by construction and says in
+#     its own text that it read a word, not a program (AMH ledger row DD019).
 #   * WRAPPERS — but read which ones. `check_segment` STRIPS a set of transparent prefixes
 #     and judges what follows, so `sudo cat .env`, `nohup cat .env`, `nice`, `time`,
 #     `command`, `builtin`, `exec` and `env FOO=1 cat .env` ARE blocked. `env` is the one
@@ -100,7 +120,9 @@
 #     `reset --hard`, `checkout|switch --force`, `restore`. Anything else that empties a
 #     path reaches the filesystem unadvised — `mv` over a target, `truncate`, `dd`, `find
 #     -delete`, `shred`, a `>` redirection, and every one of these run through an
-#     interpreter. Two further limits INSIDE the list: the git verbs added after
+#     interpreter — though an interpreter handed a deletion INLINE now gets its own one-time
+#     advisory, the tier described two bullets down; it is a word in a command line, not a
+#     reading of the program. Two further limits INSIDE the list: the git verbs added after
 #     `git clean` are armed only when the target is unknown at scan time (see
 #     `operands_unknown_target`), so a fully literal `git reset --hard origin/main` is
 #     deliberately silent; and `git checkout -- "$f"` carries no force flag and is not
@@ -556,6 +578,7 @@ advisory_state_file() { # advisory_state_file <name>
 	dotenv) [ -n "${DOTENV_ADVISORY_STATE+x}" ] && { printf '%s' "$DOTENV_ADVISORY_STATE"; return 0; } ;;
 	keymaterial) [ -n "${KEYMATERIAL_ADVISORY_STATE+x}" ] && { printf '%s' "$KEYMATERIAL_ADVISORY_STATE"; return 0; } ;;
 	destructive) [ -n "${DESTRUCTIVE_ADVISORY_STATE+x}" ] && { printf '%s' "$DESTRUCTIVE_ADVISORY_STATE"; return 0; } ;;
+	interpreter) [ -n "${INTERPRETER_ADVISORY_STATE+x}" ] && { printf '%s' "$INTERPRETER_ADVISORY_STATE"; return 0; } ;;
 	subagent) [ -n "${SUBAGENT_ADVISORY_STATE+x}" ] && { printf '%s' "$SUBAGENT_ADVISORY_STATE"; return 0; } ;;
 	*) return 1 ;;
 	esac
@@ -581,6 +604,7 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 	*) return 1 ;;
 	esac ;;
 	destructive) is_destructive_command "$cmd" || return 1 ;;
+	interpreter) is_interpreter_deletion "$cmd" || return 1 ;;
 	# No condition to test: the caller only invokes this category when a subagent spawn is
 	# actually about to happen, and the spawn itself is the whole trigger.
 	subagent) ;;
@@ -596,7 +620,7 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# shellcheck disable=SC2016 # the example paths must print literally, unexpanded.
 		ADVISORY_REASON="BLOCKED, and this one does NOT clear on a rerun: the deletion is aimed at ${DESTRUCTIVE_CATASTROPHIC_CLASS:-a catastrophic target}. Every other target in this tier gets a one-time advisory because the guard cannot tell a scratch directory from a source tree and your rerun settles it. This target needs no settling — no unit of work inside a repository ends by deleting it, and the reported incidents that reached it were ordinary-looking commands whose operand widened at the last moment. If you are testing deletion code, point it at a fixture tree or a fresh \`mktemp -d\`, and never at a path you would mind losing; the harness rule is that an unguarded destructive path is exercised against a fixture, never against a live one. If this deletion is genuinely what the work needs, it is the owner's to run deliberately, outside this harness and outside this session."
 		# shellcheck disable=SC2016 # the example paths must print literally, unexpanded.
-		ADVISORY_REASON="$ADVISORY_REASON"' What clearing this would NOT have bought, so that a stop here does not read as coverage: the list this fired on is a short one of literal spellings. `.`, `..`, any parent of the work tree, the system directories, an unanchored glob such as `rm -rf *`, a path this guard cannot expand — `"$R"` holding `/` is a variable at scan time and nothing more — and any of these behind a shell string or an interpreter reach the filesystem with no verdict at all: `bash -c "rm -rf /"` is as silent here as `python3 -c "shutil.rmtree(chr(47))"`. It caught a spelling, not a category, and the rule that covers the rest is in the constitution, not in this script.'
+		ADVISORY_REASON="$ADVISORY_REASON"' What clearing this would NOT have bought, so that a stop here does not read as coverage: the list this fired on is a short one of literal spellings. `.`, `..`, any parent of the work tree, the system directories, an unanchored glob such as `rm -rf *`, a path this guard cannot expand — `"$R"` holding `/` is a variable at scan time and nothing more — and any of these behind a shell string or an interpreter reach the filesystem with no verdict at all: `bash -c "rm -rf /"` is silent here, and an inline `python3 -c "shutil.rmtree(p)"` gets only the one-time interpreter advisory that a rerun clears — so the shape that earned this rail is stopped permanently in its `rm` spelling and for one turn in its interpreter spelling. It caught a spelling, not a category, and the rule that covers the rest is in the constitution, not in this script.'
 		return 0
 	fi
 	state=$(advisory_state_file "$name")
@@ -628,6 +652,25 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# If `grep` is unavailable the test above fails and the advisory re-fires — the
 		# right direction — at the cost of a duplicate line per attempt. Bounded by the
 		# session, and the bootstrap deletes the file; not worth a second mechanism.
+		printf '%s\n' "$sig" >>"$state" 2>/dev/null || return 1
+	elif [ "$name" = interpreter ]; then
+		# Rearmed per COMMAND TEXT, for the reason AMH ledger row DC004 forced on the
+		# destructive rail: a per-session one-shot is spent by the first harmless match and
+		# silent for every deletion after it. Two different one-liners are two decisions.
+		# A DIGEST, and never the command text, for two reasons the other tiers do not have.
+		# The destructive rail records normalised path operands; this one would be recording a
+		# whole program, and a `python3 -c` program is exactly where a literal credential turns
+		# up — the state file is world-readable, at a predictable path, and outlives the
+		# session. And `printf %q` renders an embedded newline as a backslash-newline on bash
+		# before 4.4 (stock macOS 3.2, which this file supports and has been bitten by), which
+		# would split one signature across two lines, make `grep -qxF` unable to ever match it,
+		# and turn "rerun to proceed" into a command that can never run. Flattening newlines
+		# first closes that; hashing closes both. No digest tool means no signature, and the
+		# advisory then re-fires on every attempt: loud, and the direction an advisory may fail.
+		sig=$(interpreter_signature "$cmd") || return 1
+		if [ -e "$state" ] && LC_ALL=C grep -qxF -- "$sig" "$state" 2>/dev/null; then
+			return 1
+		fi
 		printf '%s\n' "$sig" >>"$state" 2>/dev/null || return 1
 	elif [ "$name" = subagent ]; then
 		# Rearm per SPAWN, not per session — the same correction AMH ledger row DC004 forced on the
@@ -676,6 +719,12 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# costs one turn and puts the rule in front of the agent at the moment it is being
 		# broken (AMH ledger row DC012).
 		ADVISORY_REASON='A subagent spawn is about to happen and the command guard is stopping it once. The harness permits ONE fresh-context reviewer at a time and it BLOCKS: you do not keep editing while it runs, and fanning out several because the tooling makes it easy is the exact failure the session-discipline rule names. If this is the single blocking reviewer the rule-review protocol mandates, or another genuinely sequential use, run the same spawn again and it will proceed. EVERY spawn is advised, not just the first, and each one that proceeds is recorded: a burst of three costs this turn three times over and leaves three lines behind, which is the point — the failure this exists for is three spawns in immediate succession, and a rail that stood down after the first would be spent at exactly the moment it was needed. What it can see is that a spawn was advised and that one went ahead; it cannot see whether anything was already running, and nothing may read its record as evidence that a decision was thought about. If you were about to spawn several at once: spawn one, wait for it, and read what it reports before deciding whether a second is needed.'
+		;;
+	interpreter)
+		# shellcheck disable=SC2016 # the example calls must print literally, unexpanded.
+		ADVISORY_REASON="This command hands \`${INTERPRETER_LEAD}\` a program that names \`${INTERPRETER_CALL}\`, and the command guard is stopping it once. Deletions written inside an interpreter are the half of the destructive rail no command scanner reaches: the verb tiers judge a command, and this is program text, so nothing here knows what path that call resolves to at run time. Spend the turn on that question. The harness rule is that an unguarded destructive path is exercised against a fixture tree — a fresh \`mktemp -d\`, a directory the test itself made — and never against the working tree, a home directory or anything whose loss would matter, and that a safety check is never removed from the source to observe what it prevents."
+		# shellcheck disable=SC2016 # the examples must print literally, unexpanded.
+		ADVISORY_REASON="$ADVISORY_REASON"' Rerun the same command to proceed; a different one-liner gets its own advisory. Then read what this does NOT see, because a cleared prompt is not a safe command: a deletion inside a SCRIPT FILE or a test suite (`python3 cleanup.py`, `pytest` — the shape of the most widely reported incident of this kind, in which an agent asked to add a delete feature removed its own guard, ran the test against a live path, and the user lost a repository, a home directory, SSH private keys and a GPG keyring), a heredoc body, anything behind `bash -c` or `xargs`, and every language and spelling off this list — `os.system("rm -rf /")` above all. This rail saw a word in a command line. It did not read your program. And read the asymmetry with the tier above rather than around it: `rm -rf /` is denied permanently and never clears, while this spelling of the same deletion clears on your rerun — not because it is safer, but because judging program text cannot be made safe enough to deny on, so the rerun is the only thing standing between this command and the filesystem.'
 		;;
 	keymaterial)
 		# shellcheck disable=SC2016 # the backticked file names are markdown, not substitutions.
@@ -1917,6 +1966,134 @@ names_catastrophic_target() { # sets DESTRUCTIVE_CATASTROPHIC_CLASS
 	return 1
 }
 
+# The interpreter half of the destructive rail, and an ADVISORY on purpose — read why before
+# strengthening it. The verb tiers above judge a COMMAND; this judges the PROGRAM TEXT an
+# interpreter was handed, which is the one thing this file's first design rule says it may not
+# do: text that merely CONTAINS a dangerous spelling — a commit message, a doc heredoc, this
+# script's own fixtures — must never be treated as the command. A permanent denial keyed on
+# program text would brick `git commit -m '... shutil.rmtree("/") ...'` forever, which is a
+# sentence this repository has already had to write. So the advisory fires only when the
+# segment's leading word is an enumerated interpreter, that segment carries an inline-code flag,
+# and the FLAG'S ARGUMENT names an enumerated deletion call before an opening parenthesis. Three
+# lists, all failing open, and the result is one turn of thought, not a verdict.
+#
+# What it therefore does NOT see, none of it an oversight:
+#   * A SCRIPT FILE. `python3 cleanup.py` carries no call text, and no scanner here opens a
+#     file to classify it (AMH ledger row DB027). Same for a test suite: `pytest` is the shape
+#     the reported incident actually ran, and it is invisible here by construction.
+#   * A HEREDOC BODY, stripped before any scan, and anything behind `bash -c`, `xargs` or a
+#     wrapper outside the transparent-prefix list.
+#   * ANY LANGUAGE OR SPELLING OFF THE LISTS. `os.system('rm -rf /')`, a base64 payload, an
+#     import alias, a deletion written as a loop of `os.rmdir`. Enumerating interpreters cannot
+#     close this and a broader advisory over interpreter WRITES was declined once already
+#     (AMH ledger row DC007) for blocking ordinary work while missing every other language.
+# The rule that covers all of that is in the constitution, not in this script, and the advisory
+# says so in its own words rather than letting a cleared prompt read as coverage.
+INTERPRETER_COMMANDS=' python python2 python3 node nodejs ruby perl deno bun php '
+# Deliberately short: each name is a deletion primitive whose presence in a one-liner is the
+# whole shape. `unlink` and `os.remove` earn their place because the reported class is a walk
+# plus a per-entry removal, not always a single recursive call.
+INTERPRETER_DELETE_CALLS=' rmtree remove_tree removedirs rm_rf rmSync rmdirSync rimraf remove_dir_all unlink os.remove '
+# The flags that introduce INLINE PROGRAM TEXT, which is the only thing this tier reads. Their
+# argument is the next word, or the tail of a `--eval=…` spelling.
+INTERPRETER_CODE_FLAGS=' -c -e -E -r -p --eval --print '
+
+# True when the segment's own program text NAMES a deletion call — `<call>` followed by an
+# opening parenthesis. Three narrowings live in that sentence, and each one closes a false
+# positive that shipped in this tier's first form:
+#   * PROGRAM TEXT, never the segment. Matching the whole segment read every operand too, so
+#     `python3 -m pytest tests/test_unlink.py` and `ruby -e "puts File.read(ARGV[0])"
+#     docs/unlink.md` were both advised — a test-suite invocation and a pure READ, in a
+#     repository that has deletion code and therefore has files named after it.
+#   * THE PARENTHESIS. Without it, `unlink` matched `unlink_count`, `help(os.unlink)` and
+#     `re.sub(r"unlink", …)` — word-anywhere matching, which this file's own bug history names.
+#     Accepted miss in exchange: a paren-less call, `FileUtils.rm_rf "path"` above all.
+#   * A LIST OF FLAGS, not a category. A program reached any other way — a script file, stdin, a
+#     heredoc — carries no text here to read, which is the same limit stated everywhere else.
+# One line, no command text, no newline. Empty output (no digest tool) is a refusal, not a
+# signature: the caller re-advises rather than recording something it cannot key on.
+interpreter_signature() { # interpreter_signature <command>
+	local flat=${1//$'\n'/ }
+	if command -v sha256sum >/dev/null 2>&1; then
+		printf '%s' "$flat" | sha256sum 2>/dev/null | cut -d' ' -f1
+	elif command -v shasum >/dev/null 2>&1; then
+		printf '%s' "$flat" | shasum -a 256 2>/dev/null | cut -d' ' -f1
+	elif command -v cksum >/dev/null 2>&1; then
+		printf '%s' "$flat" | cksum 2>/dev/null | tr -cd '0-9 ' | tr ' ' '-'
+	else
+		return 1
+	fi
+}
+
+names_inline_deletion_call() { # sets INTERPRETER_CALL
+	local prog=$1 call
+	INTERPRETER_CALL=''
+	for call in $INTERPRETER_DELETE_CALLS; do
+		case $prog in
+		*"$call"'('* | *"$call"' ('*)
+			INTERPRETER_CALL=$call
+			return 0
+			;;
+		esac
+	done
+	return 1
+}
+
+is_interpreter_deletion() { # sets INTERPRETER_CALL and INTERPRETER_LEAD
+	local cmd=$1 seg lead base w i found=1
+	local words=()
+	INTERPRETER_CALL=''
+	INTERPRETER_LEAD=''
+	# Cheap pre-gate, and it is about COST rather than correctness. Everything below walks the
+	# command character by character, and this tier would otherwise add a third such pass to
+	# every command in the session — a 34 KB commit message paid +50% for a tier that cannot
+	# fire on it. A command whose raw text names no deletion call at all cannot reach a verdict
+	# here, so answer that with one pattern match per call and stop (see the timing note at the
+	# top of this file: a guard slow enough to hit the hook timeout gets removed, not fixed).
+	for w in $INTERPRETER_DELETE_CALLS; do
+		case $cmd in *"$w"*) found=0; break ;; esac
+	done
+	[ "$found" -eq 0 ] || return 1
+	found=1
+	cmd=$(strip_heredocs "$cmd")
+	split_segments "$cmd"
+	for seg in ${SEGMENTS[@]+"${SEGMENTS[@]}"}; do
+		[ -n "${seg// /}" ] || continue
+		lead=$(leading_command "$seg") || continue
+		base=${lead##*/}
+		case $INTERPRETER_COMMANDS in
+		*" $base "*) ;;
+		*) continue ;;
+		esac
+		split_words "$seg"
+		words=(${SPLIT_WORDS[@]+"${SPLIT_WORDS[@]}"})
+		for ((i = 0; i < ${#words[@]}; i++)); do
+			w=${words[$i]}
+			case $INTERPRETER_CODE_FLAGS in
+			*" $w "*)
+				i=$((i + 1))
+				[ "$i" -lt "${#words[@]}" ] || break
+				if names_inline_deletion_call "${words[$i]}"; then
+					INTERPRETER_LEAD=$base
+					found=0
+				fi
+				;;
+			esac
+			case $w in
+			--eval=* | --print=*)
+				if names_inline_deletion_call "${w#*=}"; then
+					INTERPRETER_LEAD=$base
+					found=0
+				fi
+				;;
+			esac
+			[ "$found" -eq 0 ] && break
+		done
+		[ "$found" -eq 0 ] && break
+	done
+	return "$found"
+}
+
 # Record what a confirmed destructive segment is aimed AT. The target is the whole risk
 # here — unlike the dotenv and key-material rails, where every hit means the same thing
 # ("you are about to read a secret"), two `rm -rf` commands in one session can be a
@@ -2829,6 +3006,10 @@ check_command() {
 		BLOCK_REASON=$ADVISORY_REASON
 		return 1
 	fi
+	if needs_one_time_advisory interpreter "$cmd"; then
+		BLOCK_REASON=$ADVISORY_REASON
+		return 1
+	fi
 	warn_ladder_tail "$cmd"
 	cmd=$(strip_heredocs "$cmd")
 	split_segments "$cmd"
@@ -3080,6 +3261,78 @@ st_parse_sanity() { # st_parse_sanity <expect: defect|normal> <text> <count>
 	fi
 	ST_FAILS=$((ST_FAILS + 1))
 }
+st_interpreter_advisory_once() { # st_interpreter_advisory_once <cmd> [<call name it must report>]
+	local cmd=$1 want=${2:-} state old_set old_state
+	old_set=${INTERPRETER_ADVISORY_STATE+x}
+	old_state=${INTERPRETER_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-interpreter-advisory-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	INTERPRETER_ADVISORY_STATE=$state
+	if check_command "$cmd"; then
+		printf 'SELF-TEST FAIL: should have had one-time interpreter-deletion advisory: %s\n' "$cmd" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif [ -n "$want" ] && case $BLOCK_REASON in *"$want"*) false ;; *) true ;; esac; then
+		printf 'SELF-TEST FAIL: interpreter advisory did not name %s: %s\n   reason given: %s\n' "$want" "$cmd" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif ! check_command "$cmd"; then
+		printf 'SELF-TEST FAIL: second interpreter attempt should have reached normal rails: %s\n   reason given: %s\n' "$cmd" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then INTERPRETER_ADVISORY_STATE=$old_state; else unset INTERPRETER_ADVISORY_STATE; fi
+}
+
+# ONE state file across two different one-liners: the rail must rearm per command text, or the
+# first harmless match in a session silences every deletion after it (AMH ledger row DC004's
+# lesson, applied to this tier before it can repeat).
+# The rearm key is a DIGEST, and this is the fixture that keeps it one. A `python3 -c` program
+# is where a literal credential turns up, and the state file is world-readable, at a predictable
+# path, outliving the session — so a key that were ever the command text again must fail here.
+st_interpreter_signature_is_opaque() { # st_interpreter_signature_is_opaque <cmd> <string it must not contain>
+	local cmd=$1 secret=$2 state old_set old_state
+	old_set=${INTERPRETER_ADVISORY_STATE+x}
+	old_state=${INTERPRETER_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-interpreter-opaque-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	INTERPRETER_ADVISORY_STATE=$state
+	if check_command "$cmd"; then
+		printf 'SELF-TEST FAIL: should have been advised: %s\n' "$cmd" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif [ ! -s "$state" ]; then
+		printf 'SELF-TEST FAIL: no signature recorded, so the rerun cannot clear: %s\n' "$cmd" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif LC_ALL=C grep -qF -- "$secret" "$state" 2>/dev/null; then
+		printf 'SELF-TEST FAIL: the advisory state file recorded command text verbatim\n' >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif [ "$(wc -l <"$state")" -ne 1 ]; then
+		printf 'SELF-TEST FAIL: signature is not one line, so grep -qxF can never match it: %s\n' "$cmd" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then INTERPRETER_ADVISORY_STATE=$old_state; else unset INTERPRETER_ADVISORY_STATE; fi
+}
+
+st_interpreter_rearms() { # st_interpreter_rearms <first> <second>
+	local first=$1 second=$2 state old_set old_state
+	old_set=${INTERPRETER_ADVISORY_STATE+x}
+	old_state=${INTERPRETER_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-interpreter-rearm-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	INTERPRETER_ADVISORY_STATE=$state
+	if check_command "$first"; then
+		printf 'SELF-TEST FAIL: first interpreter deletion should have been advised: %s\n' "$first" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif ! check_command "$first"; then
+		printf 'SELF-TEST FAIL: rerunning the SAME one-liner should proceed: %s\n' "$first" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif check_command "$second"; then
+		printf 'SELF-TEST FAIL: a DIFFERENT interpreter deletion must be advised even after an earlier one cleared: %s (after %s)\n' "$second" "$first" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then INTERPRETER_ADVISORY_STATE=$old_state; else unset INTERPRETER_ADVISORY_STATE; fi
+}
+
 st_dotenv_advisory_once() {
 	local state old_set old_state
 	old_set=${DOTENV_ADVISORY_STATE+x}
@@ -3813,6 +4066,57 @@ printenv'
 	st_destructive_reason_names 'is empty the command addresses an absolute path' \
 		'git worktree add --detach "$TEMP_WT/wt" HEAD'
 	st_destructive_reason_names 'print the expansion before you rerun' 'git reset --hard "$BASE"'
+	# The interpreter tier: an enumerated interpreter plus an enumerated deletion call, one
+	# advisory, rearmed per command text.
+	st_interpreter_advisory_once 'python3 -c "import shutil; shutil.rmtree(sys.argv[1])"' 'rmtree'
+	st_interpreter_advisory_once 'node -e "fs.rmSync(p, {recursive: true})"' 'rmSync'
+	st_interpreter_advisory_once 'ruby -e "FileUtils.rm_rf(x)"' 'rm_rf'
+	st_interpreter_advisory_once 'perl -e "remove_tree($d)"' 'remove_tree'
+	st_interpreter_advisory_once 'python3 -c "os.remove(p)"' 'os.remove'
+	# It must say which interpreter it saw, and it must keep saying what it cannot see — a rail
+	# whose one-line summary is "interpreter deletions are covered" is worse than none.
+	st_interpreter_advisory_once 'python3 -c "shutil.rmtree(d)"' 'python3'
+	st_interpreter_advisory_once 'python3 -c "shutil.rmtree(d)"' 'It did not read your program'
+	st_interpreter_advisory_once 'python3 -c "shutil.rmtree(d)"' 'os.system'
+	st_interpreter_rearms 'python3 -c "shutil.rmtree(a)"' 'python3 -c "shutil.rmtree(b)"'
+	st_interpreter_signature_is_opaque 'python3 -c "T=\"sk-live-FIXTURE\"; shutil.rmtree(d)"' 'sk-live-FIXTURE'
+	# A multi-line program: one signature line, or the rerun can never clear it — `printf %q`
+	# renders an embedded newline as a backslash-newline on bash before 4.4, which this file
+	# supports, and a two-line signature is a command that can never run again.
+	st_interpreter_signature_is_opaque 'python3 -c "import shutil
+shutil.rmtree(d)"' 'import shutil'
+	# The false positive this tier is NARROWED to avoid, and the reason it judges the leading
+	# command rather than the text: a commit message, a doc line and a grep pattern all CONTAIN
+	# the dangerous spelling, and a rail that fires on them is one an agent learns to skim —
+	# or, if it ever became a denial, one that cannot describe its own repository.
+	st_allowed 'git commit -m "guard against shutil.rmtree(/) in tests"'
+	st_allowed 'grep -rn rmtree docs/'
+	st_allowed 'echo "never call fs.rmSync here"'
+	st_allowed 'python3 -c "print(1)"'
+	# The documented misses, pinned so they are recorded decisions rather than gaps: a script
+	# file and a test suite carry no call text, and nothing here opens a file to classify it.
+	st_allowed 'python3 cleanup.py'
+	st_allowed 'pytest tests/test_delete.py'
+	st_allowed 'python3 -m pytest -k delete'
+	# The operand-scope false positives. Each of these was ADVISED by this tier's first form,
+	# which matched the call list against the whole segment: a test file named after the thing
+	# it tests, a pure READ of a doc whose name carries the word, and an ordinary identifier.
+	# A repository that has deletion code is exactly the one with files named like this.
+	st_allowed 'python3 -m pytest tests/test_unlink.py'
+	st_allowed 'python3 -m pytest tests/test_rmtree.py'
+	st_allowed 'node --test test/unlink.test.js'
+	st_allowed 'ruby -e "puts File.read(ARGV[0])" docs/unlink.md'
+	st_allowed 'python3 scripts/unlink_report.py'
+	# The parenthesis rule, which is what separates a CALL from a word that contains one.
+	st_allowed 'python3 -c "unlink_count = 0; print(unlink_count)"'
+	st_allowed 'python3 -c "help(os.unlink)"'
+	st_allowed 'node -e "console.log(fs.rmSync)"'
+	# The fourth shape the header claims is pinned: a heredoc body is stripped before any scan.
+	st_allowed 'python3 - <<EOF
+import shutil
+shutil.rmtree(d)
+EOF'
+
 	# The catastrophic list. Every spelling that folds to the same directory must reach the
 	# permanent denial, because a rail an agent steps around with a trailing slash teaches the
 	# trailing slash.

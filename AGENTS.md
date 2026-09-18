@@ -89,10 +89,12 @@ definition of that scope.
   unguarded operation for real is not a stronger demonstration of the same thing; it is the
   incident the guard was being written to prevent. `scripts/command-guard.sh` holds a literal
   TARGET list for two verbs — an `rm -r -f` or a `git clean -f -d` naming the filesystem root or
-  a home directory is blocked and does not clear on a rerun — and holds nothing else here: the
-  git verbs armed only on an unknown target are silent on a literal path, and a path built from
-  a variable it cannot expand, any deletion inside an interpreter, the same deletion behind
-  `bash -c`, and a test suite that deletes when it runs are prose-only and bind you, not a
+  a home directory is blocked and does not clear on a rerun — and the git verbs armed only on an
+  unknown target are silent on a literal path. An INLINE interpreter deletion (`python3 -c`
+  naming `rmtree`, `unlink` and the rest of that list) buys one advisory a rerun clears, on the
+  evidence of a word in a command line and never a reading of the program (**DD-019**). A path
+  built from a variable the guard cannot expand, the same deletion behind `bash -c`, one inside
+  a script file, and a test suite that deletes when it runs are prose-only and bind you, not a
   script (**DD-018**).
 - Never use self-reported attestations as machine-consumed evidence. A statement, checkbox,
   review marker, or verification disclosure may inform a human but must not satisfy a guard,

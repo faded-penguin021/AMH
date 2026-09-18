@@ -455,13 +455,20 @@ prints, which is exactly why its text has to keep saying what it does NOT cover 
 invites, *the dangerous ones are handled*, is the one that loses a tree through an interpreter.
 
 **The destructive rule the rails cannot hold goes in the constitution, next to the half they
-can.** A command scanner reads command text, so a deletion assembled inside an interpreter, the same
-deletion behind a shell string (`bash -c` is the same blind spot as another language and by far
-the commonest one), a test suite that deletes when it runs, and a path built from a variable it
-cannot expand are all invisible to it, and enumerating interpreters does not change that — each has unbounded ways to
-spell a deletion. What prose can bind is the *procedure*: exercise an unguarded destructive path
-against a fixture tree and never against a live one, and never remove a safety check from the
-source in order to observe what it prevents. The second half is worth stating even though it
+can.** A command scanner reads command text, so a deletion in a script file, a test suite that deletes when it
+runs, the same deletion behind a shell string (`bash -c` is the same blind spot as another
+language and by far the commonest one), and a path built from a variable it cannot expand are
+all invisible to it, and enumerating interpreters moves the miss rather than closing it — each has unbounded ways to
+spell a deletion. What a rail can still buy is a turn, and the narrowing that makes it affordable is worth more
+than the tier it enables: gate on the segment's LEADING command being an interpreter, then read
+only the argument of an inline-code flag, and only for a deletion primitive spelled as a call.
+Each narrowing answers a false positive — judging the whole segment advises a test file named
+after a deletion, and matching a bare word advises `unlink_count` — and together they keep the
+rule that program text appearing in a commit message or a doc line is never judged, which is the
+constraint a guard of this kind may not break to buy coverage. What prose has to bind is the
+rest, and it is most of it: exercise an unguarded destructive path against a fixture tree and
+never against a live one, and never remove a safety check from the source in order to observe
+what it prevents. The second half is worth stating even though it
 sounds obvious, because a harness that requires guards to ship with a fixture that fails without
 them has already told the agent to demonstrate the counterfactual — and the demonstration it
 means is removing the BEHAVIOUR and re-running the SUITE, not performing the unguarded operation
@@ -855,11 +862,14 @@ shortlist below is what a session is expected to carry without looking.
   on an unknown target (`git rm`, `git worktree remove`, `git reset --hard`) say nothing at all
   about a literal path, and its header's **what this guard does NOT catch** block is the
   authority on the rest. Everything here that a command scanner cannot see is **prose-only** and
-  binds you, not a script: a path built from a variable it cannot expand, a deletion inside an
-  interpreter (`shutil.rmtree`, `fs.rmSync`, `os.walk` + `unlink`), the same deletion behind a
-  shell string — `bash -c "rm -rf /"` is as invisible to the rail as the Python is, and a harness
-  that wraps every command in `bash -lc` is behind that wrapper always — a test suite that
-  deletes when it runs, and a script or task whose NAME says nothing about what it does. The most widely reported
+  binds you, not a script. An INLINE interpreter deletion — `python3 -c` and friends naming
+  `shutil.rmtree`, `fs.rmSync`, `unlink` — gets one advisory that a rerun clears, and that
+  advisory read a word in a command line, never your program. Everything around it is yours: a
+  path built from a variable the guard cannot expand, the same deletion behind a shell string
+  (`bash -c "rm -rf /"` is as invisible as the Python, and a harness that wraps every command in
+  `bash -lc` is behind that wrapper always), a deletion in a SCRIPT FILE or a test suite that
+  deletes when it runs, a language or spelling off the list (`os.system("rm -rf /")`), and a
+  script or task whose NAME says nothing about what it does. The most widely reported
   incident of this kind ran none of the shapes a rail can read: an agent asked to add a delete
   feature wrote a guard for it, removed that guard to demonstrate it was needed, ran the test
   against a live path, and the user lost their repository, home directory, SSH private keys and

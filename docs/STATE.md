@@ -25,7 +25,10 @@ denial — an `rm -r -f` or `git clean -f -d` naming `/`, a home directory, `/ro
 `/Users` is blocked and no rerun clears it, while the git verbs armed only on an unknown target
 stay silent on a literal path — and `AGENTS.md` carries the half no scanner holds: exercise an unguarded
 destructive path against a fixture, never a live one, and never remove a safety check to observe
-what it prevents (**DD-018**). The 14.2.0 draft was never tagged, so its output-redaction work
+what it prevents (**DD-018**). An inline interpreter deletion — an enumerated interpreter leading the
+segment, an inline-code flag, and that argument naming a deletion call before an opening
+parenthesis — now buys one advisory that a rerun clears, keyed on a digest of the command rather
+than its text (**DD-019**, **DD-020**). The 14.2.0 draft was never tagged, so its output-redaction work
 ships under this number: both first-class adapters wire post-execution output redaction through
 `scripts/redact-tool-output.sh`, one `redact.sh` invocation per string leaf
 (**DD-015**–**DD-017**), over 14.1.0's shell pin (**DD-007**–**DD-012**). Whether this draft is
@@ -135,7 +138,11 @@ rows — this section is a pointer index, not a narrative.
   outright, and the constitution gained the destructive-work rule no scanner can hold.** Earned by
   a public incident in which an agent removed the guard it had just written and tested the delete
   against a live path through an interpreter; the rail catches the literal spelling, the prose
-  covers the interpreter, and each says so about the other (**DD-018**).
+  covers the interpreter, and each says so about the other (**DD-018**). A second unit added the
+  inline-interpreter advisory that three narrowings made affordable, keyed on a digest rather
+  than on command text (**DD-019**, **DD-020**); its review found the first form advising test
+  files named after deletions, and a broken copy of the guard locked the session out of its own
+  shell (**DD-021**).
 
 - 2026-09-12/13 — **14.2.0, folded and superseded by 15.0.0's number.** Both adapters wired
   `PostToolUse` output redaction over the new shipped leaf filter, and `adapter-set.sh` fails on

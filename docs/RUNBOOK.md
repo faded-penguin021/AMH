@@ -99,7 +99,10 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
   lands with its fixture in the same change. **Run `scripts/build-manifest.sh` in the same
   change**: the shipped scripts' hashes ship with them, and `manifest-drift.sh` fails on a
   manifest that describes bytes nobody has. **Rule-review protocol applies** (guard
-  semantics are legislation).
+  semantics are legislation). **Run `bash -n` on the template before copying it down**: the
+  command guard is this harness's own pre-execution hook, so an unparseable copy in `scripts/`
+  refuses the next Bash call — including the one that would repair it — and the way out is an
+  editor path that does not go through the hook (**DD-021**).
 - **Acceptance:** `scripts/ladder.sh` green, including the fixture suite and both rail
   self-tests; the new fixture must FAIL against the old script — check by stashing the
   behaviour change, or the fixture proves nothing.

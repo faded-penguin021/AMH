@@ -23,6 +23,19 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   guard's only permanent denial. `/etc` and the other system directories stay OUTSIDE the list
   and keep the ordinary advisory, the git verbs armed only on an unknown target keep that
   narrowing, and the refusal text says in its own words what it does not cover.
+- **An inline interpreter deletion now gets a one-time advisory.** Three conditions, all lists:
+  the segment's LEADING command is `python`, `python2`, `python3`, `node`, `nodejs`, `ruby`,
+  `perl`, `deno`, `bun` or `php`; the segment carries inline program text (`-c`, `-e`, `-E`,
+  `-r`, `-p`, `--eval`, `--print`, or an `--eval=` spelling); and THAT ARGUMENT names `rmtree`,
+  `remove_tree`, `removedirs`, `rm_rf`, `rmSync`, `rmdirSync`, `rimraf`, `remove_dir_all`,
+  `unlink` or `os.remove` followed by an opening parenthesis. The command then stops once and the
+  rerun proceeds, rearmed per command text. Those narrowings are the tier: without the first, a
+  commit message naming the call is judged; without the second, `python3 -m pytest
+  tests/test_unlink.py` is advised; without the parenthesis, so is `unlink_count`. It reads one
+  argument of one command line — no script file, no test suite, no heredoc body, nothing behind
+  `bash -c`, and no spelling off the lists (**DD-019**). The advisory's rearm key is a DIGEST of
+  the command, never its text, so a credential in a one-liner is not written to the state
+  file (**DD-020**).
 - **The constitution now carries a destructive-work rule, which is the half no scanner can
   hold.** Exercise an unguarded destructive path against a fixture tree, never a live one, and
   never remove a safety check from the source to observe what it prevents — a guard's necessity
