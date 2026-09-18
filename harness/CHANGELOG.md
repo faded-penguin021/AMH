@@ -11,7 +11,30 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
-## 14.2.0 — 2026-09-13
+## 15.0.0 — 2026-09-18
+
+- **An `rm -r -f` or `git clean -f -d` aimed at the filesystem root or a home directory is now
+  blocked and does not clear on a rerun.** Every other target in the command guard's destructive tier gets a
+  one-time advisory, because the guard cannot tell a scratch directory from a source tree and
+  the agent's rerun is what settles it. That premise is false for a short list of paths — `/`,
+  `~`, `$HOME`, the live value of `HOME`, `/root`, `/home`, `/Users`, and the trailing and glob
+  spellings that fold to them — where no unit of work inside a repository ends by deleting the
+  target and the clearing rerun is the keystroke the reported incidents end on. This is the
+  guard's only permanent denial. `/etc` and the other system directories stay OUTSIDE the list
+  and keep the ordinary advisory, the git verbs armed only on an unknown target keep that
+  narrowing, and the refusal text says in its own words what it does not cover.
+- **The constitution now carries a destructive-work rule, which is the half no scanner can
+  hold.** Exercise an unguarded destructive path against a fixture tree, never a live one, and
+  never remove a safety check from the source to observe what it prevents — a guard's necessity
+  is demonstrated by removing the BEHAVIOUR and re-running the SUITE, which is what the
+  add-a-guard playbook already meant and now says. Earned by a public incident in which an
+  agent asked to add a delete feature wrote a guard for it, removed the guard to prove it was
+  needed, ran the test against a live path through an interpreter, and destroyed a repository,
+  a home directory, SSH private keys and a GPG keyring.
+- **Everything 14.2.0 drafted ships under this number.** That version was never tagged, so its
+  output-redaction work folds up into this entry rather than being released separately; the
+  Upgrading steps below cover both.
+
 
 - **The Codex adapter now wires `PostToolUse` output redaction.** Codex exposes the same input
   fields the shared rail needs, but not Claude Code's arbitrary result replacement. On an
@@ -94,6 +117,19 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   a session cannot reload its own hook set to find out. Configured, never observed — the same
   word the session banner uses for every other adapter claim.
 ### Upgrading
+
+1. **Read the new `## Destructive work` section in `harness/templates/seed/AGENTS.md` and add
+   it to your own constitution.** Seeds are yours and never re-sync, so this one is hand-applied.
+   The two rules it states bind whether or not you copy it; copying it is what puts them in front
+   of the agent. Keep its "which layer holds which half" paragraph honest for YOUR repository:
+   the permanent denial below is the only part a script holds.
+2. **Expect `rm -rf /`, `rm -rf ~` and their spellings to be denied outright, with no rerun.**
+   The shipped `scripts/command-guard.sh` carries this; copying the scripts is all that is
+   needed. If some task in your repository legitimately deletes one of those paths, it cannot
+   run under the guard any more and is the owner's to run deliberately outside it — that is the
+   binding change this MAJOR is for.
+
+The steps below carry 14.2.0's output-redaction work, which was never released on its own.
 
 Shipped scripts are copied for you; adapter files are not. `amh-init.sh` preserves both
 `.claude/settings.json` and `.codex/config.toml`, so apply the common step and the steps for

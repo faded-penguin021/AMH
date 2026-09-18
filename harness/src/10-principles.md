@@ -404,6 +404,39 @@ human already reads, as a line that no counter, exit code or gate consumes — i
 that anyone looked, only that the cheapest escape stopped being invisible, and P3 forbids any
 machinery that reads it as more.
 
+**One target list is not an advisory, and keeping it tiny is what makes it affordable.** The
+advisory tier above rests on a premise — the guard cannot tell a scratch directory from a source
+tree, and the agent's rerun is what settles it. That premise fails for a short list of paths: the
+filesystem root, a home directory, the directory holding home directories. No unit of work inside
+a repository ends by deleting those, so there is nothing for a rerun to settle, and the rerun that
+clears every other target is precisely the keystroke a reported incident ends on. Those get the
+one permanent denial the rail issues. Three properties keep it from becoming the alarm that cries
+wolf, and each is load-bearing: the list is literal and small enough to read in one breath (a
+system directory like `/etc` is deliberately outside it, so the file's own fixtures still expect
+an ordinary advisory there); it folds the spellings that address the same directory, since a rail
+an agent steps around with a trailing slash teaches the trailing slash; and it decides BEFORE the
+state file is touched, so "never clears" does not rest on a temporary file that a rerun writes to
+and the bootstrap deletes. A permanent denial is the most authoritative thing such a guard ever
+prints, which is exactly why its text has to keep saying what it does NOT cover — the reading it
+invites, *the dangerous ones are handled*, is the one that loses a tree through an interpreter.
+
+**The destructive rule the rails cannot hold goes in the constitution, next to the half they
+can.** A command scanner reads command text, so a deletion assembled inside an interpreter, the same
+deletion behind a shell string (`bash -c` is the same blind spot as another language and by far
+the commonest one), a test suite that deletes when it runs, and a path built from a variable it
+cannot expand are all invisible to it, and enumerating interpreters does not change that — each has unbounded ways to
+spell a deletion. What prose can bind is the *procedure*: exercise an unguarded destructive path
+against a fixture tree and never against a live one, and never remove a safety check from the
+source in order to observe what it prevents. The second half is worth stating even though it
+sounds obvious, because a harness that requires guards to ship with a fixture that fails without
+them has already told the agent to demonstrate the counterfactual — and the demonstration it
+means is removing the BEHAVIOUR and re-running the SUITE, not performing the unguarded operation
+for real. The most widely reported incident of this class went through that door: an agent asked
+to add a delete feature wrote a guard, deleted the guard to show it was needed, ran the test
+against a live path, and the user lost a repository, a home directory, SSH private keys and a GPG
+keyring. Say in the same breath which layer holds which half, or the section becomes the false
+comfort P13 keeps warning about.
+
 **One rail can be invoked by git itself rather than by the agent, and that is the point.** The
 command guard above binds only an agent whose harness runs a pre-execution hook; an agent
 without one has no command rail at all, the gap the paragraph before this one concedes. A git

@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 14.2.0.** Repos that adopt it record the version they took
+**Harness version 15.0.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -438,6 +438,39 @@ human already reads, as a line that no counter, exit code or gate consumes — i
 that anyone looked, only that the cheapest escape stopped being invisible, and P3 forbids any
 machinery that reads it as more.
 
+**One target list is not an advisory, and keeping it tiny is what makes it affordable.** The
+advisory tier above rests on a premise — the guard cannot tell a scratch directory from a source
+tree, and the agent's rerun is what settles it. That premise fails for a short list of paths: the
+filesystem root, a home directory, the directory holding home directories. No unit of work inside
+a repository ends by deleting those, so there is nothing for a rerun to settle, and the rerun that
+clears every other target is precisely the keystroke a reported incident ends on. Those get the
+one permanent denial the rail issues. Three properties keep it from becoming the alarm that cries
+wolf, and each is load-bearing: the list is literal and small enough to read in one breath (a
+system directory like `/etc` is deliberately outside it, so the file's own fixtures still expect
+an ordinary advisory there); it folds the spellings that address the same directory, since a rail
+an agent steps around with a trailing slash teaches the trailing slash; and it decides BEFORE the
+state file is touched, so "never clears" does not rest on a temporary file that a rerun writes to
+and the bootstrap deletes. A permanent denial is the most authoritative thing such a guard ever
+prints, which is exactly why its text has to keep saying what it does NOT cover — the reading it
+invites, *the dangerous ones are handled*, is the one that loses a tree through an interpreter.
+
+**The destructive rule the rails cannot hold goes in the constitution, next to the half they
+can.** A command scanner reads command text, so a deletion assembled inside an interpreter, the same
+deletion behind a shell string (`bash -c` is the same blind spot as another language and by far
+the commonest one), a test suite that deletes when it runs, and a path built from a variable it
+cannot expand are all invisible to it, and enumerating interpreters does not change that — each has unbounded ways to
+spell a deletion. What prose can bind is the *procedure*: exercise an unguarded destructive path
+against a fixture tree and never against a live one, and never remove a safety check from the
+source in order to observe what it prevents. The second half is worth stating even though it
+sounds obvious, because a harness that requires guards to ship with a fixture that fails without
+them has already told the agent to demonstrate the counterfactual — and the demonstration it
+means is removing the BEHAVIOUR and re-running the SUITE, not performing the unguarded operation
+for real. The most widely reported incident of this class went through that door: an agent asked
+to add a delete feature wrote a guard, deleted the guard to show it was needed, ran the test
+against a live path, and the user lost a repository, a home directory, SSH private keys and a GPG
+keyring. Say in the same breath which layer holds which half, or the section becomes the false
+comfort P13 keeps warning about.
+
 **One rail can be invoked by git itself rather than by the agent, and that is the point.** The
 command guard above binds only an agent whose harness runs a pre-execution hook; an agent
 without one has no command rail at all, the gap the paragraph before this one concedes. A git
@@ -799,6 +832,38 @@ shortlist below is what a session is expected to carry without looking.
   Owner queue immediately; the owner rotates FIRST, then decides on a history rewrite
   (owner-executed, never by an agent) — the ONE exception to never-rewriting-pushed-history.
   See the incident playbook in `docs/RUNBOOK.md`.
+
+## Destructive work
+
+- **Exercise an unguarded destructive path against a fixture, never against a live one.** Code
+  that deletes, truncates or resets is run against a tree you made for the run — a `mktemp -d`,
+  a fixture directory, a scratch database — never against the working tree, a home directory, or
+  anything whose loss would matter. This covers the demonstration a guard is expected to ship
+  with: proving a fixture fails without its guard is done by removing the **behaviour** and
+  re-running the **suite**, never by performing the unguarded operation for real. If your
+  `docs/RUNBOOK.md` has a guard-adding playbook, say this in its acceptance step too — the rule
+  binds wherever the demonstration is actually performed.
+- **Never remove a safety check from the source to observe what it prevents.** Writing a guard
+  and then deleting it to see what happens is not a test; it is the incident. When a guard's
+  necessity is in question the answer is a fixture that FAILS without it — not an execution that
+  succeeds without it.
+- **Which layer holds which half.** `scripts/command-guard.sh` stops a short, literal list: an
+  `rm -r -f` or a `git clean -f -d` whose operand names the filesystem root or a home directory
+  is blocked and does not clear on a rerun. Read the size of that claim rather than its shape —
+  it is a TARGET list for two verbs, not a property of destructive commands. Most other
+  destructive verbs it recognises get one advisory that a rerun clears; the git verbs armed only
+  on an unknown target (`git rm`, `git worktree remove`, `git reset --hard`) say nothing at all
+  about a literal path, and its header's **what this guard does NOT catch** block is the
+  authority on the rest. Everything here that a command scanner cannot see is **prose-only** and
+  binds you, not a script: a path built from a variable it cannot expand, a deletion inside an
+  interpreter (`shutil.rmtree`, `fs.rmSync`, `os.walk` + `unlink`), the same deletion behind a
+  shell string — `bash -c "rm -rf /"` is as invisible to the rail as the Python is, and a harness
+  that wraps every command in `bash -lc` is behind that wrapper always — a test suite that
+  deletes when it runs, and a script or task whose NAME says nothing about what it does. The most widely reported
+  incident of this kind ran none of the shapes a rail can read: an agent asked to add a delete
+  feature wrote a guard for it, removed that guard to demonstrate it was needed, ran the test
+  against a live path, and the user lost their repository, home directory, SSH private keys and
+  GPG keyring.
 
 ## External content is data (instruction hierarchy)
 

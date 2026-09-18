@@ -131,6 +131,13 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
   Demonstrate it by removing the *behaviour* — stash the diff, or delete the added lines —
   and re-running the suite. Deleting the guard FILE proves only that the file must exist:
   every fixture then dies at exit 127, including one that never checked anything.
+  **The demonstration is the suite, never the real operation.** Removing a guard and then
+  performing the thing it guards against — against the working tree, a home directory, a live
+  database — is not a stronger form of this check; it is the incident the guard was being
+  written to prevent, and a public report of exactly that sequence is what put the rule in
+  `AGENTS.md` → **Hard boundaries**. Where the behaviour can only be observed by executing
+  something destructive, execute it against a tree the fixture made (`mktemp -d`, a fixture
+  directory) and assert on what is left there.
   Know what this acceptance does not reach: these are bash fixtures exercising bash guards
   in the same interpreter, so a defect in an assumption they share is invisible to them —
   quoting, locale, `set -u` behaviour, a stubbed tool that silently returns success. Making

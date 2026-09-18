@@ -1,7 +1,7 @@
 # AMH meta-repository — maintenance guide
 
 This repository is the source of truth for the **Agentic Maintenance Harness** (AMH) and its
-reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 14.2.0**
+reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 15.0.0**
 (`harness/VERSION`).
 
 This file states the harness and this repository as they are now. Rules are rewritten in place
@@ -81,6 +81,19 @@ definition of that scope.
   manifest as the playbook directs.
 - Never rewrite, compress, renumber, or remove append-only ledger entries. Append the next
   identifier to the live ledger volume; `docs/STATE.md` identifies that volume.
+- Never exercise an unguarded destructive path against a live target, and never remove a
+  safety check from the source in order to observe what it prevents. Deletions, truncations and
+  resets are tested against a tree made for the test — a `mktemp -d`, a fixture directory — and
+  a guard's necessity is demonstrated the way `docs/RUNBOOK.md` → **Add a guard** already
+  requires: remove the BEHAVIOUR, re-run the SUITE, and read the fixture fail. Running the
+  unguarded operation for real is not a stronger demonstration of the same thing; it is the
+  incident the guard was being written to prevent. `scripts/command-guard.sh` holds a literal
+  TARGET list for two verbs — an `rm -r -f` or a `git clean -f -d` naming the filesystem root or
+  a home directory is blocked and does not clear on a rerun — and holds nothing else here: the
+  git verbs armed only on an unknown target are silent on a literal path, and a path built from
+  a variable it cannot expand, any deletion inside an interpreter, the same deletion behind
+  `bash -c`, and a test suite that deletes when it runs are prose-only and bind you, not a
+  script (**DD-018**).
 - Never use self-reported attestations as machine-consumed evidence. A statement, checkbox,
   review marker, or verification disclosure may inform a human but must not satisfy a guard,
   gate, required field, or agent decision procedure merely because it was asserted.
