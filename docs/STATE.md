@@ -146,8 +146,8 @@ rows — this section is a pointer index, not a narrative.
 
 - 2026-09-29 — **An external review of the 15.0.0 draft, validated: all fifteen findings held
   and were fixed in three units, then CI found the redaction rail dead on Windows and the command
-  guard open to the same `python3` hazard.** Verdicts in
-  **DD-026**; the lessons are **DD-022**–**DD-025** and **DD-027**–**DD-030**.
+  guard open to the same `python3` hazard; the next run showed which hazard fired.** Verdicts
+  in **DD-026**; the lessons are **DD-022**–**DD-025** and **DD-027**–**DD-031**.
 
 - 2026-09-18 — **15.0.0: a deletion aimed at the filesystem root or a home directory is denied
   outright, and the constitution gained the destructive-work rule no scanner can hold.** Earned by
