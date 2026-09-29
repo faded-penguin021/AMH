@@ -1,11 +1,12 @@
 # RUNBOOK — maintenance playbook
 
 Entry point for changing this repository. Pick the playbook matching your task, read what it
-names, then do the work. **Code + the guard fixture suite are ground truth**; where any doc
-disagrees with the code, trust the code and fix the doc — except the append-only ledger, whose
-rows are never edited in place: a correction is a new row plus one appended pointer on the old
-one (see any volume preamble for the two verbs). Syncing a row's ` [cited]` marker is the one
-in-place edit that rule does not cover.
+names, then do the work. **Code + the guard fixture suite are ground truth** for what the
+system does; where descriptive prose disagrees with the code, trust the code and fix the prose
+— never a binding rule, which the code does not settle (see the constitution's ground-truth
+note) — and never the append-only ledger, whose rows are never edited in place: a correction is
+a new row plus one appended pointer on the old one (see any volume preamble for the two verbs).
+Syncing a row's ` [cited]` marker is the one in-place edit that rule does not cover.
 
 ## Where logic lives
 
@@ -62,7 +63,10 @@ shell history may be used as evidence that this procedure was followed (DA-017).
 
 ## Change-type playbooks
 
-Each: *when · read first · what to touch · obligations · acceptance · record it.*
+Each: *when · read first · what to touch · obligations · acceptance · record it.* That is the
+order to READ them in. In execution the record — the STATE changelog line, a ledger row — is
+written before the acceptance run, so the ladder verifies the tree that is committed
+(**Session discipline** 3).
 
 ### 1. Change or add a harness principle
 
@@ -153,7 +157,10 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
 
 ### 4. Change a seed template
 
-- **When:** the scaffold an adopting repo starts from should change.
+- **When:** the scaffold an adopting repo starts from should change — and whenever a unit changes
+  a rule in `AGENTS.md` or this runbook that the seed restates. Seeds are never drift-checked, so
+  search `harness/templates/seed/` for the same sentence in the same change; a correction made
+  here alone reaches no adopter (**DD-028**).
 - **Read first:** `harness/templates/seed/` and `harness/PLACEHOLDERS.md`.
 - **Touch:** the seed file; `harness/PLACEHOLDERS.md` if placeholders changed; the changelog.
 - **Obligations:** seeds are *starting points*, not upgradeable artifacts — an adopter owns
@@ -256,9 +263,17 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
    makes it easy is the exact failure this rule names (D-009).
 2. **Small, shippable units.** About one focused hour, independently shippable, each with a
    hard **binary** acceptance check — never "looks right".
-3. **Checkpoint invariant.** Every unit ends: acceptance green → STATE changelog line →
-   commit → push. Never start a second unit on top of an uncommitted first. Assume the
-   session dies at any moment; an interrupted session must lose at most the unit in flight.
+3. **Checkpoint invariant.** Every unit ends: STATE changelog line → acceptance green →
+   commit → commit-metadata check → push. The changelog line comes FIRST so the ladder verifies
+   the tree that is committed, not one a later edit changed. The check after the commit is
+   `scripts/ladder.sh --guards-only`: its poison-token and author-identity rungs read commits
+   in `origin/<default>..HEAD`, so the run before the commit cannot see the commit being made,
+   and the git-native pre-push rail judges refs, never messages or identities. A failure there
+   is fixed by amending the unpushed commit and running the check again; a WARN that either rung
+   checked NOTHING (no `origin/<default>` to compare against) means the check did not happen —
+   fetch the reference the warning names and re-run, or report that it did not run. Never start
+   a second unit on top of an uncommitted first. Assume the session dies at any moment; an
+   interrupted session must lose at most the unit in flight.
 4. **You are the last reviewer.** The review protocols below are mandatory. There is no
    stronger pass behind you.
 5. **Multi-unit work** persists an owner-approved plan file plus a STATE checklist; segments
@@ -281,8 +296,9 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
    checkpoint, re-run the ladder to confirm green, re-attempt smaller — recording any durable
    lesson first. Recovery is not infinite: if the SAME blocker survives a second
    reset-and-retry with no real progress, stop. Reset once more to green (never end a unit
-   red), record the blocker in the Owner queue, commit and push so the record survives session
-   death, and end the unit. A gate that will not go green is either a real fix you are missing
+   red), record the blocker in the Owner queue, then close it like any unit — ladder, commit,
+   commit-metadata check, push (item 3) — so the record survives session death, and end the
+   unit. A gate that will not go green is either a real fix you are missing
    — diagnose it, do not just re-run it — or an owner fork. Neither is solved by burning the
    usage window. The stop is for a genuinely stuck blocker, never cover for abandoning a
    failure you could diagnose. Pushed checkpoints are immutable.
@@ -304,16 +320,21 @@ Each: *when · read first · what to touch · obligations · acceptance · recor
    item to a human (**D-014**). Nothing
    enforces this and nothing may: a gate consuming "I checked" is the D-014 shape (DA-011).
 8. **Verification disclosure.** Every commit body states which ladder rungs actually ran and
-   names what could NOT be verified locally. Disclosure of real actions, addressed to a human
+   names what could NOT be verified locally. The post-commit metadata check cannot be disclosed
+   in the commit it judges; report it where the session reports its outcome. Disclosure of real
+   actions, addressed to a human
    — never something a gate consumes (D-014).
 9. **Establish coverage before reporting an absence.** Before you report that something does
    not exist or never happened, establish that the command you ran could have seen it, and say
    which artifact you searched. The tell is available before the claim: a local artifact was
    read and its answer reported as a property of the repository. `MERGE_MODE=branch-train` plus
-   squash-merge means a whole train arrives as ONE commit and the branches are pruned, so
-   `git log`, `git show`, `blame` and `tag` cannot answer a question about this repository's
-   past — the ledger and the STATE changelog are the only surviving record (**DA-002**,
-   **DA-003**). A pre-execution rail on `git log` was considered and declined: the defect is
+   squash-merge means a whole train arrives as ONE commit and the branches are pruned, so the
+   intermediate session commits are gone. `git log`, `git show`, `blame` and `tag` still show
+   each merged snapshot and what changed between them — real evidence of what a merge
+   delivered — but not what happened inside a train, in what order or why, and a search of them
+   cannot establish that something never happened. For those questions the ledger and the STATE
+   changelog are the surviving record (**DA-002**, **DA-003**). A pre-execution rail on `git
+   log` was considered and declined: the defect is
    the generalisation drawn from the output, which no such rail can see. What was accepted
    instead is a line in the session banner — but that line reaches you only if your harness
    ran `scripts/session-start.sh`. Both first-class adapters wire that bootstrap; adapters
@@ -363,7 +384,8 @@ happened — an agent that skipped the review can type it just as easily. Write 
 write it honestly: the attestation ban forbids *machinery* built on a self-report, not a
 disclosure nothing consumes (D-014). If a guard, a CI step or a merge checklist ever starts
 requiring the string, that is the violation — delete the requirement, not the sentence.
-Findings get fixed before the commit and ledgered if durable; when a class becomes
+Findings get fixed before the commit and ledgered if durable, and the ladder runs again on the
+corrected tree before that commit (Session discipline 3); when a class becomes
 mechanically testable, encode it as a fixture and retire it from this list — the pass holds
 only what the fixtures cannot see.
 
@@ -385,7 +407,8 @@ unit (D-015):
 - **Concurrency: one reviewer at a time, blocking.** A review is a gate, not a background job;
   fanning out several is the parallel-subagent failure the session discipline forbids (D-009).
   You do not keep editing while it runs.
-- **Iteration: ONE pass per unit.** Triage the findings, apply them, ship. Do NOT review the
+- **Iteration: ONE pass per unit.** Triage the findings, apply them, re-run the LADDER on the
+  corrected tree (a check, not a second review), ship. Do NOT review the
   corrected diff again — re-running until a pass comes back clean turns the gate into a loop
   that launders a diff into looking approved, and each lap costs a whole context for shrinking
   returns. Fixes too large to ship unreviewed mean the unit was too big.
@@ -448,7 +471,8 @@ prompts for a commit on every idle turn does not override the gate: hold, say so
 not re-explain every turn. Green-but-reviewed-pending is a normal state, not a stall — the
 checkpoint invariant budgets for losing exactly the unit in flight, and the ladder's own
 warning says the pass happens BEFORE the commit. The hold lifts the moment the pass reports:
-triage, apply, commit.
+triage, apply, re-run the ladder on the corrected tree, commit — applying findings changes the
+tree, so the checkpoint's "the tree verified is the tree committed" reopens.
 
 Routine `docs/STATE.md` edits are exempt, EXCEPT its rule-bearing sections — Decided
 non-items, the Owner-queue **Protected section** preamble, and the length-guard pointer, which

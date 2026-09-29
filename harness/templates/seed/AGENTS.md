@@ -13,9 +13,13 @@ their keep only in combination.
 {{REFERENCE_SYSTEM}}
 
 > **Ground truth:** code + {{IMMUTABLE_FIXTURES}}. Docs describe the system as-built and may
-> drift — when a doc conflicts with the code, trust the code and correct the doc. The
-> append-only ledger is the exception: its rows are immutable, so a stale row is never edited
-> in place — write a new row and append one pointer line to the old one.
+> drift — when DESCRIPTIVE prose conflicts with the code, trust the code and correct the prose.
+> The append-only ledger is the exception: its rows are immutable, so a stale row is never
+> edited in place — write a new row and append one pointer line to the old one. And the code
+> settles only what the system DOES, never what it SHOULD do: a binding rule or value this file
+> or the runbook states is a requirement, and when the code disagrees with one, that is a
+> finding against the code, not a doc to repair. Changing a binding rule to match the code is a
+> rule change, and takes the rule-review protocol like any other.
 
 Long-term memory: numbered deviations and discoveries live in `docs/LEDGER.md` — a
 **permanent, append-only registry** (code cites bare `D-NN`; code-cited rows carry a
@@ -54,8 +58,10 @@ cap, the next row opens the next file, `D-… → DA-…` (`_A.md`) `→ DB-…`
 > have contained the thing. Before reporting one, name the artifact you looked in and why it
 > would hold the answer. The recurring trap is local git state: where branches are squash-merged
 > an entire train of sessions arrives as ONE commit and every intermediate state is destroyed on
-> purpose, so `git log` cannot answer a question about this repository's past — the ledger and
-> the `docs/STATE.md` changelog are the record. Nothing enforces this; no pre-execution check
+> purpose. `git log` still shows each merged snapshot and what changed between them, but not
+> what happened inside a train or why, and a search of it cannot establish that something never
+> happened — for those questions the ledger and the `docs/STATE.md` changelog are the record.
+> Nothing enforces this; no pre-execution check
 > can see a belief formed after a command returns.
 
 ## Maintenance protocol (every session)
@@ -73,12 +79,17 @@ cap, the next row opens the next file, `D-… → DA-…` (`_A.md`) `→ DB-…`
    names before touching code.
 4. Do the work under RUNBOOK **Session discipline**: sequential, small checkpointed units,
    binary acceptance.
-5. Run the acceptance ladder until green. **Never leave the branch red.**
-6. Update `docs/STATE.md` with what stays true of the checked-out tree (and honour its length
+5. Update `docs/STATE.md` with what stays true of the checked-out tree (and honour its length
    guard). Never cache world-controlled status — merged, tagged, released, PR/CI, deployments,
    remote branches, forge settings — as current truth: point at the live probe, route it to the
    Owner queue, or keep it as an observation scoped in the sentence to when it was seen. If the runbook itself was insufficient, fix the runbook in the same change.
-7. Commit and push: `git push -u origin <your-session-branch>`.
+6. With every file change made — the state file included — run the acceptance ladder until
+   green, so the tree it verified is the tree you commit. **Never leave the branch red.**
+7. Commit, then run `scripts/ladder.sh --guards-only` once more — its poison-token and
+   author-identity rungs read commits, so only a run after the commit sees the one you just
+   made. If either fails, amend the unpushed commit and run it again; if either WARNs that it
+   checked NOTHING, the check did not happen — fetch the reference it names and re-run, or say
+   so. Then push: `git push -u origin <your-session-branch>`.
 
 ## Build & verify commands
 
@@ -225,7 +236,16 @@ shortlist below is what a session is expected to carry without looking.
   the one-session-one-branch rule; and add its config file to `RULE_FILES` in `amh.conf`.
   State explicitly which of those layers the adapter actually provides.
 - **An agent with no pre-execution hook has no command rail at all.** `scripts/command-guard.sh`
-  is then a script nobody calls, and the rules in this file are the only layer standing. No
-  check can tell you this: distinguishing a hook invocation from a manual one needs
-  vendor-specific environment variables the harness will not assume, which is why this is
-  written here rather than warned about at boot.
+  is then a script nobody calls, and the rules in this file are the only layer standing — with
+  one exception, the push. The git-native `pre-push` rail (`command-guard.sh --pre-push`,
+  installed into `.git/hooks/pre-push` by the installer and by `scripts/session-start.sh`) is
+  invoked by git rather than by the agent, so it still guards the publication invariants — no
+  push to `{{DEFAULT_BRANCH}}`, no non-fast-forward (force) push, no branch deletion, no tag —
+  for a hook-less agent. Where it is installed: neither installer overwrites a foreign pre-push
+  hook or writes one under `core.hooksPath`, and hooks are not cloned, so a fresh clone has no
+  rail until `scripts/session-start.sh` has run. It is a guardrail `--no-verify` bypasses, not a
+  boundary, and it judges refs only: never a commit message or an identity. No check can tell
+  you whether your session has a pre-execution hook:
+  distinguishing a hook invocation from a manual one needs vendor-specific environment
+  variables the harness will not assume, which is why this is written here rather than warned
+  about at boot.

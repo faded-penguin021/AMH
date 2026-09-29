@@ -2276,9 +2276,9 @@ d=$(mk ss_merge_mode_train)
 sed_in_place 's/^MERGE_MODE=.*/MERGE_MODE=branch-train/' "$d/amh.conf"
 out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
 if grep -qF "merge mode: branch-train — main's history is squashed" <<<"$out"; then
-	report ok "a branch-train repo is told its default branch's log is not its past"
+	report ok "a branch-train repo is told its default branch's log does not record a train's inside"
 else
-	report no "a branch-train repo is told its default branch's log is not its past" "no line" "$out"
+	report no "a branch-train repo is told its default branch's log does not record a train's inside" "no line" "$out"
 fi
 
 # The negative control, and the reason the key is read at all: under branch-per-change the

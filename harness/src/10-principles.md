@@ -14,9 +14,14 @@ orientation and never a measured KPI: a session optimising that number stops esc
 exactly the forks it must escalate.
 
 **P1. Declare a ground-truth hierarchy.** Code plus immutable test fixtures outrank every
-document. Docs describe the system as-built and *will* drift; the standing order is "when a
+document as the account of what the system does. Docs describe the system as-built and *will*
+drift; the standing order is "when a
 doc conflicts with the code, trust the code and correct the doc." Without this rule, agents
-oscillate between conflicting sources, or "fix" correct code to match a stale doc.
+oscillate between conflicting sources, or "fix" correct code to match a stale doc. The order
+covers DESCRIPTIVE prose only: code settles what the system does, never what it should do. A
+binding rule or value the code contradicts is a finding against the code, and rewriting the
+rule to match the code is legislation (P12), not documentation repair — without that half, the
+standing order licenses repealing any requirement a defect happens to violate.
 
 The append-only ledger is the one exception, and it has to be stated or the two rules collide:
 its rows are immutable, so a stale row is never edited in place. The code still wins — the
@@ -211,8 +216,12 @@ where "green locally, red in CI" mysteries breed. Provide a `--guards-only` fast
 docs-only work, and test the guards themselves with a fixture suite. Guards are code.
 
 **P5. Checkpoint invariant: assume the session dies at any moment.** This is P2's *write-back
-before power loss*. Every unit of work ends *acceptance green → state-file changelog line →
-commit → push* before the next unit starts. An interrupted session — rate limit, context
+before power loss*. Every unit of work ends *state-file changelog line → acceptance green →
+commit → commit-metadata check → push* before the next unit starts. The order is the point:
+the state file changes before the ladder runs, so the tree verified is the tree committed, and
+the checks that read commits (poison tokens, author identity) run again after the commit,
+because before it the commit they must judge does not exist. An interrupted session — rate
+limit, context
 window, crash — loses at most the unit in flight. Corollaries: work strictly sequentially (no
 parallel subagents on one repo; they have burned whole usage windows), keep units small
 (about one focused hour) and independently shippable, and give each a **binary** acceptance
@@ -228,7 +237,8 @@ careful clean), re-run the ladder to confirm green, re-attempt smaller. If the d
 a durable lesson, record it *before* retrying. But recovery is not infinite: if the same
 blocker survives a second reset-and-retry cycle with no real progress, stop — reset once more
 to green (never end a unit red), record the blocker in the Owner queue, persist that record
-(commit and push) so it survives session death, and end the unit rather than thrashing. A gate
+through the ordinary checkpoint (P5) so it survives session death, and end the unit rather
+than thrashing. A gate
 that will not go green is either a real fix the agent is missing (diagnose it, do not just
 re-run it) or an owner fork (P8); neither is solved by burning the usage window re-running a
 script. That is the P6 weakest-agent failure mode, and the stop is what keeps a lesser model
@@ -350,12 +360,14 @@ substance* if anything needs the human. Asking every time trains the human to ru
 While the pass is in flight the diff stays green, uncommitted and unpushed. A harness that
 prompts for a commit on every idle turn is not an argument against the gate: hold, and say so
 once rather than re-explaining each turn. Green-but-reviewed-pending is a normal state, not a
-stall — the checkpoint invariant already budgets for losing the unit in flight.
+stall — the checkpoint invariant already budgets for losing the unit in flight. When it reports:
+triage, apply, re-run the acceptance check on the corrected tree, commit.
 
 The ledger feeds the checklist: every new shipped bug class gets appended, and when a class
 turns out to be mechanically testable, encode it as a regression test and retire it from the
 checklist — the pass holds only what tests *cannot* see. The verdict goes in the commit body
-("glue-review pass: clean"); findings get fixed pre-commit and ledgered if durable. The verdict
+("glue-review pass: clean"); findings get fixed pre-commit and ledgered if durable, and the
+acceptance check runs again on the corrected tree before that commit (P5). The verdict
 is disclosure to a human reader, not evidence the pass happened — an agent that skipped the
 review can type it just as easily. That is permitted precisely because nothing consumes it
 (P3): keep it out of every gate, and never let a guard, a CI step or a merge checklist start

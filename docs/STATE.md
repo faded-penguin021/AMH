@@ -148,7 +148,10 @@ rows — this section is a pointer index, not a narrative.
   and the `~name/sub` matcher were selection defects a green verdict could not show (**DD-023**).
   Tooling: `amh-init.sh` renders from the `amh.conf` it keeps and narrows branch values to
   characters every file they reach reads literally (**DD-024**); `build-manifest.sh` checks every
-  digest (**DD-025**).
+  digest (**DD-025**). Prose: the checkpoint now runs the ladder after the state-file line and
+  the commit-metadata rungs again after the commit (**DD-027**); seed corrections the reference
+  had and the seed lacked (**DD-028**); the squash-merge claim narrowed (**DD-029**); verdicts in
+  **DD-026**.
 
 - 2026-09-18 — **15.0.0: a deletion aimed at the filesystem root or a home directory is denied
   outright, and the constitution gained the destructive-work rule no scanner can hold.** Earned by

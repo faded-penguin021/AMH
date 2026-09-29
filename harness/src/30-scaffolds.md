@@ -311,7 +311,9 @@ rather than the command.
   wrappers, constructed commands, heredocs, window limits — because a rail whose limits are
   only discoverable by reading its scanners will be mistaken for a vault. And an agent with no
   pre-execution hook has **no command rail at all**: the script is then one nobody calls, and
-  the prose is the only layer. Nothing can detect that state for the agent — distinguishing a
+  the prose is the only layer — except at the push, where the git-native pre-push rail (P13)
+  is invoked by git, not by the agent, wherever it was installed. Nothing can detect that state
+  for the agent — distinguishing a
   hook invocation from a manual one requires vendor-specific environment variables the harness
   will not assume — so it is stated in the constitution rather than warned about at boot.
 - **Subagent-spawn speed bump** (where the agent's pre-tool-use hooks match on tool NAME): wire

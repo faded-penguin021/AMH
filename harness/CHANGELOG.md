@@ -160,6 +160,35 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   upgrade is never refused over a value nothing it writes contains.
 - **`scripts/build-manifest.sh` stops non-zero when the hasher fails.** It used to write empty
   digests over both manifests and report success. Repo-local tooling; adopters are unaffected.
+- **The checkpoint sequence is reordered, and the constitution's steps with it: state-file line
+  → acceptance ladder → commit → `scripts/ladder.sh --guards-only` again → push.** The old order
+  (ladder → state-file line → commit → push) verified a tree that was then edited before it was
+  committed, and ran the poison-token and author-identity rungs — which read
+  `origin/<default>..HEAD` — before the commit they exist to judge had been made; the pre-push
+  rail judges refs only, so a fast-forward carrying a fresh `[skip ci]` commit went out
+  unchecked. Changed in P5, the seed constitution's steps 5–7 and the seed runbook's session
+  discipline 3. It is a binding change, and the Upgrading steps below carry it.
+- **Seed corrections that had reached this repository's own constitution but never the seed.**
+  `harness/templates/seed/AGENTS.md` now says the code settles what the system DOES and never
+  what it SHOULD do — a binding rule the code contradicts is a finding against the code, not a
+  doc to repair (P1 says so too) — and that a hook-less agent still has the git-native pre-push
+  rail. The seed ledger preamble no longer promises that a new row citing a nonexistent path is
+  rejected: no shipped check resolves one. The seed runbook's ground-truth line carries the
+  same does-versus-should limit.
+- **The squash-merge warning is narrowed to what squashing destroys.** The runbooks, the seed
+  constitution and the session banner said `git log` cannot answer questions about the
+  repository's past; merged snapshots and the diffs between them survive and are evidence. What
+  is gone is what happened inside a train, in what order and why, and a search of the log still
+  cannot establish that something never happened.
+- **`docs/UPGRADING.md` states one policy for editing shipped scripts:** never, with a single
+  named exception — an owner-decided fork, reached only after the rung's `amh.conf` key and an
+  upstream report — whose cost (a merge per upgrade, the integrity rung off) it spells out. The
+  README no longer tells a light adopter to start `ladder.sh` as their verification commands;
+  that is what `scripts/verify.sh` is for.
+- **The Codex static rules say they are stricter than the command guard for `env` and `set`.** A
+  prefix rule cannot say "and nothing after", so `env CI=1 …` and `set -euo pipefail` are
+  forbidden there while the command guard allows them. Documented, not aligned; read from the
+  rule semantics, not observed on a live Codex host.
 - **The seed `scripts/verify.sh` no longer says "green locally, red in CI" can only mean the
   environment.** A different commit, a staged or untracked file seen differently, and a step CI
   adds beside the ladder are all causes too; the shipped `ladder.sh` header says the same.
@@ -176,7 +205,22 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
    needed. If some task in your repository legitimately deletes one of those paths, it cannot
    run under the guard any more and is the owner's to run deliberately outside it — that is the
    binding change this MAJOR is for.
-3. **Optional wording fix:** if your `scripts/verify.sh` still carries the seed's sentence that
+3. **Reorder your checkpoint (binding).** Copy steps 5–7 of the maintenance protocol in
+   `harness/templates/seed/AGENTS.md` and item 3 of **Session discipline** in
+   `harness/templates/seed/docs/RUNBOOK.md` into your own copies: update the state file BEFORE
+   the ladder, and run `scripts/ladder.sh --guards-only` again after committing and before
+   pushing. Until you do, your commit-metadata rungs never see the commit you are about to push.
+4. **Hand-apply the seed corrections you want** — seeds are yours and nothing checks these: the
+   does-versus-should sentences of the **Ground truth** note and the pre-push exception in the
+   hook-less bullet of `harness/templates/seed/AGENTS.md` (substitute your default branch for
+   the `{{DEFAULT_BRANCH}}` slot it carries); the narrowed squash-merge sentences in
+   its **Establish coverage** note and in item 9 of the seed runbook's session discipline; the
+   ground-truth line at the top of the seed runbook; and the last sentence of **Paths in rows**
+   in `harness/templates/seed/docs/LEDGER.md`, if your repository has no path guard.
+5. **Codex adopters, optional:** the comment above the environment-dump rules in
+   `harness/templates/configs/codex-amh.rules` explains why `env CI=1 …` is refused there; copy
+   it into `.codex/rules/amh.rules` if you want the explanation beside the rule.
+6. **Optional wording fix:** if your `scripts/verify.sh` still carries the seed's sentence that
    "green locally, red in CI" can only mean environment, replace it with the wording in
    `harness/templates/seed/scripts/verify.sh` from this release. Seeds are yours; nothing
    checks this.

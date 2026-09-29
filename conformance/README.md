@@ -31,7 +31,8 @@ from a command which could not have seen the thing it was denying. It asserted t
 `docs/STATE.md` had never crossed its cap and no compression pass had ever run, from
 `git log --follow` — while two ledger rows existed *because* of those passes (DA-003). The
 reason the log disagreed with reality is structural: this repository squash-merges, so every
-intermediate state is destroyed on purpose and the memory tiers ARE the history. DA-002 is the
+intermediate state is destroyed on purpose and the memory tiers are the only record of what
+happened inside a train. DA-002 is the
 same failure through a second door, `git tag` in a clone that had never fetched tags. No guard
 reaches this either — the rule is about a belief a session formed, and only its consequence is
 observable.

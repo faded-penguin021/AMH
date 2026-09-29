@@ -32,7 +32,7 @@ Two kinds:
 | `PROJECT_NAME` | you | Repository name, for the constitution's title. |
 | `PROJECT_DESCRIPTION` | you | One paragraph: what it is, what it is built with, and its lifecycle stage ("shipped v1.0; work is now maintenance"). |
 | `REFERENCE_SYSTEM` | you | Where reference or spec artifacts live and the safe way to read them, if reading them wholesale is a context hazard. Delete the line if there is no reference system. |
-| `IMMUTABLE_FIXTURES` | you | What outranks every document alongside the code, e.g. "golden test vectors". |
+| `IMMUTABLE_FIXTURES` | you | What outranks every document alongside the code as the account of what the system does, e.g. "golden test vectors". |
 | `BOOTSTRAP_STEP` | you | Protocol step 1, e.g. "Run `scripts/session-start.sh` if your harness has no session-start hook." |
 | `INDIVIDUAL_TEST_BUILD_LINT_COMMANDS` | you | One command per line with a one-phrase comment each. |
 | `VERIFICATION_LIMITS` | you | What canNOT be verified locally, e.g. "no emulator here — on-device behaviour is owner-verified via the Owner queue". |

@@ -97,7 +97,8 @@ cheap:
 - **Shipped scripts** are overwritten on every run. They are parameter-free — they read
   `amh.conf` at runtime — and that is exactly what makes a later upgrade a copy instead of a
   merge. Never edit them in your repo; the change you want belongs in `amh.conf`, in a
-  `scripts/guards` script, or in `scripts/verify.sh`.
+  `scripts/guards` script, or in `scripts/verify.sh` (`docs/UPGRADING.md` names the one
+  exception, an owner-decided fork, and what it costs).
 - **Everything else is yours**, written only when absent: the seed prose, `amh.conf`, the CI
   workflow, and both agent adapters (`.claude/settings.json` for Claude Code;
   `.codex/config.toml`, `.codex/rules/amh.rules`, and the project-scoped
@@ -199,7 +200,10 @@ mistake to a fresh session. Add a guard the first time a rule is actually violat
 botched guard that passes when it should fail is worse than no guard, so each one lands with
 a fixture test proving it can fail.
 
-Start `ladder.sh` as nothing but your verification commands. Treat the first few sessions as a
+Start with `scripts/verify.sh` holding nothing but your verification commands; the shipped
+`ladder.sh` stays as delivered, and its guards activate on artifact presence, so the pieces you
+have not adopted yet report as skipped — or warn that they checked nothing — rather than red.
+Treat the first few sessions as a
 shakedown: when a rule proves ambiguous, the fix is clearer prose in the same change, not
 another rule.
 

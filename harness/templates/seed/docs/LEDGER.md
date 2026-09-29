@@ -31,7 +31,10 @@ shipped bug teaches session N+9's review pass.
 > it names. A new path reference must resolve in the tree where the row is authored; a committed
 > row's target may later move or disappear, and that drift leaves the historical text alone.
 > Append a correction pointer only when meaning changed, and update editable documentation —
-> including this preamble — to follow the target. New nonexistent paths are still rejected.
+> including this preamble — to follow the target. A new row must not cite a path that does not
+> exist. That is YOUR check when you write the row: the shipped ladder resolves no path in a
+> row, so unless this repository has added a path guard under `scripts/guards/`, nothing
+> rejects one for you.
 >
 > **Citations.** Bare ledger IDs resolve through the volume chain. A row cited from configured
 > code or workflow scan paths carries ` [cited]`; the ladder checks that marker in both
