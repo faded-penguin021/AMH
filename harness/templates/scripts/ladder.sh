@@ -1122,7 +1122,16 @@ guard_rail_selftests() {
 			continue
 		fi
 		if out=$(bash "$s" --self-test 2>&1); then
-			ok "$s"
+			# A self-test that stood down — no interpreter on this host, say — exits 0 having
+			# tested nothing, and an `ok` for it is the silent skip this section exists to stop.
+			# Its own SKIP line says why, so the verdict carries that line rather than a pass.
+			local why
+			why=$(awk '/^ *SKIP /{sub(/^ *SKIP /, ""); print; exit}' <<<"$out")
+			if [ -n "$why" ]; then
+				skip "$s self-test did not run: $why"
+			else
+				ok "$s"
+			fi
 		else
 			fail "$s self-test failed:"
 			printf '%s\n' "$out" | sed 's/^/         /'

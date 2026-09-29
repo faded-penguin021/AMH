@@ -3033,17 +3033,25 @@ check_command() {
 
 # --- hook payload -----------------------------------------------------------
 extract_command() { # fail-open: print nothing if the payload is not what we expect
-	local payload=$1
-	if command -v python3 >/dev/null 2>&1; then
-		printf '%s' "$payload" | python3 -c 'import json,sys
+	local payload=$1 parsed
+	# A `python3` that EXISTS is not one that RUNS. The Windows Store's app-execution alias is
+	# on PATH on a stock desktop and answers every call with an install prompt and a non-zero
+	# exit; reading its silence as "this payload held no command" stood the whole rail down on
+	# every Bash call while the fallback below would have judged it. So the parser's own exit
+	# status decides: its program exits 0 on every payload it reads — declining a non-Bash or
+	# malformed one included — and only an interpreter that did not run exits otherwise, which
+	# sends the payload to the fallback instead (AMH ledger row DD030).
+	if command -v python3 >/dev/null 2>&1 &&
+		parsed=$(printf '%s' "$payload" | python3 -c 'import json,sys
 try:
     d = json.load(sys.stdin)
     if d.get("tool_name") == "Bash":
         print(d.get("tool_input", {}).get("command", ""))
 except Exception:
-    pass' 2>/dev/null
+    pass' 2>/dev/null); then
+		printf '%s\n' "$parsed"
 	else
-		# Keep the bash/git/coreutils baseline useful when Python is absent. This
+		# Keep the bash/git/coreutils baseline useful when Python is absent or does not run. This
 		# deliberately narrow fallback accepts only an object-shaped Bash payload and
 		# the documented tool_input.command spelling; anything ambiguous fails open.
 		case $payload in

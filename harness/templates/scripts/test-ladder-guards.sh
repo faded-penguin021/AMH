@@ -507,6 +507,22 @@ out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash"
 rc=$?
 if [ "$rc" -eq 2 ]; then report ok "a Codex Bash payload is guarded without Python"; else report no "a Codex Bash payload is guarded without Python" "rc=$rc" "$out"; fi
 
+# A `python3` that EXISTS and does not run — the Windows Store alias on a stock desktop answers
+# with an install prompt and a non-zero exit. Its silence used to read as "no command in this
+# payload", so the rail allowed every Bash call while the fallback above would have judged it.
+stub_python_path="$d/stub-python-bin"
+mkdir -p "$stub_python_path"
+printf '#!/bin/sh\necho "Python was not found; install it from the Store" >&2\nexit 49\n' >"$stub_python_path/python3"
+chmod +x "$stub_python_path/python3"
+out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat .env"}}' |
+	env PATH="$stub_python_path:$PATH" scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ]; then
+	report ok "a Bash payload is guarded when the python3 on PATH does not run"
+else
+	report no "a Bash payload is guarded when the python3 on PATH does not run" "rc=$rc (0 means the rail stood down)" "$out"
+fi
+
 # The same fallback, at a payload size that makes the writer block. This is the fail-OPEN
 # direction of the `grep -q` class: grep exits at its first match, the writer takes EPIPE,
 # `pipefail` promotes that to the pipeline's status, and `|| return 0` stands the rail down
@@ -2109,6 +2125,17 @@ sed_in_place 's/^\tst_allowed .cat README.md./\tst_allowed "cat .env"/' "$d/scri
 chmod -x "$d/scripts/command-guard.sh"
 expect_runner_saying "a non-executable rail is still self-tested" run_rails "$d" 1 \
 	"self-test failed"
+
+# A self-test that stands down (no interpreter on the host) exits 0 having tested nothing. It
+# must read as `skip` with its own reason, never as `ok`: had the Windows fix only turned that
+# leg's six failures into a stand-down, an `ok` there would have called an untested rail tested.
+# command-guard.sh is stubbed to a clean exit because its real self-test is not on trial here and
+# costs close to a minute on the Windows leg; the rung under test runs unmodified.
+d=$(mk_unmodified rail_self_test_skipped)
+printf '#!/usr/bin/env bash\nexit 0\n' >"$d/scripts/command-guard.sh"
+printf '#!/usr/bin/env bash\nprintf "fixture self-test\\n  SKIP no interpreter on this host\\n"\n' >"$d/scripts/redact-tool-output.sh"
+expect_runner_saying "a self-test that stood down is reported as a skip, not a pass" run_rails "$d" 0 \
+	"   skip  scripts/redact-tool-output.sh self-test did not run: no interpreter on this host"
 
 d=$(mk_unmodified rail_missing)
 rm -f "$d/scripts/command-guard.sh"

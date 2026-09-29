@@ -69,9 +69,13 @@
 #
 # --- INTERPRETER ------------------------------------------------------------------------
 #
-# `python3` when present, and NOTHING when it is absent — the same optional-tool handling
-# `command-guard.sh` already uses to read a hook payload, for the same reason: the harness
-# targets bash, git and coreutils, and a JSON reader is not in that floor. Absent python3,
+# A Python 3 that RUNS when there is one, and NOTHING when there is not — optional for the reason
+# `command-guard.sh` also treats it as optional when reading a hook payload: the harness targets
+# bash, git and coreutils, and a JSON reader is not in that floor. (That script has a narrow
+# bash fallback for its one flat string, and falls back to it when its `python3` does not run;
+# this one has no fallback and stands down — see the last paragraph of this section.) `python3` is
+# tried first and `python` second, each accepted only if it starts and reports Python 3: see
+# the resolver below for why finding the name is not enough. Absent a working one,
 # this prints nothing and the agent sees the unmodified output, which is precisely the
 # state every adapter was in before this script existed. It is not a regression and it is
 # not announced by this script either: a hook's stderr on a zero exit goes to the host's debug
@@ -79,7 +83,9 @@
 # where `REQUIRED_TOOLS` in `amh.conf` names `python3` — the shipped example ships that key
 # EMPTY, so an adopter who wants the report adds the name. Saying "the banner reports it"
 # without that clause was false in this repository until the name was added, which is the
-# enforcement-asymmetry class: prose implying a report nothing produces.
+# enforcement-asymmetry class: prose implying a report nothing produces. And the banner looks
+# a NAME up on PATH, so it calls a Windows Store alias present; the self-test, which runs the
+# interpreter, is what reports that host honestly — as a SKIP, which the ladder shows as one.
 #
 # A bash fallback was considered and refused. `command-guard.sh` can afford one because it
 # extracts a single documented string from a flat object and fails open on anything else.
@@ -101,6 +107,37 @@ MAX_BYTES=$((8 * 1024 * 1024))
 # stand-down direction is the host's own — unmodified output.
 MAX_LEAVES=512
 
+# The interpreter, resolved by RUNNING it rather than by finding its name. On a stock Windows
+# desktop a `python3` can be on PATH and run nothing — the Store's app-execution alias answers
+# every call with an install prompt and a non-zero exit — and `command -v` calls that present,
+# after which every call of this hook stood down (AMH ledger row DD030). `python` is tried
+# second and accepted only as a Python 3. The probe costs one interpreter start per hook call,
+# about 10 ms on Linux and more on Windows; knowing the interpreter runs is worth that.
+PY=''
+for candidate in python3 python; do
+	command -v "$candidate" >/dev/null 2>&1 || continue
+	"$candidate" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' </dev/null >/dev/null 2>&1 || continue
+	PY=$candidate
+	break
+done
+
+# The shell that runs redact.sh is THIS one, named by path. Handing the walker the bare word
+# `bash` let a native Windows Python resolve it through CreateProcess, which searches System32
+# before PATH and finds WSL's launcher there — another shell in another filesystem namespace,
+# on exactly the hosts this harness has recorded carrying one. Under Git Bash, `cygpath -m`
+# turns this shell's own path into one a native program can start, and the `.exe` is spelled
+# out: CreateProcess documents that it does NOT append one to a file name that carries a path.
+# Everywhere else `$BASH` already is such a path.
+BASH_BIN=${BASH:-bash}
+if command -v cygpath >/dev/null 2>&1; then
+	bash_native=$BASH_BIN
+	case $bash_native in
+	*.exe | *.EXE) ;;
+	*) [ -f "$bash_native.exe" ] && bash_native=$bash_native.exe ;;
+	esac
+	BASH_BIN=$(cygpath -m "$bash_native" 2>/dev/null) || BASH_BIN=${BASH:-bash}
+fi
+
 # The whole program, as one heredoc, so the quoting story is "bash never interpolates into
 # this" rather than a per-line judgement call. Everything it needs arrives in argv.
 read -r -d '' WALKER <<'PY' || true
@@ -108,6 +145,9 @@ import json, os, subprocess, sys, time
 
 redact = sys.argv[1]
 max_bytes, max_leaves = int(sys.argv[2]), int(sys.argv[3])
+# The bash to run redact.sh with, by path — never the bare word, which a native Windows
+# Python resolves through System32 first (see BASH_BIN in the shell half).
+bash_bin = sys.argv[4] if len(sys.argv) > 4 else "bash"
 
 def stand_down(why=""):
     # Print NOTHING. The host then uses the original tool output, which is the safe
@@ -187,7 +227,7 @@ def filter_leaf(leaf):
     sep = "\n" + mark + "\n"
     try:
         done = subprocess.run(
-            ["bash", redact],
+            [bash_bin, redact],
             input=(leaf + sep).encode("utf-8", "surrogatepass"),
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=30,
         )
@@ -292,12 +332,12 @@ sys.stdout.write(rendered)
 PY
 
 run_hook() {
-	command -v python3 >/dev/null 2>&1 || exit 0
+	[ -n "$PY" ] || exit 0
 	[ -f "$REDACT" ] || exit 0
 	# stderr is NOT discarded. The host ignores a zero-exit hook's stderr except in its debug
 	# log, and that log is the only place a stand-down reason can be read at all — swallowing
 	# it made "I did not manage to look" and "nothing to redact" the same observation.
-	python3 -c "$WALKER" "$REDACT" "$MAX_BYTES" "$MAX_LEAVES" || exit 0
+	"$PY" -c "$WALKER" "$REDACT" "$MAX_BYTES" "$MAX_LEAVES" "$BASH_BIN" || exit 0
 	exit 0
 }
 
@@ -341,13 +381,13 @@ st_codex_payload() { # <tool_response JSON>
 }
 
 st_run() { # <payload> -> stdout of the hook
-	printf '%s' "$1" | python3 -c "$WALKER" "$REDACT" "$MAX_BYTES" "$MAX_LEAVES" 2>/dev/null
+	printf '%s' "$1" | "$PY" -c "$WALKER" "$REDACT" "$MAX_BYTES" "$MAX_LEAVES" "$BASH_BIN" 2>/dev/null
 }
 
-# Extract a field with python3 rather than grep: this suite is about JSON shape, and a
+# Extract a field with Python rather than grep: this suite is about JSON shape, and a
 # grep over a JSON document cannot tell a value from a key that happens to spell it.
 st_jq() { # <json> <python expression over `d`>
-	printf '%s' "$1" | python3 -c 'import json,sys
+	printf '%s' "$1" | "$PY" -c 'import json,sys
 d = json.load(sys.stdin)
 sys.stdout.write(str(eval(sys.argv[1])))' "$2" 2>/dev/null
 }
@@ -360,9 +400,11 @@ st_silent() { # <label> <payload> — a payload this hook must not answer
 
 self_test() {
 	printf 'redact-tool-output.sh self-test\n'
-	if ! command -v python3 >/dev/null 2>&1; then
-		printf '  SKIP no python3 on PATH — this hook stands down entirely on this host,\n'
-		printf '       which is the documented absent-interpreter state, not a pass.\n'
+	if [ -z "$PY" ]; then
+		# The reason stays on the SKIP line itself: the ladder reports that one line and no more.
+		printf '  SKIP no Python 3 that runs on PATH (python3, then python; a Store alias counts as absent)\n'
+		printf '       This hook stands down entirely on this host, which is the documented\n'
+		printf '       absent-interpreter state, not a pass.\n'
 		return 0
 	fi
 	if [ ! -f "$REDACT" ]; then
@@ -526,9 +568,9 @@ self_test() {
 	#     depth cap stands down rather than raising. Each is a path the matrix would otherwise
 	#     never enter, so a regression in any of them would be invisible.
 	st_silent 'stands down past the leaf ceiling' \
-		"$(st_payload "$(python3 -c 'import json;print(json.dumps(["x"] * 600))')")"
+		"$(st_payload "$("$PY" -c 'import json;print(json.dumps(["x"] * 600))')")"
 	st_silent 'stands down past the depth cap' \
-		"$(st_payload "$(python3 -c 'import json
+		"$(st_payload "$("$PY" -c 'import json
 d = "leaf"
 for _ in range(80):
     d = [d]
@@ -541,6 +583,72 @@ print(json.dumps(d))')")"
 		st_pass 'a CRLF-only difference is not accepted as a redaction'
 	else
 		st_fail 'a CRLF-only difference is not accepted as a redaction' "the hook rewrote a leaf with no marker: ${out:0:160}"
+	fi
+
+	# 13. The two Windows hazards, reproduced on ANY host so the Linux leg can see them. Shims
+	#     first on PATH: a `python3` that answers like the Store alias (a message, a non-zero
+	#     exit), a `python` that is the real interpreter, and a `bash` that refuses to run.
+	#     The hook is started through its real entry point with THIS shell named by path, so
+	#     the shim bash never runs the hook itself — only something that asked PATH for `bash`
+	#     would reach it, and the walker asking for it by name is the defect under test. Both
+	#     halves are needed for a redaction to come back: resolving `python3` by name finds the
+	#     stub and stands down, and — on a POSIX host — running `bash` by name finds the shim and
+	#     fails the leaf. On Windows a native Python never finds an extensionless shim, so there
+	#     this case tests the interpreter half only; the bash half is what the Linux leg is for.
+	#     The `python` shim execs the interpreter's OWN path, from `sys.executable`: a
+	#     version-manager shim (pyenv, asdf) is itself an `env bash` script, and routed through
+	#     the refusing `bash` it would fail this case for a reason that is not the code's.
+	local shim real_py
+	real_py=$("$PY" -c 'import sys; print(sys.executable)' 2>/dev/null)
+	if [ -n "$real_py" ] && command -v cygpath >/dev/null 2>&1; then
+		real_py=$(cygpath -u "$real_py" 2>/dev/null) || real_py=''
+	fi
+	shim=$(mktemp -d "${TMPDIR:-/tmp}/amh-rto-shim.XXXXXX") || shim=''
+	if [ -z "$shim" ] || [ -z "$real_py" ]; then
+		st_fail 'a Python that does not run is passed over, and redact.sh runs under this shell' \
+			'could not build the shim directory — this case checked NOTHING'
+	else
+		printf '#!/bin/sh\necho "Python was not found; install it from the Store" >&2\nexit 49\n' >"$shim/python3"
+		printf '#!/bin/sh\nexec "%s" "$@"\n' "$real_py" >"$shim/python"
+		printf '#!/bin/sh\nexit 1\n' >"$shim/bash"
+		chmod 755 "$shim/python3" "$shim/python" "$shim/bash"
+		tok="AKIA$(rand_upper 16)"
+		out=$(printf '%s' "$(st_payload "$(printf '{"stdout":"key %s\\n"}' "$tok")")" |
+			PATH="$shim:$PATH" "$BASH" "${BASH_SOURCE[0]}" 2>/dev/null)
+		rm -rf -- "$shim"
+		if [ -z "$out" ]; then
+			st_fail 'a Python that does not run is passed over, and redact.sh runs under this shell' \
+				'the hook produced no output: it used the stub python3, or ran redact.sh with the bash PATH names'
+		elif printf '%s' "$out" | grep -qF "$tok"; then
+			st_fail 'a Python that does not run is passed over, and redact.sh runs under this shell' \
+				'the token survived'
+		else
+			st_pass 'a Python that does not run is passed over, and redact.sh runs under this shell'
+		fi
+	fi
+
+	# 14. A Python 2 is passed over too. A stub that simply fails cannot pin the probe's
+	#     VERSION test, only its "does it start" half, so this `python3` answers the probe the
+	#     way a Python 2 would — major version 2, so the `== 3` test exits 1 — and fails on
+	#     anything else the way a Python 2 fails on this program. Accepted, it would stand the
+	#     hook down; only a probe that checks the major version leaves `python` to do the work.
+	shim=$(mktemp -d "${TMPDIR:-/tmp}/amh-rto-shim.XXXXXX") || shim=''
+	if [ -z "$shim" ] || [ -z "$real_py" ]; then
+		st_fail 'a Python 2 is passed over' 'could not build the shim directory — this case checked NOTHING'
+	else
+		# shellcheck disable=SC2016 # the shim's `$2` and `$@` belong to the shim, not to this script
+		printf '#!/bin/sh\ncase "$2" in *version_info*) exec "%s" -c "import sys; sys.version_info = (2, 7, 18); exec(sys.argv[1])" "$2" ;; esac\nexit 1\n' "$real_py" >"$shim/python3"
+		printf '#!/bin/sh\nexec "%s" "$@"\n' "$real_py" >"$shim/python"
+		chmod 755 "$shim/python3" "$shim/python"
+		tok="AKIA$(rand_upper 16)"
+		out=$(printf '%s' "$(st_payload "$(printf '{"stdout":"key %s\\n"}' "$tok")")" |
+			PATH="$shim:$PATH" "$BASH" "${BASH_SOURCE[0]}" 2>/dev/null)
+		rm -rf -- "$shim"
+		if [ -n "$out" ] && ! printf '%s' "$out" | grep -qF "$tok"; then
+			st_pass 'a Python 2 is passed over'
+		else
+			st_fail 'a Python 2 is passed over' 'the hook did not redact: it accepted the Python 2 and stood down'
+		fi
 	fi
 
 	if [ "$st_fails" -eq 0 ]; then

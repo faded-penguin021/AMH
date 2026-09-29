@@ -189,6 +189,19 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   prefix rule cannot say "and nothing after", so `env CI=1 …` and `set -euo pipefail` are
   forbidden there while the command guard allows them. Documented, not aligned; read from the
   rule semantics, not observed on a live Codex host.
+- **The redaction hook and the command guard stop trusting a `python3` they have not seen run,
+  and the hook runs `redact.sh` under its own bash.** The Windows CI leg failed six checks of
+  `scripts/redact-tool-output.sh --self-test`, each one needing output. Two hazards reproduce
+  that exactly and the log cannot tell them apart: a `python3` that is on PATH and runs nothing
+  (the shape of the Store's app-execution alias on a stock desktop), and a walker that started
+  `redact.sh` as the bare word `bash`, which a native Windows Python resolves through System32
+  before PATH — reaching WSL's launcher where one is installed. The hook now tries `python3`,
+  then `python`, accepting each only after running it as Python 3, and passes its walker this
+  shell's own path with `.exe` spelled out; self-test cases reproduce both hazards, and a
+  Python 2, with shims on any host. `scripts/command-guard.sh` read a non-running `python3` as
+  "this payload held no command" and allowed every Bash call; it now falls back to its bash
+  parser when the interpreter does not run. The ladder's rail rung reports a self-test that
+  SKIPped as `skip` with its reason, never as `ok`. Copying the scripts is the whole upgrade.
 - **The seed `scripts/verify.sh` no longer says "green locally, red in CI" can only mean the
   environment.** A different commit, a staged or untracked file seen differently, and a step CI
   adds beside the ladder are all causes too; the shipped `ladder.sh` header says the same.

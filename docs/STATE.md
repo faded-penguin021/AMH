@@ -144,15 +144,10 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-09-29 — **External review validated; shipped-script fixes.** The identity rung stopped
-  printing rejected addresses (**DD-022**); untracked ledger volumes, single-branch fetch advice
-  and the `~name/sub` matcher were selection defects a green verdict could not show (**DD-023**).
-  Tooling: `amh-init.sh` renders from the `amh.conf` it keeps and narrows branch values to
-  characters every file they reach reads literally (**DD-024**); `build-manifest.sh` checks every
-  digest (**DD-025**). Prose: the checkpoint now runs the ladder after the state-file line and
-  the commit-metadata rungs again after the commit (**DD-027**); seed corrections the reference
-  had and the seed lacked (**DD-028**); the squash-merge claim narrowed (**DD-029**); verdicts in
-  **DD-026**.
+- 2026-09-29 — **An external review of the 15.0.0 draft, validated: all fifteen findings held
+  and were fixed in three units, then CI found the redaction rail dead on Windows and the command
+  guard open to the same `python3` hazard.** Verdicts in
+  **DD-026**; the lessons are **DD-022**–**DD-025** and **DD-027**–**DD-030**.
 
 - 2026-09-18 — **15.0.0: a deletion aimed at the filesystem root or a home directory is denied
   outright, and the constitution gained the destructive-work rule no scanner can hold.** Earned by
