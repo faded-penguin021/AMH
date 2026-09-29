@@ -1667,5 +1667,17 @@ bs_expect pass "warm-up: an origin remote is fetched in the background" "in the 
 bs_check "warm-up: and the ref the poison-token guard needs actually lands" \
 	bs_await_ref "$dw" "refs/remotes/origin/$bs_branch"
 
+# A single-branch clone's refspec maps only its own branch, and a bare `git fetch origin
+# <default>` then exits 0 and lands nothing — the case above cannot see that, because
+# `git remote add` configures the wide refspec. Narrow it the way `git clone --single-branch`
+# does, delete the ref again, and require the warm-up to land it anyway.
+git -C "$dw" config remote.origin.fetch "+refs/heads/elsewhere:refs/remotes/origin/elsewhere"
+git -C "$dw" update-ref -d "refs/remotes/origin/$bs_branch"
+h="$WORK/bs_home_warm_single_branch"
+bs_ready_home "$h"
+bs_env_run "$dw" "$h" "file://$d/good.tar.xz" "$BS_PATH"
+bs_check "warm-up: the ref lands in a single-branch clone too" \
+	bs_await_ref "$dw" "refs/remotes/origin/$bs_branch"
+
 printf '\n%d passed, %d failed\n' "$PASSED" "$FAILED"
 [ "$FAILED" -eq 0 ]

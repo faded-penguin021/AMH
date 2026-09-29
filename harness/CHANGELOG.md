@@ -129,6 +129,24 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   preservation. It settles nothing about whether the host honours `updatedToolOutput`, because
   a session cannot reload its own hook set to find out. Configured, never observed — the same
   word the session banner uses for every other adapter claim.
+- **Review fixes to the shipped scripts (external review, 2026-09-29).** The author-identity
+  rung no longer prints a rejected address: it names the field, the commit and the reason,
+  because the constitution forbids rendering an unapproved address and a diagnostic reaches CI
+  logs the commit object never does. The new-row length rung now also measures rows in an
+  UNTRACKED ledger volume — `git diff HEAD` lists tracked paths only, so the volume every
+  rollover creates escaped the rung until staged and was exempt history once committed — and
+  in a base ledger HEAD has never carried, which it used to skip without reading. The
+  poison-token and identity rungs' missing-ref warnings now name an explicit
+  `+refs/heads/<default>:refs/remotes/origin/<default>` fetch, because a bare `git fetch origin
+  <default>` succeeds without creating the ref in a single-branch clone. The command guard no
+  longer reads `rm -rf ~name/sub` as another account's whole home directory (a `case` glob's
+  `*` crosses `/`); a subdirectory gets the ordinary one-time advisory and bare `~name` keeps
+  the permanent denial; `~/..` and `~name/..` keep the ordinary advisory, like every other
+  `..` spelling. Copying the scripts is the whole upgrade for these.
+- **The seed `scripts/verify.sh` no longer says "green locally, red in CI" can only mean the
+  environment.** A different commit, a staged or untracked file seen differently, and a step CI
+  adds beside the ladder are all causes too; the shipped `ladder.sh` header says the same.
+
 ### Upgrading
 
 1. **Read the new `## Destructive work` section in `harness/templates/seed/AGENTS.md` and add
@@ -141,6 +159,10 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
    needed. If some task in your repository legitimately deletes one of those paths, it cannot
    run under the guard any more and is the owner's to run deliberately outside it — that is the
    binding change this MAJOR is for.
+3. **Optional wording fix:** if your `scripts/verify.sh` still carries the seed's sentence that
+   "green locally, red in CI" can only mean environment, replace it with the wording in
+   `harness/templates/seed/scripts/verify.sh` from this release. Seeds are yours; nothing
+   checks this.
 
 The steps below carry 14.2.0's output-redaction work, which was never released on its own.
 

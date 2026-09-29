@@ -1933,9 +1933,13 @@ names_catastrophic_target() { # sets DESTRUCTIVE_CATASTROPHIC_CLASS
 		return 0
 		;;
 	# `~name` with no separator left is another account's home directory, and the shell
-	# expands it whether or not the account exists. `~name/sub` never reaches here: the fold
-	# above strips trailing separators only, so anything with a path inside it keeps one.
-	'~'[!/]*)
+	# expands it whether or not the account exists. `~name/sub` is a directory INSIDE one and
+	# must fall through to the ordinary advisory, which is why it gets its own arm first: a
+	# `case` glob's `*` matches `/` too, so `'~'[!/]*` alone read `~name/sub` as the whole home
+	# and denied a subdirectory permanently. The fold above strips trailing separators only,
+	# so anything with a path inside it keeps one for this arm to see.
+	'~'*/*) ;;
+	'~'?*)
 		DESTRUCTIVE_CATASTROPHIC_CLASS='a home directory'
 		return 0
 		;;
@@ -4134,6 +4138,8 @@ EOF'
 	st_destructive_never_clears 'rm -rf //home' 'the directory holding every home directory'
 	st_destructive_never_clears 'rm -rf /**' 'the filesystem root'
 	st_destructive_never_clears 'rm -rf ~user' 'a home directory'
+	st_destructive_never_clears 'rm -rf ~user/' 'a home directory'
+	st_destructive_never_clears 'rm -rf ~user/*' 'a home directory'
 	st_destructive_never_clears 'rm -rf /home' 'the directory holding every home directory'
 	st_destructive_never_clears 'rm -rf /Users' 'the directory holding every home directory'
 	# The verb list is wider than `rm`, and `git clean` is armed on any target, so it reaches
@@ -4168,6 +4174,19 @@ EOF'
 	st_destructive_advisory_once 'rm -rf "$HOME/scratch"'
 	rm -f -- "$self_destructive_advisory_state"
 	st_destructive_advisory_once 'rm -rf ~/scratch'
+	rm -f -- "$self_destructive_advisory_state"
+	# Another account's SUBDIRECTORY is the same ordinary case. A `case` glob's `*` crosses
+	# `/`, so the bare-`~name` arm once read this as the whole home and denied it forever.
+	st_destructive_advisory_once 'rm -rf ~user/scratch'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf ~user/scratch/*'
+	rm -f -- "$self_destructive_advisory_state"
+	# `..` is outside the fold, as the refusal text says, so a tilde operand that climbs out
+	# of a home directory keeps the ordinary advisory like every other `..` spelling. Pinned
+	# so that is a recorded boundary, not a gap the `~name/sub` arm happened to open.
+	st_destructive_advisory_once 'rm -rf ~/..'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf ~user/..'
 	rm -f -- "$self_destructive_advisory_state"
 	st_destructive_advisory_once 'rm -rf /etc'
 	rm -f -- "$self_destructive_advisory_state"

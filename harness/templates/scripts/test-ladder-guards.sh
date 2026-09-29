@@ -1037,6 +1037,31 @@ sed_in_place 's/^LEDGER_ROW_CHAR_CAP=.*/LEDGER_ROW_CHAR_CAP=10/' "$d/amh.conf"
 printf -- '  Superseded by D-999.\n' >>"$d/docs/LEDGER.md"
 expect_pass "a sanctioned metadata-only supersession on an existing row is exempt" "$d"
 
+# A NEW volume is untracked until someone stages it, and `git diff HEAD` lists tracked paths
+# only — so the rung once never ran for the file every rollover creates, and after the commit
+# its rows were HEAD's and exempt for good. Untracked, not staged, is the case on trial: the
+# staged spelling already failed. The passing twin is what keeps the fix from being "every
+# untracked volume fails".
+d=$(mk ledger_row_untracked_volume_over_cap)
+sed_in_place 's/^LEDGER_ROW_SENTENCE_CAP=.*/LEDGER_ROW_SENTENCE_CAP=2/' "$d/amh.conf"
+printf -- '# LEDGER — volume A\n\n- DA-001: **A finding that took three sentences to state.** The second sentence carries narrative nobody will need again. The third repeats it at greater length still.\n' >"$d/docs/LEDGER_A.md"
+expect_fail "a long row in a new, untracked ledger volume fails" "$d" \
+	"DA-001: new ledger row runs to 3 sentences, crossing rejection boundary LEDGER_ROW_SENTENCE_CAP=2"
+
+# The same hole one volume earlier: a BASE ledger HEAD has never carried. The committed chain
+# is empty, so every row is new — and the rung used to return without reading any of them.
+d=$(mk ledger_row_untracked_base_volume)
+sed_in_place 's/^LEDGER_ROW_SENTENCE_CAP=.*/LEDGER_ROW_SENTENCE_CAP=2/' "$d/amh.conf"
+(cd "$d" && git rm -q --cached docs/LEDGER.md && git commit -qm "a ledger not yet committed")
+printf -- '- D-003: **A finding that took three sentences to state.** The second sentence carries narrative nobody will need again. The third repeats it at greater length still.\n' >>"$d/docs/LEDGER.md"
+expect_fail "a long row in a never-committed base ledger fails" "$d" \
+	"D-003: new ledger row runs to 3 sentences, crossing rejection boundary LEDGER_ROW_SENTENCE_CAP=2"
+
+d=$(mk ledger_row_untracked_volume_under_cap)
+printf -- '# LEDGER — volume A\n\n- DA-001: **A short finding.** It stops.\n' >"$d/docs/LEDGER_A.md"
+expect_pass_saying "a short row in a new, untracked ledger volume is measured and passes" "$d" \
+	"   ok    checked 1 new ledger row(s) — DA-001=2 sentence(s)"
+
 # --- ledger volumes past Z, and what counts as a volume at all
 #
 # One continuation volume whose first row starts at line 5, for a fixture whose cap is 4.
@@ -2366,8 +2391,10 @@ d=$(mk identity_committer_only)
 identity_commit "$d" amh@test.invalid dev@localhost
 # `dev@`, not `root@`: with a root address this fixture is matched by the `root@*` arm
 # first and the localhost arm never executes — it could be deleted with the suite green.
+# The assertion names the FIELD, the COMMIT and the arm in one string, which is the whole of
+# what the diagnostic may say: where the bad address is and what is wrong with it.
 expect_fail "an invented identity in the committer field alone is caught" "$d" \
-	"committer identity 'dev@localhost' names localhost"
+	"committer identity on commit $(git -C "$d" log -1 --format=%h) names localhost"
 
 d=$(mk identity_not_an_address)
 identity_commit "$d" amh-test amh@test.invalid
@@ -2383,11 +2410,11 @@ expect_fail "the machine's root account fails" "$d" "is the machine's root accou
 
 d=$(mk identity_mdns_local)
 identity_commit "$d" dev@laptop.local dev@laptop.local
-expect_fail "an mDNS .local machine name fails" "$d" "'dev@laptop.local' names a local-only host"
+expect_fail "an mDNS .local machine name fails" "$d" "names a local-only host"
 
 d=$(mk identity_localdomain)
 identity_commit "$d" dev@box.localdomain dev@box.localdomain
-expect_fail "a .localdomain machine name fails" "$d" "'dev@box.localdomain' names a local-only host"
+expect_fail "a .localdomain machine name fails" "$d" "names a local-only host"
 
 # git's own fallback when the hostname has no resolvable domain — the identity of every
 # unconfigured container, and the likeliest thing this half will ever catch.
@@ -2406,7 +2433,7 @@ expect_fail "an empty identity field fails" "$d" "is EMPTY"
 # that one line left the suite green until this fixture existed.
 d=$(mk identity_uppercase)
 identity_commit "$d" ROOT@LOCALHOST ROOT@LOCALHOST
-expect_fail "an invented identity in capitals is still caught" "$d" "'ROOT@LOCALHOST' is the machine's root account"
+expect_fail "an invented identity in capitals is still caught" "$d" "is the machine's root account"
 
 # The pair below is the whole opt-in half, and it only means something as a pair: SAME
 # address, once with the key absent and once with it set. Absent must pass — an adopter
@@ -2468,6 +2495,41 @@ identity_commit "$d" alice@corp.local alice@corp.local
 expect_pass_saying "a named address overrides the invented-shape patterns" "$d" \
 	"   ok    2 distinct field/address pair(s) over 1 commit(s); all well-formed and admitted by AUTHOR_EMAIL_ALLOW"
 
+# The diagnostic names WHERE and never WHAT. Every address this rung rejects is by definition
+# unapproved, and the constitution forbids rendering one — the personal address it exists to
+# catch is the one that must not then be printed into a CI log. EVERY rejecting arm is on trial,
+# each fed an address with a marker no other part of the output can contain: the allowlist miss
+# (riding TWO commits, so the count arm runs), the root account, `(none)`, localhost, `.local`,
+# `.localdomain` and the bare name. The empty field has nothing to leak. The positive check
+# comes first and counts the arms that fired: an absence assertion over output that never
+# reached a failure line would prove nothing, and neither would one over a single arm.
+d=$(mk identity_never_rendered)
+printf "AUTHOR_EMAIL_ALLOW='.*@test\\\\.invalid'\n" >>"$d/amh.conf"
+identity_commit "$d" fixture.person@personal.example amh@test.invalid
+identity_commit "$d" fixture.person@personal.example amh@test.invalid
+identity_commit "$d" amh@test.invalid Root@Buildbox.Example
+identity_commit "$d" 'nonemarker@host.(none)' lhmarker@localhost
+identity_commit "$d" mdnsmarker@laptop.local ldmarker@box.localdomain
+identity_commit "$d" barenamemarker amh@test.invalid
+started=$SECONDS
+out=$(run "$d")
+rc=$?
+FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
+personal_sha=$(git -C "$d" log -5 --format=%h | tail -1)
+root_sha=$(git -C "$d" log -4 --format=%h | tail -1)
+fired=$(grep -cE '^   FAIL  (author|committer) identity on commit ' <<<"$out")
+name="a rejected address is located by field and commit, and never rendered, on every arm"
+if [ "$rc" -eq 0 ] || [ "$fired" != 7 ] ||
+	! grep -qF "author identity on commit $personal_sha (and 1 other commit(s)) does not match AUTHOR_EMAIL_ALLOW" <<<"$out" ||
+	! grep -qF "committer identity on commit $root_sha is the machine's root account" <<<"$out"; then
+	report no "$name" "expected 7 located identity failures; rc=$rc, fired=$fired" "$out"
+elif grep -qiF -e 'fixture.person' -e 'personal.example' -e 'buildbox' -e 'nonemarker' \
+	-e 'lhmarker' -e 'mdnsmarker' -e 'ldmarker' -e 'barenamemarker' <<<"$out"; then
+	report no "$name" "an address, or part of one, reached the output" "$out"
+else
+	report ok "$name"
+fi
+
 # AMH ledger row D019's shape, in the branch whose whole purpose is to be LOUDER when
 # the guard is switched off by something that is not its subject. Nothing covered it —
 # not for this guard and not for the poison-token scan it was modelled on — so demoting
@@ -2481,6 +2543,44 @@ git -C "$d" update-ref -d "refs/remotes/origin/$DEFAULT_BRANCH_FIXTURE"
 # somewhere. Both mistakes were made here before this line read the way it does.
 expect_warn "with no upstream ref the guard says it checked NOTHING" "$d" \
 	"   WARN  author identity is unguarded locally: no main reference"
+
+# The recovery the two missing-ref warnings print has to RECOVER. In a single-branch clone a
+# bare `git fetch origin <default>` exits 0 and creates no remote-tracking ref, so advice in
+# that spelling leaves both rungs exactly as inert as before. The advice is read back out of
+# the ladder's own output and run in a real single-branch clone of a local remote — no
+# network — and the ref must exist afterwards. The premise is checked too: a clone that
+# already had the ref would pass whatever the advice said.
+d=$(mk fetch_advice)
+# The remote needs a branch actually NAMED like the fixture's default: `mk` leaves whatever
+# name `git init` chose (init.defaultBranch varies by host), and the fetch would then fail for
+# a reason that has nothing to do with the advice.
+git -C "$d" update-ref "refs/heads/$DEFAULT_BRANCH_FIXTURE" HEAD
+git -C "$d" branch -q feature
+git clone -q --bare "$d" "$WORK/fetch_advice_remote.git"
+clone="$WORK/fetch_advice_clone"
+git clone -q --single-branch --branch feature "$WORK/fetch_advice_remote.git" "$clone"
+name="the missing-ref advice creates the ref in a single-branch clone"
+started=$SECONDS
+out=$(cd "$clone" && CI=1 scripts/ladder.sh --guards-only 2>&1)
+# Both rungs print the advice, and both copies are on trial: they must be the same command,
+# so one run of it settles the pair.
+# shellcheck disable=SC2016 # the backticks are the ladder's markdown quoting around the command
+advice=$(sed -n 's/^   WARN  .*Fetch it (`\(git fetch [^`]*\)`).*/\1/p' <<<"$out" | sort -u)
+read -ra advised <<<"$advice"
+if git -C "$clone" rev-parse --verify -q "refs/remotes/origin/$DEFAULT_BRANCH_FIXTURE" >/dev/null; then
+	report no "$name" "FIXTURE ERROR: the single-branch clone already has the ref, so this proves nothing"
+elif [ "$(grep -c '^   WARN  .*Fetch it (' <<<"$out")" != 2 ] || [ "$(printf '%s\n' "$advice" | wc -l)" -ne 1 ]; then
+	report no "$name" "expected the poison-token and identity rungs to print ONE identical fetch" "$out"
+elif [ "${#advised[@]}" -lt 3 ] || [ "${advised[0]}" != git ] || [ "${advised[1]}" != fetch ]; then
+	report no "$name" "the advice is not a git fetch: $advice" "$out"
+elif ! (cd "$clone" && "${advised[@]}" >/dev/null 2>&1); then
+	report no "$name" "the advised command failed: $advice"
+elif ! git -C "$clone" rev-parse --verify -q "refs/remotes/origin/$DEFAULT_BRANCH_FIXTURE" >/dev/null; then
+	report no "$name" "the advised command succeeded and the ref is still absent: $advice"
+else
+	FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
+	report ok "$name"
+fi
 
 # --- local advisories
 # Warn-only and skipped in CI, so `run()` can never reach them: assert on the text.

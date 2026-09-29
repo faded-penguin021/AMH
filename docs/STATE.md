@@ -97,6 +97,15 @@ backslash-quote mismatch, pairing with the Antigravity `rmdir /s /q d:\` (**DC-0
 layer mis-parsed is unsettled and matters to whoever builds the arm; a Windows arm is the owner's
 call since the harness targets bash. No check until a session builds it.
 
+**OPEN — the permanent denial's fold misses a glob followed by a slash.** `rm -rf /*` is denied
+for good, but `rm -rf /*/`, `~/*/` and `"$HOME"/*/` — every directory under the target — get only
+the one-time advisory: the fold strips a trailing glob once, before the trailing slash. Found
+while reviewing **DD-023**'s fix, older than it, and not widened there because widening a
+permanent denial is a rule change. Recommendation: fold globs and slashes to a fixpoint, with
+fixtures. Check: `scripts/command-guard.sh --self-test` stays green, then `rm -rf /*/` passed to
+`scripts/command-guard.sh --command` twice under one `DESTRUCTIVE_ADVISORY_STATE` — a second
+exit 0 means the gap is still open.
+
 **OPEN — the pin check is repo-local, and whether adopters get one is yours.**
 `scripts/guards/adapter-set.sh` now fails on a Claude hook missing `"shell": "bash"`, but it is
 this repository's own guard: an adopter's ladder still checks nothing, exactly as 14.1.0's
@@ -133,6 +142,10 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-09-29 — **External review validated; shipped-script fixes.** The identity rung stopped
+  printing rejected addresses (**DD-022**); untracked ledger volumes, single-branch fetch advice
+  and the `~name/sub` matcher were selection defects a green verdict could not show (**DD-023**).
 
 - 2026-09-18 — **15.0.0: a deletion aimed at the filesystem root or a home directory is denied
   outright, and the constitution gained the destructive-work rule no scanner can hold.** Earned by
