@@ -17,18 +17,23 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   blocked and does not clear on a rerun.** Every other target in the command guard's destructive tier gets a
   one-time advisory, because the guard cannot tell a scratch directory from a source tree and
   the agent's rerun is what settles it. That premise is false for a short list of paths — `/`,
-  `~`, `$HOME`, the live value of `HOME`, `/root`, `/home`, `/Users`, and the trailing and glob
-  spellings that fold to them — where no unit of work inside a repository ends by deleting the
-  target and the clearing rerun is the keystroke the reported incidents end on. This is the
+  `~`, `$HOME`, the live value of `HOME`, `/root`, `/home`, `/Users`, and the spellings that fold
+  to them — where no unit of work inside a repository ends by deleting the target and the
+  clearing rerun is the keystroke the reported incidents end on. The fold runs until the operand
+  stops changing: repeated separators, a `.` component, a trailing separator, a trailing `*` run
+  and a last component of `*` and `?` holding a `*` all come off, in whatever order they appear,
+  so `/*/`, `/?*`, `~/*/` and `"$HOME"/*/` are denied like `/*`, and a `.*` component folds as `*`
+  does, so `/*/.*` is denied like `/*/*`; `..` is never folded, a glob comes off only an operand
+  rooted at `/`, `~` or a variable, and a component of `?` alone stays. This is the
   guard's only permanent denial. `/etc` and the other system directories stay OUTSIDE the list
   and keep the ordinary advisory, the git verbs armed only on an unknown target keep that
   narrowing, and the refusal text says in its own words what it does not cover. For git the
   target is read where it lands: a pathspec joins the directory `-C` moved into, so
   `git -C "$HOME" clean -fd -- build` gets the ordinary advisory, while the same `-C` with no
-  pathspec, with `.` or with a trailing `*`, and a `--work-tree` naming a home directory with no
-  pathspec or with `.`, stay denied; a `--git-dir` value is never the target. The pathspec gets
-  `rm`'s boundaries and no more: one that is only a variable, or that climbs with `..`, is advised
-  rather than denied.
+  pathspec, with `.`, or with `*`, `*/` or `?*`, and a `--work-tree` naming a home directory
+  with no pathspec, with `.` or with a glob, stay denied; a `--git-dir` value is never the
+  target. The pathspec gets `rm`'s boundaries and no more: one that is only a variable, or that
+  climbs with `..`, is advised rather than denied.
 - **An inline interpreter deletion now gets a one-time advisory.** Three conditions, all lists:
   the segment's LEADING command is `python`, `python2`, `python3`, `node`, `nodejs`, `ruby`,
   `perl`, `deno`, `bun` or `php`; the segment carries inline program text (`-c`, `-e`, `-E`,

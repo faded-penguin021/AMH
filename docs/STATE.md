@@ -100,16 +100,13 @@ backslash-quote mismatch, pairing with the Antigravity `rmdir /s /q d:\` (**DC-0
 layer mis-parsed is unsettled and matters to whoever builds the arm; a Windows arm is the owner's
 call since the harness targets bash. No check until a session builds it.
 
-**OPEN — the permanent denial's fold misses a glob followed by a slash.** `rm -rf /*` is denied
-for good, but `rm -rf /*/`, `~/*/` and `"$HOME"/*/` — every directory under the target — get only
-the one-time advisory: the fold strips a trailing glob once, before the trailing slash. Git
-pathspecs now reach the same fold where they land (**DD-032**), so `git -C ~ clean -fd -- '*/'`
-and `-- '?*'` share the gap. Found
-while reviewing **DD-023**'s fix, older than it, and not widened there because widening a
-permanent denial is a rule change. Recommendation: fold globs and slashes to a fixpoint, with
-fixtures. Check: `scripts/command-guard.sh --self-test` stays green, then `rm -rf /*/` passed to
-`scripts/command-guard.sh --command` twice under one `DESTRUCTIVE_ADVISORY_STATE` — a second
-exit 0 means the gap is still open.
+**OPEN — two permanent-denial edges the fold unit found and left (DD-035).** Misses, and
+widening is yours: `~/.?*`, `~/.??*`, `~/.[!.]*`, git's `-- '.?*'` under a home `-C`, and bracket
+globs such as `/[!.]*` keep the advisory while `~/.*` is denied. A false positive, a defect: the
+segment splitter reads a brace expansion's `{` as a separator, so `rm -rf ~/{.cache,.npm}` is
+judged as `rm -rf ~/` and denied for good. Check: each twice through `scripts/command-guard.sh
+--command` under one `DESTRUCTIVE_ADVISORY_STATE` — `2 0` on a miss or `2 2` on the brace form
+means still open.
 
 **OPEN — the pin check is repo-local, and whether adopters get one is yours.**
 `scripts/guards/adapter-set.sh` now fails on a Claude hook missing `"shell": "bash"`, but it is
@@ -147,6 +144,10 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-09-29 — **The queued fold item, taken on the owner's word: the permanent denial's fold
+  runs to a fixpoint,** so `/*/`, `~/*/` and git's `*/` and `?*` under a home `-C` are denied like
+  `/*` (**DD-035**). Its review found two edges outside the unit; both are queued.
 
 - 2026-09-29 — **A second external review of the 15.0.0 draft, validated: its three new findings
   held and were fixed in one unit.** The permanent denial read git's `-C` as a deletion target,

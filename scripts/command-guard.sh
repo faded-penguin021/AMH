@@ -133,8 +133,9 @@
 #     directories is blocked every time and never clears on a rerun. For git the operand is
 #     read where it LANDS: a pathspec joins the directory `-C` moved into, so `git -C "$HOME"
 #     clean -fd -- build` is `$HOME/build` and gets the ordinary advisory, while the same `-C`
-#     with no pathspec, with `.`, or a `--work-tree` naming home is the home directory and is
-#     denied; a `--git-dir` is never the target (see `record_destructive_targets`). That is the
+#     with no pathspec, with `.` or with a glob such as `*/`, or a `--work-tree` naming home,
+#     is the home directory and is denied; a `--git-dir` is never the target (see
+#     `record_destructive_targets`). That is the
 #     only permanent denial this guard issues, and it is affordable exactly because the list is
 #     tiny: no unit of work inside a repository deletes those paths, so the false-positive
 #     budget the rest of this tier spends carefully is not spent here at all.
@@ -1871,7 +1872,7 @@ NORMALIZED=''
 #     in this file deletes `/etc` and asserts the ORDINARY advisory, so widening the list
 #     breaks a test rather than silently changing a verdict.
 #   * It reads the NORMALIZED operand, so `${HOME}`, `${HOME:?}` and `$HOME` are one target,
-#     and the trailing spellings that address the same directory — `/`, `//`, `/*`, `~/`,
+#     and the spellings that address the same directory — `/`, `//`, `/*`, `/*/`, `~/`,
 #     `$HOME/.` — fold together. A rail an agent can step around by typing a trailing slash
 #     is a rail that teaches the trailing slash.
 #   * It names the CLASS of the target in its refusal, never the operand. The path is the
@@ -1883,7 +1884,7 @@ NORMALIZED=''
 # shell expands it ever will be. That case keeps the unexpanded-variable paragraph it already
 # had, which is the rail asking the agent to print the expansion.
 names_catastrophic_target() { # sets DESTRUCTIVE_CATASTROPHIC_CLASS
-	local w
+	local w prev c
 	# An empty operand names nothing, and answering "the filesystem root" for it would be a
 	# verdict invented from a caller's promise rather than read from an argument. The callers
 	# drop empty operands today; a function that is right only while that stays true is the
@@ -1891,40 +1892,65 @@ names_catastrophic_target() { # sets DESTRUCTIVE_CATASTROPHIC_CLASS
 	[ -n "$1" ] || return 1
 	normalize_operand "$1"
 	w=$NORMALIZED
-	# Fold the spellings that address the same directory. Leading separators collapse first:
-	# `//home` is `/home` to every kernel that resolves it, and a rail that reads them as
-	# different targets is a rail with a one-character sidestep. `/*` strips to the empty
-	# string rather than to `/`, which is why emptiness is restored below — after the loop,
-	# what began as a non-empty operand and lost every separator and glob was addressing the
-	# root.
+	# Fold the spellings that address the same directory, and fold them to a FIXPOINT: each
+	# step below can expose a spelling another step folds, so one pass in a fixed order is a
+	# rail with a sidestep in whatever order it did not run. A single pass that stripped the
+	# trailing glob before the trailing slash denied `rm -rf /*` forever and gave `rm -rf /*/`
+	# — every directory under the root — the one-time advisory (AMH ledger row DD035). Every
+	# step shortens the operand or leaves it alone, so the loop ends.
+	#
+	# `..` is NOT folded, here or anywhere in this function: what it climbs to depends on
+	# symlinks the guard cannot see, and the refusal text names it among what this list misses.
+	# The steps below are identities on any path — a repeated separator, a `.` component and a
+	# trailing separator never change which directory is named — and the glob steps fold a
+	# pattern onto the name it matches or the directory whose entries it matches.
 	while :; do
+		prev=$w
+		# Repeated separators collapse, leading ones included: `//home` is `/home` to every
+		# kernel that resolves it, and a rail that reads them as different targets is a rail with
+		# a one-character sidestep. A `.` between separators names the directory it sits in.
+		w=${w//\/\//\/}
+		w=${w//\/.\//\/}
+		# Globs, but ONLY on an operand that is already rooted or tilde'd. Stripping them from
+		# anything would fold the commonest deletion in the world — `rm -rf *` in some directory
+		# the guard cannot see — into the filesystem root and deny it forever, which is the false
+		# positive this whole tier is written to avoid. `/**` and `/*` address the same
+		# directory; `*` addresses whatever you happen to be standing in, and this rail has
+		# nothing true to say about that.
 		case $w in
-		//*) w=${w#/} ;;
-		*) break ;;
-		esac
-	done
-	# A trailing run of globs, but ONLY on an operand that is already rooted or tilde'd.
-	# Stripping them from anything would fold the commonest deletion in the world — `rm -rf *`
-	# in some directory the guard cannot see — into the filesystem root and deny it forever,
-	# which is the false positive this whole tier is written to avoid. `/**` and `/*` address
-	# the same directory; `*` addresses whatever you happen to be standing in, and this rail
-	# has nothing true to say about that.
-	case $w in
-	/* | '~'* | '$'*)
-		while :; do
+		/* | '~'* | '$'*)
+			# A last component made only of `*` and `?`, with at least one `*`, matches every
+			# entry of its directory at least as long as its `?` count — `?*` is every entry,
+			# and it is how git spells "everything" in a pathspec. It goes first because the
+			# run below would strip its `*` and leave a `?` that matches one-letter names only.
+			# A component of `?` alone matches only names that long, and is left alone.
 			case $w in
-			*'*') w=${w%\*} ;;
-			*) break ;;
+			*/*)
+				c=${w##*/}
+				case $c in
+				'' | *[!*?]*) ;;
+				*'*'*) w=${w%"$c"} ;;
+				esac
+				;;
 			esac
-		done
-		;;
-	esac
-	while :; do
+			# A trailing run of `*` inside a component matches the name before it too: `/home*`
+			# includes `/home`.
+			while :; do
+				case $w in
+				*'*') w=${w%\*} ;;
+				*) break ;;
+				esac
+			done
+			;;
+		esac
+		# A trailing `/.` and a trailing separator. `/.` strips to the empty string rather than
+		# to `/`, which is why emptiness is restored below: what began as a non-empty operand and
+		# lost every separator and glob was addressing the root.
 		case $w in
 		*/.) w=${w%/.} ;;
 		?*/) w=${w%/} ;;
-		*) break ;;
 		esac
+		[ "$w" = "$prev" ] && break
 	done
 	[ -n "$w" ] || w=/
 	# shellcheck disable=SC2016 # `$HOME` is matched as command TEXT and never expanded here.
@@ -1941,8 +1967,8 @@ names_catastrophic_target() { # sets DESTRUCTIVE_CATASTROPHIC_CLASS
 	# expands it whether or not the account exists. `~name/sub` is a directory INSIDE one and
 	# must fall through to the ordinary advisory, which is why it gets its own arm first: a
 	# `case` glob's `*` matches `/` too, so `'~'[!/]*` alone read `~name/sub` as the whole home
-	# and denied a subdirectory permanently. The fold above strips trailing separators only,
-	# so anything with a path inside it keeps one for this arm to see.
+	# and denied a subdirectory permanently. The fold above never removes the separator before
+	# a name, so anything with a path inside it keeps one for this arm to see.
 	'~'*/*) ;;
 	'~'?*)
 		DESTRUCTIVE_CATASTROPHIC_CLASS='a home directory'
@@ -4246,6 +4272,26 @@ EOF'
 	st_destructive_never_clears 'rm -rf ~user/*' 'a home directory'
 	st_destructive_never_clears 'rm -rf /home' 'the directory holding every home directory'
 	st_destructive_never_clears 'rm -rf /Users' 'the directory holding every home directory'
+	# The fold runs to a fixpoint, so a glob followed by a separator reaches the denial the glob
+	# alone does. `/*/` is every directory under the root, and a fold that stripped the glob
+	# once, before the separator, gave it the advisory a rerun clears (AMH ledger row DD035).
+	# `?*` is every entry and a separator repeated or `.` between two changes nothing.
+	st_destructive_never_clears 'rm -rf /*/' 'the filesystem root'
+	st_destructive_never_clears 'rm -rf /*/*' 'the filesystem root'
+	st_destructive_never_clears 'rm -rf /?*' 'the filesystem root'
+	st_destructive_never_clears 'rm -rf ~/*/' 'your home directory'
+	st_destructive_never_clears 'rm -rf ~/?*/' 'your home directory'
+	st_destructive_never_clears 'rm -rf "$HOME"/*/' 'your home directory'
+	st_destructive_never_clears 'rm -rf ~user/*/' 'a home directory'
+	st_destructive_never_clears 'rm -rf //./home' 'the directory holding every home directory'
+	st_destructive_never_clears 'rm -rf /./home' 'the directory holding every home directory'
+	# The trailing `*` run inside a component, which the component rule above would otherwise
+	# stand in for in every fixture: `/home*` includes `/home`, and `~/.*` is every hidden entry
+	# of home — `~/.ssh` and `~/.gnupg` among them. A `.*` component folds as `*` does, so
+	# `/*/.*` is denied as `/*/*` is.
+	st_destructive_never_clears 'rm -rf /home*' 'the directory holding every home directory'
+	st_destructive_never_clears 'rm -rf ~/.*' 'your home directory'
+	st_destructive_never_clears 'rm -rf /*/.*' 'the filesystem root'
 	# The verb list is wider than `rm`, and `git clean` is armed on any target, so it reaches
 	# the same denial.
 	st_destructive_never_clears 'git clean -fdx /' 'the filesystem root'
@@ -4281,6 +4327,9 @@ EOF'
 	st_destructive_never_clears 'git -C "$HOME" clean -fd' 'your home directory'
 	st_destructive_never_clears 'git -C ~ clean -fdx -- .' 'your home directory'
 	st_destructive_never_clears 'git -C ~ clean -fd -- "*"' 'your home directory'
+	st_destructive_never_clears 'git -C ~ clean -fd -- "*/"' 'your home directory'
+	st_destructive_never_clears 'git -C ~ clean -fd -- "?*"' 'your home directory'
+	st_destructive_never_clears 'git --work-tree="$HOME" clean -fd -- "*/"' 'your home directory'
 	st_destructive_never_clears 'git -C ~ clean -fd :/' 'your home directory'
 	st_destructive_never_clears 'git -C /tmp -C / clean -fd' 'the filesystem root'
 	st_destructive_never_clears 'git -C proj clean -fd -- "$HOME"' 'your home directory'
@@ -4343,6 +4392,24 @@ EOF'
 	st_destructive_advisory_once 'rm -rf *'
 	rm -f -- "$self_destructive_advisory_state"
 	st_destructive_advisory_once 'rm -rf build*'
+	rm -f -- "$self_destructive_advisory_state"
+	# The fixpoint keeps every one of those boundaries. A glob and a separator under a directory
+	# off the list fold to that directory and no further; an unanchored glob stays unanchored
+	# however many separators follow it; a component of `?` alone matches only names that long;
+	# and `..` stays outside the fold after a glob as it does after a name.
+	st_destructive_advisory_once 'rm -rf /tmp/*/'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf */'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf ~/scratch/*/'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf ~/build*/'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf ~/??'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf ~/*/..'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git -C ~ clean -fd -- "build/*/"'
 	rm -f -- "$self_destructive_advisory_state"
 	# The catastrophic gate reads THIS segment's verb. An earlier deleting segment must not
 	# lend its property to a later verb that deletes nothing: `git worktree add` overwrites,
