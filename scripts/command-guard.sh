@@ -130,14 +130,19 @@
 #     mistypes, never an inventory of ways to lose a file.
 #     ONE TARGET LIST INSIDE IT IS NOT A SPEED BUMP. An `rm -r -f` or a `git clean -f -d` whose
 #     operand names the filesystem root, a home directory, or a directory holding home
-#     directories is blocked every time and never clears on a rerun. That is the only permanent
-#     denial this guard issues, and it is affordable exactly because the list is tiny: no unit
-#     of work inside a repository deletes those paths, so the false-positive budget the rest of
-#     this tier spends carefully is not spent here at all. `names_catastrophic_target` holds the
-#     TARGET list; it does not hold the verb list, and the difference is load-bearing — the git
-#     verbs added after `git clean` are armed only when their target is UNKNOWN at scan time, so
-#     `git rm -r -f /` and `git worktree remove /` reach this function never and are silent (both
-#     are fixtured as allowed, and git refuses a path outside the repository anyway).
+#     directories is blocked every time and never clears on a rerun. For git the operand is
+#     read where it LANDS: a pathspec joins the directory `-C` moved into, so `git -C "$HOME"
+#     clean -fd -- build` is `$HOME/build` and gets the ordinary advisory, while the same `-C`
+#     with no pathspec, with `.`, or a `--work-tree` naming home is the home directory and is
+#     denied; a `--git-dir` is never the target (see `record_destructive_targets`). That is the
+#     only permanent denial this guard issues, and it is affordable exactly because the list is
+#     tiny: no unit of work inside a repository deletes those paths, so the false-positive
+#     budget the rest of this tier spends carefully is not spent here at all.
+#     `names_catastrophic_target` holds the TARGET list; it does not hold the verb list, and the
+#     difference is load-bearing — the git verbs added after `git clean` are armed only when
+#     their target is UNKNOWN at scan time, so `git rm -r -f /` and `git worktree remove /`
+#     reach this function never and are silent (both are fixtured as allowed, and git refuses a
+#     path outside the repository anyway).
 #     Read what it does NOT reach, because a cleared path is not a safe one: `.` and `..`, any
 #     parent of the work tree, `/etc` and the rest of the system directories (one of this
 #     file's own fixtures deletes `/etc` and expects the ordinary one-time advisory), an operand
@@ -2098,6 +2103,22 @@ is_interpreter_deletion() { # sets INTERPRETER_CALL and INTERPRETER_LEAD
 	return "$found"
 }
 
+# Where a path lands once git's `-C` has moved it into DIR: joined onto DIR, unless it is
+# already anchored — a leading `/` or `~`, or a leading `$` this guard cannot expand and does
+# not guess at — in which case it stands alone, as it does for git. Consecutive `-C` options
+# compose the same way, which is git's own rule. The result is TEXT for
+# `names_catastrophic_target`, whose fold then reads `~/.` as `~` and `//build` as `/build`.
+git_place_join() { # git_place_join <dir> <path> -> sets JOINED
+	case $2 in
+	'') JOINED=$1 ;;
+	/* | '~'* | '$'*) JOINED=$2 ;;
+	*)
+		if [ -n "$1" ]; then JOINED=$1/$2; else JOINED=$2; fi
+		;;
+	esac
+}
+JOINED=''
+
 # Record what a confirmed destructive segment is aimed AT. The target is the whole risk
 # here — unlike the dotenv and key-material rails, where every hit means the same thing
 # ("you are about to read a secret"), two `rm -rf` commands in one session can be a
@@ -2187,16 +2208,52 @@ record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 		deletes_here=1
 		;;
 	esac
+	# The leading operands the `git` arm marked as git's own directory options, one letter
+	# each: C for `-C`, W for `--work-tree`, G for `--git-dir`. They stay operands for
+	# everything else here — an unexpanded `-C "$D"` is still the agent's to print, and still
+	# part of the signature — and only the catastrophic question reads them differently,
+	# because git itself does: `-C` moves the directory a relative pathspec is read from, a
+	# `--work-tree` bounds what a clean with nothing narrower can reach, and a `--git-dir`
+	# names repository metadata that none of these verbs deletes.
+	local places=${DESTRUCTIVE_PLACE_KINDS:-} place='' tree='' pathspecs=0 whole=0
 	for w in "$@"; do
 		case $w in *'$'*) DESTRUCTIVE_UNEXPANDED=1 ;; esac
+		if [ -n "$places" ]; then
+			case ${places:0:1} in
+			C)
+				git_place_join "$place" "$w"
+				place=$JOINED
+				;;
+			W) tree=$w ;;
+			esac
+			places=${places:1}
 		# Only for a verb that deletes a path — THIS segment's verb, never the command's
 		# (see `deletes_here` above). A revision operand is not a path at all, and the
 		# data-plane kinds record flags and database names, so asking either of them whether
 		# they name the filesystem root is asking a question about the wrong thing — the same
 		# reason the rootish paragraph is gated on `revision_operands`.
-		if [ "$deletes_here" -eq 1 ] && [ "$revision_operands" -eq 1 ] &&
-			names_catastrophic_target "$w"; then
-			DESTRUCTIVE_CATASTROPHIC=1
+		elif [ "$deletes_here" -eq 1 ] && [ "$revision_operands" -eq 1 ]; then
+			pathspecs=1
+			# A git magic pathspec (`:/`, `:(top)`) can address the top of the work tree,
+			# which this guard cannot place; it is judged below as if no pathspec narrowed
+			# the command, which is the reading it had before pathspecs were placed at all.
+			# Git's only: to `rm`, a leading `:` is an ordinary file name.
+			if [ "${kind#git-}" != "$kind" ] && [ "${w#:}" != "$w" ]; then
+				whole=1
+			else
+				# Judged where it lands: `-- build` under `-C "$HOME"` is `$HOME/build`, and
+				# `-- .` under the same `-C` is the home directory itself.
+				git_place_join "$place" "$w"
+				names_catastrophic_target "$JOINED" && DESTRUCTIVE_CATASTROPHIC=1
+				# Run from outside a `--work-tree`, git reads a pathspec from the TOP of that
+				# tree, and where the command stands is invisible here — so the pathspec is
+				# judged on the tree as well: `--work-tree="$HOME" clean -fd -- .` empties home.
+				if [ -n "$tree" ]; then
+					git_place_join "$place" "$tree"
+					git_place_join "$JOINED" "$w"
+					names_catastrophic_target "$JOINED" && DESTRUCTIVE_CATASTROPHIC=1
+				fi
+			fi
 		fi
 		# `${S}/base` and `$S/base` are the same question; `$(cmd)/base` is not a
 		# variable at all, and a `$` followed by anything else names nothing.
@@ -2215,6 +2272,20 @@ record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 		# Only the spellings that carry a path separator can become an absolute path.
 		case $bare in *'/'*) [ "$revision_operands" -eq 1 ] && DESTRUCTIVE_ROOTISH=1 ;; esac
 	done
+	# A `git clean` that names no pathspec cleans the directory it runs in, and from outside
+	# its `--work-tree` it cleans all of that tree, so there the directory options ARE the
+	# target: `git -C "$HOME" clean -fd` and the dotfiles spelling `git --work-tree="$HOME"
+	# clean -fd` both empty a home directory of everything git does not track. A magic
+	# pathspec gets the same reading on every deleting verb. Only `git clean` treats an empty
+	# pathspec as "here"; the other deleting git verbs refuse to run without one.
+	if [ "$deletes_here" -eq 1 ] && [ "$revision_operands" -eq 1 ] &&
+		{ [ "$whole" -eq 1 ] || { [ "$kind" = git-clean ] && [ "$pathspecs" -eq 0 ]; }; }; then
+		[ -n "$place" ] && names_catastrophic_target "$place" && DESTRUCTIVE_CATASTROPHIC=1
+		if [ -n "$tree" ]; then
+			git_place_join "$place" "$tree"
+			names_catastrophic_target "$JOINED" && DESTRUCTIVE_CATASTROPHIC=1
+		fi
+	fi
 	# One entry per destructive SEGMENT, and the entry names the command kind as well as
 	# the operands. Without the kind, `git clean -fdx` and a literal `rm -rf '<work tree>'`
 	# were the same signature — a sentinel an operand can spell is not a sentinel. Operands
@@ -2359,6 +2430,8 @@ is_destructive_segment() {
 	# Per SEGMENT, not per command: `npm run db:push && dropdb app` is two decisions and the
 	# second one read a real command word, so the script-name disclosure must not carry over.
 	DESTRUCTIVE_FROM_SCRIPT_NAME=0
+	# Per segment for the same reason: its letters describe THIS segment's leading operands.
+	DESTRUCTIVE_PLACE_KINDS=''
 	split_words "$raw"
 	words=(${SPLIT_WORDS[@]+"${SPLIT_WORDS[@]}"})
 	# Find the same leading command that leading_command reports, without treating
@@ -2487,14 +2560,37 @@ is_destructive_segment() {
 		# in the one place the guard deliberately drops words: git treats `-C ''` as a
 		# no-op, so `git -C "$ROOT_DIR" reset --hard HEAD` with `ROOT_DIR` unset silently
 		# hard-resets the CURRENT repository rather than the intended one.
+		#
+		# Collected, and also MARKED, one letter per operand in DESTRUCTIVE_PLACE_KINDS: they
+		# name where the command runs, not what it deletes, and the permanent denial has to
+		# know the difference. `git -C "$HOME" clean -fd -- build` cleans one directory inside
+		# a repository, and reading its `-C` value as a deletion target denied it forever as
+		# a deletion of the home directory. `record_destructive_targets` says how each letter
+		# is read.
 		while [ "$i" -lt "${#words[@]}" ]; do
 			w=${words[$i]}
 			case $w in
 			-C | --git-dir | --work-tree)
-				[ $((i + 1)) -lt "${#words[@]}" ] && operands+=("${words[$((i + 1))]}")
+				if [ $((i + 1)) -lt "${#words[@]}" ]; then
+					operands+=("${words[$((i + 1))]}")
+					case $w in
+					-C) DESTRUCTIVE_PLACE_KINDS+=C ;;
+					--git-dir) DESTRUCTIVE_PLACE_KINDS+=G ;;
+					*) DESTRUCTIVE_PLACE_KINDS+=W ;;
+					esac
+				fi
 				i=$((i + 2))
 				;;
-			--git-dir=* | --work-tree=*) operands+=("${w#*=}"); i=$((i + 1)) ;;
+			--git-dir=*)
+				operands+=("${w#*=}")
+				DESTRUCTIVE_PLACE_KINDS+=G
+				i=$((i + 1))
+				;;
+			--work-tree=*)
+				operands+=("${w#*=}")
+				DESTRUCTIVE_PLACE_KINDS+=W
+				i=$((i + 1))
+				;;
 			-c) i=$((i + 2)) ;;
 			-*) i=$((i + 1)) ;;
 			*) break ;;
@@ -4163,6 +4259,46 @@ EOF'
 	# `git reset --hard origin/main` quiet.
 	st_allowed 'git rm -r -f /'
 	st_allowed 'git worktree remove /'
+	# git's directory options name where a command runs, and a pathspec is judged where it
+	# LANDS. A scoped cleanup inside a repository that lives at a home directory is ordinary
+	# work, and reading its `-C` as the deletion target denied it forever as a deletion of that
+	# home. Each of these was a permanent denial before the placement existed.
+	st_destructive_advisory_once 'git -C "$HOME" clean -fd -- build'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git -C ~ -C proj clean -fdx'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git -C "$HOME" rm -r -f -- build'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git -C "$HOME" worktree remove wt'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git --git-dir="$HOME" clean -fd'
+	rm -f -- "$self_destructive_advisory_state"
+	# ...and where the placement lands ON the home directory, the denial stands. No pathspec,
+	# `.`, a glob and a magic pathspec all clean from the `-C` directory itself, and a
+	# `--work-tree` naming home is the dotfiles-repository spelling, which run from outside
+	# that tree cleans all of it. A placement that let these through would have traded one
+	# wrong verdict for a worse one.
+	st_destructive_never_clears 'git -C "$HOME" clean -fd' 'your home directory'
+	st_destructive_never_clears 'git -C ~ clean -fdx -- .' 'your home directory'
+	st_destructive_never_clears 'git -C ~ clean -fd -- "*"' 'your home directory'
+	st_destructive_never_clears 'git -C ~ clean -fd :/' 'your home directory'
+	st_destructive_never_clears 'git -C /tmp -C / clean -fd' 'the filesystem root'
+	st_destructive_never_clears 'git -C proj clean -fd -- "$HOME"' 'your home directory'
+	st_destructive_never_clears 'git --git-dir="$HOME/.cfg" --work-tree="$HOME" clean -fd' 'your home directory'
+	st_destructive_never_clears 'git -C "$HOME" rm -r -f .' 'your home directory'
+	# A pathspec under a `--work-tree` is read from the top of that tree when git runs from
+	# outside it, so `.` there is the whole tree — and a pathspec inside it is still ordinary.
+	st_destructive_never_clears 'git --git-dir="$HOME/.cfg" --work-tree="$HOME" clean -fdx -- .' 'your home directory'
+	st_destructive_never_clears 'git --work-tree="$HOME" rm -r -f .' 'your home directory'
+	st_destructive_advisory_once 'git --work-tree="$HOME" clean -fd -- build'
+	rm -f -- "$self_destructive_advisory_state"
+	# Where the placement deliberately matches `rm`'s boundaries rather than out-reaching
+	# them: a pathspec that is only a variable is a path this guard cannot expand (`rm -rf
+	# "$HOME"/$X` is advised, not denied), and `..` is outside the fold for both verbs.
+	st_destructive_advisory_once 'git -C "$HOME" clean -fd -- $X'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git -C ~ -C .. clean -fd'
+	rm -f -- "$self_destructive_advisory_state"
 	# One catastrophic operand condemns the whole segment list, which is the direction that
 	# matters: a command that deletes a scratch path AND the root is not half safe.
 	st_destructive_never_clears 'rm -rf tmp/x && rm -rf /' 'the filesystem root'

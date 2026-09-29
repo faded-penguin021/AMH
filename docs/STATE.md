@@ -78,13 +78,15 @@ was withdrawn (**DD-010**). Still unobserved is discovery finding NOTHING: that 
 the shipped code, and how it fails differs between the bundles read (**DD-011** for the method).
 Low stakes — both readings are loud — and no check settles it short of that host.
 
-**OPEN — the `printf | grep -q` class survives at 68 non-comment sites.** Unit 3 fixed the two
+**OPEN — the `printf | grep -q` class survives at 73 non-comment sites.** Unit 3 fixed the two
 with reachable unbounded input; the residue was safe on bounded, mostly single-line input rather
 than on a loud direction when last classified, but the fixture/non-fixture split has not been
 recounted since the output-redaction rail landed. The 2026-09-29 installer fixtures added seven,
-all asserting on short installer output in the loud direction. Not queued as work; reopen if any
-starts matching something unbounded. Check: `grep -rn "printf.*| *grep -q" --include=*.sh
-scripts/ harness/templates/` prints 74 lines, 6 of them comments — resolved only if that stops
+all asserting on short installer output in the loud direction; the redaction self-test's python3
+fix then added four on one hook response each (two in the quiet direction, bounded far below a
+pipe buffer), and the Claude matcher check one on a JSON group, loud. Not queued as work; reopen
+if any starts matching something unbounded. Check: `grep -rn "printf.*| *grep -q" --include=*.sh
+scripts/ harness/templates/` prints 79 lines, 6 of them comments — resolved only if that stops
 matching the description, which it deliberately does not (**DC-038**).
 
 **OPEN — the 2026-08-29 `path-refs.sh` false failure on `` `session-start.sh` `` still has no
@@ -100,7 +102,9 @@ call since the harness targets bash. No check until a session builds it.
 
 **OPEN — the permanent denial's fold misses a glob followed by a slash.** `rm -rf /*` is denied
 for good, but `rm -rf /*/`, `~/*/` and `"$HOME"/*/` — every directory under the target — get only
-the one-time advisory: the fold strips a trailing glob once, before the trailing slash. Found
+the one-time advisory: the fold strips a trailing glob once, before the trailing slash. Git
+pathspecs now reach the same fold where they land (**DD-032**), so `git -C ~ clean -fd -- '*/'`
+and `-- '?*'` share the gap. Found
 while reviewing **DD-023**'s fix, older than it, and not widened there because widening a
 permanent denial is a rule change. Recommendation: fold globs and slashes to a fixpoint, with
 fixtures. Check: `scripts/command-guard.sh --self-test` stays green, then `rm -rf /*/` passed to
@@ -143,6 +147,12 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-09-29 — **A second external review of the 15.0.0 draft, validated: its three new findings
+  held and were fixed in one unit.** The permanent denial read git's `-C` as a deletion target,
+  the installer read a kept `amh.conf` without the defaults the shipped scripts preset, and the
+  adapter check never read Claude's redaction matcher (**DD-032**–**DD-034**). Its `rm -rf /*/`
+  observation is the queued fold item, unchanged.
 
 - 2026-09-29 — **An external review of the 15.0.0 draft, validated: all fifteen findings held
   and were fixed in three units, then CI found the redaction rail dead on Windows and the command

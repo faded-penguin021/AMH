@@ -259,12 +259,16 @@ FRESH=1
 # root, with ROOT naming that root, since a conf may itself source a sibling through "$ROOT" —
 # because parsing it any other way would be a second reading of the same file, free to disagree
 # with the first. That means this run executes the adopter's amh.conf, dry run included, exactly
-# as every ladder run already does. The conf-backed names are unset first so a key the file does
-# not set reads as unset rather than as this script's own variable of the same name. Records
-# cross back NUL-delimited, since a command substitution would drop the separator, and the
-# last record is a sentinel written only after the file has been read to its end: a conf that
-# exits part way would otherwise hand back nothing, and nothing reads exactly like "every key
-# unset" — the defaults this block exists to stop rendering.
+# as every ladder run already does. The conf-backed names are first set to the shipped scripts'
+# defaults, because every shipped script assigns those before it sources the file: a key the file
+# does not set then reads as that default rather than as this script's own variable of the same
+# name, and a line that reads the key it assigns — `DEFAULT_BRANCH=${DEFAULT_BRANCH:-trunk}` —
+# resolves to what the guards resolve it to. Unsetting them instead rendered `trunk` into the
+# Codex rules of a tree whose command guard protects `main`. Records cross back NUL-delimited,
+# since a command substitution would drop the separator, and the last record is a sentinel
+# written only after the file has been read to its end: a conf that exits part way would
+# otherwise hand back nothing, and nothing reads exactly like "every key unset" — the defaults
+# this block exists to stop rendering.
 KEEPS_CONF=0
 [ -e "$TARGET/amh.conf" ] && KEEPS_CONF=1
 RETAINED=' '
@@ -286,20 +290,31 @@ if [ "$KEEPS_CONF" = 1 ]; then
 		for triple in $CONF_BACKED; do
 			IFS=: read -r var ckey flag <<<"$triple"
 			[ "$ckey" = "$key" ] || continue
+			def=DEFAULT_OF_$var
 			case $EXPLICIT in
 			*" $flag "*)
-				[ "${!var}" = "$val" ] ||
-					die "$flag '${!var}' disagrees with $key='$val' in the amh.conf this run keeps. A run that keeps amh.conf renders every file it writes from it: change amh.conf first, or drop the option."
+				if [ "${!var}" != "$val" ]; then
+					[ "$val" = "${!def}" ] ||
+						die "$flag '${!var}' disagrees with $key='$val' in the amh.conf this run keeps. A run that keeps amh.conf renders every file it writes from it: change amh.conf first, or drop the option."
+					die "$flag '${!var}' disagrees with the amh.conf this run keeps, which resolves $key to the shipped scripts' default '$val'. A run that keeps amh.conf renders every file it writes from it: set $key='${!var}' in amh.conf first, or drop the option."
+				fi
 				;;
 			esac
 			printf -v "$var" '%s' "$val"
-			RETAINED="$RETAINED$var "
+			# A key that resolves to the shipped default is reported as the default, whether
+			# the file omits it, repeats it, or derives it: all three read the same to every
+			# shipped script, and "in the kept amh.conf" would send a reader looking for a
+			# line that may not be there.
+			[ "$val" = "${!def}" ] || RETAINED="$RETAINED$var "
 		done
 	done < <(
 		cd -- "$TARGET_ROOT" || exit 1
 		ROOT=$TARGET_ROOT
-		# shellcheck disable=SC2086 # a list of variable names, split on purpose
-		unset $conf_keys
+		for triple in $CONF_BACKED; do
+			IFS=: read -r var ckey _ <<<"$triple"
+			def=DEFAULT_OF_$var
+			printf -v "$ckey" '%s' "${!def}"
+		done
 		set +u
 		# shellcheck source=/dev/null
 		. "$ROOT/amh.conf" </dev/null >/dev/null
@@ -316,8 +331,10 @@ if [ "$KEEPS_CONF" = 1 ]; then
 		def=DEFAULT_OF_$var
 		case $EXPLICIT in
 		*" $flag "*)
+			# Reachable only when the file UNSETS the key: the reading above presets every one,
+			# so a key that comes back with no value is one the file removed.
 			[ "${!var}" = "${!def}" ] ||
-				die "$flag '${!var}' has no $ckey to agree with in the amh.conf this run keeps, so the shipped scripts use their default '${!def}'. Add $ckey='${!var}' to amh.conf first, or drop the option."
+				die "$flag '${!var}' has no $ckey to agree with in the amh.conf this run keeps: the file unsets it, so the shipped scripts have no value for it at all. Set $ckey='${!var}' in amh.conf first, or drop the option."
 			;;
 		esac
 	done
@@ -325,7 +342,7 @@ fi
 
 # Which name a validation message should blame. A value read from the kept amh.conf is that
 # key's; a typed option is the option's; and on a run that keeps amh.conf, anything else is the
-# shipped default for a key the file leaves unset. Telling an upgrading adopter that
+# shipped default, which the file omits, repeats or derives. Telling an upgrading adopter that
 # `--compress-to-kb` is wrong when they typed no such option sends them looking in the wrong place.
 origin_of() { # <variable>
 	local triple var ckey flag

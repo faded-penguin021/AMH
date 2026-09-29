@@ -22,7 +22,13 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   target and the clearing rerun is the keystroke the reported incidents end on. This is the
   guard's only permanent denial. `/etc` and the other system directories stay OUTSIDE the list
   and keep the ordinary advisory, the git verbs armed only on an unknown target keep that
-  narrowing, and the refusal text says in its own words what it does not cover.
+  narrowing, and the refusal text says in its own words what it does not cover. For git the
+  target is read where it lands: a pathspec joins the directory `-C` moved into, so
+  `git -C "$HOME" clean -fd -- build` gets the ordinary advisory, while the same `-C` with no
+  pathspec, with `.` or with a trailing `*`, and a `--work-tree` naming a home directory with no
+  pathspec or with `.`, stay denied; a `--git-dir` value is never the target. The pathspec gets
+  `rm`'s boundaries and no more: one that is only a variable, or that climbs with `..`, is advised
+  rather than denied.
 - **An inline interpreter deletion now gets a one-time advisory.** Three conditions, all lists:
   the segment's LEADING command is `python`, `python2`, `python3`, `node`, `nodejs`, `ruby`,
   `perl`, `deno`, `bun` or `php`; the segment carries inline program text (`-c`, `-e`, `-E`,

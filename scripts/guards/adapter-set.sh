@@ -186,8 +186,9 @@ fi
 #
 # Structural, like the pin test above and for the same reason: no JSON parser is in the
 # dependency floor. It reads the PostToolUse group as a line range and looks for the shipped
-# script inside it, so a command placed under some OTHER event does not satisfy this — and a file
-# whose layout the range cannot find is reported as unread rather than passed.
+# script and its all-tools matcher inside it, so a command placed under some OTHER event does not
+# satisfy this — and a file whose layout the range cannot find is reported as unread rather than
+# passed.
 POST_HOOK_SCRIPT=scripts/redact-tool-output.sh
 claude_post=0
 for declaration in "${ADAPTERS[@]}"; do
@@ -202,10 +203,25 @@ for declaration in "${ADAPTERS[@]}"; do
 			note "$settings: no \"PostToolUse\" group found at the layout this guard reads, so post-execution output redaction is either absent or written in a shape nothing here checked. Either way it is UNVERIFIED, not present — and a deleted redaction hook looks exactly like output with no credential in it (DD-013's lesson, DD-016 for this rail)"
 			continue
 		fi
+		# Every matcher KEY at any layout, and the ones at the one-key-per-line layout this guard
+		# reads, the same total-versus-shaped pair the pin check uses: a `"matcher" : "Write"` or
+		# a minified group would otherwise go uncounted while a canonical "*" elsewhere vouched.
+		matchers=$(printf '%s\n' "$group" | grep -c '^[[:space:]]*"matcher":')
+		matcher_keys=$(printf '%s\n' "$group" | grep -o '"matcher"[[:space:]]*:' | wc -l | tr -d ' ')
 		if [ "$(printf '%s\n' "$group" | grep -cF "\"command\": \"$POST_HOOK_SCRIPT\"")" -ne 1 ]; then
 			note "$settings: the \"PostToolUse\" group does not invoke $POST_HOOK_SCRIPT exactly once — the group exists and the rail it is supposed to wire does not run"
 		elif ! printf '%s\n' "$group" | grep -qF '"shell": "bash",'; then
 			note "$settings: the \"PostToolUse\" hook carries no \"shell\": \"bash\" pin. The pin loop above counts entries across the whole file, so it cannot say WHICH entry is unpinned; this says it for the one entry whose failure is silent in both directions"
+		# Coverage is the third silent failure. A matcher narrowed to `Write` still runs the
+		# rail, still passes its self-test and still satisfies both checks above, while Bash and
+		# Read output — where a credential actually surfaces — reaches the model unfiltered. The
+		# Codex check below already demands its explicit all-tools matcher; this is the same
+		# demand. An array holding more than one matcher is UNVERIFIED rather than read: without
+		# a parser, which group's matcher governs the rail is a guess.
+		elif [ "$matcher_keys" -gt 1 ] || [ "$matcher_keys" -ne "$matchers" ]; then
+			note "$settings: the \"PostToolUse\" array carries $matcher_keys \"matcher\" key(s), $matchers of them one key per line, so which one governs $POST_HOOK_SCRIPT is UNVERIFIED, not all-tools. This guard reads a PostToolUse array holding a single matcher group, one key per line"
+		elif ! printf '%s\n' "$group" | grep -qx '[[:space:]]*"matcher": "\*",\{0,1\}'; then
+			note "$settings: the \"PostToolUse\" matcher is not the explicit all-tools \"*\", the one spelling this guard vouches for — a narrower matcher leaves every tool it does not name unredacted while the rail still looks wired"
 		else
 			claude_post=$((claude_post + 1))
 		fi
@@ -232,9 +248,14 @@ for declaration in "${ADAPTERS[@]}"; do
 		[ -f "$config" ] || continue
 		codex_files=$((codex_files + 1))
 		group=$(sed -n '/^\[\[hooks\.PostToolUse\]\]$/,/^]$/p' "$config")
+		# Counted for the Claude check's reason: a second PostToolUse table with its own ".*"
+		# would otherwise vouch for a rail whose own matcher was narrowed (DD-034).
+		codex_matchers=$(printf '%s\n' "$group" | grep -o 'matcher[[:space:]]*=' | wc -l | tr -d ' ')
 		if [ -z "$group" ]; then
 			note "$config: no [[hooks.PostToolUse]] group found at the layout this guard reads, so Codex output redaction is absent or UNVERIFIED"
-		elif ! printf '%s\n' "$group" | grep -qF 'matcher = ".*"'; then
+		elif [ "$codex_matchers" -gt 1 ]; then
+			note "$config: the PostToolUse hooks carry $codex_matchers matcher keys, so which one governs $POST_HOOK_SCRIPT is UNVERIFIED, not all-tools. This guard reads a single [[hooks.PostToolUse]] table"
+		elif ! printf '%s\n' "$group" | grep -qx 'matcher = "\.\*"'; then
 			note "$config: the PostToolUse matcher is not the explicit all-tools regular expression \".*\""
 		elif [ "$(printf '%s\n' "$group" | grep -Ec '^[[:space:]]*\{ type = "command", command = ".*scripts/redact-tool-output\.sh.*"[, ]')" -ne 1 ]; then
 			note "$config: the [[hooks.PostToolUse]] group does not declare exactly one command hook that invokes $POST_HOOK_SCRIPT"
@@ -250,4 +271,4 @@ elif [ "$codex_post" -ne "$codex_files" ]; then
 fi
 
 [ "$fails" -eq 0 ] || exit 1
-printf 'first-class adapter set is complete across sources, reference paths, installation and legislation; %s Claude command hook(s) across %s file(s) pin shell=bash, %s Claude and %s Codex adapter(s) wire the PostToolUse redaction rail\n' "$claude_hooks" "$claude_files" "$claude_post" "$codex_post"
+printf 'first-class adapter set is complete across sources, reference paths, installation and legislation; %s Claude command hook(s) across %s file(s) pin shell=bash, %s Claude and %s Codex adapter(s) wire the PostToolUse redaction rail for every tool\n' "$claude_hooks" "$claude_files" "$claude_post" "$codex_post"

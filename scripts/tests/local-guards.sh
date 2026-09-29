@@ -756,6 +756,33 @@ sed_in_place '/"PostToolUse": \[/,/redact-tool-output.sh/ s/^[[:space:]]*"shell"
 expect fail "adapter-set: the PostToolUse hook wired without its shell pin" "$d" adapter-set.sh \
 	"carries no"
 
+# The rail wired, pinned and NARROWED. Both checks above pass on it, and so does the hook's own
+# self-test, while every tool the matcher no longer names — Bash and Read above all, where a
+# credential actually surfaces — reaches the model unredacted. The Codex check has always demanded
+# its all-tools matcher; this is the Claude half of the same demand.
+d=$(snapshot adapter_claude_post_hook_narrowed)
+sed_in_place '/"PostToolUse": \[/,/redact-tool-output.sh/ s/"matcher": "\*"/"matcher": "Write"/' "$d/.claude/settings.json"
+expect fail "adapter-set: the Claude PostToolUse hook no longer covers every tool" "$d" adapter-set.sh \
+	"matcher is not the explicit all-tools"
+
+# A second group beside the rail's makes the governing matcher a guess for a guard with no JSON
+# parser, so it is UNVERIFIED rather than read — the other group's "*" must not vouch for this one.
+d=$(snapshot adapter_claude_post_hook_two_groups)
+awk '{ print } /^[[:space:]]*"PostToolUse": \[$/ { print "      {"; print "        \"matcher\": \"Bash\","; print "        \"hooks\": []"; print "      }," }' \
+	"$d/harness/templates/configs/claude-settings.json" >"$d/claude-settings.json.two" &&
+	mv "$d/claude-settings.json.two" "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: a Claude PostToolUse group whose governing matcher cannot be read" "$d" adapter-set.sh \
+	"UNVERIFIED, not all-tools"
+
+# The same evasion with the narrowed key written off the one-key-per-line layout: counting only
+# canonical lines saw ONE matcher — the other group's "*" — and vouched for the narrowed rail.
+d=$(snapshot adapter_claude_post_hook_offlayout_key)
+sed_in_place '/"PostToolUse": \[/,/redact-tool-output.sh/ s/"matcher": "\*",/"matcher" : "Write",/' "$d/.claude/settings.json"
+awk '{ print } /^[[:space:]]*"PostToolUse": \[$/ { print "      {"; print "        \"matcher\": \"*\","; print "        \"hooks\": []"; print "      }," }' \
+	"$d/.claude/settings.json" >"$d/settings.json.off" && mv "$d/settings.json.off" "$d/.claude/settings.json"
+expect fail "adapter-set: a narrowed Claude matcher off the readable layout, beside a canonical \"*\"" "$d" adapter-set.sh \
+	"UNVERIFIED, not all-tools"
+
 d=$(snapshot adapter_codex_post_hook_gone)
 sed_in_place '/^\[\[hooks.PostToolUse\]\]$/,/^]$/d' "$d/.codex/config.toml"
 expect fail "adapter-set: the Codex PostToolUse hook was dropped" "$d" adapter-set.sh \
@@ -775,6 +802,13 @@ d=$(snapshot adapter_codex_post_hook_narrowed)
 sed_in_place '/^\[\[hooks.PostToolUse\]\]$/,/^]$/ s/matcher = "\.\*"/matcher = "^Bash$"/' "$d/.codex/config.toml"
 expect fail "adapter-set: the Codex PostToolUse hook no longer covers every tool" "$d" adapter-set.sh \
 	"matcher is not the explicit all-tools"
+
+# ...and narrowed with a second PostToolUse table beside it whose ".*" used to vouch for it.
+d=$(snapshot adapter_codex_post_hook_two_tables)
+sed_in_place '/^\[\[hooks.PostToolUse\]\]$/,/^]$/ s/matcher = "\.\*"/matcher = "^Write$"/' "$d/.codex/config.toml"
+printf '\n[[hooks.PostToolUse]]\nmatcher = ".*"\nhooks = []\n' >>"$d/.codex/config.toml"
+expect fail "adapter-set: a narrowed Codex rail beside another table's all-tools matcher" "$d" adapter-set.sh \
+	"UNVERIFIED, not all-tools"
 
 
 d=$(snapshot drift_dist)

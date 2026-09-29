@@ -368,7 +368,7 @@ fi
 sed_in_place '/^DEFAULT_BRANCH=/d' "$d/amh.conf"
 out=$("$ROOT/scripts/amh-init.sh" --default-branch master "$d" 2>&1)
 rc=$?
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF "has no DEFAULT_BRANCH to agree with" &&
+if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF "resolves DEFAULT_BRANCH to the shipped scripts' default 'main'" &&
 	[ ! -e "$d/.codex/rules/amh.rules" ]; then
 	pass
 else
@@ -463,6 +463,30 @@ else
 	fail "a kept amh.conf that sources a sibling through \$ROOT is read in full" "exit $rc" "$out"
 fi
 
+# A kept amh.conf is read with the shipped scripts' defaults already in place, because every
+# shipped script assigns them before it sources the file. A line that reads the key it assigns
+# therefore resolves to the default at runtime — the installed guard below protects `main` — and
+# reading the file with the keys unset rendered `trunk` into both adapters instead, so the static
+# rules and the guard protected different branches with every rung green.
+d=$(target upgrade_kept_self_reference)
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+sed_in_place '/^DEFAULT_BRANCH=/d' "$d/amh.conf"
+# shellcheck disable=SC2016 # the line is written into amh.conf; its expansion belongs to the reader
+printf 'DEFAULT_BRANCH=${DEFAULT_BRANCH:-trunk}\n' >>"$d/amh.conf"
+rm -f "$d/.codex/rules/amh.rules" "$d/.claude/settings.json"
+out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
+rc=$?
+guard_out=$("$d/scripts/command-guard.sh" --command 'git push origin HEAD:main' 2>&1)
+guard_rc=$?
+if [ "$rc" -eq 0 ] && [ "$guard_rc" -eq 2 ] &&
+	grep -qF '"HEAD:main"' "$d/.codex/rules/amh.rules" && ! grep -qF 'trunk' "$d/.codex/rules/amh.rules" &&
+	grep -qF 'HEAD:main)' "$d/.claude/settings.json" && ! grep -qF 'trunk' "$d/.claude/settings.json"; then
+	pass
+else
+	fail "a kept amh.conf that reads the key it assigns renders what the installed guard enforces" \
+		"exit $rc, guard exit $guard_rc" "$out" "$guard_out"
+fi
+
 # A kept amh.conf that stops part way hands back nothing, and nothing reads exactly like "every
 # key unset" — the defaults this whole block exists to stop rendering. The run must refuse.
 d=$(target upgrade_kept_exits)
@@ -485,7 +509,7 @@ d=$(target unrelated_conf_option)
 printf 'UNRELATED=1\n' >"$d/amh.conf"
 out=$("$ROOT/scripts/amh-init.sh" --default-branch master "$d" 2>&1)
 rc=$?
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'has no DEFAULT_BRANCH to agree with' &&
+if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF "resolves DEFAULT_BRANCH to the shipped scripts' default 'main'" &&
 	[ ! -e "$d/.codex/rules/amh.rules" ]; then
 	pass
 else
