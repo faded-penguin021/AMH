@@ -143,6 +143,23 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   `*` crosses `/`); a subdirectory gets the ordinary one-time advisory and bare `~name` keeps
   the permanent denial; `~/..` and `~name/..` keep the ordinary advisory, like every other
   `..` spelling. Copying the scripts is the whole upgrade for these.
+- **`scripts/amh-init.sh` renders what it writes from the `amh.conf` it keeps.** Re-running the
+  installer keeps your `amh.conf`, but it used to render any file it DID write — an adapter you
+  had deleted, a file a later release introduced — from its own options and defaults, so a
+  repository installed with `--default-branch master` and upgraded without repeating the option
+  received Codex rules protecting `main` beside an `amh.conf` saying `master`. Whenever an
+  `amh.conf` is already present, the installer now sources it from the target's root as the
+  shipped scripts do (dry runs included) and takes every value it records from it; a key it
+  leaves unset means the shipped scripts' default. An option that disagrees, or an `amh.conf`
+  that does not load to its end, is refused before anything is written. Branch name and branch
+  prefix are narrowed to letters, digits, `.`, `_`, `-` and `/` and checked by
+  `git check-ref-format`, and the citation-path list may not contain a single quote:
+  `release/"stable"` is a valid git branch name that produced adapter JSON which did not parse,
+  and a `$(...)` in one would have run on every ladder run from `amh.conf`. On a run that keeps
+  `amh.conf`, a value from it is checked only when a file the run writes carries it, so an
+  upgrade is never refused over a value nothing it writes contains.
+- **`scripts/build-manifest.sh` stops non-zero when the hasher fails.** It used to write empty
+  digests over both manifests and report success. Repo-local tooling; adopters are unaffected.
 - **The seed `scripts/verify.sh` no longer says "green locally, red in CI" can only mean the
   environment.** A different commit, a staged or untracked file seen differently, and a step CI
   adds beside the ladder are all causes too; the shipped `ladder.sh` header says the same.

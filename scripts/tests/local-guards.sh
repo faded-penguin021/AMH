@@ -624,8 +624,11 @@ rm "$d/.codex/agents/amh-rule-reviewer.toml"
 expect fail "adapter-set: the Codex reviewer reference path was removed" "$d" adapter-set.sh ".codex/agents/amh-rule-reviewer.toml"
 
 d=$(snapshot adapter_codex_install_gone)
-sed_in_place '\|codex-config.toml.*\.codex/config.toml|d' "$d/scripts/amh-init.sh"
-expect fail "adapter-set: a Codex install action was removed" "$d" adapter-set.sh "install action missing"
+# ONE entry out of the list, not the line holding it: deleting the whole KEEP_CONFIGS line would
+# fail for every adapter at once and pass this case whichever entry the guard actually checks.
+sed_in_place 's| configs/codex-config\.toml:\.codex/config\.toml||' "$d/scripts/amh-init.sh"
+expect fail "adapter-set: a Codex install action was removed" "$d" adapter-set.sh \
+	"adapter install action missing: harness/templates/configs/codex-config.toml -> .codex/config.toml"
 
 d=$(snapshot adapter_codex_legislation_gone)
 sed_in_place 's/ \.codex\/config\.toml//' "$d/harness/templates/amh.conf.example"
@@ -1571,6 +1574,31 @@ if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'this guard checked NOTHING'
 else
 	FAILED=$((FAILED + 1))
 	printf '  FAIL manifest-drift: a missing hasher is named, not reported as drift — rc=%s\n%s\n' "$rc" "$out" >&2
+fi
+
+# build-manifest.sh with a hasher that FAILS, which is a different condition from having none.
+# Substituted straight into printf's arguments, a failed digest cost nothing: the run exited 0
+# with empty hashes in --stdout mode, and in write mode replaced both committed manifests with
+# them. A shim that exits 1 and prints nothing stands in for the broken tool. Both modes must
+# fail, the write mode must say why, and the committed pair must be byte-for-byte unchanged.
+bm_shim="$WORK/bm_failing_hasher"
+mkdir -p "$bm_shim"
+printf '#!/bin/sh\nexit 1\n' >"$bm_shim/sha256sum"
+chmod +x "$bm_shim/sha256sum"
+dm=$(snapshot build_manifest_failing_hasher)
+bm_before=$(cat "$dm/scripts/MANIFEST.sha256" "$dm/harness/templates/scripts/MANIFEST.sha256")
+(cd "$dm" && PATH="$bm_shim:$PATH" scripts/build-manifest.sh --stdout >/dev/null 2>&1)
+bm_rc_stdout=$?
+out=$(cd "$dm" && PATH="$bm_shim:$PATH" scripts/build-manifest.sh 2>&1)
+bm_rc_write=$?
+bm_after=$(cat "$dm/scripts/MANIFEST.sha256" "$dm/harness/templates/scripts/MANIFEST.sha256")
+if [ "$bm_rc_stdout" -ne 0 ] && [ "$bm_rc_write" -ne 0 ] && [ "$bm_before" = "$bm_after" ] &&
+	printf '%s' "$out" | grep -qF 'produced no sha256 digest'; then
+	PASSED=$((PASSED + 1))
+else
+	FAILED=$((FAILED + 1))
+	printf '  FAIL build-manifest: a failing hasher fails both modes and writes nothing — stdout rc=%s, write rc=%s\n%s\n' \
+		"$bm_rc_stdout" "$bm_rc_write" "$out" >&2
 fi
 
 # config-schema with no `comm` on PATH — the same hollow-green shape, and the one its own

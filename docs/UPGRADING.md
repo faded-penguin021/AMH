@@ -127,6 +127,15 @@ copying it is what turns the rung on.
 If you have the harness repo checked out, `scripts/amh-init.sh /path/to/your-repo` does the
 same thing and is safe to re-run: it overwrites exactly the shipped scripts and leaves every
 file you own — `amh.conf`, the seed prose, your workflow and adapter configs — untouched.
+Anything it does write on a re-run (a file a newer release introduced, or one you deleted) takes
+its values from the `amh.conf` it keeps, so you need not repeat the options you installed with.
+To read them it sources your `amh.conf` from your repository's root, exactly as your ladder does
+— a dry run included. It refuses to go on, before writing anything, in three cases: an option
+that disagrees with that file (change `amh.conf` first); an `amh.conf` that does not load to its
+end; and a value from it that a file about to be written would carry but that file cannot hold
+safely — a branch name outside letters, digits, `.`, `_`, `-` and `/`, say. A kept value that no
+written file carries is never checked. If a refusal is about a value you mean to keep, the
+`cp` route above does the same upgrade without rendering anything.
 
 The `--profile` flag it grew in 2.0.0 does not change that, and you do not need to pass it on
 an upgrade. It decides which seed prose a **fresh** install receives; a file you already have

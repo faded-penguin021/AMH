@@ -67,9 +67,18 @@ emit() {
 	printf '# Editing a shipped script is what this catches. The change belongs in amh.conf,\n'
 	printf '# in a guard under scripts/guards/, or in scripts/verify.sh. Check by hand with:\n'
 	printf '#   sha256sum -c scripts/%s\n' "$NAME"
-	local f
+	# Each digest is taken into a variable and CHECKED before it is printed. Substituted
+	# straight into printf's arguments, a hasher that failed — or printed nothing — cost
+	# nothing: printf succeeded, `set -e` never saw the substitution's status, and the run
+	# wrote a manifest of empty hashes under a version number and reported success. `exit`
+	# works here because emit runs in this shell, never in a substitution.
+	local f digest
 	for f in "$SRC"/*.sh; do
-		printf '%s  scripts/%s\n' "$(sha256_of "$f")" "$(basename -- "$f")"
+		if ! digest=$(sha256_of "$f") || ! [[ $digest =~ ^[0-9a-f]{64}$ ]]; then
+			printf 'build-manifest: %s produced no sha256 digest for %s — stopping with neither manifest replaced\n' "$HASHER" "$f" >&2
+			exit 1
+		fi
+		printf '%s  scripts/%s\n' "$digest" "$(basename -- "$f")"
 	done
 }
 
@@ -78,7 +87,13 @@ if [ "${1:-}" = "--stdout" ]; then
 	exit 0
 fi
 
-emit >"$SRC/$NAME"
-cp -- "$SRC/$NAME" "scripts/$NAME"
+# Built whole in a temporary file, and only then copied over BOTH manifests: a failure part
+# way through must leave the committed pair as it was, not truncated by the redirection that
+# was about to fill it.
+TMP_MANIFEST=$(mktemp)
+trap 'rm -f -- "$TMP_MANIFEST"' EXIT
+emit >"$TMP_MANIFEST"
+cp -- "$TMP_MANIFEST" "$SRC/$NAME"
+cp -- "$TMP_MANIFEST" "scripts/$NAME"
 printf 'wrote %s and scripts/%s (%s script(s))\n' \
 	"$SRC/$NAME" "$NAME" "$(find "$SRC" -name '*.sh' | wc -l | tr -d ' ')"

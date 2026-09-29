@@ -38,6 +38,14 @@ adopter_rules=$(conf_value RULE_FILES harness/templates/amh.conf.example)
 # purpose (an adopter declares their own adapters, and most have none on day one), so
 # requiring the set there would fail every correct adopter config.
 banner_adapters=$(conf_value ADAPTER_FILES amh.conf)
+
+# The installer's action for each adapter is its entry in amh-init.sh's KEEP_CONFIGS — the ONE
+# list both its install loop and its scan of what a run will write read, so an adapter missing
+# there is neither installed nor rendered. An unparseable list is said out loud: every entry
+# below would then read as missing, which is true, but not why.
+keep_configs=$(sed -n "s/^KEEP_CONFIGS='\([^']*\)'$/\1/p" scripts/amh-init.sh)
+[ -n "$keep_configs" ] ||
+	note "scripts/amh-init.sh carries no KEEP_CONFIGS list this guard can read — no adapter install action was checked"
 if [ -z "$banner_adapters" ]; then
 	note "amh.conf ADAPTER_FILES is empty or unset — the banner reports no adapter at all, which is indistinguishable from a repo that ships none"
 fi
@@ -47,9 +55,10 @@ for declaration in "${ADAPTERS[@]}"; do
 	[ -f "$source" ] || note "adapter source missing: $source"
 	[ -f "$destination" ] || note "adapter reference-instance path missing: $destination"
 
-	install="install_file \"\$TPL/${source#harness/templates/}\" $destination keep 644"
-	grep -qFx -- "$install" scripts/amh-init.sh ||
-		note "adapter install action missing: $source -> $destination"
+	case " $keep_configs " in
+	*" ${source#harness/templates/}:$destination "*) ;;
+	*) note "adapter install action missing: $source -> $destination" ;;
+	esac
 
 	case " $reference_rules " in
 	*" $destination "*) ;;
