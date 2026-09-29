@@ -78,13 +78,14 @@ was withdrawn (**DD-010**). Still unobserved is discovery finding NOTHING: that 
 the shipped code, and how it fails differs between the bundles read (**DD-011** for the method).
 Low stakes — both readings are loud — and no check settles it short of that host.
 
-**OPEN — the `printf | grep -q` class survives at 61 non-comment sites.** Unit 3 fixed the two
+**OPEN — the `printf | grep -q` class survives at 68 non-comment sites.** Unit 3 fixed the two
 with reachable unbounded input; the residue was safe on bounded, mostly single-line input rather
 than on a loud direction when last classified, but the fixture/non-fixture split has not been
-recounted since the output-redaction rail landed. Not queued as work; reopen if any starts
-matching something unbounded. Check: `grep -rn "printf.*| *grep -q" --include=*.sh scripts/
-harness/templates/` prints 67 lines, 6 of them comments — resolved only if that stops matching
-the description, which it deliberately does not (**DC-038**).
+recounted since the output-redaction rail landed. The 2026-09-29 installer fixtures added seven,
+all asserting on short installer output in the loud direction. Not queued as work; reopen if any
+starts matching something unbounded. Check: `grep -rn "printf.*| *grep -q" --include=*.sh
+scripts/ harness/templates/` prints 74 lines, 6 of them comments — resolved only if that stops
+matching the description, which it deliberately does not (**DC-038**).
 
 **OPEN — the 2026-08-29 `path-refs.sh` false failure on `` `session-start.sh` `` still has no
 reproducer.** Closed once as the EPIPE defect, then restored when the pass falsified that
