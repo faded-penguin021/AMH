@@ -112,6 +112,18 @@ jobs:
             printf '%s: ' "$t"
             "$t" --version 2>&1 | head -n 1 || true
           done
+          # Which interpreter a NAME resolves to, and whether it runs: the redaction rail once
+          # failed on this leg in a way two different hazards explain equally well — a python3
+          # that exists and does not run, or a bare `bash` a native process resolves to WSL's
+          # launcher (AMH ledger row DD-030). Print-only, like everything above.
+          for t in python3 python; do
+            printf '%s: %s -> ' "$t" "$(command -v "$t" || echo absent)"
+            "$t" -c 'import sys; print(sys.executable, sys.version.split()[0])' 2>&1 | head -n 1 || true
+          done
+          if [ "${RUNNER_OS:-}" = Windows ]; then
+            printf 'where bash (native lookup):\n'
+            cmd //c where bash 2>&1 || true
+          fi
 
       - name: Install shellcheck (macOS)
         if: runner.os == 'macOS'

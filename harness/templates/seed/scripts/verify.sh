@@ -5,8 +5,9 @@
 # extension points, and the reason the shipped ladder never needs a local edit.
 #
 # Invoked by scripts/ladder.sh, never directly by CI: CI runs the ladder, so the agent and CI
-# execute the same entrypoint by construction and "green locally, red in CI" can only mean
-# environment.
+# execute the same entrypoint by construction and "green locally, red in CI" is never a
+# forgotten lockstep. It is a different input: another commit, a staged or untracked file
+# seen differently, the environment, or a step CI adds.
 #
 # Start with nothing but your existing test/build/lint commands. Guards accrete later, one at
 # a time, each earning its place after a real violation.

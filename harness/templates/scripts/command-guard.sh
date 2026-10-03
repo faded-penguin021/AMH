@@ -59,6 +59,26 @@
 #     a read. Note the shape of the miss for a listed one: `awk '{print}' .env` is blocked
 #     because `awk` leads the segment, while `awk 'BEGIN{while((getline<".env")>0)print}'`
 #     hides the read inside the program text and is not.
+#   * INTERPRETER DELETIONS GET AN ADVISORY, AND ONLY AN ADVISORY. It fires when THREE things
+#     hold: the segment's leading command is an enumerated interpreter (`python`, `python2`,
+#     `python3`, `node`, `nodejs`, `ruby`, `perl`, `deno`, `bun`, `php`); the segment carries
+#     INLINE program text (`-c`, `-e`, `-E`, `-r`, `-p`, `--eval`, `--print`, or an
+#     `--eval=`/`--print=` spelling); and THAT ARGUMENT — not the segment, not the operands —
+#     names an enumerated deletion call (`rmtree`, `remove_tree`, `removedirs`, `rm_rf`,
+#     `rmSync`, `rmdirSync`, `rimraf`, `remove_dir_all`, `unlink`, `os.remove`) followed by an
+#     opening parenthesis. The command is then stopped once and the rerun proceeds, rearmed per
+#     command text. Every one of those three is a LIST. The first two are what keep this tier
+#     compatible with the first design rule above — program text in a commit message, a doc
+#     heredoc or a grep pattern is not judged, and fixtures pin all four — and the parenthesis is
+#     what keeps `unlink_count`, `help(os.unlink)` and a file named `test_unlink.py` out of it.
+#     Accepted misses in exchange, on top of the obvious ones: a paren-less call
+#     (`FileUtils.rm_rf "path"`), and a call spelled through an alias or built at run time. It
+#     sees no script file (`python3 cleanup.py`), no test suite (`pytest` — the shape the
+#     incident that earned this actually ran), no heredoc body, nothing behind `bash -c`, and no
+#     language or spelling off the lists, `os.system("rm -rf /")` first among them. A broader advisory
+#     over interpreter WRITES was declined once for blocking ordinary work while missing every
+#     other language (AMH ledger row DC007); this one is narrower by construction and says in
+#     its own text that it read a word, not a program (AMH ledger row DD019).
 #   * WRAPPERS — but read which ones. `check_segment` STRIPS a set of transparent prefixes
 #     and judges what follows, so `sudo cat .env`, `nohup cat .env`, `nice`, `time`,
 #     `command`, `builtin`, `exec` and `env FOO=1 cat .env` ARE blocked. `env` is the one
@@ -100,12 +120,46 @@
 #     `reset --hard`, `checkout|switch --force`, `restore`. Anything else that empties a
 #     path reaches the filesystem unadvised — `mv` over a target, `truncate`, `dd`, `find
 #     -delete`, `shred`, a `>` redirection, and every one of these run through an
-#     interpreter. Two further limits INSIDE the list: the git verbs added after
+#     interpreter — though an interpreter handed a deletion INLINE now gets its own one-time
+#     advisory, the tier described two bullets down; it is a word in a command line, not a
+#     reading of the program. Two further limits INSIDE the list: the git verbs added after
 #     `git clean` are armed only when the target is unknown at scan time (see
 #     `operands_unknown_target`), so a fully literal `git reset --hard origin/main` is
 #     deliberately silent; and `git checkout -- "$f"` carries no force flag and is not
 #     recognised at all. The rail is a speed bump on the shapes an agent actually
 #     mistypes, never an inventory of ways to lose a file.
+#     ONE TARGET LIST INSIDE IT IS NOT A SPEED BUMP. An `rm -r -f` or a `git clean -f -d` whose
+#     operand names the filesystem root, a home directory, or a directory holding home
+#     directories is blocked every time and never clears on a rerun. For git the operand is
+#     read where it LANDS: a pathspec joins the directory `-C` moved into, so `git -C "$HOME"
+#     clean -fd -- build` is `$HOME/build` and gets the ordinary advisory, while the same `-C`
+#     with no pathspec, with `.` or with a glob such as `*/`, or a `--work-tree` naming home,
+#     is the home directory and is denied; a `--git-dir` is never the target (see
+#     `record_destructive_targets`). That is the
+#     only permanent denial this guard issues, and it is affordable exactly because the list is
+#     tiny: no unit of work inside a repository deletes those paths, so the false-positive
+#     budget the rest of this tier spends carefully is not spent here at all.
+#     `names_catastrophic_target` holds the TARGET list; it does not hold the verb list, and the
+#     difference is load-bearing — the git verbs added after `git clean` are armed only when
+#     their target is UNKNOWN at scan time, so `git rm -r -f /` and `git worktree remove /`
+#     reach this function never and are silent (both are fixtured as allowed, and git refuses a
+#     path outside the repository anyway).
+#     Read what it does NOT reach, because a cleared path is not a safe one: `.` and `..`, any
+#     parent of the work tree, `/etc` and the rest of the system directories (one of this
+#     file's own fixtures deletes `/etc` and expects the ordinary one-time advisory), an operand
+#     whose glob is not anchored (`rm -rf *` names a directory this guard cannot see, and
+#     folding it to the root would deny the commonest deletion there is), a path this guard
+#     cannot expand — `"$R"` holding `/` is still just a variable here — and EVERY ONE OF THESE
+#     BEHIND A SHELL STRING OR AN INTERPRETER. Read that last one literally, because the obvious
+#     reading is too narrow: `bash -c 'rm -rf /'` and `sh -c` are silent here exactly as
+#     `python3 -c` is, for the reason the WRAPPERS bullet above already gives, and a harness that
+#     wraps every command in `bash -lc` gets no verdict from this list at all. It stops the
+#     literal spelling of the accident; the interpreter half of the reported incident it was
+#     built from went straight past it (AMH ledger row DD018).
+#     One configuration is worth knowing before it surprises someone: where `HOME` IS the work
+#     tree — some containers set them equal — deleting the work tree is deleting a home
+#     directory, so it is denied here with no override. That is the rail behaving as specified
+#     rather than an exception, and the move is to delete the contents, not the directory.
 #   * ITS DATA-PLANE TIER IS A SHORTER VERB LIST AND A WEAKER CLAIM. `supabase db reset`,
 #     `prisma migrate reset`, `prisma db push --accept-data-loss|--force-reset`, `rails`/`rake`
 #     `db:drop|db:reset|db:schema:load`, `dropdb`, and `psql -c` whose statement STARTS with
@@ -530,6 +584,7 @@ advisory_state_file() { # advisory_state_file <name>
 	dotenv) [ -n "${DOTENV_ADVISORY_STATE+x}" ] && { printf '%s' "$DOTENV_ADVISORY_STATE"; return 0; } ;;
 	keymaterial) [ -n "${KEYMATERIAL_ADVISORY_STATE+x}" ] && { printf '%s' "$KEYMATERIAL_ADVISORY_STATE"; return 0; } ;;
 	destructive) [ -n "${DESTRUCTIVE_ADVISORY_STATE+x}" ] && { printf '%s' "$DESTRUCTIVE_ADVISORY_STATE"; return 0; } ;;
+	interpreter) [ -n "${INTERPRETER_ADVISORY_STATE+x}" ] && { printf '%s' "$INTERPRETER_ADVISORY_STATE"; return 0; } ;;
 	subagent) [ -n "${SUBAGENT_ADVISORY_STATE+x}" ] && { printf '%s' "$SUBAGENT_ADVISORY_STATE"; return 0; } ;;
 	*) return 1 ;;
 	esac
@@ -555,11 +610,25 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 	*) return 1 ;;
 	esac ;;
 	destructive) is_destructive_command "$cmd" || return 1 ;;
+	interpreter) is_interpreter_deletion "$cmd" || return 1 ;;
 	# No condition to test: the caller only invokes this category when a subagent spawn is
 	# actually about to happen, and the spawn itself is the whole trigger.
 	subagent) ;;
 	*) return 1 ;;
 	esac
+	# The one verdict in this tier that is not one-time, and it is decided BEFORE the state
+	# file is touched, which is the whole mechanism: a catastrophic target neither consumes a
+	# signature nor can be cleared by one, so it fires on the first attempt and on every
+	# attempt after it. Putting it below the state logic would have made "never clears" depend
+	# on a file that the bootstrap deletes and that a rerun writes to, which is a promise of
+	# permanence kept by a temporary file.
+	if [ "$name" = destructive ] && [ "${DESTRUCTIVE_CATASTROPHIC:-0}" -eq 1 ]; then
+		# shellcheck disable=SC2016 # the example paths must print literally, unexpanded.
+		ADVISORY_REASON="BLOCKED, and this one does NOT clear on a rerun: the deletion is aimed at ${DESTRUCTIVE_CATASTROPHIC_CLASS:-a catastrophic target}. Every other target in this tier gets a one-time advisory because the guard cannot tell a scratch directory from a source tree and your rerun settles it. This target needs no settling — no unit of work inside a repository ends by deleting it, and the reported incidents that reached it were ordinary-looking commands whose operand widened at the last moment. If you are testing deletion code, point it at a fixture tree or a fresh \`mktemp -d\`, and never at a path you would mind losing; the harness rule is that an unguarded destructive path is exercised against a fixture, never against a live one. If this deletion is genuinely what the work needs, it is the owner's to run deliberately, outside this harness and outside this session."
+		# shellcheck disable=SC2016 # the example paths must print literally, unexpanded.
+		ADVISORY_REASON="$ADVISORY_REASON"' What clearing this would NOT have bought, so that a stop here does not read as coverage: the list this fired on is a short one of literal spellings. `.`, `..`, any parent of the work tree, the system directories, an unanchored glob such as `rm -rf *`, a path this guard cannot expand — `"$R"` holding `/` is a variable at scan time and nothing more — and any of these behind a shell string or an interpreter reach the filesystem with no verdict at all: `bash -c "rm -rf /"` is silent here, and an inline `python3 -c "shutil.rmtree(p)"` gets only the one-time interpreter advisory that a rerun clears — so the shape that earned this rail is stopped permanently in its `rm` spelling and for one turn in its interpreter spelling. It caught a spelling, not a category, and the rule that covers the rest is in the constitution, not in this script.'
+		return 0
+	fi
 	state=$(advisory_state_file "$name")
 	[ -n "$state" ] || return 1
 	if [ "$name" = destructive ]; then
@@ -589,6 +658,25 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# If `grep` is unavailable the test above fails and the advisory re-fires — the
 		# right direction — at the cost of a duplicate line per attempt. Bounded by the
 		# session, and the bootstrap deletes the file; not worth a second mechanism.
+		printf '%s\n' "$sig" >>"$state" 2>/dev/null || return 1
+	elif [ "$name" = interpreter ]; then
+		# Rearmed per COMMAND TEXT, for the reason AMH ledger row DC004 forced on the
+		# destructive rail: a per-session one-shot is spent by the first harmless match and
+		# silent for every deletion after it. Two different one-liners are two decisions.
+		# A DIGEST, and never the command text, for two reasons the other tiers do not have.
+		# The destructive rail records normalised path operands; this one would be recording a
+		# whole program, and a `python3 -c` program is exactly where a literal credential turns
+		# up — the state file is world-readable, at a predictable path, and outlives the
+		# session. And `printf %q` renders an embedded newline as a backslash-newline on bash
+		# before 4.4 (stock macOS 3.2, which this file supports and has been bitten by), which
+		# would split one signature across two lines, make `grep -qxF` unable to ever match it,
+		# and turn "rerun to proceed" into a command that can never run. Flattening newlines
+		# first closes that; hashing closes both. No digest tool means no signature, and the
+		# advisory then re-fires on every attempt: loud, and the direction an advisory may fail.
+		sig=$(interpreter_signature "$cmd") || return 1
+		if [ -e "$state" ] && LC_ALL=C grep -qxF -- "$sig" "$state" 2>/dev/null; then
+			return 1
+		fi
 		printf '%s\n' "$sig" >>"$state" 2>/dev/null || return 1
 	elif [ "$name" = subagent ]; then
 		# Rearm per SPAWN, not per session — the same correction AMH ledger row DC004 forced on the
@@ -637,6 +725,12 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# costs one turn and puts the rule in front of the agent at the moment it is being
 		# broken (AMH ledger row DC012).
 		ADVISORY_REASON='A subagent spawn is about to happen and the command guard is stopping it once. The harness permits ONE fresh-context reviewer at a time and it BLOCKS: you do not keep editing while it runs, and fanning out several because the tooling makes it easy is the exact failure the session-discipline rule names. If this is the single blocking reviewer the rule-review protocol mandates, or another genuinely sequential use, run the same spawn again and it will proceed. EVERY spawn is advised, not just the first, and each one that proceeds is recorded: a burst of three costs this turn three times over and leaves three lines behind, which is the point — the failure this exists for is three spawns in immediate succession, and a rail that stood down after the first would be spent at exactly the moment it was needed. What it can see is that a spawn was advised and that one went ahead; it cannot see whether anything was already running, and nothing may read its record as evidence that a decision was thought about. If you were about to spawn several at once: spawn one, wait for it, and read what it reports before deciding whether a second is needed.'
+		;;
+	interpreter)
+		# shellcheck disable=SC2016 # the example calls must print literally, unexpanded.
+		ADVISORY_REASON="This command hands \`${INTERPRETER_LEAD}\` a program that names \`${INTERPRETER_CALL}\`, and the command guard is stopping it once. Deletions written inside an interpreter are the half of the destructive rail no command scanner reaches: the verb tiers judge a command, and this is program text, so nothing here knows what path that call resolves to at run time. Spend the turn on that question. The harness rule is that an unguarded destructive path is exercised against a fixture tree — a fresh \`mktemp -d\`, a directory the test itself made — and never against the working tree, a home directory or anything whose loss would matter, and that a safety check is never removed from the source to observe what it prevents."
+		# shellcheck disable=SC2016 # the examples must print literally, unexpanded.
+		ADVISORY_REASON="$ADVISORY_REASON"' Rerun the same command to proceed; a different one-liner gets its own advisory. Then read what this does NOT see, because a cleared prompt is not a safe command: a deletion inside a SCRIPT FILE or a test suite (`python3 cleanup.py`, `pytest` — the shape of the most widely reported incident of this kind, in which an agent asked to add a delete feature removed its own guard, ran the test against a live path, and the user lost a repository, a home directory, SSH private keys and a GPG keyring), a heredoc body, anything behind `bash -c` or `xargs`, and every language and spelling off this list — `os.system("rm -rf /")` above all. This rail saw a word in a command line. It did not read your program. And read the asymmetry with the tier above rather than around it: `rm -rf /` is denied permanently and never clears, while this spelling of the same deletion clears on your rerun — not because it is safer, but because judging program text cannot be made safe enough to deny on, so the rerun is the only thing standing between this command and the filesystem.'
 		;;
 	keymaterial)
 		# shellcheck disable=SC2016 # the backticked file names are markdown, not substitutions.
@@ -1761,6 +1855,296 @@ normalize_operand() { # sets NORMALIZED
 }
 NORMALIZED=''
 
+# The targets a rerun may NOT clear. Everything else in this tier is a one-time advisory:
+# it buys a turn for a check and then gets out of the way, because two `rm -rf` commands in
+# one session can be a scratch directory and a source tree and the guard cannot tell which.
+# These paths are the case where it can. Deleting the filesystem root or a home directory is
+# not a deletion whose intent a check could establish — there is no unit of work inside a
+# repository that ends with it — so the advisory's whole premise ("stop once, let the
+# deliberate rerun through") is wrong here, and the rerun that clears every other target is
+# exactly the keystroke the reported incidents ended on.
+#
+# So this is the guard's ONE permanent denial, and three properties keep it from becoming the
+# alarm that cries wolf:
+#
+#   * The list is literal and tiny. A path this function does not spell is not on it, and
+#     widening it is a rule change, not a tweak — `/etc` is deliberately absent, and a fixture
+#     in this file deletes `/etc` and asserts the ORDINARY advisory, so widening the list
+#     breaks a test rather than silently changing a verdict.
+#   * It reads the NORMALIZED operand, so `${HOME}`, `${HOME:?}` and `$HOME` are one target,
+#     and the spellings that address the same directory — `/`, `//`, `/*`, `/*/`, `~/`,
+#     `$HOME/.` — fold together. A rail an agent can step around by typing a trailing slash
+#     is a rail that teaches the trailing slash.
+#   * It names the CLASS of the target in its refusal, never the operand. The path is the
+#     agent's own text and nothing is hidden by echoing it, but a home path carries a user
+#     name, and this file has no reason to print one.
+#
+# The two variable spellings are the honest edge. A bare `$HOME` is caught because the name
+# is right there; `"$R"` with `R=/` is not, and no scanner reading command text before the
+# shell expands it ever will be. That case keeps the unexpanded-variable paragraph it already
+# had, which is the rail asking the agent to print the expansion.
+names_catastrophic_target() { # sets DESTRUCTIVE_CATASTROPHIC_CLASS
+	local w prev c
+	# An empty operand names nothing, and answering "the filesystem root" for it would be a
+	# verdict invented from a caller's promise rather than read from an argument. The callers
+	# drop empty operands today; a function that is right only while that stays true is the
+	# shape this file keeps finding bugs in.
+	[ -n "$1" ] || return 1
+	normalize_operand "$1"
+	w=$NORMALIZED
+	# Fold the spellings that address the same directory, and fold them to a FIXPOINT: each
+	# step below can expose a spelling another step folds, so one pass in a fixed order is a
+	# rail with a sidestep in whatever order it did not run. A single pass that stripped the
+	# trailing glob before the trailing slash denied `rm -rf /*` forever and gave `rm -rf /*/`
+	# — every directory under the root — the one-time advisory (AMH ledger row DD035). Every
+	# step shortens the operand or leaves it alone, so the loop ends.
+	#
+	# `..` is NOT folded, here or anywhere in this function: what it climbs to depends on
+	# symlinks the guard cannot see, and the refusal text names it among what this list misses.
+	# The steps below are identities on any path — a repeated separator, a `.` component and a
+	# trailing separator never change which directory is named — and the glob steps fold a
+	# pattern onto the name it matches or the directory whose entries it matches.
+	while :; do
+		prev=$w
+		# Repeated separators collapse, leading ones included: `//home` is `/home` to every
+		# kernel that resolves it, and a rail that reads them as different targets is a rail with
+		# a one-character sidestep. A `.` between separators names the directory it sits in.
+		w=${w//\/\//\/}
+		w=${w//\/.\//\/}
+		# Globs, but ONLY on an operand that is already rooted or tilde'd. Stripping them from
+		# anything would fold the commonest deletion in the world — `rm -rf *` in some directory
+		# the guard cannot see — into the filesystem root and deny it forever, which is the false
+		# positive this whole tier is written to avoid. `/**` and `/*` address the same
+		# directory; `*` addresses whatever you happen to be standing in, and this rail has
+		# nothing true to say about that.
+		case $w in
+		/* | '~'* | '$'*)
+			# A last component made only of `*` and `?`, with at least one `*`, matches every
+			# entry of its directory at least as long as its `?` count — `?*` is every entry,
+			# and it is how git spells "everything" in a pathspec. It goes first because the
+			# run below would strip its `*` and leave a `?` that matches one-letter names only.
+			# A component of `?` alone matches only names that long, and is left alone.
+			case $w in
+			*/*)
+				c=${w##*/}
+				case $c in
+				'' | *[!*?]*) ;;
+				*'*'*) w=${w%"$c"} ;;
+				esac
+				;;
+			esac
+			# A trailing run of `*` inside a component matches the name before it too: `/home*`
+			# includes `/home`.
+			while :; do
+				case $w in
+				*'*') w=${w%\*} ;;
+				*) break ;;
+				esac
+			done
+			;;
+		esac
+		# A trailing `/.` and a trailing separator. `/.` strips to the empty string rather than
+		# to `/`, which is why emptiness is restored below: what began as a non-empty operand and
+		# lost every separator and glob was addressing the root.
+		case $w in
+		*/.) w=${w%/.} ;;
+		?*/) w=${w%/} ;;
+		esac
+		[ "$w" = "$prev" ] && break
+	done
+	[ -n "$w" ] || w=/
+	# shellcheck disable=SC2016 # `$HOME` is matched as command TEXT and never expanded here.
+	case $w in
+	/)
+		DESTRUCTIVE_CATASTROPHIC_CLASS='the filesystem root'
+		return 0
+		;;
+	'~' | '$HOME')
+		DESTRUCTIVE_CATASTROPHIC_CLASS='your home directory'
+		return 0
+		;;
+	# `~name` with no separator left is another account's home directory, and the shell
+	# expands it whether or not the account exists. `~name/sub` is a directory INSIDE one and
+	# must fall through to the ordinary advisory, which is why it gets its own arm first: a
+	# `case` glob's `*` matches `/` too, so `'~'[!/]*` alone read `~name/sub` as the whole home
+	# and denied a subdirectory permanently. The fold above never removes the separator before
+	# a name, so anything with a path inside it keeps one for this arm to see.
+	'~'*/*) ;;
+	'~'?*)
+		DESTRUCTIVE_CATASTROPHIC_CLASS='a home directory'
+		return 0
+		;;
+	/root)
+		DESTRUCTIVE_CATASTROPHIC_CLASS="the root user's home directory"
+		return 0
+		;;
+	/home | /Users)
+		DESTRUCTIVE_CATASTROPHIC_CLASS='the directory holding every home directory on this machine'
+		return 0
+		;;
+	esac
+	# The literal path `$HOME` currently holds, for the session that runs this. It is read
+	# rather than assumed because `/home/<name>` is one convention among several and the
+	# reported incident lost `~/.ssh` and `~/.gnupg` under exactly this spelling. Skipped when
+	# HOME is unset or empty (nothing to compare) or `/` (the case above already holds it, and
+	# treating every operand as a home directory because HOME is degenerate would be a rail
+	# that fires on everything).
+	case ${HOME:-} in
+	'' | /) ;;
+	*)
+		if [ "$w" = "${HOME%/}" ]; then
+			DESTRUCTIVE_CATASTROPHIC_CLASS='your home directory'
+			return 0
+		fi
+		;;
+	esac
+	return 1
+}
+
+# The interpreter half of the destructive rail, and an ADVISORY on purpose — read why before
+# strengthening it. The verb tiers above judge a COMMAND; this judges the PROGRAM TEXT an
+# interpreter was handed, which is the one thing this file's first design rule says it may not
+# do: text that merely CONTAINS a dangerous spelling — a commit message, a doc heredoc, this
+# script's own fixtures — must never be treated as the command. A permanent denial keyed on
+# program text would brick `git commit -m '... shutil.rmtree("/") ...'` forever, which is a
+# sentence this repository has already had to write. So the advisory fires only when the
+# segment's leading word is an enumerated interpreter, that segment carries an inline-code flag,
+# and the FLAG'S ARGUMENT names an enumerated deletion call before an opening parenthesis. Three
+# lists, all failing open, and the result is one turn of thought, not a verdict.
+#
+# What it therefore does NOT see, none of it an oversight:
+#   * A SCRIPT FILE. `python3 cleanup.py` carries no call text, and no scanner here opens a
+#     file to classify it (AMH ledger row DB027). Same for a test suite: `pytest` is the shape
+#     the reported incident actually ran, and it is invisible here by construction.
+#   * A HEREDOC BODY, stripped before any scan, and anything behind `bash -c`, `xargs` or a
+#     wrapper outside the transparent-prefix list.
+#   * ANY LANGUAGE OR SPELLING OFF THE LISTS. `os.system('rm -rf /')`, a base64 payload, an
+#     import alias, a deletion written as a loop of `os.rmdir`. Enumerating interpreters cannot
+#     close this and a broader advisory over interpreter WRITES was declined once already
+#     (AMH ledger row DC007) for blocking ordinary work while missing every other language.
+# The rule that covers all of that is in the constitution, not in this script, and the advisory
+# says so in its own words rather than letting a cleared prompt read as coverage.
+INTERPRETER_COMMANDS=' python python2 python3 node nodejs ruby perl deno bun php '
+# Deliberately short: each name is a deletion primitive whose presence in a one-liner is the
+# whole shape. `unlink` and `os.remove` earn their place because the reported class is a walk
+# plus a per-entry removal, not always a single recursive call.
+INTERPRETER_DELETE_CALLS=' rmtree remove_tree removedirs rm_rf rmSync rmdirSync rimraf remove_dir_all unlink os.remove '
+# The flags that introduce INLINE PROGRAM TEXT, which is the only thing this tier reads. Their
+# argument is the next word, or the tail of a `--eval=…` spelling.
+INTERPRETER_CODE_FLAGS=' -c -e -E -r -p --eval --print '
+
+# True when the segment's own program text NAMES a deletion call — `<call>` followed by an
+# opening parenthesis. Three narrowings live in that sentence, and each one closes a false
+# positive that shipped in this tier's first form:
+#   * PROGRAM TEXT, never the segment. Matching the whole segment read every operand too, so
+#     `python3 -m pytest tests/test_unlink.py` and `ruby -e "puts File.read(ARGV[0])"
+#     docs/unlink.md` were both advised — a test-suite invocation and a pure READ, in a
+#     repository that has deletion code and therefore has files named after it.
+#   * THE PARENTHESIS. Without it, `unlink` matched `unlink_count`, `help(os.unlink)` and
+#     `re.sub(r"unlink", …)` — word-anywhere matching, which this file's own bug history names.
+#     Accepted miss in exchange: a paren-less call, `FileUtils.rm_rf "path"` above all.
+#   * A LIST OF FLAGS, not a category. A program reached any other way — a script file, stdin, a
+#     heredoc — carries no text here to read, which is the same limit stated everywhere else.
+# One line, no command text, no newline. Empty output (no digest tool) is a refusal, not a
+# signature: the caller re-advises rather than recording something it cannot key on.
+interpreter_signature() { # interpreter_signature <command>
+	local flat=${1//$'\n'/ }
+	if command -v sha256sum >/dev/null 2>&1; then
+		printf '%s' "$flat" | sha256sum 2>/dev/null | cut -d' ' -f1
+	elif command -v shasum >/dev/null 2>&1; then
+		printf '%s' "$flat" | shasum -a 256 2>/dev/null | cut -d' ' -f1
+	elif command -v cksum >/dev/null 2>&1; then
+		printf '%s' "$flat" | cksum 2>/dev/null | tr -cd '0-9 ' | tr ' ' '-'
+	else
+		return 1
+	fi
+}
+
+names_inline_deletion_call() { # sets INTERPRETER_CALL
+	local prog=$1 call
+	INTERPRETER_CALL=''
+	for call in $INTERPRETER_DELETE_CALLS; do
+		case $prog in
+		*"$call"'('* | *"$call"' ('*)
+			INTERPRETER_CALL=$call
+			return 0
+			;;
+		esac
+	done
+	return 1
+}
+
+is_interpreter_deletion() { # sets INTERPRETER_CALL and INTERPRETER_LEAD
+	local cmd=$1 seg lead base w i found=1
+	local words=()
+	INTERPRETER_CALL=''
+	INTERPRETER_LEAD=''
+	# Cheap pre-gate, and it is about COST rather than correctness. Everything below walks the
+	# command character by character, and this tier would otherwise add a third such pass to
+	# every command in the session — a 34 KB commit message paid +50% for a tier that cannot
+	# fire on it. A command whose raw text names no deletion call at all cannot reach a verdict
+	# here, so answer that with one pattern match per call and stop (see the timing note at the
+	# top of this file: a guard slow enough to hit the hook timeout gets removed, not fixed).
+	for w in $INTERPRETER_DELETE_CALLS; do
+		case $cmd in *"$w"*) found=0; break ;; esac
+	done
+	[ "$found" -eq 0 ] || return 1
+	found=1
+	cmd=$(strip_heredocs "$cmd")
+	split_segments "$cmd"
+	for seg in ${SEGMENTS[@]+"${SEGMENTS[@]}"}; do
+		[ -n "${seg// /}" ] || continue
+		lead=$(leading_command "$seg") || continue
+		base=${lead##*/}
+		case $INTERPRETER_COMMANDS in
+		*" $base "*) ;;
+		*) continue ;;
+		esac
+		split_words "$seg"
+		words=(${SPLIT_WORDS[@]+"${SPLIT_WORDS[@]}"})
+		for ((i = 0; i < ${#words[@]}; i++)); do
+			w=${words[$i]}
+			case $INTERPRETER_CODE_FLAGS in
+			*" $w "*)
+				i=$((i + 1))
+				[ "$i" -lt "${#words[@]}" ] || break
+				if names_inline_deletion_call "${words[$i]}"; then
+					INTERPRETER_LEAD=$base
+					found=0
+				fi
+				;;
+			esac
+			case $w in
+			--eval=* | --print=*)
+				if names_inline_deletion_call "${w#*=}"; then
+					INTERPRETER_LEAD=$base
+					found=0
+				fi
+				;;
+			esac
+			[ "$found" -eq 0 ] && break
+		done
+		[ "$found" -eq 0 ] && break
+	done
+	return "$found"
+}
+
+# Where a path lands once git's `-C` has moved it into DIR: joined onto DIR, unless it is
+# already anchored — a leading `/` or `~`, or a leading `$` this guard cannot expand and does
+# not guess at — in which case it stands alone, as it does for git. Consecutive `-C` options
+# compose the same way, which is git's own rule. The result is TEXT for
+# `names_catastrophic_target`, whose fold then reads `~/.` as `~` and `//build` as `/build`.
+git_place_join() { # git_place_join <dir> <path> -> sets JOINED
+	case $2 in
+	'') JOINED=$1 ;;
+	/* | '~'* | '$'*) JOINED=$2 ;;
+	*)
+		if [ -n "$1" ]; then JOINED=$1/$2; else JOINED=$2; fi
+		;;
+	esac
+}
+JOINED=''
+
 # Record what a confirmed destructive segment is aimed AT. The target is the whole risk
 # here — unlike the dotenv and key-material rails, where every hit means the same thing
 # ("you are about to read a secret"), two `rm -rf` commands in one session can be a
@@ -1835,11 +2219,68 @@ record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 	# shared text was written for `rm` and says "delete" seven times; against `git worktree
 	# add`, which deletes nothing, every one of those is false, and an agent that notices is
 	# entitled to classify the whole advisory as a false positive and rerun without looking.
+	#
+	# `DESTRUCTIVE_DELETES` is COMMAND-scoped — it survives every segment, because the lead
+	# sentence it picks describes the command as a whole. The catastrophic gate below needs the
+	# opposite scope, so it gets its own SEGMENT-scoped local: without it, an earlier `rm` in
+	# the same command line lends its "deletes" property to a later `git worktree add "$HOME"`,
+	# and the permanent denial then prints "the deletion is aimed at your home directory" about
+	# a verb that deletes nothing — a false sentence attached to the one verdict no rerun can
+	# clear.
+	local deletes_here=0
 	case $kind in
-	rm | git-clean | git-rm | git-worktree-remove) DESTRUCTIVE_DELETES=1 ;;
+	rm | git-clean | git-rm | git-worktree-remove)
+		DESTRUCTIVE_DELETES=1
+		deletes_here=1
+		;;
 	esac
+	# The leading operands the `git` arm marked as git's own directory options, one letter
+	# each: C for `-C`, W for `--work-tree`, G for `--git-dir`. They stay operands for
+	# everything else here — an unexpanded `-C "$D"` is still the agent's to print, and still
+	# part of the signature — and only the catastrophic question reads them differently,
+	# because git itself does: `-C` moves the directory a relative pathspec is read from, a
+	# `--work-tree` bounds what a clean with nothing narrower can reach, and a `--git-dir`
+	# names repository metadata that none of these verbs deletes.
+	local places=${DESTRUCTIVE_PLACE_KINDS:-} place='' tree='' pathspecs=0 whole=0
 	for w in "$@"; do
 		case $w in *'$'*) DESTRUCTIVE_UNEXPANDED=1 ;; esac
+		if [ -n "$places" ]; then
+			case ${places:0:1} in
+			C)
+				git_place_join "$place" "$w"
+				place=$JOINED
+				;;
+			W) tree=$w ;;
+			esac
+			places=${places:1}
+		# Only for a verb that deletes a path — THIS segment's verb, never the command's
+		# (see `deletes_here` above). A revision operand is not a path at all, and the
+		# data-plane kinds record flags and database names, so asking either of them whether
+		# they name the filesystem root is asking a question about the wrong thing — the same
+		# reason the rootish paragraph is gated on `revision_operands`.
+		elif [ "$deletes_here" -eq 1 ] && [ "$revision_operands" -eq 1 ]; then
+			pathspecs=1
+			# A git magic pathspec (`:/`, `:(top)`) can address the top of the work tree,
+			# which this guard cannot place; it is judged below as if no pathspec narrowed
+			# the command, which is the reading it had before pathspecs were placed at all.
+			# Git's only: to `rm`, a leading `:` is an ordinary file name.
+			if [ "${kind#git-}" != "$kind" ] && [ "${w#:}" != "$w" ]; then
+				whole=1
+			else
+				# Judged where it lands: `-- build` under `-C "$HOME"` is `$HOME/build`, and
+				# `-- .` under the same `-C` is the home directory itself.
+				git_place_join "$place" "$w"
+				names_catastrophic_target "$JOINED" && DESTRUCTIVE_CATASTROPHIC=1
+				# Run from outside a `--work-tree`, git reads a pathspec from the TOP of that
+				# tree, and where the command stands is invisible here — so the pathspec is
+				# judged on the tree as well: `--work-tree="$HOME" clean -fd -- .` empties home.
+				if [ -n "$tree" ]; then
+					git_place_join "$place" "$tree"
+					git_place_join "$JOINED" "$w"
+					names_catastrophic_target "$JOINED" && DESTRUCTIVE_CATASTROPHIC=1
+				fi
+			fi
+		fi
 		# `${S}/base` and `$S/base` are the same question; `$(cmd)/base` is not a
 		# variable at all, and a `$` followed by anything else names nothing.
 		bare=''
@@ -1857,6 +2298,20 @@ record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 		# Only the spellings that carry a path separator can become an absolute path.
 		case $bare in *'/'*) [ "$revision_operands" -eq 1 ] && DESTRUCTIVE_ROOTISH=1 ;; esac
 	done
+	# A `git clean` that names no pathspec cleans the directory it runs in, and from outside
+	# its `--work-tree` it cleans all of that tree, so there the directory options ARE the
+	# target: `git -C "$HOME" clean -fd` and the dotfiles spelling `git --work-tree="$HOME"
+	# clean -fd` both empty a home directory of everything git does not track. A magic
+	# pathspec gets the same reading on every deleting verb. Only `git clean` treats an empty
+	# pathspec as "here"; the other deleting git verbs refuse to run without one.
+	if [ "$deletes_here" -eq 1 ] && [ "$revision_operands" -eq 1 ] &&
+		{ [ "$whole" -eq 1 ] || { [ "$kind" = git-clean ] && [ "$pathspecs" -eq 0 ]; }; }; then
+		[ -n "$place" ] && names_catastrophic_target "$place" && DESTRUCTIVE_CATASTROPHIC=1
+		if [ -n "$tree" ]; then
+			git_place_join "$place" "$tree"
+			names_catastrophic_target "$JOINED" && DESTRUCTIVE_CATASTROPHIC=1
+		fi
+	fi
 	# One entry per destructive SEGMENT, and the entry names the command kind as well as
 	# the operands. Without the kind, `git clean -fdx` and a literal `rm -rf '<work tree>'`
 	# were the same signature — a sentinel an operand can spell is not a sentinel. Operands
@@ -2001,6 +2456,8 @@ is_destructive_segment() {
 	# Per SEGMENT, not per command: `npm run db:push && dropdb app` is two decisions and the
 	# second one read a real command word, so the script-name disclosure must not carry over.
 	DESTRUCTIVE_FROM_SCRIPT_NAME=0
+	# Per segment for the same reason: its letters describe THIS segment's leading operands.
+	DESTRUCTIVE_PLACE_KINDS=''
 	split_words "$raw"
 	words=(${SPLIT_WORDS[@]+"${SPLIT_WORDS[@]}"})
 	# Find the same leading command that leading_command reports, without treating
@@ -2129,14 +2586,37 @@ is_destructive_segment() {
 		# in the one place the guard deliberately drops words: git treats `-C ''` as a
 		# no-op, so `git -C "$ROOT_DIR" reset --hard HEAD` with `ROOT_DIR` unset silently
 		# hard-resets the CURRENT repository rather than the intended one.
+		#
+		# Collected, and also MARKED, one letter per operand in DESTRUCTIVE_PLACE_KINDS: they
+		# name where the command runs, not what it deletes, and the permanent denial has to
+		# know the difference. `git -C "$HOME" clean -fd -- build` cleans one directory inside
+		# a repository, and reading its `-C` value as a deletion target denied it forever as
+		# a deletion of the home directory. `record_destructive_targets` says how each letter
+		# is read.
 		while [ "$i" -lt "${#words[@]}" ]; do
 			w=${words[$i]}
 			case $w in
 			-C | --git-dir | --work-tree)
-				[ $((i + 1)) -lt "${#words[@]}" ] && operands+=("${words[$((i + 1))]}")
+				if [ $((i + 1)) -lt "${#words[@]}" ]; then
+					operands+=("${words[$((i + 1))]}")
+					case $w in
+					-C) DESTRUCTIVE_PLACE_KINDS+=C ;;
+					--git-dir) DESTRUCTIVE_PLACE_KINDS+=G ;;
+					*) DESTRUCTIVE_PLACE_KINDS+=W ;;
+					esac
+				fi
 				i=$((i + 2))
 				;;
-			--git-dir=* | --work-tree=*) operands+=("${w#*=}"); i=$((i + 1)) ;;
+			--git-dir=*)
+				operands+=("${w#*=}")
+				DESTRUCTIVE_PLACE_KINDS+=G
+				i=$((i + 1))
+				;;
+			--work-tree=*)
+				operands+=("${w#*=}")
+				DESTRUCTIVE_PLACE_KINDS+=W
+				i=$((i + 1))
+				;;
 			-c) i=$((i + 2)) ;;
 			-*) i=$((i + 1)) ;;
 			*) break ;;
@@ -2562,6 +3042,8 @@ is_destructive_command() {
 	DESTRUCTIVE_DELETES=0
 	DESTRUCTIVE_DATAPLANE=0
 	DESTRUCTIVE_SCRIPTNAME=0
+	DESTRUCTIVE_CATASTROPHIC=0
+	DESTRUCTIVE_CATASTROPHIC_CLASS=''
 	cmd=$(strip_heredocs "$cmd")
 	# Every destructive segment is scanned, not just the first. A command that deletes two
 	# path sets is two decisions, and the advisory should be able to name both — stopping
@@ -2650,6 +3132,10 @@ check_command() {
 		BLOCK_REASON=$ADVISORY_REASON
 		return 1
 	fi
+	if needs_one_time_advisory interpreter "$cmd"; then
+		BLOCK_REASON=$ADVISORY_REASON
+		return 1
+	fi
 	warn_ladder_tail "$cmd"
 	cmd=$(strip_heredocs "$cmd")
 	split_segments "$cmd"
@@ -2669,17 +3155,25 @@ check_command() {
 
 # --- hook payload -----------------------------------------------------------
 extract_command() { # fail-open: print nothing if the payload is not what we expect
-	local payload=$1
-	if command -v python3 >/dev/null 2>&1; then
-		printf '%s' "$payload" | python3 -c 'import json,sys
+	local payload=$1 parsed
+	# A `python3` that EXISTS is not one that RUNS. The Windows Store's app-execution alias is
+	# on PATH on a stock desktop and answers every call with an install prompt and a non-zero
+	# exit; reading its silence as "this payload held no command" stood the whole rail down on
+	# every Bash call while the fallback below would have judged it. So the parser's own exit
+	# status decides: its program exits 0 on every payload it reads — declining a non-Bash or
+	# malformed one included — and only an interpreter that did not run exits otherwise, which
+	# sends the payload to the fallback instead (AMH ledger row DD030).
+	if command -v python3 >/dev/null 2>&1 &&
+		parsed=$(printf '%s' "$payload" | python3 -c 'import json,sys
 try:
     d = json.load(sys.stdin)
     if d.get("tool_name") == "Bash":
         print(d.get("tool_input", {}).get("command", ""))
 except Exception:
-    pass' 2>/dev/null
+    pass' 2>/dev/null); then
+		printf '%s\n' "$parsed"
 	else
-		# Keep the bash/git/coreutils baseline useful when Python is absent. This
+		# Keep the bash/git/coreutils baseline useful when Python is absent or does not run. This
 		# deliberately narrow fallback accepts only an object-shaped Bash payload and
 		# the documented tool_input.command spelling; anything ambiguous fails open.
 		case $payload in
@@ -2901,6 +3395,78 @@ st_parse_sanity() { # st_parse_sanity <expect: defect|normal> <text> <count>
 	fi
 	ST_FAILS=$((ST_FAILS + 1))
 }
+st_interpreter_advisory_once() { # st_interpreter_advisory_once <cmd> [<call name it must report>]
+	local cmd=$1 want=${2:-} state old_set old_state
+	old_set=${INTERPRETER_ADVISORY_STATE+x}
+	old_state=${INTERPRETER_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-interpreter-advisory-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	INTERPRETER_ADVISORY_STATE=$state
+	if check_command "$cmd"; then
+		printf 'SELF-TEST FAIL: should have had one-time interpreter-deletion advisory: %s\n' "$cmd" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif [ -n "$want" ] && case $BLOCK_REASON in *"$want"*) false ;; *) true ;; esac; then
+		printf 'SELF-TEST FAIL: interpreter advisory did not name %s: %s\n   reason given: %s\n' "$want" "$cmd" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif ! check_command "$cmd"; then
+		printf 'SELF-TEST FAIL: second interpreter attempt should have reached normal rails: %s\n   reason given: %s\n' "$cmd" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then INTERPRETER_ADVISORY_STATE=$old_state; else unset INTERPRETER_ADVISORY_STATE; fi
+}
+
+# ONE state file across two different one-liners: the rail must rearm per command text, or the
+# first harmless match in a session silences every deletion after it (AMH ledger row DC004's
+# lesson, applied to this tier before it can repeat).
+# The rearm key is a DIGEST, and this is the fixture that keeps it one. A `python3 -c` program
+# is where a literal credential turns up, and the state file is world-readable, at a predictable
+# path, outliving the session — so a key that were ever the command text again must fail here.
+st_interpreter_signature_is_opaque() { # st_interpreter_signature_is_opaque <cmd> <string it must not contain>
+	local cmd=$1 secret=$2 state old_set old_state
+	old_set=${INTERPRETER_ADVISORY_STATE+x}
+	old_state=${INTERPRETER_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-interpreter-opaque-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	INTERPRETER_ADVISORY_STATE=$state
+	if check_command "$cmd"; then
+		printf 'SELF-TEST FAIL: should have been advised: %s\n' "$cmd" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif [ ! -s "$state" ]; then
+		printf 'SELF-TEST FAIL: no signature recorded, so the rerun cannot clear: %s\n' "$cmd" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif LC_ALL=C grep -qF -- "$secret" "$state" 2>/dev/null; then
+		printf 'SELF-TEST FAIL: the advisory state file recorded command text verbatim\n' >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif [ "$(wc -l <"$state")" -ne 1 ]; then
+		printf 'SELF-TEST FAIL: signature is not one line, so grep -qxF can never match it: %s\n' "$cmd" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then INTERPRETER_ADVISORY_STATE=$old_state; else unset INTERPRETER_ADVISORY_STATE; fi
+}
+
+st_interpreter_rearms() { # st_interpreter_rearms <first> <second>
+	local first=$1 second=$2 state old_set old_state
+	old_set=${INTERPRETER_ADVISORY_STATE+x}
+	old_state=${INTERPRETER_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-interpreter-rearm-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	INTERPRETER_ADVISORY_STATE=$state
+	if check_command "$first"; then
+		printf 'SELF-TEST FAIL: first interpreter deletion should have been advised: %s\n' "$first" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif ! check_command "$first"; then
+		printf 'SELF-TEST FAIL: rerunning the SAME one-liner should proceed: %s\n' "$first" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif check_command "$second"; then
+		printf 'SELF-TEST FAIL: a DIFFERENT interpreter deletion must be advised even after an earlier one cleared: %s (after %s)\n' "$second" "$first" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then INTERPRETER_ADVISORY_STATE=$old_state; else unset INTERPRETER_ADVISORY_STATE; fi
+}
+
 st_dotenv_advisory_once() {
 	local state old_set old_state
 	old_set=${DOTENV_ADVISORY_STATE+x}
@@ -2971,6 +3537,37 @@ st_destructive_advisory_once() {
 		ST_FAILS=$((ST_FAILS + 1))
 	elif ! check_command "$1"; then
 		printf 'SELF-TEST FAIL: second destructive attempt should have reached normal rails: %s\n   reason given: %s\n' "$1" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
+}
+
+# The catastrophic list's fixture, and it asserts the OPPOSITE of the one above it: the same
+# command twice against ONE state file, blocked both times. Two further checks, because the
+# two-attempt half alone is passable by an implementation that keeps the promise by accident:
+# the refusal must name the class of target it fired on (a permanent denial that does not say
+# what it objected to teaches nothing and reads as a bug), and the state file must still be
+# EMPTY afterwards. A version that blocked twice while recording a signature would pass the
+# attempts and quietly rest "never clears" on a file the bootstrap deletes and a rerun writes.
+st_destructive_never_clears() { # st_destructive_never_clears <cmd> <class phrase>
+	local cmd=$1 want=$2 state old_set old_state
+	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
+	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-catastrophic-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	DESTRUCTIVE_ADVISORY_STATE=$state
+	if check_command "$cmd"; then
+		printf 'SELF-TEST FAIL: catastrophic target should have been blocked: %s\n' "$cmd" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif case $BLOCK_REASON in *"$want"*) false ;; *) true ;; esac; then
+		printf 'SELF-TEST FAIL: catastrophic refusal did not name %s: %s\n   reason given: %s\n' "$want" "$cmd" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif check_command "$cmd"; then
+		printf 'SELF-TEST FAIL: catastrophic target must NOT clear on a rerun: %s\n' "$cmd" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif [ -s "$state" ]; then
+		printf 'SELF-TEST FAIL: catastrophic target consumed a rearm signature, so the denial rests on a state file: %s\n' "$cmd" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	fi
 	rm -f -- "$state"
@@ -3603,6 +4200,226 @@ printenv'
 	st_destructive_reason_names 'is empty the command addresses an absolute path' \
 		'git worktree add --detach "$TEMP_WT/wt" HEAD'
 	st_destructive_reason_names 'print the expansion before you rerun' 'git reset --hard "$BASE"'
+	# The interpreter tier: an enumerated interpreter plus an enumerated deletion call, one
+	# advisory, rearmed per command text.
+	st_interpreter_advisory_once 'python3 -c "import shutil; shutil.rmtree(sys.argv[1])"' 'rmtree'
+	st_interpreter_advisory_once 'node -e "fs.rmSync(p, {recursive: true})"' 'rmSync'
+	st_interpreter_advisory_once 'ruby -e "FileUtils.rm_rf(x)"' 'rm_rf'
+	st_interpreter_advisory_once 'perl -e "remove_tree($d)"' 'remove_tree'
+	st_interpreter_advisory_once 'python3 -c "os.remove(p)"' 'os.remove'
+	# It must say which interpreter it saw, and it must keep saying what it cannot see — a rail
+	# whose one-line summary is "interpreter deletions are covered" is worse than none.
+	st_interpreter_advisory_once 'python3 -c "shutil.rmtree(d)"' 'python3'
+	st_interpreter_advisory_once 'python3 -c "shutil.rmtree(d)"' 'It did not read your program'
+	st_interpreter_advisory_once 'python3 -c "shutil.rmtree(d)"' 'os.system'
+	st_interpreter_rearms 'python3 -c "shutil.rmtree(a)"' 'python3 -c "shutil.rmtree(b)"'
+	st_interpreter_signature_is_opaque 'python3 -c "T=\"sk-live-FIXTURE\"; shutil.rmtree(d)"' 'sk-live-FIXTURE'
+	# A multi-line program: one signature line, or the rerun can never clear it — `printf %q`
+	# renders an embedded newline as a backslash-newline on bash before 4.4, which this file
+	# supports, and a two-line signature is a command that can never run again.
+	st_interpreter_signature_is_opaque 'python3 -c "import shutil
+shutil.rmtree(d)"' 'import shutil'
+	# The false positive this tier is NARROWED to avoid, and the reason it judges the leading
+	# command rather than the text: a commit message, a doc line and a grep pattern all CONTAIN
+	# the dangerous spelling, and a rail that fires on them is one an agent learns to skim —
+	# or, if it ever became a denial, one that cannot describe its own repository.
+	st_allowed 'git commit -m "guard against shutil.rmtree(/) in tests"'
+	st_allowed 'grep -rn rmtree docs/'
+	st_allowed 'echo "never call fs.rmSync here"'
+	st_allowed 'python3 -c "print(1)"'
+	# The documented misses, pinned so they are recorded decisions rather than gaps: a script
+	# file and a test suite carry no call text, and nothing here opens a file to classify it.
+	st_allowed 'python3 cleanup.py'
+	st_allowed 'pytest tests/test_delete.py'
+	st_allowed 'python3 -m pytest -k delete'
+	# The operand-scope false positives. Each of these was ADVISED by this tier's first form,
+	# which matched the call list against the whole segment: a test file named after the thing
+	# it tests, a pure READ of a doc whose name carries the word, and an ordinary identifier.
+	# A repository that has deletion code is exactly the one with files named like this.
+	st_allowed 'python3 -m pytest tests/test_unlink.py'
+	st_allowed 'python3 -m pytest tests/test_rmtree.py'
+	st_allowed 'node --test test/unlink.test.js'
+	st_allowed 'ruby -e "puts File.read(ARGV[0])" docs/unlink.md'
+	st_allowed 'python3 scripts/unlink_report.py'
+	# The parenthesis rule, which is what separates a CALL from a word that contains one.
+	st_allowed 'python3 -c "unlink_count = 0; print(unlink_count)"'
+	st_allowed 'python3 -c "help(os.unlink)"'
+	st_allowed 'node -e "console.log(fs.rmSync)"'
+	# The fourth shape the header claims is pinned: a heredoc body is stripped before any scan.
+	st_allowed 'python3 - <<EOF
+import shutil
+shutil.rmtree(d)
+EOF'
+
+	# The catastrophic list. Every spelling that folds to the same directory must reach the
+	# permanent denial, because a rail an agent steps around with a trailing slash teaches the
+	# trailing slash.
+	st_destructive_never_clears 'rm -rf /' 'the filesystem root'
+	st_destructive_never_clears 'rm -rf //' 'the filesystem root'
+	st_destructive_never_clears 'rm -rf /*' 'the filesystem root'
+	st_destructive_never_clears 'rm -rf -- /' 'the filesystem root'
+	st_destructive_never_clears 'rm -rf ~' 'your home directory'
+	st_destructive_never_clears 'rm -rf ~/' 'your home directory'
+	st_destructive_never_clears 'rm -rf ~/*' 'your home directory'
+	st_destructive_never_clears 'rm -rf "$HOME"' 'your home directory'
+	st_destructive_never_clears 'rm -rf "${HOME}"' 'your home directory'
+	st_destructive_never_clears 'rm -rf -- "${HOME:?}"' 'your home directory'
+	st_destructive_never_clears 'rm -rf /root' "the root user's home directory"
+	st_destructive_never_clears 'rm -rf //home' 'the directory holding every home directory'
+	st_destructive_never_clears 'rm -rf /**' 'the filesystem root'
+	st_destructive_never_clears 'rm -rf ~user' 'a home directory'
+	st_destructive_never_clears 'rm -rf ~user/' 'a home directory'
+	st_destructive_never_clears 'rm -rf ~user/*' 'a home directory'
+	st_destructive_never_clears 'rm -rf /home' 'the directory holding every home directory'
+	st_destructive_never_clears 'rm -rf /Users' 'the directory holding every home directory'
+	# The fold runs to a fixpoint, so a glob followed by a separator reaches the denial the glob
+	# alone does. `/*/` is every directory under the root, and a fold that stripped the glob
+	# once, before the separator, gave it the advisory a rerun clears (AMH ledger row DD035).
+	# `?*` is every entry and a separator repeated or `.` between two changes nothing.
+	st_destructive_never_clears 'rm -rf /*/' 'the filesystem root'
+	st_destructive_never_clears 'rm -rf /*/*' 'the filesystem root'
+	st_destructive_never_clears 'rm -rf /?*' 'the filesystem root'
+	st_destructive_never_clears 'rm -rf ~/*/' 'your home directory'
+	st_destructive_never_clears 'rm -rf ~/?*/' 'your home directory'
+	st_destructive_never_clears 'rm -rf "$HOME"/*/' 'your home directory'
+	st_destructive_never_clears 'rm -rf ~user/*/' 'a home directory'
+	st_destructive_never_clears 'rm -rf //./home' 'the directory holding every home directory'
+	st_destructive_never_clears 'rm -rf /./home' 'the directory holding every home directory'
+	# The trailing `*` run inside a component, which the component rule above would otherwise
+	# stand in for in every fixture: `/home*` includes `/home`, and `~/.*` is every hidden entry
+	# of home — `~/.ssh` and `~/.gnupg` among them. A `.*` component folds as `*` does, so
+	# `/*/.*` is denied as `/*/*` is.
+	st_destructive_never_clears 'rm -rf /home*' 'the directory holding every home directory'
+	st_destructive_never_clears 'rm -rf ~/.*' 'your home directory'
+	st_destructive_never_clears 'rm -rf /*/.*' 'the filesystem root'
+	# The verb list is wider than `rm`, and `git clean` is armed on any target, so it reaches
+	# the same denial.
+	st_destructive_never_clears 'git clean -fdx /' 'the filesystem root'
+	# Where it deliberately does NOT reach, pinned as a fixture so the boundary is a recorded
+	# decision rather than a gap someone later reads as a bug. The git verbs added after
+	# `git clean` are armed only when the target is UNKNOWN at scan time, and a literal `/` is
+	# known, so they stay silent — the narrowing that lets those verbs ship at all. Widening it
+	# for this list was considered and not done: git refuses a path outside the repository, so
+	# `git rm -r -f /` cannot reach the filesystem root the way `rm -rf /` can, and buying a
+	# denial for a command that already fails would cost the narrowing that keeps
+	# `git reset --hard origin/main` quiet.
+	st_allowed 'git rm -r -f /'
+	st_allowed 'git worktree remove /'
+	# git's directory options name where a command runs, and a pathspec is judged where it
+	# LANDS. A scoped cleanup inside a repository that lives at a home directory is ordinary
+	# work, and reading its `-C` as the deletion target denied it forever as a deletion of that
+	# home. Each of these was a permanent denial before the placement existed.
+	st_destructive_advisory_once 'git -C "$HOME" clean -fd -- build'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git -C ~ -C proj clean -fdx'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git -C "$HOME" rm -r -f -- build'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git -C "$HOME" worktree remove wt'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git --git-dir="$HOME" clean -fd'
+	rm -f -- "$self_destructive_advisory_state"
+	# ...and where the placement lands ON the home directory, the denial stands. No pathspec,
+	# `.`, a glob and a magic pathspec all clean from the `-C` directory itself, and a
+	# `--work-tree` naming home is the dotfiles-repository spelling, which run from outside
+	# that tree cleans all of it. A placement that let these through would have traded one
+	# wrong verdict for a worse one.
+	st_destructive_never_clears 'git -C "$HOME" clean -fd' 'your home directory'
+	st_destructive_never_clears 'git -C ~ clean -fdx -- .' 'your home directory'
+	st_destructive_never_clears 'git -C ~ clean -fd -- "*"' 'your home directory'
+	st_destructive_never_clears 'git -C ~ clean -fd -- "*/"' 'your home directory'
+	st_destructive_never_clears 'git -C ~ clean -fd -- "?*"' 'your home directory'
+	st_destructive_never_clears 'git --work-tree="$HOME" clean -fd -- "*/"' 'your home directory'
+	st_destructive_never_clears 'git -C ~ clean -fd :/' 'your home directory'
+	st_destructive_never_clears 'git -C /tmp -C / clean -fd' 'the filesystem root'
+	st_destructive_never_clears 'git -C proj clean -fd -- "$HOME"' 'your home directory'
+	st_destructive_never_clears 'git --git-dir="$HOME/.cfg" --work-tree="$HOME" clean -fd' 'your home directory'
+	st_destructive_never_clears 'git -C "$HOME" rm -r -f .' 'your home directory'
+	# A pathspec under a `--work-tree` is read from the top of that tree when git runs from
+	# outside it, so `.` there is the whole tree — and a pathspec inside it is still ordinary.
+	st_destructive_never_clears 'git --git-dir="$HOME/.cfg" --work-tree="$HOME" clean -fdx -- .' 'your home directory'
+	st_destructive_never_clears 'git --work-tree="$HOME" rm -r -f .' 'your home directory'
+	st_destructive_advisory_once 'git --work-tree="$HOME" clean -fd -- build'
+	rm -f -- "$self_destructive_advisory_state"
+	# Where the placement deliberately matches `rm`'s boundaries rather than out-reaching
+	# them: a pathspec that is only a variable is a path this guard cannot expand (`rm -rf
+	# "$HOME"/$X` is advised, not denied), and `..` is outside the fold for both verbs.
+	st_destructive_advisory_once 'git -C "$HOME" clean -fd -- $X'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git -C ~ -C .. clean -fd'
+	rm -f -- "$self_destructive_advisory_state"
+	# One catastrophic operand condemns the whole segment list, which is the direction that
+	# matters: a command that deletes a scratch path AND the root is not half safe.
+	st_destructive_never_clears 'rm -rf tmp/x && rm -rf /' 'the filesystem root'
+	# The refusal has to keep saying what it does NOT cover. A permanent denial is the most
+	# authoritative thing this guard ever prints, and the reading it invites — "the dangerous
+	# ones are handled" — is the one that gets a tree deleted through an interpreter.
+	st_destructive_never_clears 'rm -rf /' 'behind a shell string or an interpreter'
+	# And it must name the SHELL STRING, not just the other-language interpreter. A reader who
+	# maps "interpreter" onto Python alone walks straight into `bash -c`, which is the wrapper
+	# an agent is likeliest to type next and which this rail does not see.
+	st_destructive_never_clears 'rm -rf /' 'bash -c'
+	# The boundaries of the list, all of which must stay ORDINARY one-time advisories. Each is
+	# a deliberate exclusion rather than an oversight, and this is where that is recorded:
+	# a subdirectory of home is ordinary work, `/etc` is outside the list (see the header),
+	# a revision operand is not a path, and `.` is how half the repository's own commands
+	# address the work tree.
+	st_destructive_advisory_once 'rm -rf "$HOME/scratch"'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf ~/scratch'
+	rm -f -- "$self_destructive_advisory_state"
+	# Another account's SUBDIRECTORY is the same ordinary case. A `case` glob's `*` crosses
+	# `/`, so the bare-`~name` arm once read this as the whole home and denied it forever.
+	st_destructive_advisory_once 'rm -rf ~user/scratch'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf ~user/scratch/*'
+	rm -f -- "$self_destructive_advisory_state"
+	# `..` is outside the fold, as the refusal text says, so a tilde operand that climbs out
+	# of a home directory keeps the ordinary advisory like every other `..` spelling. Pinned
+	# so that is a recorded boundary, not a gap the `~name/sub` arm happened to open.
+	st_destructive_advisory_once 'rm -rf ~/..'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf ~user/..'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf /etc'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf .'
+	rm -f -- "$self_destructive_advisory_state"
+	# The fold strips a trailing glob only from a rooted or tilde'd operand, and these two are
+	# why. `rm -rf *` and `rm -rf build*` name whatever directory the command is standing in,
+	# which this guard cannot see; folding them to the root would deny the commonest deletion
+	# there is, permanently and on no evidence.
+	st_destructive_advisory_once 'rm -rf *'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf build*'
+	rm -f -- "$self_destructive_advisory_state"
+	# The fixpoint keeps every one of those boundaries. A glob and a separator under a directory
+	# off the list fold to that directory and no further; an unanchored glob stays unanchored
+	# however many separators follow it; a component of `?` alone matches only names that long;
+	# and `..` stays outside the fold after a glob as it does after a name.
+	st_destructive_advisory_once 'rm -rf /tmp/*/'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf */'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf ~/scratch/*/'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf ~/build*/'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf ~/??'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf ~/*/..'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git -C ~ clean -fd -- "build/*/"'
+	rm -f -- "$self_destructive_advisory_state"
+	# The catastrophic gate reads THIS segment's verb. An earlier deleting segment must not
+	# lend its property to a later verb that deletes nothing: `git worktree add` overwrites,
+	# the advisory says so, and a permanent denial calling it a deletion would be false in the
+	# one verdict no rerun can clear.
+	st_destructive_advisory_once 'rm -rf build && git worktree add "$HOME" HEAD'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git reset --hard "$HOME"'
+	rm -f -- "$self_destructive_advisory_state"
+
 	# Distinct verbs are distinct targets: clearing one must not clear another.
 	st_destructive_rearms_per_target 'git reset --hard "$A"' 'git checkout -f "$A"'
 	st_destructive_rearms_per_target 'git worktree add "$A" HEAD' 'git worktree remove "$A"'

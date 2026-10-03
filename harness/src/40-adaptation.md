@@ -45,7 +45,8 @@ never on the runtime path, and no tool sits between an agent and the raw files. 
 init script may materialise as much as it likes without becoming a dependency — and it is the
 line any proposed sync tooling has to stay behind.
 
-**Bootstrap `ladder.sh` as nothing but the verification commands.** Guards accrete one at a
+**Bootstrap `scripts/verify.sh` as nothing but the verification commands**, and leave the shipped
+`ladder.sh` as delivered — its guards activate on artifact presence. Guards accrete one at a
 time, each earning its place after a real violation, and each landing with a fixture test in
 the guard suite — a botched guard that false-passes is worse than no guard. Treat the first few
 sessions as a shakedown: watch adherence, and when a rule proves ambiguous, the fix is a

@@ -624,8 +624,11 @@ rm "$d/.codex/agents/amh-rule-reviewer.toml"
 expect fail "adapter-set: the Codex reviewer reference path was removed" "$d" adapter-set.sh ".codex/agents/amh-rule-reviewer.toml"
 
 d=$(snapshot adapter_codex_install_gone)
-sed_in_place '\|codex-config.toml.*\.codex/config.toml|d' "$d/scripts/amh-init.sh"
-expect fail "adapter-set: a Codex install action was removed" "$d" adapter-set.sh "install action missing"
+# ONE entry out of the list, not the line holding it: deleting the whole KEEP_CONFIGS line would
+# fail for every adapter at once and pass this case whichever entry the guard actually checks.
+sed_in_place 's| configs/codex-config\.toml:\.codex/config\.toml||' "$d/scripts/amh-init.sh"
+expect fail "adapter-set: a Codex install action was removed" "$d" adapter-set.sh \
+	"adapter install action missing: harness/templates/configs/codex-config.toml -> .codex/config.toml"
 
 d=$(snapshot adapter_codex_legislation_gone)
 sed_in_place 's/ \.codex\/config\.toml//' "$d/harness/templates/amh.conf.example"
@@ -663,6 +666,150 @@ expect fail "adapter-set: an empty banner list reports no adapter at all" "$d" a
 d=$(snapshot adapter_banner_stale_entry)
 sed_in_place "s|^ADAPTER_FILES='|ADAPTER_FILES='.zed/settings.json |" "$d/amh.conf"
 expect fail "adapter-set: the banner lists a file outside the adapter set" "$d" adapter-set.sh "not in the first-class adapter set"
+
+# The Claude `shell` pin is a HAND step with no other reporter, and every mutation below is
+# silent at runtime: an unpinned hook still exists and still matches, and the association route
+# that catches it runs the script detached and returns 0 (DD-008, DD-011, DD-013).
+#
+# The hook COUNT in the expectations below is derived, never written out. It was hard-coded at
+# three until a fourth hook was wired, and the stale fixture then failed with a message naming
+# three — which reads as a defect in the guard rather than as this line being out of date.
+#
+# Derived PER FILE, because the mutations below do not all target the same one: a template
+# expectation read off the reference copy would pass by coincidence for exactly as long as the
+# two files happen to carry equal counts, and nothing requires them to. Zero is a dead fixture
+# rather than a small number — `0 of 0` would assert nothing and pass — so it aborts here.
+claude_tpl_hooks=$(grep -c '"type": "command",' harness/templates/configs/claude-settings.json)
+claude_ref_hooks=$(grep -c '"type": "command",' .claude/settings.json)
+if [ "$claude_tpl_hooks" -eq 0 ] || [ "$claude_ref_hooks" -eq 0 ]; then
+	printf 'local-guards: counted NOTHING to expect — no "type": "command" entries in a Claude adapter file (template=%s reference=%s). The fixtures below would assert "0 of 0" and pass over a guard that checked nothing.\n' \
+		"$claude_tpl_hooks" "$claude_ref_hooks" >&2
+	exit 1
+fi
+d=$(snapshot adapter_claude_pin_gone)
+sed_in_place '/^[[:space:]]*"shell": "bash",$/d' "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: the Claude shell pin was dropped from the template" "$d" adapter-set.sh \
+	"$claude_tpl_hooks of $claude_tpl_hooks command hook(s) are not followed by"
+
+# Exactly ONE entry, so a check that merely counted pins somewhere in the file would pass this.
+d=$(snapshot adapter_claude_pin_value_wrong)
+sed_in_place '/"SessionStart"/,/session-start.sh/ s/"shell": "bash",/"shell": "Bash",/' "$d/.claude/settings.json"
+expect fail "adapter-set: an invalid Claude shell VALUE drops the whole hook entry" "$d" adapter-set.sh \
+	"1 of $claude_ref_hooks command hook(s) are not followed by"
+
+d=$(snapshot adapter_claude_pin_key_misspelled)
+sed_in_place 's/"shell": "bash",/"shel": "bash",/' "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: a misspelled Claude shell KEY leaves the entry unpinned" "$d" adapter-set.sh \
+	"$claude_tpl_hooks of $claude_tpl_hooks command hook(s) are not followed by"
+
+# The hollow branch. Without it a settings file this guard can no longer parse — reformatted,
+# keys renamed, rewritten by a future adapter version — reports a pin it never actually read.
+d=$(snapshot adapter_claude_pin_unreadable)
+sed_in_place 's/"type": "command",/"kind": "command",/' "$d/.claude/settings.json"
+expect fail "adapter-set: a Claude settings file this guard cannot parse is not a pass" "$d" adapter-set.sh \
+	"checked NOTHING"
+
+# The dangerous shape is not a file this guard cannot read at all — that is loud — but one it
+# reads PARTLY: tidy entries beside one the line matcher never sees. Before the population count
+# was reconciled layout-independently, both mutations below produced valid JSON with a genuinely
+# unpinned command-guard hook and a guard that exited 0 (DD-013).
+d=$(snapshot adapter_claude_pin_unreadable_entry)
+sed_in_place '/"SessionStart"/,/session-start.sh/ s/"type": "command",/"type":"command",/' "$d/.claude/settings.json"
+expect fail "adapter-set: one entry outside the readable layout is UNVERIFIED, not passed" "$d" adapter-set.sh \
+	"checked NOTHING for 1 of $claude_ref_hooks"
+
+# An entry that opens and never gets its next line: without the awk END arm this counted a hook
+# and found nothing unpinned, so a truncated adapter file passed.
+d=$(snapshot adapter_claude_pin_truncated)
+sed -n '1,/"type": "command",/p' "$d/.claude/settings.json" >"$d/.claude/settings.json.cut"
+mv "$d/.claude/settings.json.cut" "$d/.claude/settings.json"
+expect fail "adapter-set: a file truncated after a hook opens is not a pass" "$d" adapter-set.sh \
+	"1 of 1 command hook(s) are not followed by"
+
+# The PostToolUse redaction hook is the second hand-applied Claude step and, unlike the pin, its
+# absence is invisible in BOTH directions: the host discards a replacement that misses a tool's
+# schema and uses the original output, and a host without python3 stands the rail down — so a
+# tree with the wiring deleted is indistinguishable from a tree whose output held no credential.
+# The hook's own --self-test passes either way, because it tests the script and not the wiring.
+d=$(snapshot adapter_claude_post_hook_gone_template)
+sed_in_place '/"PostToolUse": \[/,/^[[:space:]]*\],$/d' "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: the PostToolUse redaction hook was dropped from the template" "$d" adapter-set.sh \
+	"no \"PostToolUse\" group found"
+
+d=$(snapshot adapter_claude_post_hook_gone_reference)
+sed_in_place '/"PostToolUse": \[/,/^[[:space:]]*\],$/d' "$d/.claude/settings.json"
+expect fail "adapter-set: the PostToolUse redaction hook was dropped from the reference copy" "$d" adapter-set.sh \
+	"no \"PostToolUse\" group found"
+
+# The group present but pointing somewhere else. Without this the guard could be satisfied by a
+# PostToolUse hook that does anything at all, which is the shape a future adapter revision would
+# most plausibly arrive in.
+d=$(snapshot adapter_claude_post_hook_rewired)
+sed_in_place 's|"command": "scripts/redact-tool-output.sh"|"command": "scripts/session-start.sh"|' "$d/.claude/settings.json"
+expect fail "adapter-set: a PostToolUse group that does not invoke the redaction rail" "$d" adapter-set.sh \
+	"does not invoke scripts/redact-tool-output.sh exactly once"
+
+# The rail wired but UNPINNED. The pin loop counts entries across the whole file, so it reports a
+# number without saying which entry; this fixture is what makes the per-entry message load-bearing.
+d=$(snapshot adapter_claude_post_hook_unpinned)
+sed_in_place '/"PostToolUse": \[/,/redact-tool-output.sh/ s/^[[:space:]]*"shell": "bash",$//' "$d/.claude/settings.json"
+expect fail "adapter-set: the PostToolUse hook wired without its shell pin" "$d" adapter-set.sh \
+	"carries no"
+
+# The rail wired, pinned and NARROWED. Both checks above pass on it, and so does the hook's own
+# self-test, while every tool the matcher no longer names — Bash and Read above all, where a
+# credential actually surfaces — reaches the model unredacted. The Codex check has always demanded
+# its all-tools matcher; this is the Claude half of the same demand.
+d=$(snapshot adapter_claude_post_hook_narrowed)
+sed_in_place '/"PostToolUse": \[/,/redact-tool-output.sh/ s/"matcher": "\*"/"matcher": "Write"/' "$d/.claude/settings.json"
+expect fail "adapter-set: the Claude PostToolUse hook no longer covers every tool" "$d" adapter-set.sh \
+	"matcher is not the explicit all-tools"
+
+# A second group beside the rail's makes the governing matcher a guess for a guard with no JSON
+# parser, so it is UNVERIFIED rather than read — the other group's "*" must not vouch for this one.
+d=$(snapshot adapter_claude_post_hook_two_groups)
+awk '{ print } /^[[:space:]]*"PostToolUse": \[$/ { print "      {"; print "        \"matcher\": \"Bash\","; print "        \"hooks\": []"; print "      }," }' \
+	"$d/harness/templates/configs/claude-settings.json" >"$d/claude-settings.json.two" &&
+	mv "$d/claude-settings.json.two" "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: a Claude PostToolUse group whose governing matcher cannot be read" "$d" adapter-set.sh \
+	"UNVERIFIED, not all-tools"
+
+# The same evasion with the narrowed key written off the one-key-per-line layout: counting only
+# canonical lines saw ONE matcher — the other group's "*" — and vouched for the narrowed rail.
+d=$(snapshot adapter_claude_post_hook_offlayout_key)
+sed_in_place '/"PostToolUse": \[/,/redact-tool-output.sh/ s/"matcher": "\*",/"matcher" : "Write",/' "$d/.claude/settings.json"
+awk '{ print } /^[[:space:]]*"PostToolUse": \[$/ { print "      {"; print "        \"matcher\": \"*\","; print "        \"hooks\": []"; print "      }," }' \
+	"$d/.claude/settings.json" >"$d/settings.json.off" && mv "$d/settings.json.off" "$d/.claude/settings.json"
+expect fail "adapter-set: a narrowed Claude matcher off the readable layout, beside a canonical \"*\"" "$d" adapter-set.sh \
+	"UNVERIFIED, not all-tools"
+
+d=$(snapshot adapter_codex_post_hook_gone)
+sed_in_place '/^\[\[hooks.PostToolUse\]\]$/,/^]$/d' "$d/.codex/config.toml"
+expect fail "adapter-set: the Codex PostToolUse hook was dropped" "$d" adapter-set.sh \
+	"no [[hooks.PostToolUse]] group found"
+
+d=$(snapshot adapter_codex_post_hook_rewired)
+sed_in_place 's|redact-tool-output.sh|session-start.sh|' "$d/harness/templates/configs/codex-config.toml"
+expect fail "adapter-set: the Codex PostToolUse hook was rewired" "$d" adapter-set.sh \
+	"does not declare exactly one command hook"
+
+d=$(snapshot adapter_codex_post_hook_wrong_type)
+sed_in_place '/^\[\[hooks.PostToolUse\]\]$/,/^]$/ s/type = "command"/type = "prompt"/' "$d/.codex/config.toml"
+expect fail "adapter-set: the Codex PostToolUse rail is not a command hook" "$d" adapter-set.sh \
+	"does not declare exactly one command hook"
+
+d=$(snapshot adapter_codex_post_hook_narrowed)
+sed_in_place '/^\[\[hooks.PostToolUse\]\]$/,/^]$/ s/matcher = "\.\*"/matcher = "^Bash$"/' "$d/.codex/config.toml"
+expect fail "adapter-set: the Codex PostToolUse hook no longer covers every tool" "$d" adapter-set.sh \
+	"matcher is not the explicit all-tools"
+
+# ...and narrowed with a second PostToolUse table beside it whose ".*" used to vouch for it.
+d=$(snapshot adapter_codex_post_hook_two_tables)
+sed_in_place '/^\[\[hooks.PostToolUse\]\]$/,/^]$/ s/matcher = "\.\*"/matcher = "^Write$"/' "$d/.codex/config.toml"
+printf '\n[[hooks.PostToolUse]]\nmatcher = ".*"\nhooks = []\n' >>"$d/.codex/config.toml"
+expect fail "adapter-set: a narrowed Codex rail beside another table's all-tools matcher" "$d" adapter-set.sh \
+	"UNVERIFIED, not all-tools"
+
 
 d=$(snapshot drift_dist)
 printf 'hand edit\n' >>"$d/harness/dist/AMH.md"
@@ -1463,6 +1610,31 @@ else
 	printf '  FAIL manifest-drift: a missing hasher is named, not reported as drift — rc=%s\n%s\n' "$rc" "$out" >&2
 fi
 
+# build-manifest.sh with a hasher that FAILS, which is a different condition from having none.
+# Substituted straight into printf's arguments, a failed digest cost nothing: the run exited 0
+# with empty hashes in --stdout mode, and in write mode replaced both committed manifests with
+# them. A shim that exits 1 and prints nothing stands in for the broken tool. Both modes must
+# fail, the write mode must say why, and the committed pair must be byte-for-byte unchanged.
+bm_shim="$WORK/bm_failing_hasher"
+mkdir -p "$bm_shim"
+printf '#!/bin/sh\nexit 1\n' >"$bm_shim/sha256sum"
+chmod +x "$bm_shim/sha256sum"
+dm=$(snapshot build_manifest_failing_hasher)
+bm_before=$(cat "$dm/scripts/MANIFEST.sha256" "$dm/harness/templates/scripts/MANIFEST.sha256")
+(cd "$dm" && PATH="$bm_shim:$PATH" scripts/build-manifest.sh --stdout >/dev/null 2>&1)
+bm_rc_stdout=$?
+out=$(cd "$dm" && PATH="$bm_shim:$PATH" scripts/build-manifest.sh 2>&1)
+bm_rc_write=$?
+bm_after=$(cat "$dm/scripts/MANIFEST.sha256" "$dm/harness/templates/scripts/MANIFEST.sha256")
+if [ "$bm_rc_stdout" -ne 0 ] && [ "$bm_rc_write" -ne 0 ] && [ "$bm_before" = "$bm_after" ] &&
+	printf '%s' "$out" | grep -qF 'produced no sha256 digest'; then
+	PASSED=$((PASSED + 1))
+else
+	FAILED=$((FAILED + 1))
+	printf '  FAIL build-manifest: a failing hasher fails both modes and writes nothing — stdout rc=%s, write rc=%s\n%s\n' \
+		"$bm_rc_stdout" "$bm_rc_write" "$out" >&2
+fi
+
 # config-schema with no `comm` on PATH — the same hollow-green shape, and the one its own
 # review found: with the comparison unable to run, the difference is empty and the guard
 # would otherwise print an affirmative line claiming 22 keys were checked. The shim's fixed
@@ -1555,6 +1727,18 @@ bs_ready_home "$h"
 bs_env_run "$dw" "$h" "file://$d/good.tar.xz" "$BS_PATH"
 bs_expect pass "warm-up: an origin remote is fetched in the background" "in the background"
 bs_check "warm-up: and the ref the poison-token guard needs actually lands" \
+	bs_await_ref "$dw" "refs/remotes/origin/$bs_branch"
+
+# A single-branch clone's refspec maps only its own branch, and a bare `git fetch origin
+# <default>` then exits 0 and lands nothing — the case above cannot see that, because
+# `git remote add` configures the wide refspec. Narrow it the way `git clone --single-branch`
+# does, delete the ref again, and require the warm-up to land it anyway.
+git -C "$dw" config remote.origin.fetch "+refs/heads/elsewhere:refs/remotes/origin/elsewhere"
+git -C "$dw" update-ref -d "refs/remotes/origin/$bs_branch"
+h="$WORK/bs_home_warm_single_branch"
+bs_ready_home "$h"
+bs_env_run "$dw" "$h" "file://$d/good.tar.xz" "$BS_PATH"
+bs_check "warm-up: the ref lands in a single-branch clone too" \
 	bs_await_ref "$dw" "refs/remotes/origin/$bs_branch"
 
 printf '\n%d passed, %d failed\n' "$PASSED" "$FAILED"

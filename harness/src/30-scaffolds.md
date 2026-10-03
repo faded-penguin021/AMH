@@ -311,7 +311,9 @@ rather than the command.
   wrappers, constructed commands, heredocs, window limits — because a rail whose limits are
   only discoverable by reading its scanners will be mistaken for a vault. And an agent with no
   pre-execution hook has **no command rail at all**: the script is then one nobody calls, and
-  the prose is the only layer. Nothing can detect that state for the agent — distinguishing a
+  the prose is the only layer — except at the push, where the git-native pre-push rail (P13)
+  is invoked by git, not by the agent, wherever it was installed. Nothing can detect that state
+  for the agent — distinguishing a
   hook invocation from a manual one requires vendor-specific environment variables the harness
   will not assume — so it is stated in the constitution rather than warned about at boot.
 - **Subagent-spawn speed bump** (where the agent's pre-tool-use hooks match on tool NAME): wire
@@ -330,10 +332,22 @@ rather than the command.
   flag.
 - **Output redaction** (where supported): if the agent exposes an output-filter hook, pipe tool
   and terminal output through `scripts/redact.sh` so known token shapes are scrubbed before
-  they reach the context window. Codex hooks can block a shell call before it runs, but cannot
-  currently suppress or rewrite tool output, so its adapter deliberately has no `PostToolUse`
-  redaction hook. State explicitly in the adapter which layers it actually provides — rails,
-  redaction, or prose-only.
+  they reach the context window. Claude Code can replace a result in place. Codex cannot
+  currently rewrite one, but its `PostToolUse` hook can block delivery of the original and
+  substitute model feedback; the Codex adapter uses that path only after redaction, with the
+  cost that the completed tool looks failed and a structured result becomes JSON text.
+  `scripts/redact-tool-output.sh` handles both contracts. **Filter the string LEAVES of the
+  response the host actually handed you, and rebuild it in place** — never reconstruct what
+  you believe that tool returns. A replacement
+  that misses the tool's own schema is discarded as a non-blocking error and the original output
+  is used, so the rail reads as wired while doing nothing, and the whole layer is fail-open by
+  the host's design. Filtering the SERIALISED response instead is the trap: a private key inside
+  one JSON string has its newlines written as escapes, so the block filter's range stage never
+  opens and only the marker is replaced — a marker printed over a live value, which P17 calls
+  worse than no class at all. State explicitly in the adapter which layers it actually provides
+  — rails, redaction, or prose-only — and state each layer's bounds with it: a redaction hook
+  sees successful tool calls only, cannot unsay what the tool already wrote to the transcript,
+  and catches the enumerated shapes and nothing else.
 - **Server-side:** the owner mirrors the hardest rails at the host — branch protection on the
   default branch (PRs required; force-push and deletion blocked) and secret-scanning push
   protection. The adapter's deny rules bind only agents that load them; the server binds every

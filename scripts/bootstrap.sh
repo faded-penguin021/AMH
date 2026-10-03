@@ -18,7 +18,7 @@
 #      a session that edits a script without it is editing blind and finds out from CI
 #      after the push (D-026). This closes that cost for every remote
 #      session rather than relying on each one remembering a curl command.
-#   3. Kicks off `git fetch origin <default>` in the background (P14's warm-up), because
+#   3. Fetches origin's <default> into `origin/<default>` in the background (P14's warm-up), because
 #      the poison-token guard resolves that ref and checks NOTHING without it.
 #
 # Constraints this script is built to, all of them learned here:
@@ -217,7 +217,10 @@ warm_up() {
 		loud "warm-up: cannot write $WARMUP_LOG — the background fetch of origin/$DEFAULT_BRANCH was NOT started. The poison-token guard warns on its own if the ref is missing."
 		return 0
 	fi
-	git fetch --quiet origin "$DEFAULT_BRANCH" >>"$WARMUP_LOG" 2>&1 &
+	# The destination is spelled out. A bare `git fetch origin <branch>` updates the
+	# remote-tracking ref only when a configured refspec maps it — a single-branch clone's does
+	# not — so it would exit 0 here and leave the ref this warm-up exists to create absent.
+	git fetch --quiet origin "+refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH" >>"$WARMUP_LOG" 2>&1 &
 	say "warm-up: fetching origin/$DEFAULT_BRANCH in the background (pid $!, log: $WARMUP_LOG). If it fails, the poison-token guard says so on its own."
 }
 

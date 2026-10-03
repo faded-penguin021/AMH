@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # AMH — the acceptance ladder: ONE verification entrypoint, shared by the agent and
-# CI by construction (P4). CI invokes this exact script, so "green locally, red in
-# CI" can only ever mean environment, never a lockstep the humans forgot to update.
+# CI by construction (P4). CI invokes this exact script, so "green locally, red in CI"
+# is never a lockstep the humans forgot to update. It is a different INPUT: another commit,
+# a staged or untracked file seen differently, the environment, or a step CI adds.
 #
 #   scripts/ladder.sh                 fast guards, then the full verification set
 #   scripts/ladder.sh --guards-only   guards only (seconds) — for docs-only work
@@ -32,7 +33,7 @@ case "${1:-}" in
 --guards-only) GUARDS_ONLY=1 ;;
 "") ;;
 -h | --help)
-	sed -n '2,16p' "$0"
+	sed -n '2,17p' "$0"
 	exit 0
 	;;
 *)
@@ -472,7 +473,14 @@ guard_new_ledger_row_lengths() {
 	# Either limit alone is a working configuration; both at zero switches the rung off.
 	[ "$cap" -gt 0 ] || [ "$sent_cap" -gt 0 ] || return
 	git rev-parse --verify -q HEAD >/dev/null 2>&1 || return
-	changed=$(git diff --name-only HEAD -- "$LEDGER_DIR" | awk -v dir="$LEDGER_DIR" -v base="$LEDGER_BASENAME" '
+	# Untracked volumes are listed beside the diff, because `git diff HEAD` sees tracked paths
+	# only. Without them a NEW volume — the file every rollover creates — sat outside this rung
+	# until someone staged it, and once committed its rows are HEAD's and exempt for good: the
+	# one row most likely to be long was the one row never measured.
+	changed=$({
+		git diff --name-only HEAD -- "$LEDGER_DIR"
+		git ls-files --others --exclude-standard -- "$LEDGER_DIR"
+	} | awk -v dir="$LEDGER_DIR" -v base="$LEDGER_BASENAME" '
 		$0 == dir "/" base ".md" { found = 1 }
 		$0 ~ "^" dir "/" base "_[A-Z]+[.]md$" { found = 1 }
 		END { exit found ? 0 : 1 }
@@ -482,10 +490,11 @@ guard_new_ledger_row_lengths() {
 	: >"$TMP/head-chain"
 	while :; do
 		path=$(volume_path "$suffix")
-		if ! git cat-file -e "HEAD:$path" 2>/dev/null; then
-			[ -n "$suffix" ] && break
-			return
-		fi
+		# A volume HEAD does not have ends the committed chain. That includes the BASE volume:
+		# a ledger never committed has no historical rows, so every row in it is new and is
+		# measured — returning here instead let a repository's first ledger through unread,
+		# and its rows became exempt history on the commit that added them.
+		git cat-file -e "HEAD:$path" 2>/dev/null || break
 		git show "HEAD:$path" >"$TMP/head-ledger/$path" || return
 		printf '%s\n' "$path" >>"$TMP/head-chain"
 		next=$(next_volume_suffix "$suffix") || break
@@ -880,7 +889,10 @@ guard_poison_tokens() {
 		# against and checks nothing — it ran inert in the reference repo for its entire
 		# life while printing a line that read like a considered pass. A guard that is
 		# switched off must say so more loudly than one that passed (AMH ledger row D019).
-		warn "no $DEFAULT_BRANCH reference to compare against — this guard checked NOTHING. Fetch it (\`git fetch origin $DEFAULT_BRANCH\`) or accept that poison tokens are unguarded locally."
+		# The fetch names its destination. A bare `git fetch origin <branch>` updates the
+		# remote-tracking ref only when a configured refspec maps it, and a single-branch
+		# clone's does not: the fetch succeeds and this ref is still absent.
+		warn "no $DEFAULT_BRANCH reference to compare against — this guard checked NOTHING. Fetch it (\`git fetch origin +refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH\`) or accept that poison tokens are unguarded locally."
 		return
 	fi
 	local msgs tok hits=0
@@ -954,9 +966,12 @@ guard_poison_tokens() {
 # have not committed yet is not on disk to check — but that is a fact about one moment,
 # not about all of them.
 #
-# The failure lines print the offending identity. It is already in the commit object this
-# guard is naming, so the line publishes nothing the metadata does not, and a rung that
-# said only "some identity is wrong" would leave you grepping for which.
+# The failure lines name the FIELD, the COMMIT and the reason — never the address. A rejected
+# address is by definition not an approved one, and the constitution forbids rendering those.
+# "It is already in the commit object" does not license printing it: a diagnostic travels into
+# CI logs, transcripts and chat that the commit object never reaches, and the address may be
+# exactly the personal one this rung exists to catch. The abbreviated hash is enough to find
+# the commit to amend, and the reason says what is wrong with what it carries.
 guard_author_identity() {
 	section "Git author identity ($DEFAULT_BRANCH..HEAD)"
 	local base
@@ -969,7 +984,7 @@ guard_author_identity() {
 		# a fixture grepping the shared opening is satisfied by whichever rung printed it,
 		# and the distinguishing clause sat past a backtick no assertion could quote
 		# without tripping the linter.
-		warn "author identity is unguarded locally: no $DEFAULT_BRANCH reference to compare against, so this guard checked NOTHING. Fetch it (\`git fetch origin $DEFAULT_BRANCH\`)."
+		warn "author identity is unguarded locally: no $DEFAULT_BRANCH reference to compare against, so this guard checked NOTHING. Fetch it (\`git fetch origin +refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH\`)."
 		return
 	fi
 
@@ -993,10 +1008,31 @@ guard_author_identity() {
 
 	local commits idents
 	commits=$(git rev-list --count "$base..HEAD" 2>/dev/null)
-	# One line per field per commit, so the diagnostic can name WHICH field is wrong. A
-	# rebase or an amend by another tool rewrites the committer while the author survives
-	# untouched, which is the case checking `%ae` alone misses entirely.
-	idents=$(git log --format='author %ae%ncommitter %ce' "$base..HEAD" 2>/dev/null | sort -u)
+	# One record per distinct field/address pair: the field, the address, the newest commit
+	# carrying the pair and how many commits do — so the diagnostic can say WHICH field on
+	# WHICH commit without saying what the address is. A rebase or an amend by another tool
+	# rewrites the committer while the author survives untouched, which is the case checking
+	# `%ae` alone misses entirely. Fields are joined by the unit separator rather than a tab:
+	# a tab is IFS whitespace, so `read` would collapse the empty field an empty address leaves.
+	# The address is emitted LAST and taken whole — everything after the second separator —
+	# so an address that itself carries the separator byte is judged entire rather than cut
+	# short at it, which would hand the allowlist a prefix of what was committed.
+	idents=$(git log --format='%h%x1fauthor%x1f%ae%n%h%x1fcommitter%x1f%ce' "$base..HEAD" 2>/dev/null |
+		LC_ALL=C awk -F '\037' '
+			{
+				a = $0
+				sub(/^[^\037]*\037[^\037]*\037/, "", a)
+				k = $2 FS a
+				if (!(k in first)) { first[k] = $1; field[k] = $2; addr[k] = a; order[++n] = k }
+				count[k]++
+			}
+			END {
+				for (i = 1; i <= n; i++) {
+					k = order[i]
+					print field[k] FS first[k] FS count[k] FS addr[k]
+				}
+			}
+		')
 	if [ -z "$idents" ]; then
 		ok "no new commits to check"
 		return
@@ -1008,19 +1044,20 @@ guard_author_identity() {
 	# nothing could tell which pattern had matched. `.local` and `.localdomain` do share an
 	# arm, and its message names both — they are one shape (a LAN machine name) reached by
 	# two suffixes, and each has its own fixture.
-	local line field addr lower bad hits=0 seen=0
-	while IFS= read -r line; do
-		field=${line%% *}
-		addr=${line#* }
-		[ "$addr" = "$line" ] && addr='' # "author" with an empty field and no trailing text
+	local field addr commit count where lower bad hits=0 seen=0
+	while IFS=$'\037' read -r field commit count addr; do
+		[ -n "$field" ] || continue
 		seen=$((seen + 1))
+		# WHERE, never WHAT: see the note above the function.
+		where="$field identity on commit $commit"
+		[ "${count:-1}" -gt 1 ] 2>/dev/null && where="$where (and $((count - 1)) other commit(s))"
 
 		# The stated identities win over everything below — see the ordering note above.
 		if [ -n "$allow" ] && printf '%s' "$addr" | grep -qE "^($allow)$"; then
 			continue
 		fi
 
-		# Lower-cased for matching only; every message prints the address as committed.
+		# Lower-cased for matching only; no message prints the address in either case.
 		# git stores what it was handed, so `ROOT@LOCALHOST` is a real thing to receive,
 		# and `case` globs are case-sensitive — without this the whole half below is
 		# bypassed by holding down shift.
@@ -1048,12 +1085,12 @@ guard_author_identity() {
 			;;
 		esac
 		if [ -n "$bad" ]; then
-			fail "$field identity '$addr' $bad. Set user.email and amend before pushing; a pushed commit cannot be repaired without the rewrite this repo forbids."
+			fail "$where $bad. Set user.email and amend before pushing; a pushed commit cannot be repaired without the rewrite this repo forbids."
 			hits=$((hits + 1))
 			continue
 		fi
 		if [ -n "$allow" ]; then
-			fail "$field identity '$addr' does not match AUTHOR_EMAIL_ALLOW — this repository states which identities its commits carry, and this is not one of them."
+			fail "$where does not match AUTHOR_EMAIL_ALLOW — this repository states which identities its commits carry, and this is not one of them."
 			hits=$((hits + 1))
 		fi
 	done <<<"$idents"
@@ -1076,7 +1113,7 @@ guard_author_identity() {
 guard_rail_selftests() {
 	section "Rail self-tests (a silently regressed rail is no rail)"
 	local s
-	for s in scripts/redact.sh scripts/command-guard.sh; do
+	for s in scripts/redact.sh scripts/command-guard.sh scripts/redact-tool-output.sh; do
 		# `[ -x ]` here printed nothing at all when the bit was missing — this whole
 		# section went blank and the ladder stayed green. Absence gets a `skip` line,
 		# the script's convention everywhere else; the exec bit gets no vote.
@@ -1085,7 +1122,16 @@ guard_rail_selftests() {
 			continue
 		fi
 		if out=$(bash "$s" --self-test 2>&1); then
-			ok "$s"
+			# A self-test that stood down — no interpreter on this host, say — exits 0 having
+			# tested nothing, and an `ok` for it is the silent skip this section exists to stop.
+			# Its own SKIP line says why, so the verdict carries that line rather than a pass.
+			local why
+			why=$(awk '/^ *SKIP /{sub(/^ *SKIP /, ""); print; exit}' <<<"$out")
+			if [ -n "$why" ]; then
+				skip "$s self-test did not run: $why"
+			else
+				ok "$s"
+			fi
 		else
 			fail "$s self-test failed:"
 			printf '%s\n' "$out" | sed 's/^/         /'

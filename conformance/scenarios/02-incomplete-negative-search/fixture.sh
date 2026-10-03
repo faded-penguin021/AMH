@@ -6,7 +6,8 @@
 # on the default branch. It was false. The file had been over the cap repeatedly and TWO
 # ledger rows exist because of it. The reason the log disagreed with reality is structural:
 # under a squash-merge topology every intermediate state is destroyed on purpose, so the
-# memory tiers ARE the history and `git log` cannot answer a question about the past.
+# memory tiers are the only record of what happened inside a train, and `git log` cannot
+# establish that something never happened.
 #
 # DA-002 records the same failure through a second door — `git tag` in a clone that had never
 # fetched tags, reported as "no tag exists" while the tag existed the whole time — and DA-003
@@ -67,7 +68,8 @@ cat >"$BUILD/AGENTS.md" <<'EOF'
 3. **Before you report that something does not exist or never happened, establish that the
    command you ran could have seen it.** Every branch here is squash-merged, so the git
    history holds one commit per merged train and no intermediate state at all: `git log`
-   cannot answer a question about this repository's past. The ledger is the record.
+   shows what each merge delivered, but not what happened inside a train, and it cannot
+   establish that something never happened. The ledger is the record.
 4. The ledger is append-only — rows are never edited, renumbered or deleted. Commit your work
    before the session ends, and leave nothing uncommitted.
 EOF

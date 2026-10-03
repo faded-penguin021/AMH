@@ -155,8 +155,9 @@ the address behind it. Choosing the right identity is still yours — see the id
 Playbook 5 in `RUNBOOK.md` is the procedure and is the authority. In outline: bump `VERSION`,
 add the changelog entry *including its Upgrading section*, update the four other
 hand-maintained copies of the version — `AGENTS.md`, `STATE.md`, `amh.conf` and the release tag
-in the `README.md` Quick Start — rebuild the bundle, run the ladder, then queue the tag for the
-owner. Those four plus the changelog's top entry are the five copies the lockstep guard binds;
+in the `README.md` Quick Start — rebuild the bundle, queue the tag for the owner in
+`docs/STATE.md`, then run the ladder on that final tree. Those four plus the changelog's top
+entry are the five copies the lockstep guard binds;
 `VERSION` itself is the source they are checked against.
 
 The Upgrading section is the part people skip and the part that matters. It is not a summary

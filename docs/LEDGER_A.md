@@ -135,6 +135,7 @@
   squashed and the ledger is the record. It fires once, before any belief is formed, in the
   script whose job is orienting a fresh session (P14), and has no false-positive population at
   all.
+  Corrected by DD-029.
 - DA-004: **The archive's stated intake was wrong for the harness's whole life, and practice
   had already decided it.** `docs/history/README.md` said spent narrative from compressed STATE
   passes lands there, and P2's corollary said the same ("spent narrative in cold storage"),

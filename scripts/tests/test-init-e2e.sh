@@ -318,6 +318,205 @@ else
 fi
 
 # =============================================================================
+# 3b'. An upgrade renders what it writes from the amh.conf it keeps.
+#
+# amh.conf is kept on a re-run, so anything the re-run WRITES — an adapter the adopter deleted,
+# a file a later release introduced — must carry that file's values. Rendered from defaults it
+# put `main` into the static Codex rules of a repo whose amh.conf said `master`, so the two
+# layers protected different branches. Both adapters are deleted here to stand in for files an
+# older installation never received, and the re-run names no option at all.
+# =============================================================================
+d=$(target upgrade_kept_conf)
+"$ROOT/scripts/amh-init.sh" --default-branch master "$d" >/dev/null 2>&1
+rm -f "$d/.codex/rules/amh.rules" "$d/.claude/settings.json"
+out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ] &&
+	grep -qF '"HEAD:master"' "$d/.codex/rules/amh.rules" && ! grep -qF '"HEAD:main"' "$d/.codex/rules/amh.rules" &&
+	grep -qF 'HEAD:master)' "$d/.claude/settings.json" && ! grep -qF 'HEAD:main)' "$d/.claude/settings.json"; then
+	pass
+else
+	fail "an upgrade renders re-introduced adapters from the kept amh.conf, not from defaults" "exit $rc" "$out"
+fi
+
+# ...and an option that AGREES with the kept file is simply accepted: the refusals below are
+# about disagreement, and one that fired on every typed option would pass all of them.
+rm -f "$d/.codex/rules/amh.rules"
+out=$("$ROOT/scripts/amh-init.sh" --default-branch master "$d" 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ] && grep -qF '"HEAD:master"' "$d/.codex/rules/amh.rules"; then
+	pass
+else
+	fail "an upgrade option that agrees with the kept amh.conf is accepted" "exit $rc" "$out"
+fi
+
+# An option that disagrees with the kept file is refused, and refused BEFORE anything is written:
+# obeying it would render a value no dynamic guard reads, and dropping it silently would leave
+# the adopter believing it had applied.
+rm -f "$d/.codex/rules/amh.rules"
+out=$("$ROOT/scripts/amh-init.sh" --default-branch develop "$d" 2>&1)
+rc=$?
+if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF "disagrees with DEFAULT_BRANCH='master'" &&
+	[ ! -e "$d/.codex/rules/amh.rules" ]; then
+	pass
+else
+	fail "an upgrade option that disagrees with the kept amh.conf is refused before any write" "exit $rc" "$out"
+fi
+
+# A key the kept file does not set means the shipped scripts' default, so an option naming
+# anything else is the same disagreement one step removed.
+sed_in_place '/^DEFAULT_BRANCH=/d' "$d/amh.conf"
+out=$("$ROOT/scripts/amh-init.sh" --default-branch master "$d" 2>&1)
+rc=$?
+if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF "resolves DEFAULT_BRANCH to the shipped scripts' default 'main'" &&
+	[ ! -e "$d/.codex/rules/amh.rules" ]; then
+	pass
+else
+	fail "an upgrade option for a key the kept amh.conf leaves unset is refused" "exit $rc" "$out"
+fi
+
+# Branch values reach an unquoted assignment every shipped script sources, and the default branch
+# also JSON, Starlark and a YAML comment; both are narrowed to characters all of those read
+# literally. Each value here is refused with the tree still empty: `release/"stable"` is a valid
+# git branch name that produced adapter JSON which did not parse, `$(...)` would run on every
+# ladder run, `a..b` and a prefix of `.a` pass the character set and fail git's own rules (the
+# second only once `/<codename>` is appended), and a quote ends the single-quoted citation list.
+only_git() { # <dir> — true when nothing but .git is in it
+	local f
+	for f in "$1"/* "$1"/.[!.]* "$1"/..?*; do
+		[ -e "$f" ] || continue
+		[ "${f##*/}" = .git ] || return 1
+	done
+}
+n=0
+# shellcheck disable=SC2016 # the `$(id)` is the refused VALUE, and must reach the script unexpanded
+for spec in '--default-branch:release/"stable"' '--branch-prefix:x$(id)' '--default-branch:a..b' '--branch-prefix:.a' "--citation-paths:scripts it's"; do
+	n=$((n + 1))
+	flag=${spec%%:*}
+	val=${spec#*:}
+	t=$(target "unsafe_value_$n")
+	out=$("$ROOT/scripts/amh-init.sh" "$flag" "$val" "$t" 2>&1)
+	rc=$?
+	if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF -- "$flag" &&
+		only_git "$t"; then
+		pass
+	else
+		fail "an unsafe $flag value is refused before anything is written: $val" "exit $rc" "$out"
+	fi
+done
+
+# The same narrowing reaches a value READ from the kept file — but only where this run is about
+# to write it, and the pair below pins both sides of that line. With the Codex rules to
+# regenerate, the unsafe kept branch would land in them: refused, blamed on the file rather than
+# on an option the adopter never typed, and nothing written. With nothing to regenerate that
+# carries it, the same value blocks nothing: the shipped scripts are copied whatever amh.conf
+# says, and a check with nothing to protect can only stop an upgrade.
+d=$(target upgrade_kept_unsafe)
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+printf "DEFAULT_BRANCH='rel\"x'\n" >>"$d/amh.conf"
+out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ]; then
+	pass
+else
+	fail "an unsafe value in the kept amh.conf that no written file carries does not block the upgrade" "exit $rc" "$out"
+fi
+rm -f "$d/.codex/rules/amh.rules"
+out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
+rc=$?
+if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'DEFAULT_BRANCH in the kept amh.conf may contain only' &&
+	[ ! -e "$d/.codex/rules/amh.rules" ]; then
+	pass
+else
+	fail "an unsafe kept value that a written file WOULD carry is refused and blamed on amh.conf" "exit $rc" "$out"
+fi
+
+# The size band reaches only amh.conf, which an upgrade never writes, so a kept value the
+# installer would refuse at install time (a sentence ceiling past what the compression trigger
+# can hold) must not stop an upgrade whose own ladder runs on it.
+d=$(target upgrade_kept_band)
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+sed_in_place 's/^STATE_COMPRESS_TO_SENTENCES=.*/STATE_COMPRESS_TO_SENTENCES=2000/' "$d/amh.conf"
+out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ]; then
+	pass
+else
+	fail "a kept size-band value no written file carries does not block the upgrade" "exit $rc" "$out"
+fi
+
+# A kept amh.conf is read the way the shipped scripts read it: from the target's root, with ROOT
+# naming that root. One that sources a sibling through "$ROOT" is read in full even when the
+# installer runs from somewhere else entirely.
+d=$(target upgrade_kept_root_relative)
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+sed_in_place '/^DEFAULT_BRANCH=/d' "$d/amh.conf"
+printf 'DEFAULT_BRANCH=master\n' >"$d/amh.local.conf"
+# shellcheck disable=SC2016 # the line is written into amh.conf; its "$ROOT" belongs to the reader
+printf '. "$ROOT/amh.local.conf"\n' >>"$d/amh.conf"
+rm -f "$d/.codex/rules/amh.rules"
+out=$(cd "$WORK" && "$ROOT/scripts/amh-init.sh" "$d" 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ] && grep -qF '"HEAD:master"' "$d/.codex/rules/amh.rules"; then
+	pass
+else
+	fail "a kept amh.conf that sources a sibling through \$ROOT is read in full" "exit $rc" "$out"
+fi
+
+# A kept amh.conf is read with the shipped scripts' defaults already in place, because every
+# shipped script assigns them before it sources the file. A line that reads the key it assigns
+# therefore resolves to the default at runtime — the installed guard below protects `main` — and
+# reading the file with the keys unset rendered `trunk` into both adapters instead, so the static
+# rules and the guard protected different branches with every rung green.
+d=$(target upgrade_kept_self_reference)
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+sed_in_place '/^DEFAULT_BRANCH=/d' "$d/amh.conf"
+# shellcheck disable=SC2016 # the line is written into amh.conf; its expansion belongs to the reader
+printf 'DEFAULT_BRANCH=${DEFAULT_BRANCH:-trunk}\n' >>"$d/amh.conf"
+rm -f "$d/.codex/rules/amh.rules" "$d/.claude/settings.json"
+out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
+rc=$?
+guard_out=$("$d/scripts/command-guard.sh" --command 'git push origin HEAD:main' 2>&1)
+guard_rc=$?
+if [ "$rc" -eq 0 ] && [ "$guard_rc" -eq 2 ] &&
+	grep -qF '"HEAD:main"' "$d/.codex/rules/amh.rules" && ! grep -qF 'trunk' "$d/.codex/rules/amh.rules" &&
+	grep -qF 'HEAD:main)' "$d/.claude/settings.json" && ! grep -qF 'trunk' "$d/.claude/settings.json"; then
+	pass
+else
+	fail "a kept amh.conf that reads the key it assigns renders what the installed guard enforces" \
+		"exit $rc, guard exit $guard_rc" "$out" "$guard_out"
+fi
+
+# A kept amh.conf that stops part way hands back nothing, and nothing reads exactly like "every
+# key unset" — the defaults this whole block exists to stop rendering. The run must refuse.
+d=$(target upgrade_kept_exits)
+"$ROOT/scripts/amh-init.sh" --default-branch master "$d" >/dev/null 2>&1
+printf 'exit 0\n' >>"$d/amh.conf"
+rm -f "$d/.codex/rules/amh.rules"
+out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
+rc=$?
+if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'did not load to its end' &&
+	[ ! -e "$d/.codex/rules/amh.rules" ]; then
+	pass
+else
+	fail "a kept amh.conf that exits part way is refused rather than read as defaults" "exit $rc" "$out"
+fi
+
+# A FIRST install that finds an unrelated amh.conf keeps it too, and the shipped scripts will
+# source it, so it is the file every value has to agree with: an option it does not record is
+# refused rather than rendered beside a default the scripts would read instead.
+d=$(target unrelated_conf_option)
+printf 'UNRELATED=1\n' >"$d/amh.conf"
+out=$("$ROOT/scripts/amh-init.sh" --default-branch master "$d" 2>&1)
+rc=$?
+if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF "resolves DEFAULT_BRANCH to the shipped scripts' default 'main'" &&
+	[ ! -e "$d/.codex/rules/amh.rules" ]; then
+	pass
+else
+	fail "an option an unrelated kept amh.conf does not record is refused on a first install" "exit $rc" "$out"
+fi
+
+# =============================================================================
 # 3c. The integrity manifest reaches the adopter, and works THERE.
 #
 # Everything the shipped suite asserts about this rung it asserts against a synthesised
@@ -337,12 +536,18 @@ fi
 
 # The rung is live in the new tree, not skipping. The count is part of the assertion: a
 # manifest that arrived truncated, or one written before the scripts, would still produce an
-# `ok` line — with a smaller number.
+# `ok` line — with a smaller number. The expected number is DERIVED from the template
+# directory rather than written out: hard-coding it made adding a sixth shipped script fail
+# here with a message naming "five", which reads as a defect in the installer instead of a
+# stale count in this line.
+shipped_count=$(find "$ROOT/harness/templates/scripts" -maxdepth 1 -name '*.sh' | wc -l | tr -d ' ')
 out=$(target_ladder "$d")
-if printf '%s' "$out" | grep -qF '   ok    5 shipped script(s) match the published hashes'; then
+if [ "$shipped_count" -eq 0 ]; then
+	fail "counted NOTHING to expect — no shipped scripts found under harness/templates/scripts" "$out"
+elif printf '%s' "$out" | grep -qF "   ok    $shipped_count shipped script(s) match the published hashes"; then
 	pass
 else
-	fail "the instantiated repo verifies all five shipped scripts against the manifest" "$out"
+	fail "the instantiated repo verifies all $shipped_count shipped script(s) against the manifest" "$out"
 fi
 
 # The conformance lab is repo-local and must never reach an adopter. That is structurally true

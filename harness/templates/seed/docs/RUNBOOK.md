@@ -8,10 +8,11 @@ simplification — split it out when the playbooks multiply.
 -->
 
 Entry point for changing the system. Pick the playbook matching your task, read the reference
-docs it names, then do the work. **Code + {{IMMUTABLE_FIXTURES}} are ground truth**; where any
-doc disagrees with the code, trust the code (and fix the doc) — except the append-only ledger,
-whose rows are never edited in place: a correction is a new row plus one appended pointer on
-the old one.
+docs it names, then do the work. **Code + {{IMMUTABLE_FIXTURES}} are ground truth** for what
+the system does; where descriptive prose disagrees with the code, trust the code (and fix the
+prose) — never a binding rule, which the code does not settle (see the constitution's
+ground-truth note) — and never the append-only ledger, whose rows are never edited in place: a
+correction is a new row plus one appended pointer on the old one.
 
 ## Where logic lives
 
@@ -26,7 +27,9 @@ the old one.
 
 ## Change-type playbooks
 
-Each: *when · read first · code to touch · obligations · acceptance · record it.*
+Each: *when · read first · code to touch · obligations · acceptance · record it.* That is the
+order to READ them in. In execution the record is written before the acceptance run, so the
+ladder verifies the tree that is committed (**Session discipline** 3).
 
 ### 1. {{CHANGE_TYPE, e.g. "Bug fix"}}
 
@@ -47,8 +50,15 @@ cut (version invariants; the owner does the tagging), etc.}}
    on one repo have burned whole usage windows.
 2. **Small, shippable units.** About one focused hour, independently shippable, each with a
    hard **binary** acceptance check — never "looks right".
-3. **Checkpoint invariant.** Every unit ends: acceptance green → STATE changelog line →
-   commit → push. Never start a second unit on top of an uncommitted first. Assume the session
+3. **Checkpoint invariant.** Every unit ends: STATE changelog line → acceptance green →
+   commit → commit-metadata check → push. The changelog line comes FIRST so the ladder verifies
+   the tree that is committed. The check after the commit is `scripts/ladder.sh --guards-only`:
+   its poison-token and author-identity rungs read commits, so the run before the commit cannot
+   see the one being made, and the git-native pre-push rail judges refs, never messages or
+   identities. A failure there is fixed by amending the unpushed commit and running the check
+   again; a WARN that either rung checked NOTHING means the check did not happen — fetch the
+   reference it names and re-run, or report that it did not run. Never start a second unit on
+   top of an uncommitted first. Assume the session
    dies at any moment; an interrupted session must lose at most the unit in flight.
 4. **You are the last reviewer.** The review protocols below are mandatory. There is no
    stronger pass behind you.
@@ -71,8 +81,9 @@ cut (version invariants; the owner does the tagging), etc.}}
    checkpoint, re-run the ladder to confirm green, re-attempt smaller — recording any durable
    lesson first. Recovery is not infinite: if the SAME blocker survives a second
    reset-and-retry with no real progress, stop. Reset once more to green (never end a unit
-   red), record the blocker in the Owner queue, commit and push so the record survives session
-   death, and end the unit. A gate that will not go green is either a real fix you are missing
+   red), record the blocker in the Owner queue, then close it like any unit — ladder, commit,
+   commit-metadata check, push (item 3) — so the record survives session death, and end the
+   unit. A gate that will not go green is either a real fix you are missing
    — diagnose it, do not just re-run it — or an owner fork. Neither is solved by burning the
    usage window re-running a script. The stop is for a genuinely stuck blocker, never cover
    for abandoning a failure you could diagnose. Pushed checkpoints are immutable; recovery
@@ -98,15 +109,19 @@ cut (version invariants; the owner does the tagging), etc.}}
    may: a gate that consumes "I checked" is a self-report.
 8. **Verification disclosure.** Every commit body states what was actually verified (which
    ladder rungs and tests ran) and names what could NOT be verified locally. Disclosure of
-   real actions, addressed to a human — never something a gate consumes.
+   real actions, addressed to a human — never something a gate consumes. The post-commit
+   metadata check cannot be disclosed in the commit it judges; report it where the session
+   reports its outcome.
 9. **Establish coverage before reporting an absence.** Before you report that something does
    not exist or never happened, establish that the command you ran could have seen it, and say
    which artifact you searched. A local artifact was read and the answer reported as a property
    of the repository is the shape to watch for. The standing trap is git: where branches are
    squash-merged, a whole train of sessions arrives as ONE commit and the intermediate states
-   are destroyed by design, so `git log`, `git show`, `blame` and `tag` cannot answer questions
-   about this repository's past — the ledger and the STATE changelog are the only surviving
-   record. This is prose-only and must stay so: the defect is the generalisation drawn from a
+   are destroyed by design. `git log`, `git show`, `blame` and `tag` still show each merged
+   snapshot and what changed between them, but not what happened inside a train, in what order
+   or why, and a search of them cannot establish that something never happened — for those
+   questions the ledger and the STATE changelog are the only surviving record. This is
+   prose-only and must stay so: the defect is the generalisation drawn from a
    command's output, and no pre-execution rail can see a belief formed after the command
    returned.
 
@@ -125,7 +140,8 @@ new classes as the ledger grows:
 - {{BUG_CLASS + its ledger citation}}
 
 If the pass finds nothing, say so in the commit body ("adversarial pass: clean"); if it finds
-something, fix it before the commit and ledger anything durable. That verdict is disclosure to
+something, fix it before the commit, ledger anything durable, and re-run the ladder on the
+corrected tree before committing (Session discipline 3). That verdict is disclosure to
 a human reader, not evidence the pass happened — legitimate only because nothing consumes it.
 Never let a guard, a CI step or a merge checklist start requiring the string; a self-report
 that gates anything is passed by typing. When a class turns out to be
@@ -166,7 +182,8 @@ applies; reviewer attention is the enforcement.
 
 - **Concurrency: one reviewer at a time, blocking.** Not a background job; you do not keep
   editing while it runs.
-- **Iteration: ONE pass per unit.** Triage the findings, apply them, ship — do NOT review the
+- **Iteration: ONE pass per unit.** Triage the findings, apply them, re-run the LADDER on the
+  corrected tree (a check, not a second review), ship — do NOT review the
   corrected diff again. Re-running until a pass comes back clean turns the gate into a loop
   that launders a diff into looking approved. Fixes too large to ship unreviewed mean the unit
   was too big: split it, or hand the residue to the human.
@@ -176,7 +193,8 @@ applies; reviewer attention is the enforcement.
 Spawning the reviewer is what this protocol requires, not a permission to request — do not ask
 each time; escalate the *diff's substance* instead. While the pass is in flight the diff stays
 green, uncommitted and unpushed; a harness commit prompt on an idle turn does not override the
-gate. Say so once rather than re-explaining every turn.
+gate. Say so once rather than re-explaining every turn. When it reports: triage, apply, re-run
+the ladder on the corrected tree, commit.
 
 ## Incident: leaked credential
 

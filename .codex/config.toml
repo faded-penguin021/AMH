@@ -2,9 +2,13 @@
 # and scripts/. Hooks run the agent-neutral session bootstrap and command guard;
 # the static lower command-policy layer remains .codex/rules/amh.rules.
 #
-# Codex can block a shell call before execution, but its hooks cannot currently
-# suppress or rewrite tool output. There is intentionally no PostToolUse hook:
-# scripts/redact.sh remains available only for adapters with an output filter.
+# Codex cannot rewrite a tool result in place, but PostToolUse can block delivery of
+# the original and substitute model-facing feedback. The redaction hook uses that path
+# only when it finds a known credential shape. This makes the successful tool look failed
+# to the model and serializes structured results as text; those are Codex's current bounds,
+# preferable to returning the unredacted result. Hook failure and an absent python3 fail
+# open, failed tool calls do not reach PostToolUse, and this filter sees only the shapes
+# redact.sh enumerates. The original still exists in execution logs and the transcript.
 
 [[hooks.SessionStart]]
 matcher = "startup|resume|clear|compact"
@@ -16,4 +20,10 @@ hooks = [
 matcher = "^Bash$"
 hooks = [
   { type = "command", command = "root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; exec bash \"$root/scripts/command-guard.sh\"", timeout = 10, statusMessage = "Checking shell command" },
+]
+
+[[hooks.PostToolUse]]
+matcher = ".*"
+hooks = [
+  { type = "command", command = "root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; exec bash \"$root/scripts/redact-tool-output.sh\"", timeout = 40, statusMessage = "Redacting tool output" },
 ]

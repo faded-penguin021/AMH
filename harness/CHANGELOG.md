@@ -11,6 +11,288 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 15.0.0 — 2026-09-18
+
+- **An `rm -r -f` or `git clean -f -d` aimed at the filesystem root or a home directory is now
+  blocked and does not clear on a rerun.** Every other target in the command guard's destructive tier gets a
+  one-time advisory, because the guard cannot tell a scratch directory from a source tree and
+  the agent's rerun is what settles it. That premise is false for a short list of paths — `/`,
+  `~`, `$HOME`, the live value of `HOME`, `/root`, `/home`, `/Users`, and the spellings that fold
+  to them — where no unit of work inside a repository ends by deleting the target and the
+  clearing rerun is the keystroke the reported incidents end on. The fold runs until the operand
+  stops changing: repeated separators, a `.` component, a trailing separator, a trailing `*` run
+  and a last component of `*` and `?` holding a `*` all come off, in whatever order they appear,
+  so `/*/`, `/?*`, `~/*/` and `"$HOME"/*/` are denied like `/*`, and a `.*` component folds as `*`
+  does, so `/*/.*` is denied like `/*/*`; `..` is never folded, a glob comes off only an operand
+  rooted at `/`, `~` or a variable, and a component of `?` alone stays. This is the
+  guard's only permanent denial. `/etc` and the other system directories stay OUTSIDE the list
+  and keep the ordinary advisory, the git verbs armed only on an unknown target keep that
+  narrowing, and the refusal text says in its own words what it does not cover. For git the
+  target is read where it lands: a pathspec joins the directory `-C` moved into, so
+  `git -C "$HOME" clean -fd -- build` gets the ordinary advisory, while the same `-C` with no
+  pathspec, with `.`, or with `*`, `*/` or `?*`, and a `--work-tree` naming a home directory
+  with no pathspec, with `.` or with a glob, stay denied; a `--git-dir` value is never the
+  target. The pathspec gets `rm`'s boundaries and no more: one that is only a variable, or that
+  climbs with `..`, is advised rather than denied.
+- **An inline interpreter deletion now gets a one-time advisory.** Three conditions, all lists:
+  the segment's LEADING command is `python`, `python2`, `python3`, `node`, `nodejs`, `ruby`,
+  `perl`, `deno`, `bun` or `php`; the segment carries inline program text (`-c`, `-e`, `-E`,
+  `-r`, `-p`, `--eval`, `--print`, or an `--eval=` spelling); and THAT ARGUMENT names `rmtree`,
+  `remove_tree`, `removedirs`, `rm_rf`, `rmSync`, `rmdirSync`, `rimraf`, `remove_dir_all`,
+  `unlink` or `os.remove` followed by an opening parenthesis. The command then stops once and the
+  rerun proceeds, rearmed per command text. Those narrowings are the tier: without the first, a
+  commit message naming the call is judged; without the second, `python3 -m pytest
+  tests/test_unlink.py` is advised; without the parenthesis, so is `unlink_count`. It reads one
+  argument of one command line — no script file, no test suite, no heredoc body, nothing behind
+  `bash -c`, and no spelling off the lists (**DD-019**). The advisory's rearm key is a DIGEST of
+  the command, never its text, so a credential in a one-liner is not written to the state
+  file (**DD-020**).
+- **The constitution now carries a destructive-work rule, which is the half no scanner can
+  hold.** Exercise an unguarded destructive path against a fixture tree, never a live one, and
+  never remove a safety check from the source to observe what it prevents — a guard's necessity
+  is demonstrated by removing the BEHAVIOUR and re-running the SUITE, which is what the
+  add-a-guard playbook already meant and now says. Earned by a public incident in which an
+  agent asked to add a delete feature wrote a guard for it, removed the guard to prove it was
+  needed, ran the test against a live path through an interpreter, and destroyed a repository,
+  a home directory, SSH private keys and a GPG keyring.
+- **Everything 14.2.0 drafted ships under this number.** That version was never tagged, so its
+  output-redaction work folds up into this entry rather than being released separately; the
+  Upgrading steps below cover both.
+
+
+- **The Codex adapter now wires `PostToolUse` output redaction.** Codex exposes the same input
+  fields the shared rail needs, but not Claude Code's arbitrary result replacement. On an
+  actual redaction the script therefore returns Codex's `decision: block` with the filtered
+  result as model-facing feedback. This prevents delivery of the original, at the explicit
+  cost that the successful tool looks failed and a structured result is serialized as text.
+- **The shared hook now selects the host response contract from Codex's `turn_id`.** Claude
+  continues to receive `hookSpecificOutput.updatedToolOutput`; sending that response to Codex
+  is not harmless compatibility, because Codex rejects it and exposes the original result.
+  Unchanged output still produces no response, and every uncertain path still fails open.
+- **The adapter-set guard covers Codex wiring.** Fixtures remove, rewire, and narrow the new
+  all-tool hook so config drift cannot silently remove the rail.
+
+- **The Claude adapter now redacts tool output after execution, closing the half of P17 that
+  had no wiring.** P17 has always said adapters pipe tool output through `scripts/redact.sh`
+  *before the context window sees it, via an output-filter hook if the agent has one*. The
+  Claude adapter carried the sentence "Claude Code has no output-filter hook" and wired
+  nothing. That statement was true when it was written and is now false: `PostToolUse` hooks
+  return `hookSpecificOutput.updatedToolOutput`, which replaces the tool result the model
+  reads. So this is conformance to a standing rule rather than new machinery, and the incident
+  bar does not apply — what earned the change is a rule that already bound plus a capability
+  that arrived.
+- **New shipped script `scripts/redact-tool-output.sh`.** It reads a `PostToolUse` payload on
+  stdin, filters each STRING LEAF of `tool_response` through `redact.sh` in its own invocation,
+  and rebuilds the response with the leaves replaced in place. Numbers stay numbers, booleans stay
+  booleans, object keys and array lengths are untouched, and nothing reconstructs what a tool's
+  response "should" look like. That is load-bearing rather than stylistic: a replacement which
+  does not match the tool's own response schema is discarded by the host as a non-blocking
+  error, and the rail then reads as wired while doing nothing.
+- **One invocation per leaf, not one for the batch — a review caught this and it was a real
+  corruption, not a style point.** `redact.sh`'s private-key stage is a sed line RANGE. Sending
+  every leaf through as one stream let an unterminated opening marker in one leaf hold that range
+  open across every later leaf, where the body pattern matches any all-base64 line — ordinary
+  single words and most slash-only paths. A measured `Read` response came back with its `filePath`
+  replaced by a redaction marker, published under a message asserting a redaction. The
+  marker precondition could not catch it, because the corrupting substitution genuinely adds a
+  marker. A filter with any cross-line state makes batching wrong by construction (**DD-016**).
+- **A changed leaf is accepted only if it GAINED a marker, counted rather than merely present.**
+  `redact.sh` documents that its own stages are not byte-transparent everywhere, so differing
+  bytes are not evidence of redaction. A contains-test had a hole the same review measured: a leaf
+  that already carried the literal `[REDACTED:` — common, since this filter's own output and this
+  repository's prose both contain it — was accepted on any byte change, including exactly the CRLF
+  rewrite the rule exists to reject. Both rules ship with a fixture that fails against the shape
+  it replaced.
+- **`scripts/guards/adapter-set.sh` now fails if the hook goes missing, is rewired, or loses its
+  shell pin.** This is repo-local, and it is here because the rail is invisible when absent in both
+  directions the host provides — so a tree with the wiring deleted behaves identically to one whose
+  output held no credential, and the script's own self-test passes either way because it tests the
+  script and not the wiring. That is **DD-013**'s lesson verbatim: a rail whose installation is
+  manual needs a check for its ABSENCE. Adopters get the hand step and the note, as with the pin.
+- **Why the leaves and not the serialised response, which would have been one line.**
+  `redact.sh` removes a private key in two stages — a line-range stage over the base64 body,
+  then a per-line stage over the opening marker. In serialised JSON the whole key sits inside
+  one string literal with its newlines written as two-character escapes, so the range stage has
+  no lines to open on and only the marker is replaced: `[REDACTED:private_key_block]` printed
+  directly above the key, in the clear. A marker over a live value is worse than no class at
+  all, which is P17's own sentence about this same filter. So the leaf is decoded to real text
+  first, and the fixture asserts the BODY is gone rather than that a marker appeared.
+- **Four bounds, stated in the adapter and in the script header rather than left to be
+  discovered.** The value was already produced and still exists in the tool's execution, the
+  on-disk transcript and any host telemetry — this changes only what the model reads. The host
+  contract is fail-OPEN, so every uncertain path in the script prints nothing and the original
+  output stands. `PostToolUse` fires on a tool call that SUCCEEDED, so a credential printed by
+  a command that failed may never reach it, and prevention stays with the pre-execution guard.
+  And it catches the shapes `redact.sh` enumerates and no more: a private token with no
+  recognisable prefix, a random password or a database credential passes through untouched.
+- **`python3` when present, and nothing when it is absent** — the same optional-tool handling
+  `command-guard.sh` already uses to read a hook payload, which keeps the dependency floor at
+  bash, git and coreutils. A bash fallback was considered and refused: `command-guard.sh` can
+  afford one because it extracts a single documented string from a flat object, while this
+  input is an arbitrary nested response from an arbitrary tool, where a half-parser does not
+  fail open — it emits a document that parses and says something else. The stand-down is reported
+  by one route only: `REQUIRED_TOOLS` in `amh.conf` now names `python3`, so the session banner says
+  whether it is there. The shipped `amh.conf.example` ships that key empty, so an adopter who wants
+  the report adds the name — a hook's stderr on a zero exit reaches the host's debug log and
+  nowhere a reader looks.
+- **What has NOT been observed.** `scripts/redact-tool-output.sh --self-test` runs in the
+  ladder's rail self-test rung and settles payload handling, leaf accounting and result-shape
+  preservation. It settles nothing about whether the host honours `updatedToolOutput`, because
+  a session cannot reload its own hook set to find out. Configured, never observed — the same
+  word the session banner uses for every other adapter claim.
+- **Review fixes to the shipped scripts (external review, 2026-09-29).** The author-identity
+  rung no longer prints a rejected address: it names the field, the commit and the reason,
+  because the constitution forbids rendering an unapproved address and a diagnostic reaches CI
+  logs the commit object never does. The new-row length rung now also measures rows in an
+  UNTRACKED ledger volume — `git diff HEAD` lists tracked paths only, so the volume every
+  rollover creates escaped the rung until staged and was exempt history once committed — and
+  in a base ledger HEAD has never carried, which it used to skip without reading. The
+  poison-token and identity rungs' missing-ref warnings now name an explicit
+  `+refs/heads/<default>:refs/remotes/origin/<default>` fetch, because a bare `git fetch origin
+  <default>` succeeds without creating the ref in a single-branch clone. The command guard no
+  longer reads `rm -rf ~name/sub` as another account's whole home directory (a `case` glob's
+  `*` crosses `/`); a subdirectory gets the ordinary one-time advisory and bare `~name` keeps
+  the permanent denial; `~/..` and `~name/..` keep the ordinary advisory, like every other
+  `..` spelling. Copying the scripts is the whole upgrade for these.
+- **`scripts/amh-init.sh` renders what it writes from the `amh.conf` it keeps.** Re-running the
+  installer keeps your `amh.conf`, but it used to render any file it DID write — an adapter you
+  had deleted, a file a later release introduced — from its own options and defaults, so a
+  repository installed with `--default-branch master` and upgraded without repeating the option
+  received Codex rules protecting `main` beside an `amh.conf` saying `master`. Whenever an
+  `amh.conf` is already present, the installer now sources it from the target's root as the
+  shipped scripts do (dry runs included) and takes every value it records from it; a key it
+  leaves unset means the shipped scripts' default. An option that disagrees, or an `amh.conf`
+  that does not load to its end, is refused before anything is written. Branch name and branch
+  prefix are narrowed to letters, digits, `.`, `_`, `-` and `/` and checked by
+  `git check-ref-format`, and the citation-path list may not contain a single quote:
+  `release/"stable"` is a valid git branch name that produced adapter JSON which did not parse,
+  and a `$(...)` in one would have run on every ladder run from `amh.conf`. On a run that keeps
+  `amh.conf`, a value from it is checked only when a file the run writes carries it, so an
+  upgrade is never refused over a value nothing it writes contains.
+- **`scripts/build-manifest.sh` stops non-zero when the hasher fails.** It used to write empty
+  digests over both manifests and report success. Repo-local tooling; adopters are unaffected.
+- **The checkpoint sequence is reordered, and the constitution's steps with it: state-file line
+  → acceptance ladder → commit → `scripts/ladder.sh --guards-only` again → push.** The old order
+  (ladder → state-file line → commit → push) verified a tree that was then edited before it was
+  committed, and ran the poison-token and author-identity rungs — which read
+  `origin/<default>..HEAD` — before the commit they exist to judge had been made; the pre-push
+  rail judges refs only, so a fast-forward carrying a fresh `[skip ci]` commit went out
+  unchecked. Changed in P5, the seed constitution's steps 5–7 and the seed runbook's session
+  discipline 3. It is a binding change, and the Upgrading steps below carry it.
+- **Seed corrections that had reached this repository's own constitution but never the seed.**
+  `harness/templates/seed/AGENTS.md` now says the code settles what the system DOES and never
+  what it SHOULD do — a binding rule the code contradicts is a finding against the code, not a
+  doc to repair (P1 says so too) — and that a hook-less agent still has the git-native pre-push
+  rail. The seed ledger preamble no longer promises that a new row citing a nonexistent path is
+  rejected: no shipped check resolves one. The seed runbook's ground-truth line carries the
+  same does-versus-should limit.
+- **The squash-merge warning is narrowed to what squashing destroys.** The runbooks, the seed
+  constitution and the session banner said `git log` cannot answer questions about the
+  repository's past; merged snapshots and the diffs between them survive and are evidence. What
+  is gone is what happened inside a train, in what order and why, and a search of the log still
+  cannot establish that something never happened.
+- **`docs/UPGRADING.md` states one policy for editing shipped scripts:** never, with a single
+  named exception — an owner-decided fork, reached only after the rung's `amh.conf` key and an
+  upstream report — whose cost (a merge per upgrade, the integrity rung off) it spells out. The
+  README no longer tells a light adopter to start `ladder.sh` as their verification commands;
+  that is what `scripts/verify.sh` is for.
+- **The Codex static rules say they are stricter than the command guard for `env` and `set`.** A
+  prefix rule cannot say "and nothing after", so `env CI=1 …` and `set -euo pipefail` are
+  forbidden there while the command guard allows them. Documented, not aligned; read from the
+  rule semantics, not observed on a live Codex host.
+- **The redaction hook and the command guard stop trusting a `python3` they have not seen run,
+  and the hook runs `redact.sh` under its own bash.** The Windows CI leg failed six checks of
+  `scripts/redact-tool-output.sh --self-test`, each one needing output. Two hazards reproduce
+  that exactly and the log cannot tell them apart: a `python3` that is on PATH and runs nothing
+  (the shape of the Store's app-execution alias on a stock desktop), and a walker that started
+  `redact.sh` as the bare word `bash`, which a native Windows Python resolves through System32
+  before PATH — reaching WSL's launcher where one is installed. The hook now tries `python3`,
+  then `python`, accepting each only after running it as Python 3, and passes its walker this
+  shell's own path with `.exe` spelled out; self-test cases reproduce both hazards, and a
+  Python 2, with shims on any host. `scripts/command-guard.sh` read a non-running `python3` as
+  "this payload held no command" and allowed every Bash call; it now falls back to its bash
+  parser when the interpreter does not run. The ladder's rail rung reports a self-test that
+  SKIPped as `skip` with its reason, never as `ok`. Copying the scripts is the whole upgrade.
+- **The seed `scripts/verify.sh` no longer says "green locally, red in CI" can only mean the
+  environment.** A different commit, a staged or untracked file seen differently, and a step CI
+  adds beside the ladder are all causes too; the shipped `ladder.sh` header says the same.
+
+### Upgrading
+
+1. **Read the new `## Destructive work` section in `harness/templates/seed/AGENTS.md` and add
+   it to your own constitution.** Seeds are yours and never re-sync, so this one is hand-applied.
+   The two rules it states bind whether or not you copy it; copying it is what puts them in front
+   of the agent. Keep its "which layer holds which half" paragraph honest for YOUR repository:
+   the permanent denial below is the only part a script holds.
+2. **Expect `rm -rf /`, `rm -rf ~` and their spellings to be denied outright, with no rerun.**
+   The shipped `scripts/command-guard.sh` carries this; copying the scripts is all that is
+   needed. If some task in your repository legitimately deletes one of those paths, it cannot
+   run under the guard any more and is the owner's to run deliberately outside it — that is the
+   binding change this MAJOR is for.
+3. **Reorder your checkpoint (binding).** Copy steps 5–7 of the maintenance protocol in
+   `harness/templates/seed/AGENTS.md` and item 3 of **Session discipline** in
+   `harness/templates/seed/docs/RUNBOOK.md` into your own copies: update the state file BEFORE
+   the ladder, and run `scripts/ladder.sh --guards-only` again after committing and before
+   pushing. Until you do, your commit-metadata rungs never see the commit you are about to push.
+4. **Hand-apply the seed corrections you want** — seeds are yours and nothing checks these: the
+   does-versus-should sentences of the **Ground truth** note and the pre-push exception in the
+   hook-less bullet of `harness/templates/seed/AGENTS.md` (substitute your default branch for
+   the `{{DEFAULT_BRANCH}}` slot it carries); the narrowed squash-merge sentences in
+   its **Establish coverage** note and in item 9 of the seed runbook's session discipline; the
+   ground-truth line at the top of the seed runbook; and the last sentence of **Paths in rows**
+   in `harness/templates/seed/docs/LEDGER.md`, if your repository has no path guard.
+5. **Codex adopters, optional:** the comment above the environment-dump rules in
+   `harness/templates/configs/codex-amh.rules` explains why `env CI=1 …` is refused there; copy
+   it into `.codex/rules/amh.rules` if you want the explanation beside the rule.
+6. **Optional wording fix:** if your `scripts/verify.sh` still carries the seed's sentence that
+   "green locally, red in CI" can only mean environment, replace it with the wording in
+   `harness/templates/seed/scripts/verify.sh` from this release. Seeds are yours; nothing
+   checks this.
+
+The steps below carry 14.2.0's output-redaction work, which was never released on its own.
+
+Shipped scripts are copied for you; adapter files are not. `amh-init.sh` preserves both
+`.claude/settings.json` and `.codex/config.toml`, so apply the common step and the steps for
+the adapter or adapters you use:
+
+1. Re-run the installer, or copy `scripts/redact-tool-output.sh` from this release into your
+   `scripts/`, so the new shipped script sits beside `redact.sh`. It resolves `redact.sh` from
+   its own directory, so the two must stay together.
+2. **Claude adopters:** add a `PostToolUse` group to the `hooks` object in your
+   `.claude/settings.json`, copying the
+   wording from `harness/templates/configs/claude-settings.json` in this release:
+
+   ```json
+   "PostToolUse": [
+     {
+       "matcher": "*",
+       "hooks": [
+         {
+           "type": "command",
+           "shell": "bash",
+           "command": "scripts/redact-tool-output.sh"
+         }
+       ]
+     }
+   ],
+   ```
+
+   The `"shell": "bash"` line is required for the reason 14.1.0 gives: an unpinned hook can be
+   handed to the Windows file association, which runs it detached and reports rc=0. The
+   `"matcher": "*"` is written out rather than omitted — the two are equivalent to the host, and
+   for a rail the difference between "every tool" and "no tool" should not rest on an absent key.
+3. **Claude adopters:** replace the sentence in your adapter's `$comment` saying this agent has no output-filter
+   hook. It is now false, and an adapter that understates its layers misleads exactly as much
+   as one that overstates them. The template's wording is there to copy, bounds included — do
+   not claim the rail without them.
+4. Add `python3` to `REQUIRED_TOOLS` in your `amh.conf` if you want the session banner to tell
+   you whether the interpreter this rail needs is present. Without it the stand-down is silent.
+5. **Codex adopters:** add the `[[hooks.PostToolUse]]` group from
+   `harness/templates/configs/codex-config.toml` to `.codex/config.toml`. Its block-and-feedback
+   behavior and bounds are stated beside the template entry.
+6. Nothing else to do if your host has no `python3`: the hook stands down and you are in exactly
+   the state you are in today.
+
 ## 14.1.0 — 2026-09-09
 
 - **The Claude adapter pins the shell its hooks run under.** Hook shell form resolves per host and

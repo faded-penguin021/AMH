@@ -16,15 +16,24 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 14.1.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 15.0.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-This tree declares **14.1.0**: the Claude adapter pins the shell its hooks run under, so that
-layer is not replaced by PowerShell per host — and states where the pin does not reach and what
-it costs (**DD-007**–**DD-012**). Whether that version is tagged or
-released is not recorded here — `scripts/session-start.sh` probes it every session and reports
-present, absent or could-not-ask, which is the only answer that can be right twice.
+This tree declares **15.0.0**: the command guard's destructive tier now has one permanent
+denial — an `rm -r -f` or `git clean -f -d` naming `/`, a home directory, `/root`, `/home` or
+`/Users` is blocked and no rerun clears it, while the git verbs armed only on an unknown target
+stay silent on a literal path — and `AGENTS.md` carries the half no scanner holds: exercise an unguarded
+destructive path against a fixture, never a live one, and never remove a safety check to observe
+what it prevents (**DD-018**). An inline interpreter deletion — an enumerated interpreter leading the
+segment, an inline-code flag, and that argument naming a deletion call before an opening
+parenthesis — now buys one advisory that a rerun clears, keyed on a digest of the command rather
+than its text (**DD-019**, **DD-020**). The 14.2.0 draft was never tagged, so its output-redaction work
+ships under this number: both first-class adapters wire post-execution output redaction through
+`scripts/redact-tool-output.sh`, one `redact.sh` invocation per string leaf
+(**DD-015**–**DD-017**), over 14.1.0's shell pin (**DD-007**–**DD-012**). Whether this draft is
+tagged or released is not recorded here — `scripts/session-start.sh` probes it every session and
+reports present, absent or could-not-ask, which is the only answer that can be right twice.
 
 `docs/LEDGER_D.md` is the live ledger volume. No active multi-unit work.
 
@@ -34,8 +43,8 @@ Operational gotchas:
   the squash message before merging; the guard checks commits on a branch, not the message the
   forge composes at merge time (**DC-040**).
 - Nothing checks that every version with a changelog entry actually got a tag, so a merged
-  release can sit untagged with every rung green (**DA-010**). The release Owner-queue item below
-  carries the command that settles it for this version.
+  release can sit untagged with every rung green (**DA-010**). `scripts/session-start.sh` probes
+  the current version's tag every session; `git ls-remote --tags origin` settles any other.
 
 ## Owner queue
 
@@ -44,32 +53,41 @@ Operational gotchas:
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**PENDING OWNER ACTION — merge this branch, then tag 14.1.0, in that order.** The tree declares
-14.1.0 and the changelog carries its entry; both steps are yours. Merge
-`session/relaxed-mccarthy-da2hvm` into `main` first, then tag the merge commit — tagging before the
-merge points the release at a commit `main` never gets, and the README's clone command targets
-`amh-v14.1.0`, so until the tag exists that documented install 404s (**DA-010**). Edit the squash
-message before merging: a poison token in it suppresses the release commit's CI run (**DC-040**).
-Expected, not observed — no session here can inspect a forge setting with the tools this harness
-assumes — `main` protection requires the `ladder` check; if that is no longer so, the merge gate is
-not what this assumes.
-Check: `git ls-remote --tags origin 'refs/tags/amh-v14.1.0'` — a line back means the tag is cut;
-confirm it sits on `main`'s history before closing, since the check cannot see the ordering this
-item exists to enforce.
+**OPEN — tag the drafted 15.0.0 release after its PR merges.** Tagging is an owner action, and
+the README Quick Start follows the release playbook by naming the draft tag before it exists. The
+number was 14.2.0 until this session: that draft was never tagged and a new binding rule landed on
+top of it, so the whole draft is now MAJOR (owner's call, 2026-09-18).
+Check: `git ls-remote --exit-code --tags origin refs/tags/amh-v15.0.0` — a matching ref resolves
+this item; no output means the documented install command is not live yet.
 
-**OPEN — nobody has run a pinned hook on a host where Git bash cannot be found at all.** The
-pinned arm was run on a host where discovery SUCCEEDS despite bash being off `PATH`, which is
-why the WSL hazard was withdrawn (**DD-010**); the failing-discovery path is read from the
-shipped code, not observed, and how it fails differs between the bundles read (**DD-011** for
-the method). Low stakes — both readings are loud — and no check settles it short of that host.
+**OPEN — nothing has observed the new `PostToolUse` redaction hook actually firing, and no
+session can.** `scripts/redact-tool-output.sh --self-test` settles this repository's half —
+payload handling, leaf accounting, result-shape preservation — and settles nothing about whether
+Claude honours `updatedToolOutput` or Codex honours block-and-feedback, because a session cannot
+reload its own hook set to find out. Both contracts fail open on hook failure, as does a missing
+`python3`, so a hook that never fires looks exactly like a tree with no credential in its output
+(**DD-015**, **DD-017**). Only a session that starts with either adapter loaded and sees a
+redaction marker in a tool result settles that adapter. Check: `scripts/redact-tool-output.sh
+--self-test` — all checks passing means the script is sound, and is NOT evidence either hook ran.
 
-**OPEN — the `printf | grep -q` class survives at 39 further sites, and 10 are NOT fixture
-harnesses.** Unit 3 fixed the two with reachable unbounded input; the residue is safe on BOUNDED,
-mostly single-line input rather than on a loud direction, and at least three are the same
-fail-OPEN shape — `ladder.sh:1358` is the one to watch (**DC-038**). Not queued as work; reopen
+**OPEN — nobody has run a pinned hook on a host where Git bash cannot be found at all.** Two
+hosts have now run the pinned arm where discovery SUCCEEDS — the second, reported 2026-09-10, saw
+a pinned guard pass its self-test and actually fire mid-session, so pinned hooks demonstrably deny
+on Windows (**DD-014**); bash being off `PATH` is not the failing case, which is why the WSL hazard
+was withdrawn (**DD-010**). Still unobserved is discovery finding NOTHING: that path is read from
+the shipped code, and how it fails differs between the bundles read (**DD-011** for the method).
+Low stakes — both readings are loud — and no check settles it short of that host.
+
+**OPEN — the `printf | grep -q` class survives at 73 non-comment sites.** Unit 3 fixed the two
+with reachable unbounded input; the residue was safe on bounded, mostly single-line input rather
+than on a loud direction when last classified, but the fixture/non-fixture split has not been
+recounted since the output-redaction rail landed. The 2026-09-29 installer fixtures added seven,
+all asserting on short installer output in the loud direction; the redaction self-test's python3
+fix then added four on one hook response each (two in the quiet direction, bounded far below a
+pipe buffer), and the Claude matcher check one on a JSON group, loud. Not queued as work; reopen
 if any starts matching something unbounded. Check: `grep -rn "printf.*| *grep -q" --include=*.sh
-scripts/ harness/templates/` prints 45 lines, 6 of them comments — resolved only if that stops
-matching the description, which it deliberately does not.
+scripts/ harness/templates/` prints 79 lines, 6 of them comments — resolved only if that stops
+matching the description, which it deliberately does not (**DC-038**).
 
 **OPEN — the 2026-08-29 `path-refs.sh` false failure on `` `session-start.sh` `` still has no
 reproducer.** Closed once as the EPIPE defect, then restored when the pass falsified that
@@ -81,6 +99,25 @@ owner's (2026-08-29) `cmd /c "rd /s /q ..."` resolved to the root of `D:` throug
 backslash-quote mismatch, pairing with the Antigravity `rmdir /s /q d:\` (**DC-027**). Which
 layer mis-parsed is unsettled and matters to whoever builds the arm; a Windows arm is the owner's
 call since the harness targets bash. No check until a session builds it.
+
+**OPEN — two permanent-denial edges the fold unit found and left (DD-035).** Misses, and
+widening is yours: `~/.?*`, `~/.??*`, `~/.[!.]*`, git's `-- '.?*'` under a home `-C`, and bracket
+globs such as `/[!.]*` keep the advisory while `~/.*` is denied. A false positive, a defect: the
+segment splitter reads a brace expansion's `{` as a separator, so `rm -rf ~/{.cache,.npm}` is
+judged as `rm -rf ~/` and denied for good. Check: each twice through `scripts/command-guard.sh
+--command` under one `DESTRUCTIVE_ADVISORY_STATE` — `2 0` on a miss or `2 2` on the brace form
+means still open.
+
+**OPEN — the pin check is repo-local, and whether adopters get one is yours.**
+`scripts/guards/adapter-set.sh` now fails on a Claude hook missing `"shell": "bash"`, but it is
+this repository's own guard: an adopter's ladder still checks nothing, exactly as 14.1.0's
+Upgrading note says. Shipping it means a rung in the shipped `ladder.sh` keyed to one vendor's
+adapter file — an agent-agnosticism question as much as a version-semantics one (additive, so
+MINOR), and adjacent to the shipped config-schema guard already declined pre-3.0.0 (**DA-022**),
+which is why it is yours rather than a unit's. Recommendation: ship it gated on the file
+existing, so a repo with no Claude adapter is unaffected (**DD-013**).
+Check: `grep -c '"shell": "bash"' harness/templates/scripts/ladder.sh` — a non-zero count means
+it shipped; `0` means adopters still have only the hand step.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -105,55 +142,49 @@ from.
 
 ## Changelog
 
-- 2026-09-09/10 — **14.1.0: the Claude adapter pins the shell its hooks run under, and says
-  what the pin does not reach, what it costs, and what nobody has run.** All three hooks set the
-  `shell` field to bash, so a host whose Git bash is undiscoverable should fail visibly instead
-  of handing a bare `.sh` to a file association that runs it detached, feeds it a tty instead of
-  the hook payload, and is not waited on. The rule-review pass established that the command
-  guard's `Bash` matcher never fires on that host at all — queued as an owner fork rather than
-  fixed under cover of a shell pin — and a second pass established that the pinned arm itself
-  was never run, that an invalid VALUE drops a whole hook entry, and that `bash` may resolve to
-  WSL's in another namespace. That last hazard was then withdrawn on measurement — the pinned
-  shell is not resolved through `PATH`, so no host is misrouted to WSL — and the unknown-key
-  question was settled at the shipped schema rather than by proxy: the entry survives, so the
-  pin is inert on a build predating the field (**DD-007**–**DD-011**). The owner declined the
-  `Bash|PowerShell` widening; the guard stays honestly absent there (**DD-012**). Observed
-  2026-09-09 while closing the previous release item: 14.0.0 is merged and `amh-v14.0.0` sits
-  on `main`'s history.
-
-- 2026-09-02 — **14.0.0: working memory is tree-relative.** `Current state` records what stays
-  true of the checked-out tree and stops caching merge, tag, release, CI and forge-setting status;
-  live facts point at the probe that recomputes them, external actions route to the Owner queue,
-  and retained past facts are scoped to when they were observed. Prose-only, at P2/P9, both
-  runbooks, both constitutions and the seeds (**DD-006**).
-
-- 2026-09-02 — **A ledger row pins its text, not the file it names.** The path guard now classifies
-  a missing ledger target against the commit that introduced the citing row — exempting historical
-  drift past the commit that removes the target, failing a citation already broken when authored,
-  and warning where no history or default-branch baseline can say which — so the completed Windows
-  CI plan retired to `docs/history/` while DC-033 keeps its wording (**DD-004**). The frozen
-  archive left the scan in the same change, on the plan tier's own reasoning (owner, **DD-005**).
-
-- 2026-09-02 — **Thresholds name their behavior and historical ledger paths stay immutable.** Classified every configured content boundary at its action point, removed target-like wording and the ledger warning band, shortened ledger preambles, and made path validation strict at authoring while exempting a committed target that had moved only in the working tree (**DD-003**, corrected by **DD-004**).
-
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-09-02 — **Counter-check fixture baselines follow the live ledger.** Updated shipped and
-  local fixture expectations after the objective-verdict rewrite and volume-D rollover (**DD-002**).
+- 2026-09-29 — **The queued fold item, taken on the owner's word: the permanent denial's fold
+  runs to a fixpoint,** so `/*/`, `~/*/` and git's `*/` and `?*` under a home `-C` are denied like
+  `/*` (**DD-035**). Its review found two edges outside the unit; both are queued.
 
-- 2026-09-02 — **Counter checks report size, not writing quality.** Runbook, configuration and
-  ledger preambles separate binary byte-and-sentence acceptance from authoring judgement, ban
-  counter-only rewrites, and keep successful verdicts factual (**DD-001**).
+- 2026-09-29 — **A second external review of the 15.0.0 draft, validated: its three new findings
+  held and were fixed in one unit.** The permanent denial read git's `-C` as a deletion target,
+  the installer read a kept `amh.conf` without the defaults the shipped scripts preset, and the
+  adapter check never read Claude's redaction matcher (**DD-032**–**DD-034**). Its `rm -rf /*/`
+  observation is the queued fold item, unchanged.
 
-- 2026-09-01 — **11.0.0: working-memory compression follows content lifecycle.** Completed
-  narrative is folded when its stage completes; configured byte and sentence values remain
-  unchanged and serve only as post-compression acceptance ceilings (**DC-044**).
-- 2026-09-01 — **10.5.1: ledger row limits are rejection boundaries, never desired sizes.**
-  Config comments, scaffold guidance and the ledger seed now lead with the smallest
-  self-contained durable lesson, prefer one or two sentences when sufficient, distinguish the
-  sentence anti-shaving control from the dense-sentence byte backstop, and route near-boundary
-  material to splitting, durable conclusions or history instead of boundary optimization.
+- 2026-09-29 — **An external review of the 15.0.0 draft, validated: all fifteen findings held
+  and were fixed in three units, then CI found the redaction rail dead on Windows and the command
+  guard open to the same `python3` hazard; the next run showed which hazard fired.** Verdicts
+  in **DD-026**; the lessons are **DD-022**–**DD-025** and **DD-027**–**DD-031**.
+
+- 2026-09-18 — **15.0.0: a deletion aimed at the filesystem root or a home directory is denied
+  outright, and the constitution gained the destructive-work rule no scanner can hold.** Earned by
+  a public incident in which an agent removed the guard it had just written and tested the delete
+  against a live path through an interpreter; the rail catches the literal spelling, the prose
+  covers the interpreter, and each says so about the other (**DD-018**). A second unit added the
+  inline-interpreter advisory that three narrowings made affordable, keyed on a digest rather
+  than on command text (**DD-019**, **DD-020**); its review found the first form advising test
+  files named after deletions, and a broken copy of the guard locked the session out of its own
+  shell (**DD-021**).
+
+- 2026-09-12/13 — **14.2.0, folded and superseded by 15.0.0's number.** Both adapters wired
+  `PostToolUse` output redaction over the new shipped leaf filter, and `adapter-set.sh` fails on
+  the wiring's absence because that absence is invisible from a green tree (**DD-015**–**DD-017**).
+
+- 2026-09-09/10 — **14.1.0, folded: the Claude adapter pins its hooks' shell, and a rung reports
+  an absent pin.** An undiscoverable Git bash now fails visibly instead of reaching the Windows
+  file association, which runs a bare `.sh` detached at rc=0; the pass also established that the
+  guard's `Bash` matcher never fires on that host at all (**DD-007**–**DD-014**).
+
+- 2026-09-01/02 — **14.0.0 and the 11.0.0 counter work, folded.** Working memory became
+  tree-relative and stopped caching world-controlled status; a ledger row was pinned to its text
+  rather than to the file it names; counter checks were separated from authoring judgement, with
+  compression keyed to content lifecycle and row limits restated as rejection boundaries
+  (**DD-001**–**DD-006**, **DC-044**).
+
 - 2026-09-01 — **10.4.0–10.5.0, folded.** The train shipped the Windows/CRLF portability
   proof and remediation, fixed reachable fail-open `printf | grep -q` pipelines, prohibited
   ledger citations to plan paths, and added structural forge/API mutation classification

@@ -38,6 +38,10 @@ beside them holds their hashes:
 
     cp /tmp/amh/harness/templates/scripts/* scripts/ && chmod +x scripts/*.sh
 
+If our ledger or state file records a deliberate fork of a shipped script, that copy has just
+reverted an owner decision: re-apply the fork, delete scripts/MANIFEST.sha256 again, and tell me
+you did.
+
 Then apply the changelog's Upgrading notes: new amh.conf keys, seed-prose changes I want by
 hand, adapter or CI changes. Files I own are never overwritten — amh.conf, the seed documents,
 scripts/verify.sh, scripts/guards, my workflow and adapter configs — and AMH-ADOPT.md is never
@@ -55,7 +59,10 @@ failing on something that was always there is a finding, not upgrade damage: fix
 never weaken the guard to get green.
 
 Record it: AMH_VERSION, the constitution's version line, a changelog line, and a ledger row for
-anything this taught us.
+anything this taught us. Then run scripts/ladder.sh once more, so the tree it verifies is the
+tree you commit; commit; and run scripts/ladder.sh --guards-only before pushing, because its
+commit-message and author-identity rungs can only see a commit that exists. A WARN there that
+the rung checked nothing is a check that did not happen, not one that passed.
 
 Finally, delete /tmp/amh and tell me which version we moved from and to, what you changed by
 hand, and anything that needs my attention. Do not invent repository information — derive it
@@ -72,8 +79,8 @@ This split is the whole reason upgrades are cheap, so it is worth internalising:
 
 | | Upgradeable | Yours forever |
 |---|---|---|
-| `scripts/ladder.sh`, `session-start.sh`, `command-guard.sh`, `redact.sh`, `test-ladder-guards.sh` | **copy over** — they are parameter-free | — |
-| `scripts/MANIFEST.sha256` | **copy over** — generated at release, it holds the hashes of the five scripts above | — |
+| `scripts/ladder.sh`, `session-start.sh`, `command-guard.sh`, `redact.sh`, `redact-tool-output.sh`, `test-ladder-guards.sh` | **copy over** — they are parameter-free | — |
+| `scripts/MANIFEST.sha256` | **copy over** — generated at release, it holds the hashes of the shipped scripts above | — |
 | `amh.conf` | — | yours; new keys are additive, listed in the changelog |
 | `scripts/verify.sh`, `scripts/guards/*` | — | yours; the ladder's extension points |
 | `AGENTS.md`, `docs/RUNBOOK.md`, `docs/STATE.md`, `docs/LEDGER.md` | — | yours; seed changes arrive as hand-applied notes |
@@ -92,7 +99,13 @@ The shipped scripts are the only files you copy, and they are safe to copy *beca
 contain nothing specific to your repo. If you have edited one, stop and undo that first: the
 edit belongs in `amh.conf`, in a `scripts/guards/*.sh`, or in `scripts/verify.sh`. If it fits
 none of those, the harness is missing an extension point — open an issue upstream rather than
-carrying a local patch, because a local patch turns every future upgrade into a merge.
+carrying a local patch, because a local patch turns every future upgrade into a merge. There is
+exactly one exception, and it is a decision rather than a workaround: an owner who decides the
+repository cannot wait for upstream may carry a deliberate fork of a shipped script, at the
+costs step 6 spells out. Nothing else is a supported reason to edit one. If you carry one, every
+upgrade is a merge: step 4's copy overwrites the fork and restores the manifest, so re-apply the
+fork after copying and delete the manifest again — the record of the decision is what tells the
+upgrading session to.
 
 ## The procedure
 
@@ -119,7 +132,7 @@ chmod +x scripts/*.sh
 
 **Copy the whole directory, not just `*.sh`.** `scripts/MANIFEST.sha256` sits beside the
 scripts because it holds their hashes, and your ladder's integrity rung compares the two. New
-scripts against last version's manifest reads exactly like five locally edited scripts — the
+scripts against last version's manifest reads exactly like a trayful of locally edited scripts — the
 rung will say so, and this is the fix. If you have no manifest at all (you upgraded before
 this file existed), the rung warns on every run that the shipped scripts went unchecked;
 copying it is what turns the rung on.
@@ -127,6 +140,15 @@ copying it is what turns the rung on.
 If you have the harness repo checked out, `scripts/amh-init.sh /path/to/your-repo` does the
 same thing and is safe to re-run: it overwrites exactly the shipped scripts and leaves every
 file you own — `amh.conf`, the seed prose, your workflow and adapter configs — untouched.
+Anything it does write on a re-run (a file a newer release introduced, or one you deleted) takes
+its values from the `amh.conf` it keeps, so you need not repeat the options you installed with.
+To read them it sources your `amh.conf` from your repository's root, exactly as your ladder does
+— a dry run included. It refuses to go on, before writing anything, in three cases: an option
+that disagrees with that file (change `amh.conf` first); an `amh.conf` that does not load to its
+end; and a value from it that a file about to be written would carry but that file cannot hold
+safely — a branch name outside letters, digits, `.`, `_`, `-` and `/`, say. A kept value that no
+written file carries is never checked. If a refusal is about a value you mean to keep, the
+`cp` route above does the same upgrade without rendering anything.
 
 The `--profile` flag it grew in 2.0.0 does not change that, and you do not need to pass it on
 an upgrade. It decides which seed prose a **fresh** install receives; a file you already have
@@ -164,17 +186,22 @@ scripts/ladder.sh
 Expect the new version's guards to fail on pre-existing conditions: a state file over a
 threshold the old version did not enforce, an unmarked `[cited]` row, a credential-shaped
 string that was always there. These are findings, not upgrade damage. Fix them; do not
-weaken the guard to get green. If a new guard is genuinely wrong for your repo, delete it
-from your copy of `ladder.sh` and record *why* in your ledger — but understand you have now
-taken a local patch, with the merge cost that implies.
+weaken the guard to get green. If a new guard is genuinely wrong for your repo, look first for
+its key in `amh.conf`. Tuning a rung there is the extension point working as designed, but
+`amh.conf` is legislation: switching a rung off, or loosening it past what it exists to catch
+(an empty `POISON_TOKENS`, say), weakens the guard exactly as a fork does, and takes the same
+owner decision and the same record. With no key, report the guard upstream. Only if the owner
+decides the repository cannot wait does it take the one exception above: delete the guard from
+your copy of `ladder.sh`, record *why* and whose decision it was — in your ledger, or under
+**Decided non-items** in `docs/STATE.md` on a profile with no ledger — and understand that you
+now carry a fork, with a merge on every upgrade.
 
-That patch is also exactly what the integrity rung reports, so it will not be quiet about it.
-The way to live with a deliberate local patch is to delete `scripts/MANIFEST.sha256`: the rung
-then warns, every run, that the shipped scripts went unchecked — a true description of your
-tree, and deliberately not a silent one. Restore the manifest by copying it again once the
-patch is gone.
+That fork is also exactly what the integrity rung reports, so it will not be quiet about it.
+The documented way to run one is to delete `scripts/MANIFEST.sha256`: the rung then warns,
+every run, that the shipped scripts went unchecked — a true description of your tree, and
+deliberately not a silent one. Restore the manifest by copying it again once the fork is gone.
 
-Deleting the file is the *supported* way, not the only mechanical one, and the difference is
+Deleting the file is the *documented* way, not the only mechanical one, and the difference is
 worth stating rather than implying: the manifest is an ordinary text file in your repo, so
 removing one line excuses one script. Two things bound that. The rung refuses a manifest which
 does not cover `scripts/ladder.sh` — the entry whose removal would excuse the file that decides
@@ -184,7 +211,9 @@ defend a file you own against you, and a harness that claimed otherwise would on
 you not to look.
 
 **7. Record it.** Set `AMH_VERSION` in `amh.conf`, update the version in your constitution,
-add a ledger row for anything the upgrade taught you, and add the changelog line.
+add a ledger row for anything the upgrade taught you, and add the changelog line. Then close it
+the way every unit closes: the ladder once more on that final tree, the commit, and
+`scripts/ladder.sh --guards-only` after the commit and before the push.
 
 ## Skipping versions
 

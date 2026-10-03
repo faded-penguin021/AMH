@@ -1,7 +1,7 @@
 # AMH meta-repository — maintenance guide
 
 This repository is the source of truth for the **Agentic Maintenance Harness** (AMH) and its
-reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 14.1.0**
+reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 15.0.0**
 (`harness/VERSION`).
 
 This file states the harness and this repository as they are now. Rules are rewritten in place
@@ -44,14 +44,20 @@ the rule-review protocol.
 3. Select the relevant procedure under `docs/RUNBOOK.md` → **Change-type playbooks**, and
    read everything it names before editing.
 4. Work sequentially in a small, shippable unit with binary acceptance.
-5. Follow `docs/RUNBOOK.md` → **Acceptance ladder** and review the command's actual output.
-6. Update `docs/STATE.md` with what stays true of the checked-out tree; never cache
+5. Update `docs/STATE.md` with what stays true of the checked-out tree; never cache
    world-controlled status (merged, tagged, released, PR/CI, deployments, remote branches, forge
    settings) as current truth — point at the live probe, route it to the Owner queue, or keep it as
    an observation scoped in the sentence to when it was seen. Over the compression trigger, follow
    **Working-memory compression** before editing; that section carries both rules in full. Improve the runbook in the same change if its procedure proved insufficient.
-7. Commit with an honest verification disclosure, then push the permitted
-   `BRANCH_PREFIX/<codename>` session branch.
+6. With every file change of the unit made — the state file included — follow `docs/RUNBOOK.md`
+   → **Acceptance ladder** and review the command's actual output. The tree the ladder verified is
+   then the tree you commit.
+7. Commit with an honest verification disclosure. Then run `scripts/ladder.sh --guards-only`
+   again before pushing: its poison-token and author-identity rungs read commits, so only a run
+   after the commit can see the one you just made. If either fails, fix the commit — it is not
+   pushed yet, so amend it — and run it again; if either WARNs that it checked NOTHING, the check
+   did not happen: fetch the reference it names and re-run, or say plainly that it did not run.
+   Then push the permitted `BRANCH_PREFIX/<codename>` session branch.
 
 The procedures named in `docs/RUNBOOK.md` are binding. Follow **Session discipline** every
 session; use **Change-type playbooks** for the task; apply **Rule-review protocol** when the
@@ -81,6 +87,21 @@ definition of that scope.
   manifest as the playbook directs.
 - Never rewrite, compress, renumber, or remove append-only ledger entries. Append the next
   identifier to the live ledger volume; `docs/STATE.md` identifies that volume.
+- Never exercise an unguarded destructive path against a live target, and never remove a
+  safety check from the source in order to observe what it prevents. Deletions, truncations and
+  resets are tested against a tree made for the test — a `mktemp -d`, a fixture directory — and
+  a guard's necessity is demonstrated the way `docs/RUNBOOK.md` → **Add a guard** already
+  requires: remove the BEHAVIOUR, re-run the SUITE, and read the fixture fail. Running the
+  unguarded operation for real is not a stronger demonstration of the same thing; it is the
+  incident the guard was being written to prevent. `scripts/command-guard.sh` holds a literal
+  TARGET list for two verbs — an `rm -r -f` or a `git clean -f -d` naming the filesystem root or
+  a home directory is blocked and does not clear on a rerun — and the git verbs armed only on an
+  unknown target are silent on a literal path. An INLINE interpreter deletion (`python3 -c`
+  naming `rmtree`, `unlink` and the rest of that list) buys one advisory a rerun clears, on the
+  evidence of a word in a command line and never a reading of the program (**DD-019**). A path
+  built from a variable the guard cannot expand, the same deletion behind `bash -c`, one inside
+  a script file, and a test suite that deletes when it runs are prose-only and bind you, not a
+  script (**DD-018**).
 - Never use self-reported attestations as machine-consumed evidence. A statement, checkbox,
   review marker, or verification disclosure may inform a human but must not satisfy a guard,
   gate, required field, or agent decision procedure merely because it was asserted.
@@ -118,7 +139,10 @@ definition of that scope.
   git-native `pre-push` rail (`command-guard.sh --pre-push`, installed into `.git/hooks/pre-push`
   by `session-start.sh`) is invoked by git rather than by the agent, so it still guards the
   publication invariants for a hook-less agent — a guardrail `--no-verify` bypasses, not a
-  boundary. No script can detect the hook-less state for you: telling a hook invocation from a
+  boundary. It exists only where installed: `session-start.sh` never overwrites a foreign
+  pre-push hook or writes one under `core.hooksPath`, and a fresh clone has none until that
+  script runs. It judges refs, never a commit message or an identity. No script can detect the
+  hook-less state for you: telling a hook invocation from a
   manual one requires one vendor's environment variables, which the harness may not assume, so
   this stays prose on purpose (**DA-022**).
 - New guard behavior ships with a fixture that demonstrably fails without the behavior. Keep

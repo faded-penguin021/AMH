@@ -15,6 +15,8 @@
 #             an upgrade a copy. Never edit them in an adopting repo.
 #   YOURS     the seed prose, amh.conf, the CI workflow, and agent adapter configs.
 #             Written only when absent. Re-running never clobbers a word an adopter wrote.
+#             Whenever an amh.conf is already there, any of these that IS written takes its
+#             values from that kept file, so the tree never carries two answers to one setting.
 #
 # That split is also what makes this script idempotent in the way that matters: running it
 # twice upgrades the machinery and leaves the judgement alone.
@@ -76,7 +78,10 @@ usage: scripts/amh-init.sh [options] <target-repo>
   -h, --help                this message
 
 Re-running is safe: shipped scripts are overwritten (that is the upgrade path), everything
-you own is left untouched.
+you own is left untouched. When the target already has an amh.conf, the run keeps it and SOURCES
+it (dry run included, as every ladder run does), and every option above except --profile takes
+its value from it: an option that disagrees is refused, so change amh.conf first. A value from
+that file is checked only when a file this run writes would carry it.
 
 The profile selects which seed PROSE is installed, and nothing else. The shipped scripts are
 byte-identical for every profile, and no profile disables a guard — the ladder's rungs
@@ -105,6 +110,16 @@ CITATION_SCAN_PATHS='scripts .github'
 DRY_RUN=0
 TARGET=''
 
+# The options whose value amh.conf also records, as <variable>:<amh.conf key>:<flag>. Whenever an
+# amh.conf is kept, it supplies them (see below), so the script has to remember which ones were
+# actually typed and what each defaulted to.
+CONF_BACKED='DEFAULT_BRANCH:DEFAULT_BRANCH:--default-branch BRANCH_PREFIX:BRANCH_PREFIX:--branch-prefix MERGE_MODE_KEY:MERGE_MODE:--merge-mode REMOTE_FLAG:REMOTE_FLAG:--remote-flag COMPRESS_TO_KB:STATE_COMPRESS_TO_KB:--compress-to-kb COMPRESS_TO_SENTENCES:STATE_COMPRESS_TO_SENTENCES:--compress-to-sentences WARN_KB:STATE_WARN_KB:--warn-kb HARD_KB:STATE_HARD_KB:--hard-kb LINE_CAP:LEDGER_LINE_CAP:--line-cap CITATION_SCAN_PATHS:CITATION_SCAN_PATHS:--citation-paths'
+for triple in $CONF_BACKED; do
+	var=${triple%%:*}
+	printf -v "DEFAULT_OF_$var" '%s' "${!var}"
+done
+EXPLICIT=' '
+
 while [ $# -gt 0 ]; do
 	case $1 in
 	--profile)
@@ -117,6 +132,7 @@ while [ $# -gt 0 ]; do
 		;;
 	--default-branch)
 		need_value --default-branch "${2:-}"
+		EXPLICIT="$EXPLICIT$1 "
 		# shellcheck disable=SC2034 # read indirectly through ${!name} in the
 		# INIT_PLACEHOLDERS loop, which shellcheck cannot follow. Scoped to this one
 		# assignment: a file-level directive would also hide a genuinely dead variable.
@@ -125,6 +141,7 @@ while [ $# -gt 0 ]; do
 		;;
 	--branch-prefix)
 		need_value --branch-prefix "${2:-}"
+		EXPLICIT="$EXPLICIT$1 "
 		# shellcheck disable=SC2034 # read indirectly through ${!name} in the
 		# INIT_PLACEHOLDERS loop, which shellcheck cannot follow. Scoped to this one
 		# assignment: a file-level directive would also hide a genuinely dead variable.
@@ -133,41 +150,49 @@ while [ $# -gt 0 ]; do
 		;;
 	--merge-mode)
 		need_value --merge-mode "${2:-}"
+		EXPLICIT="$EXPLICIT$1 "
 		MERGE_MODE_KEY=$2
 		shift 2
 		;;
 	--remote-flag)
 		need_value --remote-flag "${2:-}"
+		EXPLICIT="$EXPLICIT$1 "
 		REMOTE_FLAG=$2
 		shift 2
 		;;
 	--compress-to-kb)
 		need_value --compress-to-kb "${2:-}"
+		EXPLICIT="$EXPLICIT$1 "
 		COMPRESS_TO_KB=$2
 		shift 2
 		;;
 	--compress-to-sentences)
 		need_value --compress-to-sentences "${2:-}"
+		EXPLICIT="$EXPLICIT$1 "
 		COMPRESS_TO_SENTENCES=$2
 		shift 2
 		;;
 	--warn-kb)
 		need_value --warn-kb "${2:-}"
+		EXPLICIT="$EXPLICIT$1 "
 		WARN_KB=$2
 		shift 2
 		;;
 	--hard-kb)
 		need_value --hard-kb "${2:-}"
+		EXPLICIT="$EXPLICIT$1 "
 		HARD_KB=$2
 		shift 2
 		;;
 	--line-cap)
 		need_value --line-cap "${2:-}"
+		EXPLICIT="$EXPLICIT$1 "
 		LINE_CAP=$2
 		shift 2
 		;;
 	--citation-paths)
 		need_value --citation-paths "${2:-}"
+		EXPLICIT="$EXPLICIT$1 "
 		# shellcheck disable=SC2034 # read indirectly through ${!name} in the
 		# INIT_PLACEHOLDERS loop, which shellcheck cannot follow. Scoped to this one
 		# assignment: a file-level directive would also hide a genuinely dead variable.
@@ -206,14 +231,142 @@ git -C "$TARGET" rev-parse --git-dir >/dev/null 2>&1 ||
 AMH_VERSION=$(tr -d '[:space:]' <"$ROOT/harness/VERSION" 2>/dev/null) || AMH_VERSION=''
 [ -n "$AMH_VERSION" ] || die "cannot read harness/VERSION"
 
+# Fresh install or upgrade? Decided BEFORE anything is written, because every marker this could
+# key off is one this run is about to create.
+#
+# TWO signals, both required to call a tree already-adopted, because either alone misfires on a
+# real first-time adopter. `amh.conf` is a plausible name for an unrelated config file somebody
+# already had; `scripts/ladder.sh` alone could be a coincidence in a repo with its own ladder.
+# Together they mean the harness has been installed here before. A misfire costs a first-time
+# adopter the brief with no diagnostic, so it is worth two tests.
+FRESH=1
+[ -e "$TARGET/amh.conf" ] && [ -e "$TARGET/scripts/ladder.sh" ] && FRESH=0
+
+# --- a run that keeps amh.conf renders from it --------------------------------------------
+#
+# amh.conf is the adopter's, and any run that finds one keeps it — an upgrade, and equally a
+# first install into a repo that already had a file of that name. Whatever this run WRITES that
+# carries one of its values — an adapter the adopter deleted, a seed file a later version
+# introduced, a larger profile's scaffolds — must say what that kept file says, or the tree holds
+# two answers to one setting: `master` in amh.conf, which every dynamic guard reads, beside a
+# static Codex rule protecting `main` because nobody repeated the option on the re-run. So the
+# kept file supplies every conf-backed value, a key it leaves unset means the shipped scripts'
+# own default (which is this script's default too), and an option that disagrees with the result
+# is refused rather than silently obeyed or silently dropped: the kept file is not this script's
+# to change, and a value only half the tree carries is the defect.
+#
+# The file is SOURCED in a subshell the way the shipped scripts source it — from the target's
+# root, with ROOT naming that root, since a conf may itself source a sibling through "$ROOT" —
+# because parsing it any other way would be a second reading of the same file, free to disagree
+# with the first. That means this run executes the adopter's amh.conf, dry run included, exactly
+# as every ladder run already does. The conf-backed names are first set to the shipped scripts'
+# defaults, because every shipped script assigns those before it sources the file: a key the file
+# does not set then reads as that default rather than as this script's own variable of the same
+# name, and a line that reads the key it assigns — `DEFAULT_BRANCH=${DEFAULT_BRANCH:-trunk}` —
+# resolves to what the guards resolve it to. Unsetting them instead rendered `trunk` into the
+# Codex rules of a tree whose command guard protects `main`. Records cross back NUL-delimited,
+# since a command substitution would drop the separator, and the last record is a sentinel
+# written only after the file has been read to its end: a conf that exits part way would
+# otherwise hand back nothing, and nothing reads exactly like "every key unset" — the defaults
+# this block exists to stop rendering.
+KEEPS_CONF=0
+[ -e "$TARGET/amh.conf" ] && KEEPS_CONF=1
+RETAINED=' '
+if [ "$KEEPS_CONF" = 1 ]; then
+	TARGET_ROOT=$(cd -- "$TARGET" && pwd) || die "cannot enter $TARGET to read its amh.conf"
+	conf_keys=''
+	for triple in $CONF_BACKED; do
+		IFS=: read -r _ ckey _ <<<"$triple"
+		conf_keys="$conf_keys $ckey"
+	done
+	conf_read=0
+	while IFS= read -r -d '' rec; do
+		if [ "$rec" = '=AMH-INIT-END-OF-CONF' ]; then
+			conf_read=1
+			continue
+		fi
+		key=${rec%%=*}
+		val=${rec#*=}
+		for triple in $CONF_BACKED; do
+			IFS=: read -r var ckey flag <<<"$triple"
+			[ "$ckey" = "$key" ] || continue
+			def=DEFAULT_OF_$var
+			case $EXPLICIT in
+			*" $flag "*)
+				if [ "${!var}" != "$val" ]; then
+					[ "$val" = "${!def}" ] ||
+						die "$flag '${!var}' disagrees with $key='$val' in the amh.conf this run keeps. A run that keeps amh.conf renders every file it writes from it: change amh.conf first, or drop the option."
+					die "$flag '${!var}' disagrees with the amh.conf this run keeps, which resolves $key to the shipped scripts' default '$val'. A run that keeps amh.conf renders every file it writes from it: set $key='${!var}' in amh.conf first, or drop the option."
+				fi
+				;;
+			esac
+			printf -v "$var" '%s' "$val"
+			# A key that resolves to the shipped default is reported as the default, whether
+			# the file omits it, repeats it, or derives it: all three read the same to every
+			# shipped script, and "in the kept amh.conf" would send a reader looking for a
+			# line that may not be there.
+			[ "$val" = "${!def}" ] || RETAINED="$RETAINED$var "
+		done
+	done < <(
+		cd -- "$TARGET_ROOT" || exit 1
+		ROOT=$TARGET_ROOT
+		for triple in $CONF_BACKED; do
+			IFS=: read -r var ckey _ <<<"$triple"
+			def=DEFAULT_OF_$var
+			printf -v "$ckey" '%s' "${!def}"
+		done
+		set +u
+		# shellcheck source=/dev/null
+		. "$ROOT/amh.conf" </dev/null >/dev/null
+		for k in $conf_keys; do
+			[ -n "${!k+x}" ] && printf '%s=%s\0' "$k" "${!k}"
+		done
+		printf '%s\0' '=AMH-INIT-END-OF-CONF'
+	)
+	[ "$conf_read" = 1 ] ||
+		die "the amh.conf this run keeps did not load to its end (it exits or aborts part way), so its values cannot be read and rendering from defaults would contradict it. The shipped scripts stop at the same line when they source it: fix amh.conf, then re-run."
+	for triple in $CONF_BACKED; do
+		IFS=: read -r var ckey flag <<<"$triple"
+		case $RETAINED in *" $var "*) continue ;; esac
+		def=DEFAULT_OF_$var
+		case $EXPLICIT in
+		*" $flag "*)
+			# Reachable only when the file UNSETS the key: the reading above presets every one,
+			# so a key that comes back with no value is one the file removed.
+			[ "${!var}" = "${!def}" ] ||
+				die "$flag '${!var}' has no $ckey to agree with in the amh.conf this run keeps: the file unsets it, so the shipped scripts have no value for it at all. Set $ckey='${!var}' in amh.conf first, or drop the option."
+			;;
+		esac
+	done
+fi
+
+# Which name a validation message should blame. A value read from the kept amh.conf is that
+# key's; a typed option is the option's; and on a run that keeps amh.conf, anything else is the
+# shipped default, which the file omits, repeats or derives. Telling an upgrading adopter that
+# `--compress-to-kb` is wrong when they typed no such option sends them looking in the wrong place.
+origin_of() { # <variable>
+	local triple var ckey flag
+	for triple in $CONF_BACKED; do
+		IFS=: read -r var ckey flag <<<"$triple"
+		[ "$var" = "$1" ] || continue
+		case $RETAINED in
+		*" $var "*) printf '%s in the kept amh.conf' "$ckey" ;;
+		*)
+			case $EXPLICIT in
+			*" $flag "*) printf '%s' "$flag" ;;
+			*) if [ "$KEEPS_CONF" = 1 ]; then printf 'the shipped default for %s' "$ckey"; else printf '%s' "$flag"; fi ;;
+			esac
+			;;
+		esac
+		return 0
+	done
+	printf '%s' "$1"
+}
+
 # --- validation -------------------------------------------------------------
 #
 # Every one of these is a value that would otherwise fail LATER, inside a guard, in a repo
 # whose owner has no idea this script chose it.
-case $MERGE_MODE_KEY in
-branch-per-change | branch-train) ;;
-*) die "--merge-mode must be branch-per-change or branch-train, not '$MERGE_MODE_KEY'" ;;
-esac
 
 # Validated HERE rather than tolerated and reported later, for the --merge-mode reason: a
 # typo'd profile that fell through to "install everything" would hand an adopter more process
@@ -226,31 +379,6 @@ full) PROFILE_RANK=3 ;;
 *) die "--profile must be light, standard or full, not '$PROFILE'" ;;
 esac
 
-# REMOTE_FLAG becomes the NAME of a shell variable the bootstrap reads indirectly. A value
-# like AMH-REMOTE is not a shell identifier, so the read fails at runtime and the toolchain
-# bootstrap is skipped — quietly, which is the worst way for it to fail. Reject it here.
-# An existing adopter can still carry a malformed value in amh.conf; session-start.sh validates
-# that downstream input and reports the skipped bootstrap explicitly.
-case $REMOTE_FLAG in
-[A-Za-z_]*) [[ $REMOTE_FLAG =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || die "--remote-flag must be a valid shell variable name (letters, digits, underscore; not starting with a digit): '$REMOTE_FLAG'" ;;
-*) die "--remote-flag must be a valid shell variable name: '$REMOTE_FLAG'" ;;
-esac
-
-for pair in "COMPRESS_TO_KB:$COMPRESS_TO_KB" "COMPRESS_TO_SENTENCES:$COMPRESS_TO_SENTENCES" "WARN_KB:$WARN_KB" "HARD_KB:$HARD_KB" "LINE_CAP:$LINE_CAP"; do
-	case ${pair#*:} in
-	'' | *[!0-9]*) die "${pair%%:*} must be a whole number, not '${pair#*:}'" ;;
-	esac
-done
-[ "$WARN_KB" -gt "$COMPRESS_TO_KB" ] || die "--warn-kb ($WARN_KB) must exceed --compress-to-kb ($COMPRESS_TO_KB): the band between them IS the debounce"
-# The sentence post-action ceiling has no unit in common with the compression trigger, so it cannot be ordered
-# against it. What CAN be checked is that it is a real limit rather than a vacuous one: a
-# ceiling of 0 asks for an empty file, and a ceiling larger than the compression trigger could hold at any
-# plausible sentence length is a landing check that can never fail. One sentence per 20
-# bytes is denser than any prose and leaves the bound loose enough never to argue with.
-[ "$COMPRESS_TO_SENTENCES" -gt 0 ] || die "--compress-to-sentences must be a positive sentence count, not 0: a zero ceiling asks for an empty file"
-[ "$COMPRESS_TO_SENTENCES" -le $((WARN_KB * 1024 / 20)) ] || die "--compress-to-sentences ($COMPRESS_TO_SENTENCES) is more sentences than $WARN_KB KB can hold at 20 bytes each: the landing check would never fail, which is a vacuous gate rather than a lenient one"
-[ "$HARD_KB" -gt "$WARN_KB" ] || die "--hard-kb ($HARD_KB) must exceed --warn-kb ($WARN_KB)"
-
 # The placeholders this script fills, as DATA rather than ten near-identical sed lines.
 # Each name is also the name of a variable set above, which is what makes the table
 # self-consistent: adding a placeholder here and forgetting its value is a shell error, not
@@ -260,8 +388,146 @@ done
 # would have been a standing hole: it would also hide a placeholder this script forgot.
 INIT_PLACEHOLDERS='AMH_VERSION PROFILE DEFAULT_BRANCH BRANCH_PREFIX MERGE_MODE_KEY REMOTE_FLAG COMPRESS_TO_KB COMPRESS_TO_SENTENCES WARN_KB HARD_KB LINE_CAP CITATION_SCAN_PATHS'
 
-# ...and that table is bound to harness/PLACEHOLDERS.md, whose `init` rows are the same
-# set said in prose. Nothing bound them before: they agreed, and a new template
+# Which profile first installs each seed file. The table is EXHAUSTIVE and unmatched is fatal
+# — a new seed file added without a line here would otherwise land silently in whichever
+# bucket the catch-all named, for every adopter, with no diagnostic. It dies for the harness
+# maintainer, never for an adopter (nobody runs this script against their own repo), and
+# scripts/tests/test-init-e2e.sh instantiates the real tree, so the omission fails there
+# rather than at somebody's adoption (the D-025 shape). It runs first in the scan below, before
+# anything is written.
+#
+# The ordering is cumulative: `standard` installs everything `light` does, `full` everything
+# `standard` does. Nothing records the choice in the target tree — see the usage text.
+#
+# It reports through a global rather than stdout, deliberately: `die` inside a command
+# substitution kills only the subshell, so an unclassified file would print its diagnostic and
+# let the run carry on — a fatal check that is not fatal, which is worse than no check.
+SEED_RANK=0
+seed_min_rank() { # <rel> -> sets SEED_RANK to 1 (light), 2 (standard) or 3 (full)
+	case $1 in
+	# .gitattributes rides with `light`, the smallest profile, because the rungs it protects
+	# are the ones every profile has: the secret scan and the manifest rung do not become
+	# optional at a smaller profile, and a CRLF worktree is what a Windows adopter gets by
+	# default (AMH ledger row DC030).
+	AGENTS.md | CLAUDE.md | .gitattributes | docs/STATE.md | scripts/verify.sh) SEED_RANK=1 ;;
+	docs/RUNBOOK.md | docs/LEDGER.md) SEED_RANK=2 ;;
+	docs/history/README.md) SEED_RANK=3 ;;
+	*) die "seed file has no profile classification: $1 (add it to seed_min_rank)" ;;
+	esac
+}
+
+# The keep-policy configuration files, as <path under harness/templates>:<path in the target>.
+# ONE list, read twice — by the scan below and by the install loop — so a file added to one is
+# in the other.
+KEEP_CONFIGS='amh.conf.example:amh.conf configs/ci.yml:.github/workflows/ci.yml configs/claude-settings.json:.claude/settings.json configs/codex-config.toml:.codex/config.toml configs/codex-amh.rules:.codex/rules/amh.rules configs/codex-agents/amh-rule-reviewer.toml:.codex/agents/amh-rule-reviewer.toml'
+
+# Which placeholders a file this run will WRITE carries — the same decisions the writing section
+# makes: shipped scripts always, a seed or config only when absent and (for a seed) inside the
+# profile, the brief only on a fresh install. On a run that keeps amh.conf, a value is checked
+# only if it is about to be rendered. Every check below exists to keep a bad value out of a
+# file, and a kept value that reaches no file this run writes can only BLOCK the run: the
+# shipped scripts are copied whatever amh.conf says, and a value the adopter's own ladder
+# already runs on is theirs. A run that writes amh.conf itself renders every value there, so it
+# checks every value.
+RENDER_SRCS=()
+for src in "$TPL"/scripts/*; do
+	[ -f "$src" ] && RENDER_SRCS+=("$src")
+done
+while IFS= read -r src; do
+	rel=${src#"$TPL"/seed/}
+	seed_min_rank "$rel"
+	[ -e "$TARGET/$rel" ] && continue
+	[ "$SEED_RANK" -gt "$PROFILE_RANK" ] && continue
+	RENDER_SRCS+=("$src")
+done < <(find "$TPL/seed" -type f | sort)
+for pair in $KEEP_CONFIGS; do
+	[ -e "$TARGET/${pair#*:}" ] || RENDER_SRCS+=("$TPL/${pair%%:*}")
+done
+if [ "$FRESH" = 1 ] && [ ! -e "$TARGET/AMH-ADOPT.md" ]; then
+	RENDER_SRCS+=("$TPL/AMH-ADOPT.md")
+fi
+RENDERED=' '
+for name in $INIT_PLACEHOLDERS; do
+	if grep -qF -- "{{$name}}" ${RENDER_SRCS[@]+"${RENDER_SRCS[@]}"} 2>/dev/null; then
+		RENDERED="$RENDERED$name "
+	fi
+done
+checked() { # <variable> — does validation reach this value on this run?
+	[ "$KEEPS_CONF" = 0 ] && return 0
+	case $RENDERED in *" $1 "*) return 0 ;; esac
+	return 1
+}
+
+if checked MERGE_MODE_KEY; then
+	case $MERGE_MODE_KEY in
+	branch-per-change | branch-train) ;;
+	*) die "$(origin_of MERGE_MODE_KEY) must be branch-per-change or branch-train, not '$MERGE_MODE_KEY'" ;;
+	esac
+fi
+
+# REMOTE_FLAG becomes the NAME of a shell variable the bootstrap reads indirectly. A value
+# like AMH-REMOTE is not a shell identifier, so the read fails at runtime and the toolchain
+# bootstrap is skipped — quietly, which is the worst way for it to fail. Reject it here.
+# An existing adopter can still carry a malformed value in amh.conf: a run that keeps it refuses
+# here only when a file it writes would carry the value, naming the file, and session-start.sh
+# validates the same input downstream and reports the skipped bootstrap explicitly.
+if checked REMOTE_FLAG; then
+	case $REMOTE_FLAG in
+	[A-Za-z_]*) [[ $REMOTE_FLAG =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || die "$(origin_of REMOTE_FLAG) must be a valid shell variable name (letters, digits, underscore; not starting with a digit): '$REMOTE_FLAG'" ;;
+	*) die "$(origin_of REMOTE_FLAG) must be a valid shell variable name: '$REMOTE_FLAG'" ;;
+	esac
+fi
+
+# Both branch values are written into amh.conf as UNQUOTED assignments that every shipped script
+# sources, and into seed prose; DEFAULT_BRANCH also into JSON strings in the Claude adapter,
+# Starlark strings in the Codex rules and a YAML comment in the CI workflow. Each grammar has
+# characters that change meaning, and git allows most of them in a branch name —
+# `release/"stable"` is valid to git, produced adapter JSON that does not parse, and reached
+# amh.conf as `release/stable`; a `$(...)` would run on every ladder run. Escaping for every
+# grammar is one more chance to be wrong each, so both are narrowed to a character set all of
+# them read literally, and git's own rules settle the rest (`..`, a leading `-`, a trailing
+# `.lock`, an empty path component).
+for name in DEFAULT_BRANCH BRANCH_PREFIX; do
+	checked "$name" || continue
+	[[ ${!name} =~ ^[A-Za-z0-9._/-]+$ ]] ||
+		die "$(origin_of "$name") may contain only letters, digits, '.', '_', '-' and '/', which every file it is written into reads literally: '${!name}'"
+done
+if checked DEFAULT_BRANCH; then
+	git check-ref-format --branch "$DEFAULT_BRANCH" >/dev/null 2>&1 ||
+		die "$(origin_of DEFAULT_BRANCH) is not a valid git branch name: '$DEFAULT_BRANCH'"
+fi
+if checked BRANCH_PREFIX; then
+	git check-ref-format --branch "$BRANCH_PREFIX/codename" >/dev/null 2>&1 ||
+		die "$(origin_of BRANCH_PREFIX) does not form valid branch names of the shape '$BRANCH_PREFIX/<codename>'"
+fi
+# CITATION_SCAN_PATHS is written inside single quotes in amh.conf, where one more quote ends the
+# string and the rest of the value is read as shell.
+if checked CITATION_SCAN_PATHS; then
+	case $CITATION_SCAN_PATHS in
+	*"'"*) die "$(origin_of CITATION_SCAN_PATHS) may not contain a single quote: '$CITATION_SCAN_PATHS'" ;;
+	esac
+fi
+
+# The size band is checked as one, because its checks relate the numbers to each other.
+if checked COMPRESS_TO_KB || checked COMPRESS_TO_SENTENCES || checked WARN_KB || checked HARD_KB || checked LINE_CAP; then
+	for pair in "COMPRESS_TO_KB:$COMPRESS_TO_KB" "COMPRESS_TO_SENTENCES:$COMPRESS_TO_SENTENCES" "WARN_KB:$WARN_KB" "HARD_KB:$HARD_KB" "LINE_CAP:$LINE_CAP"; do
+		case ${pair#*:} in
+		'' | *[!0-9]*) die "$(origin_of "${pair%%:*}") must be a whole number, not '${pair#*:}'" ;;
+		esac
+	done
+	[ "$WARN_KB" -gt "$COMPRESS_TO_KB" ] || die "$(origin_of WARN_KB) ($WARN_KB) must exceed $(origin_of COMPRESS_TO_KB) ($COMPRESS_TO_KB): the band between them IS the debounce"
+	# The sentence post-action ceiling has no unit in common with the compression trigger, so it cannot be ordered
+	# against it. What CAN be checked is that it is a real limit rather than a vacuous one: a
+	# ceiling of 0 asks for an empty file, and a ceiling larger than the compression trigger could hold at any
+	# plausible sentence length is a landing check that can never fail. One sentence per 20
+	# bytes is denser than any prose and leaves the bound loose enough never to argue with.
+	[ "$COMPRESS_TO_SENTENCES" -gt 0 ] || die "$(origin_of COMPRESS_TO_SENTENCES) must be a positive sentence count, not 0: a zero ceiling asks for an empty file"
+	[ "$COMPRESS_TO_SENTENCES" -le $((WARN_KB * 1024 / 20)) ] || die "$(origin_of COMPRESS_TO_SENTENCES) ($COMPRESS_TO_SENTENCES) is more sentences than $WARN_KB KB can hold at 20 bytes each: the landing check would never fail, which is a vacuous gate rather than a lenient one"
+	[ "$HARD_KB" -gt "$WARN_KB" ] || die "$(origin_of HARD_KB) ($HARD_KB) must exceed $(origin_of WARN_KB) ($WARN_KB)"
+fi
+
+# The placeholder table above is bound to harness/PLACEHOLDERS.md, whose `init` rows are the
+# same set said in prose. Nothing bound them before: they agreed, and a new template
 # placeholder documented as `init` but left out of the list above would have been written
 # into an adopter's live config unfilled, reported by the run's own summary as something
 # THEY had to fill in. Silent divergence between a list and the document describing it is
@@ -297,11 +563,16 @@ fi
 #       run of the adopter's repo
 #
 # All three were silent: exit 0, a broken config, no warning. Checked, not escaped.
+#
+# A value no file this run writes carries is left out entirely, on a run that keeps amh.conf:
+# substituting it would change nothing, and a malformed one would break the sed expression for
+# every file — the same reach `checked` gives the other checks.
 SED_ARGS=()
 for name in $INIT_PLACEHOLDERS; do
+	checked "$name" || continue
 	case ${!name} in
 	*'|'* | *'&'* | *"$BS"* | *"$NL"*)
-		die "$name may not contain '|', '&', a backslash or a newline: '${!name}'"
+		die "$(origin_of "$name") may not contain '|', '&', a backslash or a newline: '${!name}'"
 		;;
 	esac
 	SED_ARGS+=(-e "s|{{$name}}|${!name}|g")
@@ -313,52 +584,20 @@ WROTE=0
 KEPT=0
 DECLINED=0
 
-# Which profile first installs each seed file. The table is EXHAUSTIVE and unmatched is fatal
-# — a new seed file added without a line here would otherwise land silently in whichever
-# bucket the catch-all named, for every adopter, with no diagnostic. It dies for the harness
-# maintainer, never for an adopter (nobody runs this script against their own repo), and
-# scripts/tests/test-init-e2e.sh instantiates the real tree, so the omission fails there
-# rather than at somebody's adoption (the D-025 shape).
-#
-# The ordering is cumulative: `standard` installs everything `light` does, `full` everything
-# `standard` does. Nothing records the choice in the target tree — see the usage text.
-#
-# It reports through a global rather than stdout, deliberately: `die` inside a command
-# substitution kills only the subshell, so an unclassified file would print its diagnostic and
-# let the run carry on — a fatal check that is not fatal, which is worse than no check. Fatal
-# is all it claims: the run aborts wherever the loop had got to, leaving a partly-written
-# target. Acceptable because it can only fire for a harness maintainer who added a seed file
-# and did not classify it, and the repair is to classify it and re-run.
-SEED_RANK=0
-seed_min_rank() { # <rel> -> sets SEED_RANK to 1 (light), 2 (standard) or 3 (full)
-	case $1 in
-	# .gitattributes rides with `light`, the smallest profile, because the rungs it protects
-	# are the ones every profile has: the secret scan and the manifest rung do not become
-	# optional at a smaller profile, and a CRLF worktree is what a Windows adopter gets by
-	# default (AMH ledger row DC030).
-	AGENTS.md | CLAUDE.md | .gitattributes | docs/STATE.md | scripts/verify.sh) SEED_RANK=1 ;;
-	docs/RUNBOOK.md | docs/LEDGER.md) SEED_RANK=2 ;;
-	docs/history/README.md) SEED_RANK=3 ;;
-	*) die "seed file has no profile classification: $1 (add it to seed_min_rank)" ;;
-	esac
-}
-# Fresh install or upgrade? Decided BEFORE anything is written, because every marker this could
-# key off is one this run is about to create.
-#
-# TWO signals, both required to call a tree already-adopted, because either alone misfires on a
-# real first-time adopter. `amh.conf` is a plausible name for an unrelated config file somebody
-# already had; `scripts/ladder.sh` alone could be a coincidence in a repo with its own ladder.
-# Together they mean the harness has been installed here before. A misfire costs a first-time
-# adopter the brief with no diagnostic, so it is worth two tests.
-FRESH=1
-[ -e "$TARGET/amh.conf" ] && [ -e "$TARGET/scripts/ladder.sh" ] && FRESH=0
+# FRESH and seed_min_rank were settled above, before the kept amh.conf was read.
 # Paths this run installed or kept, for the leftover-placeholder report. Scanning the
 # whole target instead would report every Jinja, Handlebars or Go template in the
 # adopter's repo — and, run against a harness checkout, its own template tree.
 INSTALLED=()
 
 substitute() { # <src> -> stdout, with the init-time placeholders filled in
-	sed "${SED_ARGS[@]}" -- "$1"
+	# No expressions at all is a real state — an upgrade that writes nothing carrying a
+	# placeholder — and `sed -- file` would read the file's PATH as its script.
+	if [ "${#SED_ARGS[@]}" -eq 0 ]; then
+		cat -- "$1"
+	else
+		sed "${SED_ARGS[@]}" -- "$1"
+	fi
 }
 
 install_file() { # <src> <dest-relative> <overwrite|keep> <mode>
@@ -405,6 +644,7 @@ install_file() { # <src> <dest-relative> <overwrite|keep> <mode>
 }
 
 printf 'amh-init: AMH %s (%s profile) -> %s\n\n' "$AMH_VERSION" "$PROFILE" "$TARGET"
+[ "$KEEPS_CONF" = 1 ] && printf ' amh.conf kept: every value written below comes from it\n\n'
 printf ' shipped scripts (overwritten — this is the upgrade path)\n'
 # Every file in the template directory, not only the *.sh ones: MANIFEST.sha256 ships beside
 # the scripts it hashes, and it has to arrive in the SAME pass that writes them or the
@@ -454,16 +694,14 @@ while IFS= read -r src; do
 	esac
 done < <(find "$TPL/seed" -type f | sort)
 
-install_file "$TPL/amh.conf.example" amh.conf keep 644
-install_file "$TPL/configs/ci.yml" .github/workflows/ci.yml keep 644
-# Agent adapters are adopter-owned configuration, just like the CI workflow: install the
-# complete adapter only where each canonical path is absent. Codex reads the canonical
-# AGENTS.md seed directly, so it needs configuration and command policy here, not another
-# constitution pointer beside them.
-install_file "$TPL/configs/claude-settings.json" .claude/settings.json keep 644
-install_file "$TPL/configs/codex-config.toml" .codex/config.toml keep 644
-install_file "$TPL/configs/codex-amh.rules" .codex/rules/amh.rules keep 644
-install_file "$TPL/configs/codex-agents/amh-rule-reviewer.toml" .codex/agents/amh-rule-reviewer.toml keep 644
+# amh.conf, the CI workflow and both agent adapters, from KEEP_CONFIGS — the list the rendered
+# scan above read. Agent adapters are adopter-owned configuration, just like the CI workflow:
+# install the complete adapter only where each canonical path is absent. Codex reads the
+# canonical AGENTS.md seed directly, so it needs configuration and command policy here, not
+# another constitution pointer beside them.
+for pair in $KEEP_CONFIGS; do
+	install_file "$TPL/${pair%%:*}" "${pair#*:}" keep 644
+done
 
 # --- git-native pre-push rail (P13) ----------------------------------------
 # A non-clobbering install of .git/hooks/pre-push, matching what scripts/session-start.sh
