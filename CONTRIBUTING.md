@@ -125,7 +125,9 @@ number is that an adopter can trust it without reading the diff.
 
 The ladder checks the author and committer address on the commits your branch adds — those in
 `origin/<default>..HEAD`, and only when it can resolve that reference, so a shallow clone or a
-fork without the upstream ref gets a warning saying it checked nothing rather than a pass. It
+fork without the upstream ref gets a warning saying it checked nothing rather than a pass. On a
+GitHub pull request, CI's HEAD is GitHub's test merge, which GitHub authored rather than you; the
+ladder sets that one commit aside with a `note` line and judges the branch it merges. It
 can reject a first-time contributor's perfectly real address, which is worth knowing before it
 happens rather than after. Each address is judged in this order:
 

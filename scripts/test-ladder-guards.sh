@@ -2557,6 +2557,165 @@ else
 	report ok "$name"
 fi
 
+# The forge's test merge (AMH ledger row DD036). A pull-request CI run checks out a merge the
+# forge composed — the branch merged into the default, HEAD detached on it, no branch pointing
+# at it — whose author the forge took from an account rather than from any commit, so no amend
+# or force-push can change it. Every case builds the topology for real: a branch `feature` off
+# the base carrying one commit by <branch-author>, then a HEAD by <head-author> in the shape
+# named, with the committer left at the suite's allowed identity as the forge's own stands in.
+#   test-merge  a --no-ff merge, detached, first parent the base, no branch at it: the forge's
+#               shape, and the only one narrowed
+#   on-branch   the same merge with HEAD on a branch
+#   branch-tip  the same merge where only an `origin/` branch points, checked out detached —
+#               what a CI that tests the branch tip rather than a test merge sees
+#   reverse     detached, but the base merged INTO the branch: first parent the branch
+#   octopus     detached, first parent the base, two branches merged at once
+#   single      detached on an ordinary one-parent commit on top of the base
+# Each case after the first pins one condition of the shape: delete it and that case goes green.
+merge_fixture() { # <dir> <shape> <head-author> <branch-author>
+	# Merge chatter goes to /dev/null: `-q` does not silence an octopus's strategy output.
+	if ! (
+		cd "$1" || exit 1
+		base="origin/$DEFAULT_BRANCH_FIXTURE"
+		# Whatever the case appended to amh.conf joins the base first, so every shape reads it.
+		# Left uncommitted, the `commit -a` below files it on `feature` alone, and a HEAD that
+		# does not carry `feature` runs with no allowlist at all — which is how `single` once
+		# passed a disallowed address as merely well-formed.
+		if ! git diff --quiet; then
+			git commit -qam "fixture configuration"
+			git update-ref "refs/remotes/$base" HEAD
+		fi
+		git checkout -q -b feature "$base"
+		printf 'feature work\n' >>docs/STATE.md
+		GIT_AUTHOR_EMAIL="$4" git commit -qam "feature work"
+		case $2 in
+		test-merge)
+			git checkout -q --detach "$base"
+			GIT_AUTHOR_EMAIL="$3" git merge -q --no-ff -m "Merge feature into base" feature
+			;;
+		on-branch)
+			git checkout -q -b integration "$base"
+			GIT_AUTHOR_EMAIL="$3" git merge -q --no-ff -m "Merge feature into integration" feature
+			;;
+		branch-tip)
+			git checkout -q -b integration "$base"
+			GIT_AUTHOR_EMAIL="$3" git merge -q --no-ff -m "Merge feature into integration" feature
+			git update-ref refs/remotes/origin/integration HEAD
+			git checkout -q --detach HEAD
+			# Only the remote-tracking ref is left, as in a CI clone, so this case pins the
+			# `origin/` half of the ref check and `on-branch` pins the local half.
+			git branch -q -D integration
+			;;
+		reverse)
+			# The base has to move, or merging it into the branch is a no-op.
+			git checkout -q --detach "$base"
+			printf 'base work\n' >notes.txt
+			git add notes.txt
+			git commit -qm "base work"
+			git update-ref "refs/remotes/$base" HEAD
+			git checkout -q --detach feature
+			GIT_AUTHOR_EMAIL="$3" git merge -q --no-ff -m "Merge base into feature" "$base"
+			;;
+		octopus)
+			git checkout -q -b feature2 "$base"
+			printf 'more work\n' >notes.txt
+			git add notes.txt
+			GIT_AUTHOR_EMAIL="$4" git commit -qm "more work"
+			git checkout -q --detach "$base"
+			GIT_AUTHOR_EMAIL="$3" git merge -q --no-ff -m "Merge two branches into base" feature feature2
+			;;
+		single)
+			git checkout -q --detach "$base"
+			printf 'single work\n' >notes.txt
+			git add notes.txt
+			GIT_AUTHOR_EMAIL="$3" git commit -qm "single work"
+			;;
+		esac
+	) >/dev/null 2>&1; then
+		printf 'FIXTURE ERROR: building the %s topology failed\n' "$2" >&2
+		exit 1
+	fi
+	# The premise, read back: HEAD exists, carries the author on trial, and has the shape
+	# asked for. A case whose merge quietly fast-forwarded, whose HEAD stayed on a branch, or
+	# whose tip no `origin/` branch carried would assert against a topology it never built.
+	local got want parents detached first_in_base=no referenced
+	got=$(git -C "$1" log -1 --format=%ae)
+	parents=$(git -C "$1" log -1 --format=%p | wc -w | tr -d ' ')
+	detached=$(git -C "$1" symbolic-ref -q HEAD >/dev/null && printf no || printf yes)
+	git -C "$1" merge-base --is-ancestor HEAD^1 "origin/$DEFAULT_BRANCH_FIXTURE" && first_in_base=yes
+	referenced=$([ -n "$(git -C "$1" for-each-ref --points-at HEAD refs/heads refs/remotes/origin)" ] && printf yes || printf no)
+	case $2 in
+	test-merge) want="yes 2 yes no" ;;
+	on-branch) want="no 2 yes yes" ;;
+	branch-tip) want="yes 2 yes yes" ;;
+	reverse) want="yes 2 no no" ;;
+	octopus) want="yes 3 yes no" ;;
+	single) want="yes 1 yes no" ;;
+	esac
+	if [ "$got" != "$3" ] || [ "$detached $parents $first_in_base $referenced" != "$want" ]; then
+		printf 'FIXTURE ERROR: %s HEAD is [detached parents first-in-base referenced: %s], wanted [%s]; author matched: %s\n' \
+			"$2" "$detached $parents $first_in_base $referenced" "$want" "$([ "$got" = "$3" ] && echo yes || echo no)" >&2
+		exit 1
+	fi
+}
+
+# The reported case, rebuilt: every commit on the branch is admitted, and only the forge's
+# merge carries an address outside the allowlist. It must pass, say why the merge went
+# unjudged, count only the branch's commit — and, like every line this rung prints, never
+# render the address it set aside.
+d=$(mk identity_test_merge)
+printf "AUTHOR_EMAIL_ALLOW='.*@test\\\\.invalid'\n" >>"$d/amh.conf"
+merge_fixture "$d" test-merge fixture.person@personal.example amh@test.invalid
+expect_pass_not_saying "the forge's test merge is not judged, and the rung says so without the address" "$d" \
+	'fixture\.person|personal\.example' \
+	"   note  HEAD ($(git -C "$d" rev-parse --short HEAD)) is a detached merge into main"
+expect_pass_saying "...and the window it judges instead is the branch the merge carries" "$d" \
+	"   ok    2 distinct field/address pair(s) over 1 commit(s); all well-formed and admitted by AUTHOR_EMAIL_ALLOW"
+
+# Not judging the merge must not mean not judging the branch: the window moves to HEAD^2,
+# it does not empty.
+d=$(mk identity_test_merge_branch_bad)
+printf "AUTHOR_EMAIL_ALLOW='.*@test\\\\.invalid'\n" >>"$d/amh.conf"
+merge_fixture "$d" test-merge amh@test.invalid fixture.person@personal.example
+expect_fail "under the forge's test merge the branch's own commits are still judged" "$d" \
+	"author identity on commit $(git -C "$d" rev-parse --short HEAD^2) does not match AUTHOR_EMAIL_ALLOW"
+
+for shape in on-branch branch-tip reverse octopus single; do
+	d=$(mk "identity_merge_$shape")
+	printf "AUTHOR_EMAIL_ALLOW='.*@test\\\\.invalid'\n" >>"$d/amh.conf"
+	merge_fixture "$d" "$shape" fixture.person@personal.example amh@test.invalid
+	expect_fail "a HEAD shaped '$shape' is not the forge's test merge and is judged like any commit" "$d" \
+		"author identity on commit $(git -C "$d" rev-parse --short HEAD) does not match AUTHOR_EMAIL_ALLOW"
+done
+
+# The branch-ref probe's own failure. Read as "no branch points here", an error from
+# `for-each-ref` would narrow the window, and nothing about the output would say so. The
+# topology IS the forge's shape, so only that probe's error separates this FAIL from the
+# narrowed pass above; the stub fails `for-each-ref` alone, which nothing else the ladder
+# runs calls.
+d=$(mk identity_test_merge_ref_probe_fails)
+printf "AUTHOR_EMAIL_ALLOW='.*@test\\\\.invalid'\n" >>"$d/amh.conf"
+merge_fixture "$d" test-merge fixture.person@personal.example amh@test.invalid
+mkdir -p "$d/stub-bin"
+real_git=$(command -v git)
+cat >"$d/stub-bin/git" <<STUB
+#!/bin/sh
+case "\$1" in for-each-ref) exit 128 ;; esac
+exec "$real_git" "\$@"
+STUB
+chmod +x "$d/stub-bin/git"
+name="a branch-ref probe that errors reads as a branch pointing here, never as narrowing"
+started=$SECONDS
+out=$(cd "$d" && CI=1 env PATH="$d/stub-bin:$PATH" scripts/ladder.sh --guards-only 2>&1)
+rc=$?
+FIXTURE_ELAPSED_SECONDS=$((SECONDS - started))
+if [ "$rc" -ne 0 ] && ! grep -q '^   note  HEAD (' <<<"$out" &&
+	grep -qF "author identity on commit $(git -C "$d" rev-parse --short HEAD) does not match AUTHOR_EMAIL_ALLOW" <<<"$out"; then
+	report ok "$name"
+else
+	report no "$name" "rc=$rc" "$out"
+fi
+
 # AMH ledger row D019's shape, in the branch whose whole purpose is to be LOUDER when
 # the guard is switched off by something that is not its subject. Nothing covered it —
 # not for this guard and not for the poison-token scan it was modelled on — so demoting

@@ -11,6 +11,44 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 15.0.1 — 2026-10-04
+
+- **The author-identity rung no longer judges the forge's test merge.** A pull-request CI run
+  on GitHub does not check out the branch. It checks out a merge GitHub composed: the branch
+  merged into the default, HEAD detached on it, and no branch pointing at it. GitHub takes that
+  commit's author from an account, not from anything a contributor committed. With
+  `AUTHOR_EMAIL_ALLOW` set, that one commit failed a branch whose every commit was clean, and the
+  printed remedy (amend) could not reach it: a contributor who re-authored every commit and
+  force-pushed got the same failure on the freshly composed merge. Now, when HEAD has exactly two
+  parents, the first is already in `origin/<default>`, and no local branch or `origin/` branch
+  points at it, the rung judges `origin/<default>..HEAD^2`, the branch being merged, and a `note`
+  line names the commit it set aside. The shape is read from git alone, with no forge's
+  environment variables or merge-message wording. A single-parent commit, a merge on a branch, a
+  merge some `origin/` branch points at (a CI that checks a branch tip out detached, as GitLab's
+  does), a detached merge of the base into a branch, and an octopus merge are still judged like
+  any commit. What is left unjudged is a merge into the base that no branch points at. That is
+  either the forge's test merge or one made by hand on a detached HEAD, and the note says this
+  run did not check it. A CI that files its test merge under `origin/` keeps the old behaviour,
+  which fails a clean branch rather than passing a dirty one.
+
+- **The Claude adapter template no longer says its redaction hook was never observed.** On
+  2026-10-04 a Claude Code cloud session on Linux, started in the AMH repository with that wiring
+  loaded, got runtime-generated key-shaped strings back redacted in Bash, Read and Grep results,
+  under class names only `redact.sh` emits, while a shape `redact.sh` has no class for came back
+  untouched. The `$comment` in `harness/templates/configs/claude-settings.json` now says that, and
+  says what it does not cover: your host and Windows. The Codex adapter is still unobserved.
+
+### Upgrading
+
+No action required. Copy the 15.0.1 shipped scripts and manifest through the normal upgrade
+procedure. An adopter still on 14.x also gains 15.0.0's rule that the rung locates a rejected
+address by field and commit and never prints it. Before 15.0.0, every failure line wrote that
+address into CI logs, which anyone can read on a public repository.
+
+The adapter template's comment is yours once installed, so the corrected observation in its
+`$comment` reaches you only if you copy the wording from
+`harness/templates/configs/claude-settings.json`. No behaviour changed.
+
 ## 15.0.0 — 2026-09-18
 
 - **An `rm -r -f` or `git clean -f -d` aimed at the filesystem root or a home directory is now

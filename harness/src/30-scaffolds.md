@@ -179,7 +179,15 @@ The guards it ships with:
   script, and its price is that a permissive pattern switches that half off. Do not use the
   repo's own history as the allowlist: a first-time contributor and a misconfigured one are
   indistinguishable, so it fails every commit of a new branch. Both fields, because a rebase
-  rewrites the committer while the author survives. One arm and one message per shape, or a
+  rewrites the committer while the author survives. Not the forge's test merge: GitHub's
+  pull-request CI checks out the branch merged into the default, HEAD detached, authored from the
+  forge account — no amend reaches it and it is not what lands, so judging it fails a clean
+  branch with a remedy that cannot work. When HEAD has exactly two parents, the first is already
+  in the base, and no local or `origin/` branch points at it, judge `origin/<default>..HEAD^2`
+  instead and say so in a line that is not a verdict. Each condition narrows, so a single-parent
+  commit, a merge on a branch, a branch tip checked out detached, the base merged into a branch
+  and an octopus are still judged; the cost is a hand-made detached merge into the base, which
+  that run does not check. One arm and one message per shape, or a
   single fixture covers the lot and the other patterns can be deleted green. And say in the
   guard what it cannot do — it cannot tell a personal address from a work one, and prose that
   implies otherwise is what stops the next reader checking by hand.

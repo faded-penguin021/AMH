@@ -919,7 +919,8 @@ guard_poison_tokens() {
 	[ "$hits" = 0 ] && ok "clean"
 }
 
-# Git author identity, over `%ae` AND `%ce` across origin/<default>..HEAD.
+# Git author identity, over `%ae` AND `%ce` across origin/<default>..HEAD — or ..HEAD^2 when
+# HEAD is a forge's test merge, as the paragraph on that below says.
 #
 # **What this guard cannot do, plainly, because implying more than a guard delivers is
 # what stops the next reader checking by hand: it cannot tell a personal address from a
@@ -966,6 +967,26 @@ guard_poison_tokens() {
 # have not committed yet is not on disk to check — but that is a fact about one moment,
 # not about all of them.
 #
+# One commit in that window can be nobody's: the TEST MERGE a forge's pull-request CI checks
+# out instead of the branch, as GitHub's does. The forge composes it — the branch merged into
+# <default>, HEAD detached on it, no branch pointing at it — and takes its author from the forge
+# account, not from anything a contributor committed. No amend reaches it, a force-push only
+# makes the forge compose it again the same way, and it is not what lands: a squash, a rebase
+# or the forge's own merge commit replaces it. Judging it fails a branch whose every commit is
+# clean, with a remedy that cannot work, which is how a rung teaches its reader to skip it —
+# reported downstream, where a contributor re-authored every commit and the rung kept failing
+# on this one (AMH ledger row DD036). So when HEAD has that shape — exactly two parents, the
+# first already in the base, and no local branch or `origin/` branch pointing at it, which
+# leaves HEAD detached — the window moves to <default>..HEAD^2, the branch being merged, and a
+# `note` line says so. The shape is git's alone, so no forge's variables or commit wording are
+# assumed. Each condition narrows: a single-parent commit, a merge on a branch, a merge some
+# `origin/` branch points at (a CI that checks a branch tip out detached, as GitLab's does), a
+# detached merge OF the base into a branch, and an octopus are all still judged. What remains
+# is a merge into the base that no branch points at — a test merge, or a hand-made detached
+# one, which this run does not check, and the note says so. A CI that files its test merge
+# under `origin/` gets the old behaviour, which fails a clean branch rather than passing a
+# dirty one.
+#
 # The failure lines name the FIELD, the COMMIT and the reason — never the address. A rejected
 # address is by definition not an approved one, and the constitution forbids rendering those.
 # "It is already in the commit object" does not license printing it: a diagnostic travels into
@@ -1006,8 +1027,25 @@ guard_author_identity() {
 		fi
 	fi
 
+	# The forge's test merge — see the paragraph above the function. The conditions are ANDed,
+	# and an error must never narrow the window, so look at which way each probe fails. The
+	# negated `HEAD^3` probe reads an error as "that shape", so it is not the safety: the positive
+	# `HEAD^2` and ancestry probes are, since an error in either reads as "not that shape" and
+	# leaves HEAD judged. The branch-ref probe is spelled to fail the same way — a `for-each-ref`
+	# that errors prints `err`, which reads as "a branch points here". No detached-HEAD probe:
+	# HEAD on a branch means that branch points at it, so the branch-ref probe already says so,
+	# and a second probe for it would be a condition no fixture could pin.
+	local tip=HEAD
+	if git rev-parse -q --verify 'HEAD^2' >/dev/null 2>&1 &&
+		! git rev-parse -q --verify 'HEAD^3' >/dev/null 2>&1 &&
+		git merge-base --is-ancestor 'HEAD^1' "$base" 2>/dev/null &&
+		[ -z "$(git for-each-ref --points-at HEAD --format=x refs/heads refs/remotes/origin 2>/dev/null || echo err)" ]; then
+		tip='HEAD^2'
+		note "HEAD ($(git rev-parse --short HEAD 2>/dev/null)) is a detached merge into $DEFAULT_BRANCH that no branch points at — the shape of the test merge a forge's pull-request CI checks out, whose author the forge wrote and no amend reaches — so its own identity is not judged. If you made this merge yourself, this run did not check it. The window is $DEFAULT_BRANCH..HEAD^2, the branch it merges."
+	fi
+
 	local commits idents
-	commits=$(git rev-list --count "$base..HEAD" 2>/dev/null)
+	commits=$(git rev-list --count "$base..$tip" 2>/dev/null)
 	# One record per distinct field/address pair: the field, the address, the newest commit
 	# carrying the pair and how many commits do — so the diagnostic can say WHICH field on
 	# WHICH commit without saying what the address is. A rebase or an amend by another tool
@@ -1017,7 +1055,7 @@ guard_author_identity() {
 	# The address is emitted LAST and taken whole — everything after the second separator —
 	# so an address that itself carries the separator byte is judged entire rather than cut
 	# short at it, which would hand the allowlist a prefix of what was committed.
-	idents=$(git log --format='%h%x1fauthor%x1f%ae%n%h%x1fcommitter%x1f%ce' "$base..HEAD" 2>/dev/null |
+	idents=$(git log --format='%h%x1fauthor%x1f%ae%n%h%x1fcommitter%x1f%ce' "$base..$tip" 2>/dev/null |
 		LC_ALL=C awk -F '\037' '
 			{
 				a = $0

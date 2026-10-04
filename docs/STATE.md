@@ -16,24 +16,18 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 15.0.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 15.0.1** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-This tree declares **15.0.0**: the command guard's destructive tier now has one permanent
-denial — an `rm -r -f` or `git clean -f -d` naming `/`, a home directory, `/root`, `/home` or
-`/Users` is blocked and no rerun clears it, while the git verbs armed only on an unknown target
-stay silent on a literal path — and `AGENTS.md` carries the half no scanner holds: exercise an unguarded
-destructive path against a fixture, never a live one, and never remove a safety check to observe
-what it prevents (**DD-018**). An inline interpreter deletion — an enumerated interpreter leading the
-segment, an inline-code flag, and that argument naming a deletion call before an opening
-parenthesis — now buys one advisory that a rerun clears, keyed on a digest of the command rather
-than its text (**DD-019**, **DD-020**). The 14.2.0 draft was never tagged, so its output-redaction work
-ships under this number: both first-class adapters wire post-execution output redaction through
-`scripts/redact-tool-output.sh`, one `redact.sh` invocation per string leaf
-(**DD-015**–**DD-017**), over 14.1.0's shell pin (**DD-007**–**DD-012**). Whether this draft is
-tagged or released is not recorded here — `scripts/session-start.sh` probes it every session and
-reports present, absent or could-not-ask, which is the only answer that can be right twice.
+This tree declares **15.0.1**: the author-identity rung sets aside the forge's test merge a
+pull-request CI checks out — two parents, the first already in the base, no branch at it — and
+judges `origin/<default>..HEAD^2` instead, with a `note` line saying so (**DD-036**). Under it is
+15.0.0 — a deletion aimed at the filesystem root or a home directory is permanently denied, an
+inline interpreter deletion buys one advisory, and both adapters wire output redaction
+(**DD-015**–**DD-035**) — over 14.1.0's shell pin (**DD-007**–**DD-014**). Whether this draft
+is tagged or released is not recorded here — `scripts/session-start.sh` probes it every session
+and reports present, absent or could-not-ask, which is the only answer that can be right twice.
 
 `docs/LEDGER_D.md` is the live ledger volume. No active multi-unit work.
 
@@ -53,22 +47,19 @@ Operational gotchas:
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**OPEN — tag the drafted 15.0.0 release after its PR merges.** Tagging is an owner action, and
-the README Quick Start follows the release playbook by naming the draft tag before it exists. The
-number was 14.2.0 until this session: that draft was never tagged and a new binding rule landed on
-top of it, so the whole draft is now MAJOR (owner's call, 2026-09-18).
-Check: `git ls-remote --exit-code --tags origin refs/tags/amh-v15.0.0` — a matching ref resolves
+**OPEN — tag the drafted 15.0.1 release after its PR merges.** Tagging is an owner action, and
+the README Quick Start follows the release playbook by naming the draft tag before it exists.
+Check: `git ls-remote --exit-code --tags origin refs/tags/amh-v15.0.1` — a matching ref resolves
 this item; no output means the documented install command is not live yet.
 
-**OPEN — nothing has observed the new `PostToolUse` redaction hook actually firing, and no
-session can.** `scripts/redact-tool-output.sh --self-test` settles this repository's half —
-payload handling, leaf accounting, result-shape preservation — and settles nothing about whether
-Claude honours `updatedToolOutput` or Codex honours block-and-feedback, because a session cannot
-reload its own hook set to find out. Both contracts fail open on hook failure, as does a missing
-`python3`, so a hook that never fires looks exactly like a tree with no credential in its output
-(**DD-015**, **DD-017**). Only a session that starts with either adapter loaded and sees a
-redaction marker in a tool result settles that adapter. Check: `scripts/redact-tool-output.sh
---self-test` — all checks passing means the script is sound, and is NOT evidence either hook ran.
+**OPEN — nothing has observed the Codex `PostToolUse` redaction hook actually firing.** The
+Claude half is settled: on 2026-10-04 a Claude Code cloud session on Linux got runtime-generated
+key-shaped strings back redacted in Bash, Read and Grep results (**DD-037**). `scripts/redact-tool-output.sh --self-test` settles this repository's half and
+nothing about whether Codex honours block-and-feedback, which fails open on hook failure, as does a
+missing `python3`, so a hook that never fires looks exactly like output with no credential in it
+(**DD-015**, **DD-017**). Only a Codex session that starts in this repository and gets a redaction
+marker or a block for a runtime-generated `AKIA` string settles it — the owner's, if Codex is used
+here at all. No command settles it, and `--self-test` passing is NOT evidence either way.
 
 **OPEN — nobody has run a pinned hook on a host where Git bash cannot be found at all.** Two
 hosts have now run the pinned arm where discovery SUCCEEDS — the second, reported 2026-09-10, saw
@@ -145,39 +136,20 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-09-29 — **The queued fold item, taken on the owner's word: the permanent denial's fold
-  runs to a fixpoint,** so `/*/`, `~/*/` and git's `*/` and `?*` under a home `-C` are denied like
-  `/*` (**DD-035**). Its review found two edges outside the unit; both are queued.
+- 2026-10-04 — **The Claude `PostToolUse` redaction hook was observed firing** on Bash, Read and
+  Grep results (**DD-037**). Both Claude adapter comments now say so; the Codex half stays queued.
 
-- 2026-09-29 — **A second external review of the 15.0.0 draft, validated: its three new findings
-  held and were fixed in one unit.** The permanent denial read git's `-C` as a deletion target,
-  the installer read a kept `amh.conf` without the defaults the shipped scripts preset, and the
-  adapter check never read Claude's redaction matcher (**DD-032**–**DD-034**). Its `rm -rf /*/`
-  observation is the queued fold item, unchanged.
+- 2026-10-04 — **15.0.1: the author-identity rung no longer judges the forge's test merge.** A
+  downstream contributor re-authored every commit and force-pushed, and the rung kept failing on
+  the detached merge the forge composes for the PR, which no amend reaches (**DD-036**). The
+  queued 15.0.0 tag was found on origin this session, so that item left the queue.
 
-- 2026-09-29 — **An external review of the 15.0.0 draft, validated: all fifteen findings held
-  and were fixed in three units, then CI found the redaction rail dead on Windows and the command
-  guard open to the same `python3` hazard; the next run showed which hazard fired.** Verdicts
-  in **DD-026**; the lessons are **DD-022**–**DD-025** and **DD-027**–**DD-031**.
-
-- 2026-09-18 — **15.0.0: a deletion aimed at the filesystem root or a home directory is denied
-  outright, and the constitution gained the destructive-work rule no scanner can hold.** Earned by
-  a public incident in which an agent removed the guard it had just written and tested the delete
-  against a live path through an interpreter; the rail catches the literal spelling, the prose
-  covers the interpreter, and each says so about the other (**DD-018**). A second unit added the
-  inline-interpreter advisory that three narrowings made affordable, keyed on a digest rather
-  than on command text (**DD-019**, **DD-020**); its review found the first form advising test
-  files named after deletions, and a broken copy of the guard locked the session out of its own
-  shell (**DD-021**).
-
-- 2026-09-12/13 — **14.2.0, folded and superseded by 15.0.0's number.** Both adapters wired
-  `PostToolUse` output redaction over the new shipped leaf filter, and `adapter-set.sh` fails on
-  the wiring's absence because that absence is invisible from a green tree (**DD-015**–**DD-017**).
-
-- 2026-09-09/10 — **14.1.0, folded: the Claude adapter pins its hooks' shell, and a rung reports
-  an absent pin.** An undiscoverable Git bash now fails visibly instead of reaching the Windows
-  file association, which runs a bare `.sh` detached at rc=0; the pass also established that the
-  guard's `Bash` matcher never fires on that host at all (**DD-007**–**DD-014**).
+- 2026-09-09 through 2026-09-29 — **14.1.0, the untagged 14.2.0 draft and 15.0.0, folded;
+  `amh-v14.1.0` and `amh-v15.0.0` were seen on origin on 2026-10-04.** The Claude adapter pinned
+  its hooks' shell, both adapters wired output redaction, a deletion aimed at the filesystem root
+  or a home directory became the command guard's one permanent denial with an inline-interpreter
+  advisory beside it, and two external reviews' findings were validated and fixed; the whole
+  draft became MAJOR on the owner's call of 2026-09-18 (**DD-007**–**DD-035**).
 
 - 2026-09-01/02 — **14.0.0 and the 11.0.0 counter work, folded.** Working memory became
   tree-relative and stopped caching world-controlled status; a ledger row was pinned to its text
