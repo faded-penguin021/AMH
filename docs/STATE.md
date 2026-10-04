@@ -52,15 +52,14 @@ the README Quick Start follows the release playbook by naming the draft tag befo
 Check: `git ls-remote --exit-code --tags origin refs/tags/amh-v15.0.1` — a matching ref resolves
 this item; no output means the documented install command is not live yet.
 
-**OPEN — nothing has observed the new `PostToolUse` redaction hook actually firing, and no
-session can.** `scripts/redact-tool-output.sh --self-test` settles this repository's half —
-payload handling, leaf accounting, result-shape preservation — and settles nothing about whether
-Claude honours `updatedToolOutput` or Codex honours block-and-feedback, because a session cannot
-reload its own hook set to find out. Both contracts fail open on hook failure, as does a missing
-`python3`, so a hook that never fires looks exactly like a tree with no credential in its output
-(**DD-015**, **DD-017**). Only a session that starts with either adapter loaded and sees a
-redaction marker in a tool result settles that adapter. Check: `scripts/redact-tool-output.sh
---self-test` — all checks passing means the script is sound, and is NOT evidence either hook ran.
+**OPEN — nothing has observed the Codex `PostToolUse` redaction hook actually firing.** The
+Claude half is settled: on 2026-10-04 a Claude Code cloud session on Linux got runtime-generated
+key-shaped strings back redacted in Bash, Read and Grep results (**DD-037**). `scripts/redact-tool-output.sh --self-test` settles this repository's half and
+nothing about whether Codex honours block-and-feedback, which fails open on hook failure, as does a
+missing `python3`, so a hook that never fires looks exactly like output with no credential in it
+(**DD-015**, **DD-017**). Only a Codex session that starts in this repository and gets a redaction
+marker or a block for a runtime-generated `AKIA` string settles it — the owner's, if Codex is used
+here at all. No command settles it, and `--self-test` passing is NOT evidence either way.
 
 **OPEN — nobody has run a pinned hook on a host where Git bash cannot be found at all.** Two
 hosts have now run the pinned arm where discovery SUCCEEDS — the second, reported 2026-09-10, saw
@@ -136,6 +135,9 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-10-04 — **The Claude `PostToolUse` redaction hook was observed firing** on Bash, Read and
+  Grep results (**DD-037**). Both Claude adapter comments now say so; the Codex half stays queued.
 
 - 2026-10-04 — **15.0.1: the author-identity rung no longer judges the forge's test merge.** A
   downstream contributor re-authored every commit and force-pushed, and the rung kept failing on

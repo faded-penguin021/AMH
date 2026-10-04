@@ -31,12 +31,23 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   run did not check it. A CI that files its test merge under `origin/` keeps the old behaviour,
   which fails a clean branch rather than passing a dirty one.
 
+- **The Claude adapter template no longer says its redaction hook was never observed.** On
+  2026-10-04 a Claude Code cloud session on Linux, started in the AMH repository with that wiring
+  loaded, got runtime-generated key-shaped strings back redacted in Bash, Read and Grep results,
+  under class names only `redact.sh` emits, while a shape `redact.sh` has no class for came back
+  untouched. The `$comment` in `harness/templates/configs/claude-settings.json` now says that, and
+  says what it does not cover: your host and Windows. The Codex adapter is still unobserved.
+
 ### Upgrading
 
 No action required. Copy the 15.0.1 shipped scripts and manifest through the normal upgrade
 procedure. An adopter still on 14.x also gains 15.0.0's rule that the rung locates a rejected
 address by field and commit and never prints it. Before 15.0.0, every failure line wrote that
 address into CI logs, which anyone can read on a public repository.
+
+The adapter template's comment is yours once installed, so the corrected observation in its
+`$comment` reaches you only if you copy the wording from
+`harness/templates/configs/claude-settings.json`. No behaviour changed.
 
 ## 15.0.0 — 2026-09-18
 
