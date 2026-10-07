@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 15.0.1.** Repos that adopt it record the version they took
+**Harness version 15.1.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -456,7 +456,15 @@ tree, and the agent's rerun is what settles it. That premise fails for a short l
 filesystem root, a home directory, the directory holding home directories. No unit of work inside
 a repository ends by deleting those, so there is nothing for a rerun to settle, and the rerun that
 clears every other target is precisely the keystroke a reported incident ends on. Those get the
-one permanent denial the rail issues. Three properties keep it from becoming the alarm that cries
+rail's permanent denial, and a Windows drive's root is the same target in more spellings (`C:\`,
+`\\?\C:\`, Git Bash's `/c/`, WSL's `/mnt/c`), every one of which must fold to it. The rail's
+one other permanent denial is of a SPELLING rather than a target, and the reason generalises:
+when a deletion's path must cross a quoting layer the guard cannot read — `cmd /c` with `\"`
+nested quotes, which neither `cmd.exe` nor Windows PowerShell 5.1 reads as an escape — the path
+the agent can read is not evidence of what will be deleted, so neither the guard nor a rerun can
+settle it, and the denial names the spellings that need no nesting instead. Pair both with the
+rule no scanner can hold: a refused deletion is a stop, and retrying it through another shell, a
+wrapper or an interpreter is the sidestep, not the fix. Three properties keep it from becoming the alarm that cries
 wolf, and each is load-bearing: the list is literal and small enough to read in one breath (a
 system directory like `/etc` is deliberately outside it, so the file's own fixtures still expect
 an ordinary advisory there); it folds the spellings that address the same directory, since a rail
@@ -877,10 +885,22 @@ shortlist below is what a session is expected to carry without looking.
   and then deleting it to see what happens is not a test; it is the incident. When a guard's
   necessity is in question the answer is a fixture that FAILS without it — not an execution that
   succeeds without it.
+- **A refused deletion is a stop, not a spelling problem.** When a guard denies a deletion
+  permanently, or the host refuses it, never retry it through another shell, a `cmd /c` or
+  `powershell -Command` wrapper, an interpreter or a script file to get it past the refusal. Read
+  what the refusal objected to; if the deletion is still needed, use a spelling the refusal itself
+  names or ask the owner. A one-time advisory clears when the SAME command is rerun after the
+  check it asks for; a respelling made only to dodge it is the sidestep its text names. On
+  Windows, never wrap a path in `\"` nested quotes for `cmd /c`: neither `cmd.exe` nor Windows
+  PowerShell 5.1 reads `\"` as an escape, and in reported incidents `rmdir /s /q` received a
+  bare `\` — the root of the drive. A leftover git worktree is removed with
+  `git worktree remove --force <path>`, which needs no nested quoting.
 - **Which layer holds which half.** `scripts/command-guard.sh` stops a short, literal list: an
-  `rm -r -f` or a `git clean -f -d` whose operand names the filesystem root or a home directory
-  is blocked and does not clear on a rerun. Read the size of that claim rather than its shape —
-  it is a TARGET list for two verbs, not a property of destructive commands. Most other
+  `rm -r -f`, a `git clean -f -d`, or a `cmd /c` `rd /s` or `del /s`, whose operand names the
+  filesystem root, a Windows drive root or a home directory is blocked and does not clear on a
+  rerun, and so is a `cmd /c` recursive deletion spelled with `\"` nested quotes. Read the size of
+  that claim rather than its shape — it is a TARGET list for three commands and one spelling, not
+  a property of destructive commands. Most other
   destructive verbs it recognises get one advisory that a rerun clears; the git verbs armed only
   on an unknown target (`git rm`, `git worktree remove`, `git reset --hard`) say nothing at all
   about a literal path, and its header's **what this guard does NOT catch** block is the

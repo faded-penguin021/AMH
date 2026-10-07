@@ -116,8 +116,10 @@
 #     run. The identity rules are likewise prose here — an identity not yet committed is
 #     not on disk to check.
 #   * THE DESTRUCTIVE RAIL IS A VERB LIST, and a short one: `rm -r -f`, `git clean -f -d`,
-#     `git rm -r -f`, and the tree-mutating git verbs `worktree add|remove|move`,
-#     `reset --hard`, `checkout|switch --force`, `restore`. Anything else that empties a
+#     `git rm -r -f`, the tree-mutating git verbs `worktree add|remove|move`,
+#     `reset --hard`, `checkout|switch --force`, `restore`, and `cmd.exe`'s `rd|rmdir /s` and
+#     `del|erase /s` behind `cmd /c` or `/k` (see `cmd_inner_deletion` for that arm's misses,
+#     a `.bat` file first among them). Anything else that empties a
 #     path reaches the filesystem unadvised — `mv` over a target, `truncate`, `dd`, `find
 #     -delete`, `shred`, a `>` redirection, and every one of these run through an
 #     interpreter — though an interpreter handed a deletion INLINE now gets its own one-time
@@ -128,15 +130,19 @@
 #     deliberately silent; and `git checkout -- "$f"` carries no force flag and is not
 #     recognised at all. The rail is a speed bump on the shapes an agent actually
 #     mistypes, never an inventory of ways to lose a file.
-#     ONE TARGET LIST INSIDE IT IS NOT A SPEED BUMP. An `rm -r -f` or a `git clean -f -d` whose
-#     operand names the filesystem root, a home directory, or a directory holding home
-#     directories is blocked every time and never clears on a rerun. For git the operand is
-#     read where it LANDS: a pathspec joins the directory `-C` moved into, so `git -C "$HOME"
+#     ONE TARGET LIST INSIDE IT IS NOT A SPEED BUMP. An `rm -r -f`, a `git clean -f -d` or a
+#     `cmd /c` recursive deletion whose operand names the filesystem root, a home directory, or
+#     a directory holding home directories is blocked every time and never clears on a rerun —
+#     and on a Windows drive the same list is the drive's root (`C:\`, `C:/`, `\\?\C:\`,
+#     `/c/`, `/mnt/c`, `/cygdrive/c`), a bare drive letter, `Users` and `Users\<name>`. For git
+#     the operand is read where it LANDS: a pathspec joins the directory `-C` moved into, so `git -C "$HOME"
 #     clean -fd -- build` is `$HOME/build` and gets the ordinary advisory, while the same `-C`
 #     with no pathspec, with `.` or with a glob such as `*/`, or a `--work-tree` naming home,
 #     is the home directory and is denied; a `--git-dir` is never the target (see
-#     `record_destructive_targets`). That is the
-#     only permanent denial this guard issues, and it is affordable exactly because the list is
+#     `record_destructive_targets`). That and ONE spelling are the only permanent denials this
+#     guard issues: a recursive `cmd.exe` deletion whose text carries `\"` nested quotes, denied
+#     whatever its path because the path written is not the path `cmd.exe` receives (AMH ledger
+#     row DD038). The target list is affordable exactly because it is
 #     tiny: no unit of work inside a repository deletes those paths, so the false-positive
 #     budget the rest of this tier spends carefully is not spent here at all.
 #     `names_catastrophic_target` holds the TARGET list; it does not hold the verb list, and the
@@ -616,7 +622,8 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 	subagent) ;;
 	*) return 1 ;;
 	esac
-	# The one verdict in this tier that is not one-time, and it is decided BEFORE the state
+	# The first of the two verdicts in this tier that are not one-time (the nested-quote
+	# spelling below is the second), and it is decided BEFORE the state
 	# file is touched, which is the whole mechanism: a catastrophic target neither consumes a
 	# signature nor can be cleared by one, so it fires on the first attempt and on every
 	# attempt after it. Putting it below the state logic would have made "never clears" depend
@@ -625,8 +632,27 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 	if [ "$name" = destructive ] && [ "${DESTRUCTIVE_CATASTROPHIC:-0}" -eq 1 ]; then
 		# shellcheck disable=SC2016 # the example paths must print literally, unexpanded.
 		ADVISORY_REASON="BLOCKED, and this one does NOT clear on a rerun: the deletion is aimed at ${DESTRUCTIVE_CATASTROPHIC_CLASS:-a catastrophic target}. Every other target in this tier gets a one-time advisory because the guard cannot tell a scratch directory from a source tree and your rerun settles it. This target needs no settling — no unit of work inside a repository ends by deleting it, and the reported incidents that reached it were ordinary-looking commands whose operand widened at the last moment. If you are testing deletion code, point it at a fixture tree or a fresh \`mktemp -d\`, and never at a path you would mind losing; the harness rule is that an unguarded destructive path is exercised against a fixture, never against a live one. If this deletion is genuinely what the work needs, it is the owner's to run deliberately, outside this harness and outside this session."
+		# The sidestep with this verdict's shape is not a rerun — that is refused — but the SAME
+		# deletion respelled: through `cmd /c`, another shell, an interpreter or a script file,
+		# none of which this list reads. The reported drive-root deletion that earned the Windows
+		# half of it went exactly that way: a cleanup was blocked, and the session retried it as a
+		# separate `cmd /c rmdir` that nothing caught (AMH ledger row DD038).
+		# shellcheck disable=SC2016 # the backticked spellings must print literally.
+		ADVISORY_REASON="$ADVISORY_REASON"' Do NOT retry this deletion in another spelling — another shell, a `cmd /c` or `powershell -Command` wrapper, an interpreter, a script file. A refused deletion is a stop, not a quoting puzzle; the constitution says so, and the incident that put a Windows drive on this list was a blocked cleanup retried as a separate `cmd /c rmdir`.'
 		# shellcheck disable=SC2016 # the example paths must print literally, unexpanded.
 		ADVISORY_REASON="$ADVISORY_REASON"' What clearing this would NOT have bought, so that a stop here does not read as coverage: the list this fired on is a short one of literal spellings. `.`, `..`, any parent of the work tree, the system directories, an unanchored glob such as `rm -rf *`, a path this guard cannot expand — `"$R"` holding `/` is a variable at scan time and nothing more — and any of these behind a shell string or an interpreter reach the filesystem with no verdict at all: `bash -c "rm -rf /"` is silent here, and an inline `python3 -c "shutil.rmtree(p)"` gets only the one-time interpreter advisory that a rerun clears — so the shape that earned this rail is stopped permanently in its `rm` spelling and for one turn in its interpreter spelling. It caught a spelling, not a category, and the rule that covers the rest is in the constitution, not in this script.'
+		return 0
+	fi
+	# The second permanent verdict, and it denies a SPELLING rather than a target: a recursive
+	# `cmd.exe` deletion whose text carries `\"` nested quotes. The target may be an ordinary
+	# directory — in the incidents it was a leftover worktree — and that is exactly why it cannot
+	# be an advisory: the agent reads the path it wrote, finds it reasonable, and reruns, while
+	# `cmd.exe` deletes a different one. There is a safe spelling for every such deletion and the
+	# text names them, so unlike the target list this one leaves the work possible
+	# (AMH ledger row DD038).
+	if [ "$name" = destructive ] && [ "${DESTRUCTIVE_CMD_QUOTING:-0}" -eq 1 ]; then
+		# shellcheck disable=SC2016 # the backticked spellings must print literally.
+		ADVISORY_REASON='BLOCKED, and this one does NOT clear on a rerun: this recursive `cmd.exe` deletion wraps a path in `\"` nested quotes. `\"` is an escape to bash and to the C runtime, NOT to `cmd.exe` and not to Windows PowerShell 5.1, so somewhere between this text and `cmd.exe` the string closes early and the path `rmdir /s` receives is not the one you wrote. In two reported incidents it was a bare `\`, and `rmdir /s /q \` is the root of the current drive. The path you can read here is not evidence of what will be deleted, which is why a rerun cannot settle it. Do the same deletion in a spelling that needs NO nested quoting: a leftover git worktree with `git worktree remove --force <path>` (and `git worktree prune` for entries whose directory is gone); from bash, `rm -rf -- '"'"'/c/path/to/dir'"'"'` in single quotes; from PowerShell, `Remove-Item -LiteralPath '"'"'C:\path\to\dir'"'"' -Recurse -Force` in single quotes. Print the path first and read it. What is NOT an answer: another nesting of the same quotes, `^` escapes, or moving this text into a `.bat` file — those are the same guess about a parser you cannot see, and a script file is not read here at all.'
 		return 0
 	fi
 	state=$(advisory_state_file "$name")
@@ -795,6 +821,10 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		if [ "$DESTRUCTIVE_SCRIPTNAME" -eq 1 ]; then
 			# shellcheck disable=SC2016 # the backticked names must print literally.
 			ADVISORY_REASON="$ADVISORY_REASON"' This one matched a package SCRIPT NAME, not a command this guard understands. What that script runs is a line in the package manifest and nothing here has opened it, so the name is the entire evidence: it may run something harmless, and the check that settles it is reading the script — `npm run` with no arguments lists them, and the `scripts` block shows the body. The reverse is the part worth carrying away, because no rerun clears it: a script that drops the database under a name like `seed`, `setup` or `bootstrap` reaches the database with no advisory at all, and so does a Makefile target and a justfile recipe. The most widely reported incident of this kind was exactly this shape — an agent ran `npm run db:push` against a production database during a stated code freeze, and the tables came back empty.'
+		fi
+		if [ "${DESTRUCTIVE_WORKTREE:-0}" -eq 1 ]; then
+			# shellcheck disable=SC2016 # the backticked commands must print literally.
+			ADVISORY_REASON="$ADVISORY_REASON"' A path here names a `worktrees` directory. If it is a git worktree, `git worktree remove --force <path>` removes it and its metadata together, and `git worktree prune` clears entries whose directory is already gone — neither needs a path nested inside another shell'"'"'s quotes, which is where the reported drive-root deletion of a leftover worktree went wrong.'
 		fi
 		if [ "$DESTRUCTIVE_ROOTISH" -eq 1 ]; then
 			# shellcheck disable=SC2016 # the examples must print literally, unexpanded.
@@ -1892,6 +1922,46 @@ names_catastrophic_target() { # sets DESTRUCTIVE_CATASTROPHIC_CLASS
 	[ -n "$1" ] || return 1
 	normalize_operand "$1"
 	w=$NORMALIZED
+	# WINDOWS SPELLINGS, read before the fold so that the fold below sees one shape. Three
+	# reported deletions reached the root of a Windows drive through ordinary-looking commands
+	# whose operand widened at the last moment, and on a Windows host the same root has
+	# spellings this list read as nothing: `C:\`, `C:/`, `\\?\C:\`, Git Bash's `/c/` and WSL's
+	# `/mnt/c` (AMH ledger row DD038). A backslash is read as a separator ONLY where the operand
+	# is Windows-shaped — a drive letter, a leading `\\`, or nothing but backslashes — because in
+	# a bash operand it is usually an escape: `rm -rf \*` and `rm -rf ~/\*` name a file called
+	# `*`, and reading them as `/*` denied them forever as the root. The remaining cost on Linux
+	# is a file literally named `\`, denied as the root. A device prefix (`\\?\`, `\\.\`) is
+	# dropped only in front of a drive letter, so `//./home` keeps reading as `/home`. The drive
+	# is then set aside — `prefix` keeps its spelling for the `HOME` comparison below — and the
+	# rest is folded exactly as a POSIX path is: `C:\*` is every entry of that drive's root, as
+	# `/*` is of this one.
+	local drive=0 prefix=''
+	case $w in
+	[A-Za-z]:* | \\\\* | *\\*)
+		case $w in
+		[A-Za-z]:* | \\\\*) w=${w//\\//} ;;
+		*[!\\]*) ;;
+		*) w=${w//\\//} ;;
+		esac
+		;;
+	esac
+	case $w in '//?/'[A-Za-z]:* | '//./'[A-Za-z]:*) w=${w:4} ;; esac
+	while :; do
+		case $w in *//*) w=${w//\/\//\/} ;; *) break ;; esac
+	done
+	case $w in
+	# A bare drive letter is that drive's CURRENT directory to `cmd.exe` and to PowerShell, not
+	# its root — but no unit of work names one as a deletion target, and it is the spelling a
+	# lost path separator leaves behind.
+	[A-Za-z]:)
+		DESTRUCTIVE_CATASTROPHIC_CLASS="a bare Windows drive letter, which names that drive's current directory rather than any path you wrote"
+		return 0
+		;;
+	[A-Za-z]:/*) drive=1 prefix=${w:0:2} w=${w:2} ;;
+	/[A-Za-z] | /[A-Za-z]/*) drive=1 prefix=${w:0:2} w=${w:2} ;;
+	/mnt/[A-Za-z] | /mnt/[A-Za-z]/*) drive=1 prefix=${w:0:6} w=${w:6} ;;
+	/cygdrive/[A-Za-z] | /cygdrive/[A-Za-z]/*) drive=1 prefix=${w:0:11} w=${w:11} ;;
+	esac
 	# Fold the spellings that address the same directory, and fold them to a FIXPOINT: each
 	# step below can expose a spelling another step folds, so one pass in a fixed order is a
 	# rail with a sidestep in whatever order it did not run. A single pass that stripped the
@@ -1953,6 +2023,42 @@ names_catastrophic_target() { # sets DESTRUCTIVE_CATASTROPHIC_CLASS
 		[ "$w" = "$prev" ] && break
 	done
 	[ -n "$w" ] || w=/
+	# On a drive the list is the Windows one, and it is matched without regard to case because
+	# the filesystem is: `C:\USERS` is `C:\Users`. `Users\<name>` is a home directory by the
+	# platform's own fixed convention, which is why it is on this list when `/home/<name>` is
+	# not — see the `$HOME` comparison below for why the POSIX one is read rather than assumed.
+	# Nothing else under a drive is: `C:\Windows` and `C:\Program Files` are as absent as
+	# `/etc`, for the same reason.
+	if [ "$drive" -eq 1 ]; then
+		case $w in
+		/)
+			DESTRUCTIVE_CATASTROPHIC_CLASS='the root of a Windows drive'
+			return 0
+			;;
+		/[Uu][Ss][Ee][Rr][Ss])
+			DESTRUCTIVE_CATASTROPHIC_CLASS='the directory holding every home directory on this machine'
+			return 0
+			;;
+		/[Uu][Ss][Ee][Rr][Ss]/*/*) ;;
+		/[Uu][Ss][Ee][Rr][Ss]/?*)
+			DESTRUCTIVE_CATASTROPHIC_CLASS='a home directory'
+			return 0
+			;;
+		esac
+		# A single-letter first component is a drive only to Git Bash and Cygwin; a `HOME` of
+		# `/d/home/bob` or `/u/bob` is still the home it names, and the comparison below is how
+		# that was denied before drives were read at all.
+		case ${HOME:-} in
+		'' | /) ;;
+		*)
+			if [ "$prefix${w%/}" = "${HOME%/}" ]; then
+				DESTRUCTIVE_CATASTROPHIC_CLASS='your home directory'
+				return 0
+			fi
+			;;
+		esac
+		return 1
+	fi
 	# shellcheck disable=SC2016 # `$HOME` is matched as command TEXT and never expanded here.
 	case $w in
 	/)
@@ -2229,11 +2335,19 @@ record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 	# clear.
 	local deletes_here=0
 	case $kind in
-	rm | git-clean | git-rm | git-worktree-remove)
+	rm | git-clean | git-rm | git-worktree-remove | cmd-rmdir | cmd-del)
 		DESTRUCTIVE_DELETES=1
 		deletes_here=1
 		;;
 	esac
+	# A worktree removed as a directory was the task of the reported drive-root deletion behind
+	# this arm (AMH ledger row DD038), and git has a verb for that which needs no path nested
+	# inside another shell's quotes. The advisory names it.
+	if [ "$deletes_here" -eq 1 ] && [ "$kind" != git-worktree-remove ]; then
+		for w in "$@"; do
+			case $w in *[Ww][Oo][Rr][Kk][Tt][Rr][Ee][Ee][Ss]*) DESTRUCTIVE_WORKTREE=1 ;; esac
+		done
+	fi
 	# The leading operands the `git` arm marked as git's own directory options, one letter
 	# each: C for `-C`, W for `--work-tree`, G for `--git-dir`. They stay operands for
 	# everything else here — an unexpanded `-C "$D"` is still the agent's to print, and still
@@ -2447,6 +2561,248 @@ data_plane_flags() { # data_plane_flags <record-bare-operands:0|1> <word>...
 	return 0
 }
 
+# The `cmd.exe` half of the destructive rail. Three reported deletions reached the root of a
+# Windows drive through `cmd`'s `rmdir /s /q`, and two of them through ONE shape: a cleanup
+# handed to `cmd /c` with its path wrapped in `\"` nested quotes. `\"` is an escape to bash
+# and to the C runtime's argument parser; it is NOT one to `cmd.exe` or to Windows PowerShell
+# 5.1, so somewhere between the agent and `cmd.exe` the string closed early, and what
+# `rmdir /s /q` received was a bare `\` — the root of the current drive (AMH ledger row DD038).
+# Which layer misread it is unsettled for one of the two and not knowable from here for any,
+# which is the point: a guard cannot predict what `cmd.exe` will see from text two quoting
+# regimes away, so the nested-quote spelling is DENIED outright rather than parsed. Every other
+# recursive `cmd.exe` deletion gets the ordinary one-time advisory, and one aimed at a
+# catastrophic target the ordinary permanent denial.
+#
+# `cmd_wrapper_deletion` rebuilds the command line `cmd.exe` receives from the words behind
+# `/c` or `/k`; `cmd_tokenize` reads it the way `cmd.exe` does — `"` toggles quoting and is
+# dropped, `^` escapes, `&`, `|`, parentheses and line ends separate commands, and a redirection
+# takes its target with it — and `cmd_judge_piece` judges each command. A quoted path holding a
+# space stays ONE operand: splitting it read `"C:\Users\John Smith\build"` as a home directory
+# and denied it forever.
+#
+# Accepted misses: a deletion in a `.bat` or `.cmd` file, `cmd` with no `/c` or `/k` reading from
+# stdin, the body of a `for` loop, a `cmd /c` nested inside another, `%VAR%` targets (recorded as
+# written, never expanded), and a prefix outside `@`, `call`, `start` and the `exist`, `defined`
+# and `errorlevel` forms of `if`.
+# The nested-quote check is the wider of the two, on purpose: it reads the WHOLE segment's raw
+# text and fires on a deletion verb anywhere in the command line, so `\"` in a trailing
+# comment or an `echo` beside the deletion denies it too — a false positive with every safe
+# spelling the denial names still open, where the narrow reading would miss the incident's own
+# `if exist \"...\" rmdir /s /q \"...\"` idiom.
+cmd_lower() { # cmd_lower <text> -> sets CMD_LOWER (ASCII; bash 3.2 has no `${x,,}`)
+	CMD_LOWER=$(printf '%s' "$1" | LC_ALL=C tr '[:upper:]' '[:lower:]')
+}
+CMD_LOWER=''
+
+cmd_tokenize() { # cmd_tokenize <cmd.exe command line> -> sets CMD_PIECES (words joined by \x1f)
+	local s=$1
+	local i=0 n=${#s} c q=0 word='' inword=0 piece='' skip=0
+	local sep=$'\x1f'
+	CMD_PIECES=()
+	while [ "$i" -le "$n" ]; do
+		if [ "$i" -lt "$n" ]; then c=${s:i:1}; else c=$'\n'; fi
+		if [ "$q" -eq 1 ] && [ "$i" -lt "$n" ]; then
+			if [ "$c" = '"' ]; then q=0; else word=$word$c; fi
+			i=$((i + 1))
+			continue
+		fi
+		case $c in
+		'"')
+			q=1
+			inword=1
+			;;
+		'^')
+			i=$((i + 1))
+			word=$word${s:i:1}
+			inword=1
+			;;
+		' ' | $'\t' | $'\r' | '&' | '|' | '(' | ')' | $'\n' | '<' | '>')
+			if [ "$inword" -eq 1 ]; then
+				if [ "$skip" -eq 1 ]; then
+					skip=0
+				else
+					case $c$word in
+					# A file-descriptor number glued to a redirection (`2>nul`) is syntax.
+					'>'[0-9] | '<'[0-9]) ;;
+					*) piece=$piece$word$sep ;;
+					esac
+				fi
+				word=''
+				inword=0
+			fi
+			case $c in
+			'<' | '>')
+				# `>>` is one operator and the next word is its target; `2>&1` names no file.
+				case ${s:i+1:1} in
+				'>')
+					i=$((i + 1))
+					skip=1
+					;;
+				'&') i=$((i + 2)) ;;
+				*) skip=1 ;;
+				esac
+				;;
+			' ' | $'\t' | $'\r') ;;
+			*)
+				[ -n "$piece" ] && CMD_PIECES+=("${piece%"$sep"}")
+				piece=''
+				skip=0
+				;;
+			esac
+			;;
+		*)
+			word=$word$c
+			inword=1
+			;;
+		esac
+		i=$((i + 1))
+	done
+	return 0
+}
+CMD_PIECES=()
+
+cmd_judge_piece() { # cmd_judge_piece <word>... -> 0 when it is a recursive deletion
+	local w kind='' rest recursive=1 sw
+	local operands=()
+	# The prefixes that run a command rather than being one.
+	while [ "$#" -gt 0 ]; do
+		w=${1#@}
+		cmd_lower "$w"
+		case $CMD_LOWER in
+		call) shift ;;
+		start)
+			shift
+			while [ "$#" -gt 0 ]; do case $1 in /*) shift ;; *) break ;; esac done
+			;;
+		if)
+			shift
+			[ "${1:-}" = /i ] || [ "${1:-}" = /I ] && shift
+			cmd_lower "${1:-}"
+			[ "$CMD_LOWER" = not ] && shift
+			cmd_lower "${1:-}"
+			case $CMD_LOWER in
+			exist | defined | errorlevel) shift 2 || return 1 ;;
+			*) return 1 ;;
+			esac
+			;;
+		*)
+			set -- "$w" "${@:2}"
+			break
+			;;
+		esac
+	done
+	[ "$#" -gt 0 ] || return 1
+	# `rd/s/q` is `rd` with two switches: `cmd.exe` ends a command name at the first `/`.
+	cmd_lower "${1%%/*}"
+	case $CMD_LOWER in
+	rd | rmdir) kind='cmd-rmdir' ;;
+	del | erase) kind='cmd-del' ;;
+	*) return 1 ;;
+	esac
+	rest=''
+	case $1 in */*) rest=/${1#*/} ;; esac
+	shift
+	for w in ${rest:+"$rest"} "$@"; do
+		case $w in
+		/*)
+			# A switch run: `/s`, `/s/q`, Git Bash's `//s`, and `/a:h`.
+			sw=$w
+			while [ -n "$sw" ]; do
+				sw=${sw#/}
+				case ${sw%%/*} in [Ss]) recursive=0 ;; esac
+				case $sw in */*) sw=/${sw#*/} ;; *) sw='' ;; esac
+			done
+			;;
+		'') ;;
+		*) operands+=("$w") ;;
+		esac
+	done
+	# Without `/s`, `rd` removes only an empty directory and `del` only the files it names
+	# — the same line the `rm` arm draws at `-r`.
+	[ "$recursive" -eq 0 ] || return 1
+	record_destructive_targets "$kind" ${operands[@]+"${operands[@]}"}
+	return 0
+}
+
+cmd_inner_deletion() { # cmd_inner_deletion <raw text the command came from> <cmd.exe command line>
+	local raw=$1 inner=$2 piece found=1 verb_re switch_re escaped_re
+	local sep=$'\x1f' rest w
+	local words=()
+	cmd_tokenize "$inner"
+	for piece in ${CMD_PIECES[@]+"${CMD_PIECES[@]}"}; do
+		words=()
+		rest=$piece
+		while :; do
+			w=${rest%%"$sep"*}
+			words+=("$w")
+			[ "$w" = "$rest" ] && break
+			rest=${rest#*"$sep"}
+		done
+		cmd_judge_piece "${words[@]}" && found=0
+	done
+	# The nested-quote shape, judged on the RAW text because by the time any parser here has read
+	# it the quotes are gone, and with them the only evidence of what went wrong. Any deletion
+	# verb with `/s` anywhere in the command line counts, not only one this arm could place.
+	# An ODD run of backslashes before a quote is the escaped quote; `\\"` is an escaped
+	# backslash followed by an ordinary closing quote, and is not this shape.
+	escaped_re='(^|[^\\])(\\\\)*\\"'
+	if [[ $raw =~ $escaped_re ]]; then
+		cmd_lower " $inner "
+		verb_re='[^a-z0-9_.\\-](rd|rmdir|del|erase)([[:space:]/"]|$)'
+		switch_re='/s([[:space:]/"]|$)'
+		if [[ $CMD_LOWER =~ $verb_re ]] && [[ $CMD_LOWER =~ $switch_re ]]; then
+			DESTRUCTIVE_CMD_QUOTING=1
+			[ "$found" -eq 0 ] || record_destructive_targets 'cmd-rmdir'
+			found=0
+		fi
+	fi
+	return "$found"
+}
+
+cmd_wrapper_deletion() { # cmd_wrapper_deletion <raw text> <word after `cmd`>...
+	local raw=$1 w inner='' seen=1
+	shift
+	# `cmd`'s own switches come before `/c` (`cmd /d /s /c "..."`), and everything after `/c`
+	# or `/k` — glued to it too, `/c"rd ..."` — is the command line.
+	while [ "$#" -gt 0 ]; do
+		w=$1
+		shift
+		case $w in
+		/[CcKk] | //[CcKk])
+			seen=0
+			break
+			;;
+		/[CcKk]?*)
+			set -- "${w#/?}" "$@"
+			seen=0
+			break
+			;;
+		/*) ;;
+		*) return 1 ;;
+		esac
+	done
+	[ "$seen" -eq 0 ] || return 1
+	[ "$#" -gt 0 ] || return 1
+	# The shell that ran `cmd` has already removed its own quoting, so a word holding a space was
+	# a quoted argument and is quoted again here, as Windows does when it builds the command
+	# line. Then `cmd.exe`'s own rule for `/c`: a line that begins with a quote loses that quote
+	# and the LAST one in the line — which is how `cmd /c "rd /s /q x"` reaches `rd` at all.
+	for w in "$@"; do
+		case $w in
+		*[[:space:]]*) inner="$inner \"$w\"" ;;
+		*) inner="$inner $w" ;;
+		esac
+	done
+	inner=${inner# }
+	case $inner in
+	'"'*'"'*)
+		inner=${inner#\"}
+		inner=${inner%\"*}${inner##*\"}
+		;;
+	esac
+	cmd_inner_deletion "$raw" "$inner"
+}
+
 is_destructive_segment() {
 	local raw=$1 w cmd recursive=1 force=1 descend=1 i=0
 	local sub kind='' hard=1 staged=1 worktree_target=1
@@ -2556,6 +2912,11 @@ is_destructive_segment() {
 		;;
 	esac
 	case $cmd in
+	# A Windows path to it (`C:\Windows\System32\cmd.exe`) keeps its backslashes past the
+	# basename strip above, which reads `/` alone.
+	[Cc][Mm][Dd] | [Cc][Mm][Dd].[Ee][Xx][Ee] | *\\[Cc][Mm][Dd] | *\\[Cc][Mm][Dd].[Ee][Xx][Ee])
+		cmd_wrapper_deletion "$raw" "${words[@]:i}" || return 1
+		;;
 	rm)
 		for w in "${words[@]:i}"; do
 			if [ "$end_of_options" -eq 0 ]; then
@@ -3034,8 +3395,7 @@ is_destructive_segment() {
 	return 0
 }
 
-is_destructive_command() {
-	local cmd=$1 seg found=1
+reset_destructive_state() {
 	DESTRUCTIVE_TARGETS=()
 	DESTRUCTIVE_UNEXPANDED=0
 	DESTRUCTIVE_ROOTISH=0
@@ -3044,6 +3404,13 @@ is_destructive_command() {
 	DESTRUCTIVE_SCRIPTNAME=0
 	DESTRUCTIVE_CATASTROPHIC=0
 	DESTRUCTIVE_CATASTROPHIC_CLASS=''
+	DESTRUCTIVE_CMD_QUOTING=0
+	DESTRUCTIVE_WORKTREE=0
+}
+
+is_destructive_command() {
+	local cmd=$1 seg found=1
+	reset_destructive_state
 	cmd=$(strip_heredocs "$cmd")
 	# Every destructive segment is scanned, not just the first. A command that deletes two
 	# path sets is two decisions, and the advisory should be able to name both — stopping
@@ -4328,6 +4695,99 @@ EOF'
 	st_destructive_never_clears 'git -C ~ clean -fdx -- .' 'your home directory'
 	st_destructive_never_clears 'git -C ~ clean -fd -- "*"' 'your home directory'
 	st_destructive_never_clears 'git -C ~ clean -fd -- "*/"' 'your home directory'
+	# Windows spellings of the same list (AMH ledger row DD038). Every one of these reached
+	# a one-time advisory before, so a rerun deleted the drive: the drive root in its five
+	# spellings, a backslash, a device prefix, a glob, the bare drive letter, and the Windows
+	# home convention, which is matched regardless of case because the filesystem is.
+	st_destructive_never_clears "rm -rf 'C:\\'" 'the root of a Windows drive'
+	st_destructive_never_clears 'rm -rf C:/' 'the root of a Windows drive'
+	st_destructive_never_clears 'rm -rf /c/' 'the root of a Windows drive'
+	st_destructive_never_clears 'rm -rf /c' 'the root of a Windows drive'
+	st_destructive_never_clears 'rm -rf /mnt/d' 'the root of a Windows drive'
+	st_destructive_never_clears 'rm -rf /cygdrive/c/' 'the root of a Windows drive'
+	st_destructive_never_clears "rm -rf '\\\\?\\C:\\'" 'the root of a Windows drive'
+	st_destructive_never_clears "rm -rf 'C:\\*'" 'the root of a Windows drive'
+	st_destructive_never_clears "rm -rf 'C:'" 'a bare Windows drive letter'
+	st_destructive_never_clears "rm -rf 'C:\\Users'" 'the directory holding every home directory'
+	st_destructive_never_clears 'rm -rf /c/users/' 'the directory holding every home directory'
+	st_destructive_never_clears "rm -rf 'C:\\Users\\bob'" 'a home directory'
+	st_destructive_never_clears 'rm -rf /c/Users/bob/*' 'a home directory'
+	st_destructive_never_clears "rm -rf '\\'" 'the filesystem root'
+	# ...and where it stops: a directory INSIDE a home, a drive's system directories (absent for
+	# the reason `/etc` is), and a device prefix in front of something other than a drive.
+	st_destructive_advisory_once "rm -rf 'C:\\Users\\bob\\proj'"
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf C:/Windows'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf /c/tmp/build'
+	rm -f -- "$self_destructive_advisory_state"
+	# `cmd.exe` deletions. The nested-quote spelling is denied on its SPELLING, whatever the
+	# path, because the path written is not the path `cmd.exe` deletes — the incident command
+	# is the first fixture, verbatim but for the user name.
+	st_destructive_never_clears 'cmd /c "rmdir /s /q \"\\?\C:\Users\x\Desktop\CLAUDE CODE\proj\.claude\worktrees\agent-a27e\""' 'nested quotes'
+	st_destructive_never_clears 'cmd /c "rd /s /q \"build\""' 'nested quotes'
+	st_destructive_never_clears 'cmd.exe /d /c "cd x && rd /s /q \"tmp dir\""' 'nested quotes'
+	# Its target list is the shared one, reached through `/c`, `//c` (Git Bash's spelling, which
+	# keeps MSYS from rewriting the switch), `/k`, upper case, `cmd`'s own switches before `/c`,
+	# and a command after `&&`. The second fixture is what `cmd.exe` actually received in the
+	# incident: a bare `\`.
+	st_destructive_never_clears "cmd /c rmdir /s /q \\" 'the filesystem root'
+	st_destructive_never_clears 'cmd //c "rd /s /q C:\\"' 'the root of a Windows drive'
+	st_destructive_never_clears 'CMD /D /K "RD /S /Q D:\\"' 'the root of a Windows drive'
+	st_destructive_never_clears 'cmd /c "cd x && rd /s /q C:\Users"' 'the directory holding every home directory'
+	st_destructive_never_clears 'cmd /c "del /s /q C:\*"' 'the root of a Windows drive'
+	# `cmd.exe` reads its own command line: a quoted path holding a space is ONE operand, so a
+	# home directory's subdirectory is advised once rather than read in pieces as the home itself;
+	# switch runs (`rd/s/q`, `/S/Q`, `//s`, `/a:h`), prefixes (`@`, `call`, `if exist`), grouping
+	# parentheses, `|` and `||`, a redirection glued to its operand, a glued `/c"..."` and a full
+	# path to `cmd.exe` all reach the same verdicts as the plain spelling.
+	st_destructive_advisory_once 'cmd /c rd /s /q "C:\Users\John Smith\proj\build"'
+	st_destructive_advisory_once 'cmd //c rd /s /q "C:\Users\John Smith\proj\.claude\worktrees\a"'
+	st_destructive_advisory_once 'cmd /c rmdir /s /q "C:\ scratch"'
+	st_destructive_never_clears 'cmd /c "rd/s/q C:\\"' 'the root of a Windows drive'
+	st_destructive_never_clears 'cmd /c "rmdir /S/Q C:\\"' 'the root of a Windows drive'
+	st_destructive_never_clears 'cmd /c "rd //s //q C:\\"' 'the root of a Windows drive'
+	st_destructive_never_clears 'cmd /c "del /a:h /s C:\\"' 'the root of a Windows drive'
+	st_destructive_never_clears 'cmd /c "@rd /s /q C:\\"' 'the root of a Windows drive'
+	st_destructive_never_clears 'cmd /c "call rd /s /q C:\\"' 'the root of a Windows drive'
+	st_destructive_never_clears 'cmd /c "if exist C:\\ rd /s /q C:\\"' 'the root of a Windows drive'
+	st_destructive_never_clears 'cmd /c "(rd /s /q C:\\)"' 'the root of a Windows drive'
+	st_destructive_never_clears 'cmd /c "dir | rd /s /q C:\\"' 'the root of a Windows drive'
+	st_destructive_never_clears 'cmd /c "dir || rd /s /q C:\\"' 'the root of a Windows drive'
+	st_destructive_never_clears 'cmd /c "rd /s /q C:\\>nul"' 'the root of a Windows drive'
+	st_destructive_never_clears 'cmd /c"rmdir /s /q C:\\"' 'the root of a Windows drive'
+	st_destructive_never_clears 'C:\Windows\System32\cmd.exe /c "rd /s /q C:\\"' 'the root of a Windows drive'
+	st_destructive_never_clears 'cmd /c "if exist \"C:\p\worktrees\a\" rmdir /s /q \"C:\p\worktrees\a\""' 'nested quotes'
+	st_destructive_never_clears 'cmd /c "rmdir /s/q \"C:\proj\worktrees\a\""' 'nested quotes'
+	st_destructive_advisory_once 'cmd /c "rd /s /q build 2>nul"'
+	# Windows spellings the fold must still reach: a collapsed `//c/`, the `\\.\` device prefix,
+	# and a `HOME` on a single-letter first component, which was a home before drives were read.
+	st_destructive_never_clears 'rm -rf //c/' 'the root of a Windows drive'
+	st_destructive_never_clears "rm -rf '\\\\.\\C:\\'" 'the root of a Windows drive'
+	HOME=/d/home/bob st_destructive_never_clears 'rm -rf /d/home/bob' 'your home directory'
+	HOME=/u/bob st_destructive_never_clears 'git -C /u/bob clean -fdx' 'your home directory'
+	# A backslash in a bash operand is usually an escape, never a separator outside a
+	# Windows-shaped path: these name files called `*` and `.`, and stay ordinary.
+	st_destructive_advisory_once 'rm -rf \*'
+	st_destructive_advisory_once 'rm -rf \.'
+	st_destructive_advisory_once 'rm -rf ~/\*'
+	st_destructive_advisory_once 'rm -rf "\"x\""'
+	# Recursive and ordinary is the ordinary advisory, and it names `git worktree remove` when the
+	# path is a worktree's. Not recursive, or not a deletion, is no verdict at all.
+	st_destructive_advisory_once 'cmd /c "rd /s /q build"'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_reason_names 'git worktree remove --force' 'cmd.exe /c "rd /s /q C:\proj\.claude\worktrees\a"'
+	st_destructive_reason_names 'git worktree remove --force' "rm -rf '/c/proj/.claude/worktrees/a'"
+	st_destructive_reason_lacks 'git worktree remove --force' 'rm -rf tmp/build'
+	st_allowed 'cmd /c "rd /q C:\\"'
+	st_allowed 'cmd /c "del C:\x.txt"'
+	st_allowed 'cmd /c dir'
+	st_allowed 'cmd /c "echo rd /s /q \\"'
+	# The target denial now says the respelling is not the way through, because the incident
+	# that put a drive on this list was a blocked cleanup retried as a separate `cmd /c rmdir`.
+	st_destructive_reason_names 'Do NOT retry this deletion in another spelling' 'rm -rf /'
+	# Prose naming the shape is data, never a command: the first design rule.
+	st_allowed 'git commit -m "deny cmd /c \"rmdir /s /q \\\"C:\\\"\""'
 	st_destructive_never_clears 'git -C ~ clean -fd -- "?*"' 'your home directory'
 	st_destructive_never_clears 'git --work-tree="$HOME" clean -fd -- "*/"' 'your home directory'
 	st_destructive_never_clears 'git -C ~ clean -fd :/' 'your home directory'

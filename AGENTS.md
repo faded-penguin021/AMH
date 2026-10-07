@@ -1,7 +1,7 @@
 # AMH meta-repository — maintenance guide
 
 This repository is the source of truth for the **Agentic Maintenance Harness** (AMH) and its
-reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 15.0.1**
+reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 15.1.0**
 (`harness/VERSION`).
 
 This file states the harness and this repository as they are now. Rules are rewritten in place
@@ -94,9 +94,17 @@ definition of that scope.
   requires: remove the BEHAVIOUR, re-run the SUITE, and read the fixture fail. Running the
   unguarded operation for real is not a stronger demonstration of the same thing; it is the
   incident the guard was being written to prevent. `scripts/command-guard.sh` holds a literal
-  TARGET list for two verbs — an `rm -r -f` or a `git clean -f -d` naming the filesystem root or
-  a home directory is blocked and does not clear on a rerun — and the git verbs armed only on an
-  unknown target are silent on a literal path. An INLINE interpreter deletion (`python3 -c`
+  TARGET list for three commands — an `rm -r -f`, a `git clean -f -d`, or a `cmd /c` `rd /s` or
+  `del /s`, naming the filesystem root, a Windows drive root or a home directory, is blocked and
+  does not clear on a rerun; a `cmd /c` recursive deletion whose text carries `\"` nested quotes
+  is blocked the same way, whatever its path — and the git verbs armed only on an unknown target
+  are silent on a literal path. A deletion the guard denied PERMANENTLY, or the host refused, is a
+  stop, not a spelling problem: never retry it through another shell, a `cmd /c` or
+  `powershell -Command` wrapper, an interpreter or a script file to get it past the refusal. Read
+  what the refusal objected to; if the deletion is still needed, use a spelling the refusal
+  itself names or ask the owner. A one-time advisory is different by design — it clears when the
+  SAME command is rerun after the check it asks for, and a respelling made only to dodge it is the
+  sidestep its own text names (**DD-038**). An INLINE interpreter deletion (`python3 -c`
   naming `rmtree`, `unlink` and the rest of that list) buys one advisory a rerun clears, on the
   evidence of a word in a command line and never a reading of the program (**DD-019**). A path
   built from a variable the guard cannot expand, the same deletion behind `bash -c`, one inside

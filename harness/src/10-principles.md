@@ -422,7 +422,15 @@ tree, and the agent's rerun is what settles it. That premise fails for a short l
 filesystem root, a home directory, the directory holding home directories. No unit of work inside
 a repository ends by deleting those, so there is nothing for a rerun to settle, and the rerun that
 clears every other target is precisely the keystroke a reported incident ends on. Those get the
-one permanent denial the rail issues. Three properties keep it from becoming the alarm that cries
+rail's permanent denial, and a Windows drive's root is the same target in more spellings (`C:\`,
+`\\?\C:\`, Git Bash's `/c/`, WSL's `/mnt/c`), every one of which must fold to it. The rail's
+one other permanent denial is of a SPELLING rather than a target, and the reason generalises:
+when a deletion's path must cross a quoting layer the guard cannot read — `cmd /c` with `\"`
+nested quotes, which neither `cmd.exe` nor Windows PowerShell 5.1 reads as an escape — the path
+the agent can read is not evidence of what will be deleted, so neither the guard nor a rerun can
+settle it, and the denial names the spellings that need no nesting instead. Pair both with the
+rule no scanner can hold: a refused deletion is a stop, and retrying it through another shell, a
+wrapper or an interpreter is the sidestep, not the fix. Three properties keep it from becoming the alarm that cries
 wolf, and each is load-bearing: the list is literal and small enough to read in one breath (a
 system directory like `/etc` is deliberately outside it, so the file's own fixtures still expect
 an ordinary advisory there); it folds the spellings that address the same directory, since a rail

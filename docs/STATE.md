@@ -16,14 +16,16 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 15.0.1** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 15.1.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-This tree declares **15.0.1**: the author-identity rung sets aside the forge's test merge a
-pull-request CI checks out — two parents, the first already in the base, no branch at it — and
-judges `origin/<default>..HEAD^2` instead, with a `note` line saying so (**DD-036**). Under it is
-15.0.0 — a deletion aimed at the filesystem root or a home directory is permanently denied, an
+This tree declares **15.1.0**: the command guard's permanent denial covers a Windows drive's
+root, `Users` and `Users\<name>` in every spelling it folds, a `cmd /c` recursive `rd`/`del` is
+judged, one spelled with `\"` nested quotes is denied whatever its path, and the constitution
+forbids retrying a refused deletion in another spelling (**DD-038**). Under it is 15.0.1, whose
+author-identity rung sets aside the forge's test merge a pull-request CI checks out and judges
+`origin/<default>..HEAD^2` instead (**DD-036**), over 15.0.0 — a deletion aimed at the filesystem root or a home directory is permanently denied, an
 inline interpreter deletion buys one advisory, and both adapters wire output redaction
 (**DD-015**–**DD-035**) — over 14.1.0's shell pin (**DD-007**–**DD-014**). Whether this draft
 is tagged or released is not recorded here — `scripts/session-start.sh` probes it every session
@@ -47,10 +49,12 @@ Operational gotchas:
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**OPEN — tag the drafted 15.0.1 release after its PR merges.** Tagging is an owner action, and
+**OPEN — tag the drafted 15.1.0 release after its PR merges.** Tagging is an owner action, and
 the README Quick Start follows the release playbook by naming the draft tag before it exists.
-Check: `git ls-remote --exit-code --tags origin refs/tags/amh-v15.0.1` — a matching ref resolves
-this item; no output means the documented install command is not live yet.
+15.0.1 merged and was not tagged when this was written; whether it gets its own tag is yours, and
+15.1.0 is a MINOR successor of `amh-v15.0.0` either way. Check: `git ls-remote --exit-code --tags
+origin refs/tags/amh-v15.1.0` — a matching ref resolves this item; no output means the documented
+install command is not live yet.
 
 **OPEN — nothing has observed the Codex `PostToolUse` redaction hook actually firing.** The
 Claude half is settled: on 2026-10-04 a Claude Code cloud session on Linux got runtime-generated
@@ -85,11 +89,11 @@ reproducer.** Closed once as the EPIPE defect, then restored when the pass falsi
 (**DC-035**, **DC-029** for the residue): a listing git completed, reported success for, and cut
 short anyway. No check; only a recurrence settles it.
 
-**OPEN — the destructive rail sees no Windows shell, and two reported incidents live there.** The
-owner's (2026-08-29) `cmd /c "rd /s /q ..."` resolved to the root of `D:` through a
-backslash-quote mismatch, pairing with the Antigravity `rmdir /s /q d:\` (**DC-027**). Which
-layer mis-parsed is unsettled and matters to whoever builds the arm; a Windows arm is the owner's
-call since the harness targets bash. No check until a session builds it.
+**OPEN — the PowerShell tool still reaches no command guard.** The owner approved a Windows arm
+on 2026-10-07 after a third drive-root deletion through `cmd`'s `rmdir /s /q` (**DD-038**).
+15.1.0 holds the bash half — drive roots and `cmd /c` deletions — but the hook matcher is still
+`Bash` alone (**DD-012**), and on Windows the PowerShell tool is the primary shell wherever it
+is enabled. Check: `grep -c 'Bash|PowerShell' .claude/settings.json` — `0` means still open.
 
 **OPEN — two permanent-denial edges the fold unit found and left (DD-035).** Misses, and
 widening is yours: `~/.?*`, `~/.??*`, `~/.[!.]*`, git's `-- '.?*'` under a home `-C`, and bracket
@@ -138,6 +142,11 @@ rows — this section is a pointer index, not a narrative.
 
 - 2026-10-04 — **The Claude `PostToolUse` redaction hook was observed firing** on Bash, Read and
   Grep results (**DD-037**). Both Claude adapter comments now say so; the Codex half stays queued.
+
+- 2026-10-07 — **15.1.0 (drafted): Windows drive roots and `cmd /c` deletions reach the command
+  guard.** A Claude Code session on Windows PowerShell 5.1 deleted its account's files on `C:`
+  through `cmd /c "rmdir /s /q \"...\""`, retrying a cleanup a safety check had blocked; the
+  bash half of the Windows arm and the no-respelling rule landed (**DD-038**).
 
 - 2026-10-04 — **15.0.1: the author-identity rung no longer judges the forge's test merge.** A
   downstream contributor re-authored every commit and force-pushed, and the rung kept failing on

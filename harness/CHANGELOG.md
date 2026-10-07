@@ -11,6 +11,50 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 15.1.0 — 2026-10-07
+
+- **A Windows drive's root is on the command guard's permanent-denial list.** A deletion aimed at
+  `C:\`, `C:/`, `\\?\C:\`, Git Bash's `/c/`, WSL's `/mnt/c`, `/cygdrive/c`, a bare drive letter,
+  `C:\Users` or `C:\Users\<name>` is blocked and does not clear on a rerun, in every spelling the
+  existing fold reads — a backslash is read as a separator in a Windows-shaped operand (a drive
+  letter, a leading `\\`, or backslashes alone, so a bash escape such as `\*` keeps its meaning),
+  a device prefix in front of a drive letter is dropped, and the `Users` names match regardless
+  of case. A `HOME` such as `/d/home/bob` is still compared as before. Before this, every one of
+  them got the one-time advisory, so the second attempt deleted the drive. The cost on Linux is
+  that a file literally named `\` is denied as the root. `C:\Windows` and `C:\Program Files`
+  stay outside the list, as `/etc` does.
+- **`cmd /c` deletions are judged.** A `rd /s`, `rmdir /s`, `del /s` or `erase /s` behind `cmd /c`
+  or `/k` — `//c` too, Git Bash's spelling, glued `/c"..."`, a full `...\cmd.exe` path, any case —
+  is read the way `cmd.exe` reads its command line: `"` toggles quoting, so a quoted path holding
+  a space stays one operand; `&`, `|`, parentheses and line ends separate commands; `rd/s/q` and
+  `/s/q` are switch runs; `@`, `call`, `start` and `if exist|defined|errorlevel` are prefixes; and
+  a redirection takes its target with it. Such a deletion gets the ordinary one-time advisory
+  per target and the permanent denial on the list above. A recursive deletion anywhere in a
+  `cmd /c` command line whose segment carries `\"` nested quotes is denied **whatever its path**
+  — deliberately wide, so a `\"` in an `echo` beside it counts too: neither `cmd.exe` nor
+  Windows PowerShell 5.1 reads `\"` as an escape, so the path written is not the path deleted,
+  and in reported incidents it was a bare `\`, the root of the drive. The refusal names spellings
+  that need no nesting: `git worktree remove --force <path>`, single-quoted `rm -rf --` from bash,
+  and single-quoted `Remove-Item -LiteralPath` from PowerShell. Any deletion advisory whose path
+  names a `worktrees` directory now points at `git worktree remove` as well.
+- **A refused deletion is a stop, not a spelling problem.** The constitution now forbids retrying
+  a deletion the guard denied permanently, or the host refused, through another shell, a `cmd /c`
+  or `powershell -Command` wrapper, an interpreter or a script file, and the target denial says so
+  in its own text. A one-time advisory still clears on a rerun of the same command. The incident behind this release retried a blocked cleanup as a separate
+  `cmd /c rmdir`, which nothing caught.
+- **What this does NOT cover.** These arms read text a bash-shaped hook receives. Where Claude
+  Code routes commands through its PowerShell tool — every Windows host where that tool is
+  enabled — the shipped adapter's `Bash` matcher does not fire at all, and nothing here judges
+  the command.
+
+### Upgrading
+
+Copy the 15.1.0 shipped scripts and manifest through the normal upgrade procedure. The new rule
+is in the seed constitution, which is yours once installed: copy the bullet **A refused deletion
+is a stop, not a spelling problem** and the revised **Which layer holds which half** bullet from
+`harness/templates/seed/AGENTS.md` into your `AGENTS.md`. Nothing you do now becomes wrong — a
+deletion retried past a refusal was never sanctioned — so this is MINOR.
+
 ## 15.0.1 — 2026-10-04
 
 - **The author-identity rung no longer judges the forge's test merge.** A pull-request CI run
