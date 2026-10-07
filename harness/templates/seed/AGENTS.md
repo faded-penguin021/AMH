@@ -187,11 +187,15 @@ shortlist below is what a session is expected to carry without looking.
   bare `\` — the root of the drive. A leftover git worktree is removed with
   `git worktree remove --force <path>`, which needs no nested quoting.
 - **Which layer holds which half.** `scripts/command-guard.sh` stops a short, literal list: an
-  `rm -r -f`, a `git clean -f -d`, or a `cmd /c` `rd /s` or `del /s`, whose operand names the
-  filesystem root, a Windows drive root or a home directory is blocked and does not clear on a
-  rerun, and so is a `cmd /c` recursive deletion spelled with `\"` nested quotes. Read the size of
-  that claim rather than its shape — it is a TARGET list for three commands and one spelling, not
-  a property of destructive commands. Most other
+  `rm -r -f`, a `git clean -f -d`, a `cmd /c` `rd /s` or `del /s`, or a PowerShell
+  `Remove-Item -Recurse`, whose operand names the filesystem root, a Windows drive root or a home
+  directory is blocked and does not clear on a rerun, and so is a `cmd /c` recursive deletion
+  spelled with `\"` nested quotes. Read the size of that claim rather than its shape — it is a
+  TARGET list for four commands and one spelling, not a property of destructive commands.
+  PowerShell commands reach it only where the agent's hook matcher names the PowerShell tool and
+  the hook's own shell is present, and then through a reader that judges `Remove-Item`, `cmd /c`
+  and the commands it can hand to the bash rails — not `.NET` deletions, a `.ps1` file,
+  splatting or `Invoke-Expression`. Most other
   destructive verbs it recognises get one advisory that a rerun clears; the git verbs armed only
   on an unknown target (`git rm`, `git worktree remove`, `git reset --hard`) say nothing at all
   about a literal path, and its header's **what this guard does NOT catch** block is the

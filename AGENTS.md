@@ -94,9 +94,9 @@ definition of that scope.
   requires: remove the BEHAVIOUR, re-run the SUITE, and read the fixture fail. Running the
   unguarded operation for real is not a stronger demonstration of the same thing; it is the
   incident the guard was being written to prevent. `scripts/command-guard.sh` holds a literal
-  TARGET list for three commands — an `rm -r -f`, a `git clean -f -d`, or a `cmd /c` `rd /s` or
-  `del /s`, naming the filesystem root, a Windows drive root or a home directory, is blocked and
-  does not clear on a rerun; a `cmd /c` recursive deletion whose text carries `\"` nested quotes
+  TARGET list for four commands — an `rm -r -f`, a `git clean -f -d`, a `cmd /c` `rd /s` or
+  `del /s`, or a PowerShell `Remove-Item -Recurse` (any alias), naming the filesystem root, a
+  Windows drive root or a home directory, is blocked and does not clear on a rerun; a `cmd /c` recursive deletion whose text carries `\"` nested quotes
   is blocked the same way, whatever its path — and the git verbs armed only on an unknown target
   are silent on a literal path. A deletion the guard denied PERMANENTLY, or the host refused, is a
   stop, not a spelling problem: never retry it through another shell, a `cmd /c` or
@@ -152,7 +152,11 @@ definition of that scope.
   script runs. It judges refs, never a commit message or an identity. No script can detect the
   hook-less state for you: telling a hook invocation from a
   manual one requires one vendor's environment variables, which the harness may not assume, so
-  this stays prose on purpose (**DA-022**).
+  this stays prose on purpose (**DA-022**). Where a host routes shell commands through a
+  PowerShell tool, the command rail exists only if the adapter's matcher names that tool and the
+  hook's own shell (bash) is present; the Claude adapter's matcher does, and PowerShell text then
+  goes to the guard's PowerShell reader, a shorter list than the bash one, whose misses the
+  guard's header names (**DD-039**).
 - New guard behavior ships with a fixture that demonstrably fails without the behavior. Keep
   repo-local fixtures separate from the shipped fixture suite.
 - Add no dependency without owner approval; the distributed harness targets `bash`, `git`,

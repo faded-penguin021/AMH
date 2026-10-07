@@ -22,8 +22,10 @@ Adopted harness version: **AMH 15.1.0** — see `harness/VERSION`, the copy that
 
 This tree declares **15.1.0**: the command guard's permanent denial covers a Windows drive's
 root, `Users` and `Users\<name>` in every spelling it folds, a `cmd /c` recursive `rd`/`del` is
-judged, one spelled with `\"` nested quotes is denied whatever its path, and the constitution
-forbids retrying a refused deletion in another spelling (**DD-038**). Under it is 15.0.1, whose
+judged, one spelled with `\"` nested quotes is denied whatever its path, the constitution
+forbids retrying a refused deletion in another spelling (**DD-038**), and the Claude adapter's
+command guard matches `Bash|PowerShell`, with PowerShell read by its own reader (**DD-039**).
+Under it is 15.0.1, whose
 author-identity rung sets aside the forge's test merge a pull-request CI checks out and judges
 `origin/<default>..HEAD^2` instead (**DD-036**), over 15.0.0 — a deletion aimed at the filesystem root or a home directory is permanently denied, an
 inline interpreter deletion buys one advisory, and both adapters wire output redaction
@@ -89,11 +91,11 @@ reproducer.** Closed once as the EPIPE defect, then restored when the pass falsi
 (**DC-035**, **DC-029** for the residue): a listing git completed, reported success for, and cut
 short anyway. No check; only a recurrence settles it.
 
-**OPEN — the PowerShell tool still reaches no command guard.** The owner approved a Windows arm
-on 2026-10-07 after a third drive-root deletion through `cmd`'s `rmdir /s /q` (**DD-038**).
-15.1.0 holds the bash half — drive roots and `cmd /c` deletions — but the hook matcher is still
-`Bash` alone (**DD-012**), and on Windows the PowerShell tool is the primary shell wherever it
-is enabled. Check: `grep -c 'Bash|PowerShell' .claude/settings.json` — `0` means still open.
+**OPEN — nobody has observed the command guard firing on a PowerShell payload on Windows.** The
+matcher and the reader shipped in 15.1.0 (**DD-039**); `scripts/command-guard.sh --powershell`
+and the fixtures prove the reader on Linux and nothing about the host. Only a Claude Code
+session on Windows that gets a block for a PowerShell `Remove-Item -Recurse` aimed at a drive
+root settles it — the owner's, on the host that lost `C:`. No check.
 
 **OPEN — two permanent-denial edges the fold unit found and left (DD-035).** Misses, and
 widening is yours: `~/.?*`, `~/.??*`, `~/.[!.]*`, git's `-- '.?*'` under a home `-C`, and bracket
@@ -132,8 +134,7 @@ from.
   constitution byte cap (**DB-038**); a Python-write advisory (**DC-007**); the 2026-08-10 review
   proposals (**DB-024**); a guard that opens a file to classify it (**DB-027**); a configurable
   ledger-id prefix (**DC-015**); ledger immutability across commits (**DC-020**); a guard that
-  judges a State sentence's temporal validity (**DD-006**); widening the command guard's hook
-  matcher to PowerShell before a Windows arm exists (**DD-012**).
+  judges a State sentence's temporal validity (**DD-006**).
 
 ## Changelog
 
@@ -146,7 +147,8 @@ rows — this section is a pointer index, not a narrative.
 - 2026-10-07 — **15.1.0 (drafted): Windows drive roots and `cmd /c` deletions reach the command
   guard.** A Claude Code session on Windows PowerShell 5.1 deleted its account's files on `C:`
   through `cmd /c "rmdir /s /q \"...\""`, retrying a cleanup a safety check had blocked; the
-  bash half of the Windows arm and the no-respelling rule landed (**DD-038**).
+  bash half of the Windows arm and the no-respelling rule landed (**DD-038**); then the PowerShell
+  reader and the `Bash|PowerShell` matcher, which retired **DD-012**'s decided non-item (**DD-039**).
 
 - 2026-10-04 — **15.0.1: the author-identity rung no longer judges the forge's test merge.** A
   downstream contributor re-authored every commit and force-pushed, and the rung kept failing on

@@ -110,6 +110,14 @@
 #   * HEREDOCS AND LONG LINES. `cmd <<EOF` hides its body until the delimiter, and the
 #     window-based scanners give up past `CHAR_LOOKAHEAD` characters — a variable name or
 #     redirection target longer than the window is not classified.
+#   * POWERSHELL IS READ BY ITS OWN READER, AND A SHORTER ONE. A PowerShell tool payload (and the
+#     text behind `powershell -Command` or `pwsh -c` from bash) goes to the PowerShell arm, which
+#     judges `Remove-Item` and its aliases and `cmd /c` deletions itself and hands every other
+#     statement to the bash rails re-quoted word for word. PowerShell's own readers and dumps
+#     (`Get-Content .env`, `Get-ChildItem env:`), `.NET` deletions, `Invoke-Expression`, a `.ps1`
+#     file, `-EncodedCommand` and a `$(...)` inside a string are NOT read; the arm's own comment
+#     is the full list. It runs only where the hook's own bash does — a Windows host with Git
+#     Bash — and nothing has yet observed it firing on one.
 #   * WHAT NO SCANNER LOOKS AT AT ALL. Container and service inspect output
 #     (`docker inspect` and friends) is prose-only policy: no guard sees it, and none is
 #     proposed, because it would block ordinary use to catch a shape the harness does not
@@ -615,7 +623,15 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 	*.pem | *.pem[!A-Za-z0-9]* | *.key | *.key[!A-Za-z0-9]*) ;;
 	*) return 1 ;;
 	esac ;;
-	destructive) is_destructive_command "$cmd" || return 1 ;;
+	# PowerShell text is never read with the bash walkers: it has its own scan, which hands the
+	# bash verb arms only statements it has re-quoted (see the PowerShell arm).
+	destructive)
+		if [ "${GUARD_SHELL:-bash}" = powershell ]; then
+			is_ps_destructive_command "$cmd" || return 1
+		else
+			is_destructive_command "$cmd" || return 1
+		fi
+		;;
 	interpreter) is_interpreter_deletion "$cmd" || return 1 ;;
 	# No condition to test: the caller only invokes this category when a subagent spawn is
 	# actually about to happen, and the spawn itself is the whole trigger.
@@ -826,7 +842,13 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 			# shellcheck disable=SC2016 # the backticked commands must print literally.
 			ADVISORY_REASON="$ADVISORY_REASON"' A path here names a `worktrees` directory. If it is a git worktree, `git worktree remove --force <path>` removes it and its metadata together, and `git worktree prune` clears entries whose directory is already gone — neither needs a path nested inside another shell'"'"'s quotes, which is where the reported drive-root deletion of a leftover worktree went wrong.'
 		fi
-		if [ "$DESTRUCTIVE_ROOTISH" -eq 1 ]; then
+		if [ "${DESTRUCTIVE_POWERSHELL:-0}" -eq 1 ] &&
+			{ [ "$DESTRUCTIVE_ROOTISH" -eq 1 ] || [ "$DESTRUCTIVE_UNEXPANDED" -eq 1 ]; }; then
+			# The bash paragraphs below prescribe `${S:?}`, which PowerShell does not have; handing
+			# a PowerShell session a bash remedy is the false instruction this rail may not give.
+			# shellcheck disable=SC2016 # the examples must print literally, unexpanded.
+			ADVISORY_REASON="$ADVISORY_REASON"' A path here contains a PowerShell variable, and the guard sees the command before PowerShell expands it, so what it addresses is only knowable on your side. An empty or unset variable is the failure mode: `Remove-Item "$p\build" -Recurse` with `$p` empty is `\build`, at the root of the current drive. Print it before you rerun (`"[$p]"`), and guard it in the rerun — `if (-not $p) { throw "p is empty" }` ahead of the deletion, or `Set-StrictMode -Version Latest`, which makes an unset variable an error. Neither catches a variable that is set to the wrong path; only looking does.'
+		elif [ "$DESTRUCTIVE_ROOTISH" -eq 1 ]; then
 			# shellcheck disable=SC2016 # the examples must print literally, unexpanded.
 			ADVISORY_REASON="$ADVISORY_REASON"' A path here BEGINS with a variable and contains a `/`, which is the failure mode this rail is shaped for: if that variable is empty the command addresses an absolute path instead. `rm -rf "$S/base"` with an unset `S` is `rm -rf /base`. The rerun that removes that failure mode rather than merely surviving it is the GUARDED spelling — `rm -rf -- "${S:?}/base"` — because the shell itself aborts on an unset or empty `S`, and this guard treats the guarded and bare spellings as the same target, so rewriting it does not arm a second prompt. Use it IN ADDITION to `printf %s=[%s] S "$S"`, not instead of: the guarded spelling closes the unset-or-empty case and nothing else, so a set-but-wrong `S` — `/` above all, which makes this exact command `rm -rf /base` again — still reaches the filesystem, and only looking catches that one.'
 		elif [ "$DESTRUCTIVE_UNEXPANDED" -eq 1 ]; then
@@ -859,6 +881,10 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		if [ "$DESTRUCTIVE_DATAPLANE" -eq 1 ] && [ "$DESTRUCTIVE_DELETES" -eq 0 ] && [ "$DESTRUCTIVE_UNEXPANDED" -eq 0 ]; then
 			# shellcheck disable=SC2016 # the backticked examples must print literally.
 			ADVISORY_REASON="$ADVISORY_REASON"' Rerunning clears this advisory for this command TEXT only, and that key is weak here by construction: this command names almost nothing, so it is cleared by its verb and whichever target flags it carries, and the SAME text run later — after a `cd`, after a link, against a different environment — reaches a different database with the advisory already spent. The rerun is your check, not the guard'"'"'s. What this rail can see is that a prompt fired and whether the command came back; it cannot see whether you looked, and `scripts/ladder.sh` prints the ones that never came back.'
+		elif [ "${DESTRUCTIVE_POWERSHELL:-0}" -eq 1 ]; then
+			# The bash closing names `${S:?}`, which PowerShell does not have.
+			# shellcheck disable=SC2016 # the example must print literally, unexpanded.
+			ADVISORY_REASON="$ADVISORY_REASON"' Rerunning clears this advisory for this set of targets only, and a command aimed somewhere else gets its own. The limit of that: the guard keys on the targets AS WRITTEN, so clearing `Remove-Item "$p\build" -Recurse` clears it for every later value of `$p` — the rerun is your check, not the guard'"'"'s. What this rail can see is that a prompt fired and whether the command came back; it cannot see whether you looked, and `scripts/ladder.sh` prints the ones that never came back.'
 		else
 			# shellcheck disable=SC2016 # the example must print literally, unexpanded.
 			ADVISORY_REASON="$ADVISORY_REASON"' Rerunning clears this advisory for this command TEXT only, and a command aimed somewhere else gets its own. Two limits of that, both worth knowing: the guard keys on the operands AS WRITTEN, so clearing `rm -rf "$S/base"` clears it for every later value of `S` — the rerun is your check, not the guard'"'"'s — and `${S:?}` folds to `$S` for that purpose in both directions. What this rail can see is that a prompt fired and whether the command came back; it cannot see whether you looked, and `scripts/ladder.sh` prints the ones that never came back.'
@@ -2335,7 +2361,7 @@ record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 	# clear.
 	local deletes_here=0
 	case $kind in
-	rm | git-clean | git-rm | git-worktree-remove | cmd-rmdir | cmd-del)
+	rm | git-clean | git-rm | git-worktree-remove | cmd-rmdir | cmd-del | ps-remove-item)
 		DESTRUCTIVE_DELETES=1
 		deletes_here=1
 		;;
@@ -2589,8 +2615,15 @@ data_plane_flags() { # data_plane_flags <record-bare-operands:0|1> <word>...
 # comment or an `echo` beside the deletion denies it too — a false positive with every safe
 # spelling the denial names still open, where the narrow reading would miss the incident's own
 # `if exist \"...\" rmdir /s /q \"...\"` idiom.
-cmd_lower() { # cmd_lower <text> -> sets CMD_LOWER (ASCII; bash 3.2 has no `${x,,}`)
-	CMD_LOWER=$(printf '%s' "$1" | LC_ALL=C tr '[:upper:]' '[:lower:]')
+# Lower-cases ASCII. `${x,,}` where bash has it (4.0 on), which needs no external tool — the
+# hook's no-python fallback runs on a PATH that may hold little beyond bash — and `tr` on bash
+# 3.2, which has no case conversion of its own.
+cmd_lower() { # cmd_lower <text> -> sets CMD_LOWER
+	if [ "${BASH_VERSINFO[0]:-3}" -ge 4 ]; then
+		CMD_LOWER=${1,,}
+	else
+		CMD_LOWER=$(printf '%s' "$1" | LC_ALL=C tr '[:upper:]' '[:lower:]')
+	fi
 }
 CMD_LOWER=''
 
@@ -2803,6 +2836,804 @@ cmd_wrapper_deletion() { # cmd_wrapper_deletion <raw text> <word after `cmd`>...
 	cmd_inner_deletion "$raw" "$inner"
 }
 
+# --- the PowerShell arm ------------------------------------------------------
+# On Windows, wherever Claude Code's PowerShell tool is enabled, shell commands are routed
+# through it, so a guard that reads only the Bash tool reads nothing there. The drive-root
+# deletion behind this arm ran in Windows PowerShell 5.1 (AMH ledger row DD038). What the arm
+# covers is a Windows host that HAS Git Bash: every hook is pinned to bash, so on a host without
+# it no hook runs at all, whatever its matcher says. The arm does NOT read PowerShell with the
+# bash walkers above, which is the objection that kept the hook off PowerShell until now (AMH
+# ledger row DD012): `ps_split_statements` reads PowerShell's own quoting — `'...'` with `''`,
+# `"..."` with backtick escapes, here-strings, `${name}`, `#` and `<# #>` comments — and splits
+# statements at `;`, line ends, pipes, `&`, `&&`, `||` and braces, so a script block's body is a
+# statement of its own; `ps_commands` then pulls out the command of every `(...)`, `$(...)` and
+# `@(...)` and drops the assignment, cast, `&` and `.` in front of a command. Each command goes
+# one of three ways: `Remove-Item` and its aliases to their own arm; `cmd` to the shared
+# `cmd.exe` arm; anything else re-quoted word by word to the bash rails, which then see exactly
+# the words PowerShell would pass — so `git push --force origin main` and `git clean -fdx` are
+# judged by the code that judges them in bash. The aliases are Windows PowerShell's: on pwsh for
+# Linux or macOS `rm` is the real `rm`, and the bash rails never see it (`rm` is routed to the
+# `Remove-Item` arm here, which wants `-Recurse`); the PowerShell tool this reads is a Windows one.
+#
+# Accepted misses, on top of every miss the bash rails already list: PowerShell's own readers
+# and dumps (`Get-Content .env`, `gc`, `type`, `Get-ChildItem env:`) — the `.env` and key-material
+# advisories still read the TEXT; `.NET` deletions (`[IO.Directory]::Delete($p, $true)`,
+# `(Get-Item $p).Delete()`); `Invoke-Expression`, `Start-Process cmd -ArgumentList ...` and any
+# command built at run time; splatting (`Remove-Item @args`); a script file (`./cleanup.ps1`);
+# `-EncodedCommand`; `--%`; a parameter-value spelling this file does not model; a statement word
+# holding both quote characters, which cannot be re-quoted for the bash walkers and is skipped by
+# them; a `$(...)` inside a double-quoted string, which PowerShell runs and every reader here
+# treats as text; and, from bash, `pwsh -c` text reaches only the deletion scan, not the push
+# rails. A pipeline into `Remove-Item` takes its targets from a `Get-ChildItem` or `Get-Item`
+# feeding it and is recorded by producer otherwise. A variable target (`$p`, `$env:TEMP\x`) is
+# recorded as written and gets the unexpanded-variable paragraph in its PowerShell form. Not
+# verified: another agent that hands PowerShell text over under the name `Bash` (the Codex
+# adapter matches `^Bash$`) gets the bash reader on it, which is the reading DD012 refused.
+PS_WORD_SEP=$'\x1f'
+# Sub-expression markers, emitted as words of their own: `(`, `$(` and `@(` open one and `)`
+# closes it. `ps_commands` turns them into the commands they hold.
+PS_OPEN=$'\x1d'
+PS_CLOSE=$'\x1e'
+# Splits PowerShell text into statements and each statement into the words PowerShell's
+# argument mode would hand a command, with quoting removed. Sets PS_STATEMENT_WORDS (each entry
+# the words joined by PS_WORD_SEP), PS_STATEMENT_RAW (each statement's raw text) and
+# PS_STATEMENT_PIPED (1 when a `|` ended the statement, so the next one reads its output).
+#
+# Windowed like the bash walkers (see CHAR_WINDOW), and a quoted span, a here-string or a
+# comment is taken as one slice of the window rather than a character at a time: a here-string
+# is how an agent writes a file, and walking 60 KB of one a character at a time took twenty
+# seconds against a hook timeout of ten. End of input closes whatever is still open — an
+# unterminated string is PowerShell's error to report, and the words before it are still judged.
+ps_split_statements() { # sets PS_STATEMENT_WORDS PS_STATEMENT_RAW PS_STATEMENT_PIPED
+
+	local s=$1
+	local i=0 n=${#s} c nx rest chunk mode='' word='' inword=0 stmt='' raw_start=0 piped=0
+	local wbase=0 wbuf='' wsafe=0
+	PS_STATEMENT_WORDS=()
+	PS_STATEMENT_RAW=()
+	PS_STATEMENT_PIPED=()
+	PS_CONSUMED_CODE=0
+	while [ "$i" -le "$n" ]; do
+		if [ "$i" -lt "$n" ]; then
+			if [ "$i" -ge "$wsafe" ]; then
+				wbase=$i
+				wbuf=${s:wbase:CHAR_WINDOW}
+				wsafe=$((wbase + CHAR_WINDOW - CHAR_LOOKAHEAD))
+			fi
+			c=${wbuf:i-wbase:1}
+			nx=${wbuf:i-wbase+1:1}
+		else
+			c=$'\n' nx='' mode=''
+		fi
+		case $mode in
+		"'")
+			if [ "$c" = "'" ]; then
+				if [ "$nx" = "'" ]; then
+					word=$word"'"
+					i=$((i + 2))
+				else
+					mode=''
+					i=$((i + 1))
+				fi
+				continue
+			fi
+			rest=${wbuf:i-wbase}
+			chunk=${rest%%"'"*}
+			[ "$chunk" = "$rest" ] && wsafe=0
+			word=$word$chunk
+			i=$((i + ${#chunk}))
+			continue
+			;;
+		'"')
+			case $c in
+			'`')
+				word=$word$nx
+				i=$((i + 2))
+				;;
+			'"')
+				if [ "$nx" = '"' ]; then
+					word=$word'"'
+					i=$((i + 2))
+				else
+					mode=''
+					i=$((i + 1))
+				fi
+				;;
+			*)
+				rest=${wbuf:i-wbase}
+				chunk=${rest%%[\"\`]*}
+				[ "$chunk" = "$rest" ] && wsafe=0
+				word=$word$chunk
+				i=$((i + ${#chunk}))
+				;;
+			esac
+			continue
+			;;
+		"here'" | 'here"')
+			# A here-string runs to its closing delimiter at the start of a line. The search keeps
+			# a three-character margin at the window's end so a delimiter straddling it is found
+			# after the refresh.
+			rest=${wbuf:i-wbase}
+			chunk=${rest%%$'\n'"${mode#here}"@*}
+			if [ "$chunk" != "$rest" ]; then
+				word=$word$chunk
+				i=$((i + ${#chunk} + 3))
+				mode=''
+			elif [ $((i + ${#rest})) -ge "$n" ] || [ "${#rest}" -le 3 ]; then
+				word=$word$rest
+				i=$((i + ${#rest}))
+				wsafe=0
+			else
+				word=$word${rest:0:${#rest}-3}
+				i=$((i + ${#rest} - 3))
+				wsafe=0
+			fi
+			continue
+			;;
+		block)
+			rest=${wbuf:i-wbase}
+			chunk=${rest%%'#>'*}
+			if [ "$chunk" != "$rest" ]; then
+				i=$((i + ${#chunk} + 2))
+				mode=''
+			elif [ $((i + ${#rest})) -ge "$n" ] || [ "${#rest}" -le 1 ]; then
+				i=$((i + ${#rest}))
+				wsafe=0
+			else
+				i=$((i + ${#rest} - 1))
+				wsafe=0
+			fi
+			continue
+			;;
+		line)
+			rest=${wbuf:i-wbase}
+			chunk=${rest%%$'\n'*}
+			if [ "$chunk" != "$rest" ]; then mode=''; else wsafe=0; fi
+			i=$((i + ${#chunk}))
+			continue
+			;;
+		esac
+		case $c in
+		"'" | '"')
+			inword=1 PS_CONSUMED_CODE=1
+			mode=$c
+			;;
+		'@')
+			# `@'` or `@"` before a line end opens a here-string; `@(` is an array sub-expression.
+			if [ "$inword" -eq 0 ] && { [ "$nx" = "'" ] || [ "$nx" = '"' ]; }; then
+				case ${wbuf:i-wbase+2:2} in
+				$'\n'*)
+					mode=here$nx
+					inword=1 PS_CONSUMED_CODE=1
+					i=$((i + 3))
+					continue
+					;;
+				$'\r\n')
+					mode=here$nx
+					inword=1 PS_CONSUMED_CODE=1
+					i=$((i + 4))
+					continue
+					;;
+				esac
+			fi
+			if [ "$nx" = '(' ]; then
+				if [ "$inword" -eq 1 ]; then stmt=$stmt$word$PS_WORD_SEP word='' inword=0; fi
+				stmt=$stmt$PS_OPEN$PS_WORD_SEP
+				PS_CONSUMED_CODE=1
+				i=$((i + 2))
+				continue
+			fi
+			inword=1 PS_CONSUMED_CODE=1
+			word=$word$c
+			;;
+		'$')
+			# `${name}` is one variable, braces and all — the braces must not split the statement.
+			# `$(` opens a sub-expression.
+			if [ "$nx" = '{' ]; then
+				rest=${wbuf:i-wbase}
+				chunk=${rest%%\}*}
+				if [ "$chunk" != "$rest" ]; then
+					word=$word$chunk'}'
+					inword=1 PS_CONSUMED_CODE=1
+					i=$((i + ${#chunk} + 1))
+					continue
+				fi
+			elif [ "$nx" = '(' ]; then
+				if [ "$inword" -eq 1 ]; then stmt=$stmt$word$PS_WORD_SEP word='' inword=0; fi
+				stmt=$stmt$PS_OPEN$PS_WORD_SEP
+				PS_CONSUMED_CODE=1
+				i=$((i + 2))
+				continue
+			fi
+			inword=1 PS_CONSUMED_CODE=1
+			word=$word$c
+			;;
+		'`')
+			# An escape outside quotes; before a line end, LF or CRLF, it continues the line.
+			case $nx in
+			$'\n') i=$((i + 2)) ;;
+			$'\r')
+				if [ "${wbuf:i-wbase+2:1}" = $'\n' ]; then i=$((i + 3)); else i=$((i + 2)); fi
+				;;
+			*)
+				inword=1 PS_CONSUMED_CODE=1
+				word=$word$nx
+				i=$((i + 2))
+				;;
+			esac
+			continue
+			;;
+		'<')
+			if [ "$inword" -eq 0 ] && [ "$nx" = '#' ]; then
+				mode=block
+				i=$((i + 2))
+				continue
+			fi
+			inword=1 PS_CONSUMED_CODE=1
+			word=$word$c
+			;;
+		'#')
+			if [ "$inword" -eq 0 ]; then
+				mode=line
+				continue
+			fi
+			word=$word$c
+			;;
+		' ' | $'\t' | $'\r')
+			if [ "$inword" -eq 1 ]; then stmt=$stmt$word$PS_WORD_SEP word='' inword=0; fi
+			;;
+		'(' | ')')
+			if [ "$inword" -eq 1 ]; then stmt=$stmt$word$PS_WORD_SEP word='' inword=0; fi
+			if [ "$c" = '(' ]; then stmt=$stmt$PS_OPEN$PS_WORD_SEP; else stmt=$stmt$PS_CLOSE$PS_WORD_SEP; fi
+			PS_CONSUMED_CODE=1
+			;;
+		';' | $'\n' | '|' | '&' | '{' | '}')
+			if [ "$inword" -eq 1 ]; then stmt=$stmt$word$PS_WORD_SEP word='' inword=0; fi
+			piped=0
+			if [ "$c" = '|' ]; then
+				if [ "$nx" = '|' ]; then i=$((i + 1)); else piped=1; fi
+			fi
+			if [ -n "$stmt" ]; then
+				PS_STATEMENT_WORDS+=("${stmt%"$PS_WORD_SEP"}")
+				PS_STATEMENT_RAW+=("${s:raw_start:i-raw_start}")
+				PS_STATEMENT_PIPED+=("$piped")
+			fi
+			stmt=''
+			raw_start=$((i + 1))
+			;;
+		*)
+			inword=1 PS_CONSUMED_CODE=1
+			word=$word$c
+			;;
+		esac
+		i=$((i + 1))
+	done
+	return 0
+}
+PS_STATEMENT_WORDS=()
+PS_STATEMENT_RAW=()
+PS_STATEMENT_PIPED=()
+PS_CONSUMED_CODE=0
+
+# Turns one statement into the COMMANDS it runs: the statement's own, and one per
+# sub-expression — `Write-Output (git push -f origin main)` runs `git push`, and
+# `[void](Remove-Item C:\ -Recurse)` runs `Remove-Item`. Inside its parent a sub-expression is
+# one opaque word, `(` + its words + `)`, so `Remove-Item (Join-Path $HOME x)` hands the arm one
+# target it cannot place rather than a `$HOME` it would read as the home directory. Each
+# command loses the prefixes that run a command rather than being one: an assignment
+# (`$o = `, `$o=`), a type cast (`[void]`), and the `&` and `.` operators. Sets PS_COMMANDS.
+ps_commands() { # ps_commands <joined statement>
+	local w depth=0 inner rest
+	local cur=('')
+	PS_COMMANDS=()
+	ps_words "$1"
+	for w in "${PS_WORDS[@]}"; do
+		case $w in
+		"$PS_OPEN")
+			depth=$((depth + 1))
+			cur[depth]=''
+			;;
+		"$PS_CLOSE")
+			[ "$depth" -gt 0 ] || continue
+			inner=${cur[depth]}
+			ps_command_push "$inner"
+			depth=$((depth - 1))
+			inner=${inner%"$PS_WORD_SEP"}
+			cur[depth]=${cur[depth]}"(${inner//"$PS_WORD_SEP"/ })"$PS_WORD_SEP
+			;;
+		*) cur[depth]=${cur[depth]}$w$PS_WORD_SEP ;;
+		esac
+	done
+	while [ "$depth" -gt 0 ]; do
+		ps_command_push "${cur[depth]}"
+		depth=$((depth - 1))
+	done
+	ps_command_push "${cur[0]}"
+	return 0
+}
+PS_COMMANDS=()
+
+ps_command_push() { # ps_command_push <joined words, maybe with a trailing separator>
+	local rest=${1%"$PS_WORD_SEP"} w tail
+	while [ -n "$rest" ]; do
+		w=${rest%%"$PS_WORD_SEP"*}
+		if [ "$w" = "$rest" ]; then tail=''; else tail=${rest#*"$PS_WORD_SEP"}; fi
+		case $w in
+		# `$o=cmd`, glued: the command word is what follows the `=`.
+		'$'?*=?*) rest=${w#*=}${tail:+$PS_WORD_SEP$tail} ;;
+		'$'?*=) rest=$tail ;;
+		'$'?*)
+			# `$o = cmd`, and the compound assignments.
+			case $tail in
+			'='"$PS_WORD_SEP"* | '+='"$PS_WORD_SEP"* | '-='"$PS_WORD_SEP"*) rest=${tail#*"$PS_WORD_SEP"} ;;
+			*) break ;;
+			esac
+			;;
+		# A type cast, alone (`[void]`) or on the variable it types (`[string]$o = ...`).
+		'['*']'*)
+			w=${w#*]}
+			if [ -n "$w" ]; then rest=$w${tail:+$PS_WORD_SEP$tail}; else rest=$tail; fi
+			;;
+		'&' | '.') rest=$tail ;;
+		*) break ;;
+		esac
+	done
+	[ -n "$rest" ] && PS_COMMANDS+=("$rest")
+	return 0
+}
+
+ps_lower() { # ps_lower <text> -> sets PS_LOWER (see `cmd_lower`)
+	cmd_lower "$1"
+	PS_LOWER=$CMD_LOWER
+}
+PS_LOWER=''
+
+# PowerShell's spellings of a home directory and a system drive, rewritten into the ones
+# `names_catastrophic_target` reads. PowerShell variable names ignore case, so `$Home` and
+# `$env:userprofile` are the same targets as `$HOME` and `$env:USERPROFILE`.
+ps_target_spelling() { # ps_target_spelling <operand> -> sets PS_TARGET
+	local w=$1 p
+	PS_TARGET=$w
+	# shellcheck disable=SC2016 # matched as command TEXT and never expanded here.
+	case $w in '$'*) ;; *) return 0 ;; esac
+	ps_lower "$w"
+	# shellcheck disable=SC2016 # PowerShell variable names, matched as text.
+	for p in '$env:userprofile' '${env:userprofile}' '$home' '${home}'; do
+		case $PS_LOWER in
+		"$p" | "$p"/* | "$p"\\*)
+			PS_TARGET="~${w:${#p}}"
+			return 0
+			;;
+		esac
+	done
+	# shellcheck disable=SC2016 # PowerShell variable names, matched as text.
+	for p in '$env:systemdrive' '${env:systemdrive}' '$env:homedrive' '${env:homedrive}'; do
+		case $PS_LOWER in
+		"$p" | "$p"/* | "$p"\\*)
+			PS_TARGET="C:${w:${#p}}"
+			return 0
+			;;
+		esac
+	done
+	return 0
+}
+PS_TARGET=''
+
+# `Remove-Item` and the aliases Windows PowerShell gives it: `rm`, `rmdir`, `rd`, `del`, `erase`
+# and `ri`. Recursion is `-Recurse` or any prefix of it down to `-r`, PowerShell's own
+# parameter-abbreviation rule; without it a non-empty directory is not removed. Targets are the
+# positional words and the values of `-Path`, `-LiteralPath` and their aliases, comma lists
+# split. The values of every other parameter that takes one are skipped, so
+# `-ErrorAction SilentlyContinue` is not read as a path.
+ps_remove_item() { # ps_remove_item <word>... (after the command name)
+	local w name val recursive=1 whatif=1 take='' opt recurse_name=recurse whatif_name=whatif
+	local targets=() t
+	local -a parts
+	for w in "$@"; do
+		if [ -n "$take" ]; then
+			[ "$take" = path ] && targets+=("$w")
+			take=''
+			continue
+		fi
+		case $w in
+		'>'* | [0-9*]'>'*)
+			# A redirection: `2>&1`, `*> $null`, `> out.txt`. A bare operator claims the next word.
+			case $w in '>' | '>>' | [0-9*]'>' | [0-9*]'>>') take=skip ;; esac
+			continue
+			;;
+		-?*)
+			opt=${w#-}
+			val=''
+			case $opt in *:*) val=${opt#*:} opt=${opt%%:*} ;; esac
+			ps_lower "$opt"
+			opt=$PS_LOWER
+			# PowerShell accepts any unambiguous prefix of a parameter name: `-r` is `-Recurse`.
+			if [ "${recurse_name#"$opt"}" != "$recurse_name" ]; then
+				recursive=0
+				ps_lower "$val"
+				# shellcheck disable=SC2016 # a PowerShell literal, matched as text.
+				case $PS_LOWER in '$false' | 0) recursive=1 ;; esac
+				continue
+			fi
+			if [ "${#opt}" -ge 2 ] && [ "${whatif_name#"$opt"}" != "$whatif_name" ]; then
+				whatif=0
+				ps_lower "$val"
+				# shellcheck disable=SC2016 # a PowerShell literal, matched as text.
+				case $PS_LOWER in '$false' | 0) whatif=1 ;; esac
+				continue
+			fi
+			name=''
+			for t in path literalpath pspath lp; do
+				case $t in "$opt"*) name=path ;; esac
+			done
+			if [ -z "$name" ]; then
+				for t in filter include exclude credential stream erroraction ea warningaction wa \
+					informationaction infa errorvariable ev warningvariable wv informationvariable iv \
+					outvariable ov outbuffer ob pipelinevariable pv progressaction proga; do
+					case $t in "$opt"*) name=skip ;; esac
+				done
+			fi
+			# `-f` is ambiguous between `-Force` and `-Filter` and PowerShell refuses it; any
+			# switch is simply passed over.
+			if [ -n "$name" ]; then
+				if [ -n "$val" ]; then
+					[ "$name" = path ] && targets+=("$val")
+				else
+					take=$name
+				fi
+			fi
+			continue
+			;;
+		*) targets+=("$w") ;;
+		esac
+	done
+	[ "$recursive" -eq 0 ] || return 1
+	[ "$whatif" -eq 1 ] || return 1
+	local split=()
+	# No target of its own: the statement piped into this one supplies it (see
+	# `ps_destructive_scan`). `Get-ChildItem C:\ | Remove-Item -Recurse` empties `C:\` exactly as
+	# `Remove-Item C:\* -Recurse` does, so the paths a listing names ARE the targets; any other
+	# producer is recorded by name.
+	if [ "${#targets[@]}" -eq 0 ] && [ -n "${PS_UPSTREAM:-}" ]; then
+		ps_words "$PS_UPSTREAM"
+		PS_LOWER=''
+		case ${#PS_WORDS[0]} in ?? | ? | 1?? | 2[0-4]? | 25[0-5]) ps_lower "${PS_WORDS[0]##*\\}" ;; esac
+		case $PS_LOWER in
+		get-childitem | gci | ls | dir | get-item | gi)
+			take=''
+			for w in "${PS_WORDS[@]:1}"; do
+				if [ -n "$take" ]; then
+					[ "$take" = path ] && targets+=("$w")
+					take=''
+					continue
+				fi
+				case $w in
+				-*)
+					ps_lower "${w#-}"
+					case $PS_LOWER in
+					*:*) ;;
+					p | pa | pat | path | l | li | lit* | lp | pspath) take=path ;;
+					f | fi | fil* | i | in | inc* | e | ex | exc* | d | de | dep* | ea | erroraction) take=skip ;;
+					esac
+					;;
+				*) targets+=("$w") ;;
+				esac
+			done
+			[ "${#targets[@]}" -gt 0 ] || targets=(.)
+			;;
+		*) targets=("<pipeline input from ${PS_WORDS[0]}>") ;;
+		esac
+	fi
+	for t in ${targets[@]+"${targets[@]}"}; do
+		IFS=',' read -r -a parts <<<"$t" || :
+		for w in ${parts[@]+"${parts[@]}"}; do
+			[ -n "$w" ] || continue
+			ps_target_spelling "$w"
+			# A home spelled with backslashes is `~\proj` here; the target list reads `/`.
+			case $PS_TARGET in '~'*) PS_TARGET=${PS_TARGET//\\//} ;; esac
+			split+=("$PS_TARGET")
+		done
+	done
+	DESTRUCTIVE_POWERSHELL=1
+	record_destructive_targets ps-remove-item ${split[@]+"${split[@]}"}
+	return 0
+}
+
+# Splits a PS_WORD_SEP-joined word list into PS_WORDS: one `read`, so a long statement costs
+# one pass rather than one copy of the remainder per word. `-d ''` reads to the end, so a word a
+# here-string filled with line ends survives whole; the newline the here-string feeding `read`
+# appends comes off the last word.
+ps_words() { # ps_words <joined> -> sets PS_WORDS
+	local last
+	PS_WORDS=()
+	IFS=$PS_WORD_SEP read -r -d '' -a PS_WORDS <<<"$1" || :
+	last=$((${#PS_WORDS[@]} - 1))
+	[ "$last" -ge 0 ] && PS_WORDS[last]=${PS_WORDS[last]%$'\n'}
+	[ "${#PS_WORDS[@]}" -gt 0 ] || PS_WORDS=('')
+	return 0
+}
+PS_WORDS=()
+
+# Re-quote PowerShell words for the bash rails, so the bash walkers see exactly the words
+# PowerShell would pass and treat none of their contents as syntax: a word in single quotes, or
+# — when it holds a single quote itself, as `python3 -c "shutil.rmtree('x')"` does — in double
+# quotes. A word holding BOTH quote characters, or a single quote and a trailing backslash (which
+# would escape the closing double quote), cannot be spelled for every walker here, and its
+# statement is skipped by the bash rails: fail-open, and named in the accepted misses above.
+ps_requote() { # ps_requote <joined words> -> sets PS_REQUOTED; returns 1 if it cannot
+	local joined=$1 w quoted=''
+	ps_words "$joined"
+	for w in "${PS_WORDS[@]}"; do
+		case $w in
+		*"'"*)
+			case $w in *'"'* | *\\) return 1 ;; esac
+			quoted="$quoted \"$w\""
+			;;
+		*) quoted="$quoted '$w'" ;;
+		esac
+	done
+	PS_REQUOTED=${quoted# }
+}
+PS_REQUOTED=''
+
+# True when a command can be no subject of the bash rails, so re-quoting and walking it would
+# buy nothing but time: a "command" whose first word holds whitespace is a value — the
+# here-string an agent assigns before writing a file, which the bash walkers took seconds per
+# ten kilobytes to read — as is one longer than any command name; and a PowerShell cmdlet named Verb-Noun with one of PowerShell's own
+# verbs is never a command any bash rail keys on. `Remove-Item` and `cmd` are routed before this
+# is asked, and `drizzle-kit`-style tool names keep their walk because their first half is no
+# PowerShell verb.
+ps_skip_bash_rails() { # ps_skip_bash_rails <first word>
+	case $1 in *[[:space:]]*) return 0 ;; esac
+	# No command name is this long; a value with no whitespace in it can be.
+	[ "${#1}" -le 255 ] || return 0
+	ps_lower "$1"
+	case $PS_LOWER in
+	get-?* | set-?* | write-?* | new-?* | add-?* | out-?* | select-?* | foreach-?* | where-?* | \
+		test-?* | join-?* | split-?* | convertto-?* | convertfrom-?* | measure-?* | sort-?* | \
+		format-?* | copy-?* | move-?* | rename-?* | clear-?* | resolve-?* | wait-?* | read-?* | \
+		import-?* | export-?* | compare-?* | group-?* | tee-?* | push-?* | pop-?* | start-sleep)
+		return 0
+		;;
+	esac
+	return 1
+}
+
+# The destructive scan over PowerShell text, one COMMAND at a time (see `ps_commands`).
+# `Remove-Item` and its aliases go to their own arm, `cmd` to the shared `cmd.exe` arm, and every
+# other command is re-quoted and handed to the bash verb arms — which is how `git clean -fdx`
+# and `git reset --hard $base` typed into PowerShell are judged by the code that judges them in
+# bash. A `Remove-Item` with no target of its own reads the statement piped into it: the paths
+# a `Get-ChildItem` or `Get-Item` there names are its targets, and anything else is recorded by
+# name, so a target-less pipeline never shares the empty key that cleared every later one.
+ps_destructive_scan() { # ps_destructive_scan <text>; does NOT reset state
+	local text=$1 k c raw lead found=1 upstream=''
+	local ws=() stmts=() raws=() pipes=()
+	ps_split_statements "$text"
+	stmts=(${PS_STATEMENT_WORDS[@]+"${PS_STATEMENT_WORDS[@]}"})
+	raws=(${PS_STATEMENT_RAW[@]+"${PS_STATEMENT_RAW[@]}"})
+	pipes=(${PS_STATEMENT_PIPED[@]+"${PS_STATEMENT_PIPED[@]}"})
+	for k in ${stmts[@]+"${!stmts[@]}"}; do
+		raw=${raws[$k]}
+		ps_commands "${stmts[$k]}"
+		for c in ${PS_COMMANDS[@]+"${PS_COMMANDS[@]}"}; do
+			ps_words "$c"
+			ws=("${PS_WORDS[@]}")
+			# A value, not a command (see `ps_skip_bash_rails`) — and asked first, because
+			# `##*\\` on a sixty-kilobyte word is a quadratic match.
+			case ${#ws[0]} in ?? | ? | 1?? | 2[0-4]? | 25[0-5]) ;; *) continue ;; esac
+			lead=${ws[0]##*\\}
+			ps_lower "$lead"
+			case $PS_LOWER in
+			remove-item | rm | rmdir | rd | del | erase | ri)
+				PS_UPSTREAM=$upstream
+				ps_remove_item "${ws[@]:1}" && found=0
+				;;
+			cmd | cmd.exe)
+				cmd_wrapper_deletion "$raw" "${ws[@]:1}" && found=0
+				;;
+			*)
+				ps_skip_bash_rails "${ws[0]}" && continue
+				ps_requote "$c" || continue
+				is_destructive_segment "$PS_REQUOTED" && found=0
+				;;
+			esac
+		done
+		# The statement's own command is the last one `ps_commands` pushed.
+		upstream=''
+		if [ "${pipes[$k]:-0}" -eq 1 ] && [ "${#PS_COMMANDS[@]}" -gt 0 ]; then
+			upstream=${PS_COMMANDS[${#PS_COMMANDS[@]}-1]}
+		fi
+	done
+	return "$found"
+}
+PS_UPSTREAM=''
+
+# Bash's own word splitting for ONE simple command, keeping the characters quoting protects —
+# which `split_words` cannot, because it drops every quote character, and a PowerShell program
+# handed over in double quotes depends on the single quotes inside it: `'C:\Users\John Smith'`
+# read without them is two operands, the first of them a home directory. Sets BASH_WORDS.
+bash_words() { # bash_words <text>
+	local s=$1
+	local i=0 n=${#s} c q='' word='' inword=0 rest chunk
+	local wbase=0 wbuf='' wsafe=0
+	BASH_WORDS=()
+	while [ "$i" -lt "$n" ]; do
+		if [ "$i" -ge "$wsafe" ]; then # windowed scan — see CHAR_WINDOW
+			wbase=$i
+			wbuf=${s:wbase:CHAR_WINDOW}
+			wsafe=$((wbase + CHAR_WINDOW - CHAR_LOOKAHEAD))
+		fi
+		c=${wbuf:i-wbase:1}
+		if [ "$q" = "'" ]; then
+			if [ "$c" = "'" ]; then
+				q=''
+				i=$((i + 1))
+				continue
+			fi
+			# A single-quoted span has no escapes: taken as one slice of the window.
+			rest=${wbuf:i-wbase}
+			chunk=${rest%%"'"*}
+			[ "$chunk" = "$rest" ] && wsafe=0
+			word=$word$chunk
+			i=$((i + ${#chunk}))
+			continue
+		elif [ "$q" = '"' ]; then
+			case $c in
+			'"') q='' ;;
+			\\)
+				case ${wbuf:i-wbase+1:1} in
+				'"' | \\ | '$' | '`')
+					i=$((i + 1))
+					word=$word${wbuf:i-wbase:1}
+					;;
+				*) word=$word$c ;;
+				esac
+				;;
+			*) word=$word$c ;;
+			esac
+		else
+			case $c in
+			' ' | $'\t' | $'\n')
+				if [ "$inword" -eq 1 ]; then
+					BASH_WORDS+=("$word")
+					word=''
+					inword=0
+				fi
+				;;
+			"'" | '"')
+				q=$c
+				inword=1
+				;;
+			\\)
+				i=$((i + 1))
+				word=$word${wbuf:i-wbase:1}
+				inword=1
+				;;
+			*)
+				word=$word$c
+				inword=1
+				;;
+			esac
+		fi
+		i=$((i + 1))
+	done
+	[ "$inword" -eq 1 ] && BASH_WORDS+=("$word")
+	return 0
+}
+BASH_WORDS=()
+
+powershell_wrapper_deletion() { # powershell_wrapper_deletion <raw segment>
+	local w opt text='' command_name=command found=1
+	# Re-read the segment with bash's quoting and start after the `powershell` word.
+	bash_words "$1"
+	set -- ${BASH_WORDS[@]+"${BASH_WORDS[@]}"}
+	while [ "$#" -gt 0 ]; do
+		w=${1##*/}
+		w=${w##*\\}
+		shift
+		ps_lower "$w"
+		case $PS_LOWER in powershell | powershell.exe | pwsh | pwsh.exe) found=0; break ;; esac
+	done
+	[ "$found" -eq 0 ] || return 1
+	# Windows PowerShell 5.1 reads a first non-option word as the start of a COMMAND; pwsh 7
+	# reads it as a script FILE, which no reader here opens.
+	local implied_command=1
+	case $PS_LOWER in powershell | powershell.exe) implied_command=0 ;; esac
+	while [ "$#" -gt 0 ]; do
+		w=$1
+		shift
+		case $w in
+		-* | /*)
+			opt=${w#-}
+			opt=${opt#/}
+			ps_lower "$opt"
+			opt=$PS_LOWER
+			# `-c` and every longer prefix of `-Command`; `-e` would be `-EncodedCommand`.
+			if [ -n "$opt" ] && [ "${command_name#"$opt"}" != "$command_name" ]; then
+				for w in "$@"; do text="$text $w"; done
+				break
+			fi
+			case $opt in
+			executionpolicy | ep | ex | configurationname | config | workingdirectory | wd | windowstyle | w | inputformat | if | outputformat | of | o | version | v | psconsolefile | settingsfile)
+				shift
+				;;
+			esac
+			;;
+		*)
+			[ "$implied_command" -eq 0 ] || return 1
+			text=" $w"
+			for w in "$@"; do text="$text $w"; done
+			break
+			;;
+		esac
+	done
+	[ -n "$text" ] || return 1
+	ps_destructive_scan "${text# }"
+}
+
+is_ps_destructive_command() {
+	reset_destructive_state
+	ps_destructive_scan "$1"
+}
+
+# The PowerShell entry point. What it judges, in order: the `.env` and key-material advisories,
+# which read command TEXT and so read PowerShell text as well as bash; the destructive tier
+# through `ps_destructive_scan`; then each statement that is not a deletion, re-quoted, through
+# the interpreter advisory and the bash segment rails — the push rails above all, since
+# `git push --force origin main` is the same command in either shell.
+check_powershell_command() {
+	local cmd=$1 k c rc=0
+	local stmts=()
+	BLOCK_REASON=''
+	WARN_REASON=''
+	ADVISORY_REASON=''
+	DOTENV_ADVISORY_REASON=''
+	KEYMATERIAL_ADVISORY_REASON=''
+	if needs_one_time_advisory dotenv "$cmd"; then
+		BLOCK_REASON=$ADVISORY_REASON
+		return 1
+	fi
+	if needs_one_time_advisory keymaterial "$cmd"; then
+		BLOCK_REASON=$ADVISORY_REASON
+		return 1
+	fi
+	# Set for exactly this one call and restored on every path out of it: a reader left
+	# switched to PowerShell would judge the next bash command with the wrong walkers, and the
+	# self-test runs every fixture in one process.
+	GUARD_SHELL=powershell
+	needs_one_time_advisory destructive "$cmd" && rc=1
+	GUARD_SHELL=bash
+	if [ "$rc" -eq 1 ]; then
+		BLOCK_REASON=$ADVISORY_REASON
+		return 1
+	fi
+	ps_split_statements "$cmd"
+	if [ "$PS_CONSUMED_CODE" -eq 1 ] && [ "${#PS_STATEMENT_WORDS[@]}" -eq 0 ]; then
+		BLOCK_REASON="The command guard could not parse this PowerShell command: it has text but produced no statements to judge. This is a defect in the guard, not a verdict about your command — nothing was checked, so nothing may be allowed on that basis. Report it with the command text; re-running will not help."
+		return 1
+	fi
+	stmts=(${PS_STATEMENT_WORDS[@]+"${PS_STATEMENT_WORDS[@]}"})
+	for k in ${stmts[@]+"${!stmts[@]}"}; do
+		ps_commands "${stmts[$k]}"
+		for c in ${PS_COMMANDS[@]+"${PS_COMMANDS[@]}"}; do
+			ps_words "$c"
+			case ${#PS_WORDS[0]} in ?? | ? | 1?? | 2[0-4]? | 25[0-5]) ;; *) continue ;; esac
+			ps_lower "${PS_WORDS[0]##*\\}"
+			case $PS_LOWER in remove-item | rm | rmdir | rd | del | erase | ri | cmd | cmd.exe) continue ;; esac
+			ps_skip_bash_rails "${PS_WORDS[0]}" && continue
+			ps_requote "$c" || continue
+			if needs_one_time_advisory interpreter "$PS_REQUOTED"; then
+				BLOCK_REASON=$ADVISORY_REASON
+				return 1
+			fi
+			check_segment "$PS_REQUOTED" || return 1
+		done
+	done
+	return 0
+}
+GUARD_SHELL=bash
+
 is_destructive_segment() {
 	local raw=$1 w cmd recursive=1 force=1 descend=1 i=0
 	local sub kind='' hard=1 staged=1 worktree_target=1
@@ -2916,6 +3747,14 @@ is_destructive_segment() {
 	# basename strip above, which reads `/` alone.
 	[Cc][Mm][Dd] | [Cc][Mm][Dd].[Ee][Xx][Ee] | *\\[Cc][Mm][Dd] | *\\[Cc][Mm][Dd].[Ee][Xx][Ee])
 		cmd_wrapper_deletion "$raw" "${words[@]:i}" || return 1
+		;;
+	# `powershell -Command "..."` from bash is the other wrapper the constitution names. The
+	# text after `-Command` (or `-c`, any unambiguous prefix) is PowerShell, read by the PowerShell
+	# arm's deletion scan; `-EncodedCommand` and `-File` are not read.
+	[Pp][Oo][Ww][Ee][Rr][Ss][Hh][Ee][Ll][Ll] | [Pp][Oo][Ww][Ee][Rr][Ss][Hh][Ee][Ll][Ll].[Ee][Xx][Ee] | \
+		[Pp][Ww][Ss][Hh] | [Pp][Ww][Ss][Hh].[Ee][Xx][Ee] | *\\[Pp][Oo][Ww][Ee][Rr][Ss][Hh][Ee][Ll][Ll].[Ee][Xx][Ee] | \
+		*\\[Pp][Ww][Ss][Hh].[Ee][Xx][Ee])
+		powershell_wrapper_deletion "$raw" || return 1
 		;;
 	rm)
 		for w in "${words[@]:i}"; do
@@ -3406,6 +4245,7 @@ reset_destructive_state() {
 	DESTRUCTIVE_CATASTROPHIC_CLASS=''
 	DESTRUCTIVE_CMD_QUOTING=0
 	DESTRUCTIVE_WORKTREE=0
+	DESTRUCTIVE_POWERSHELL=0
 }
 
 is_destructive_command() {
@@ -3521,8 +4361,12 @@ check_command() {
 }
 
 # --- hook payload -----------------------------------------------------------
+# Prints the tool's name on the first line and its command after it — `Bash` or `PowerShell`,
+# the two shell tools whose `tool_input.command` this guard reads — and nothing at all for any
+# other payload. The name decides which reader judges the command: PowerShell text is never
+# handed to the bash walkers whole (AMH ledger row DD012).
 extract_command() { # fail-open: print nothing if the payload is not what we expect
-	local payload=$1 parsed
+	local payload=$1 parsed tool
 	# A `python3` that EXISTS is not one that RUNS. The Windows Store's app-execution alias is
 	# on PATH on a stock desktop and answers every call with an install prompt and a non-zero
 	# exit; reading its silence as "this payload held no command" stood the whole rail down on
@@ -3534,15 +4378,18 @@ extract_command() { # fail-open: print nothing if the payload is not what we exp
 		parsed=$(printf '%s' "$payload" | python3 -c 'import json,sys
 try:
     d = json.load(sys.stdin)
-    if d.get("tool_name") == "Bash":
-        print(d.get("tool_input", {}).get("command", ""))
+    if d.get("tool_name") in ("Bash", "PowerShell"):
+        c = d.get("tool_input", {}).get("command", "")
+        if c:
+            print(d["tool_name"])
+            print(c)
 except Exception:
     pass' 2>/dev/null); then
 		printf '%s\n' "$parsed"
 	else
 		# Keep the bash/git/coreutils baseline useful when Python is absent or does not run. This
-		# deliberately narrow fallback accepts only an object-shaped Bash payload and
-		# the documented tool_input.command spelling; anything ambiguous fails open.
+		# deliberately narrow fallback accepts only an object-shaped Bash or PowerShell payload
+		# and the documented tool_input.command spelling; anything ambiguous fails open.
 		case $payload in
 		'{'*'}') ;;
 		*) return 0 ;;
@@ -3564,16 +4411,65 @@ except Exception:
 		# a whole LINE, so a single-line payload is consumed entirely no matter how long
 		# it is. It takes a payload that is BOTH multi-line and past the pipe buffer —
 		# pretty-printed JSON — which the `case` above accepts and the fixture builds.
-		grep -qE '"tool_name"[[:space:]]*:[[:space:]]*"Bash"' <<<"$payload" || return 0
+		if grep -qE '"tool_name"[[:space:]]*:[[:space:]]*"Bash"' <<<"$payload"; then
+			tool=Bash
+		elif grep -qE '"tool_name"[[:space:]]*:[[:space:]]*"PowerShell"' <<<"$payload"; then
+			tool=PowerShell
+		else
+			return 0
+		fi
 		# `head -1` is the same shape with `head` as the early exit, and there the status
 		# lands on the FUNCTION. Substitute first, then take the first line with a
 		# parameter expansion, so no reader can leave. The `if` keeps the empty case
 		# returning 0, which is what the piped form did and what fail-open means here.
-		local extracted
-		extracted=$(sed -n 's/.*"tool_input"[[:space:]]*:[[:space:]]*{[^}]*"command"[[:space:]]*:[[:space:]]*"\(.*\)"[[:space:]]*}.*/\1/p' <<<"$payload")
-		if [ -n "$extracted" ]; then printf '%s\n' "${extracted%%$'\n'*}"; fi
+		# The string is DECODED, not cut out with a pattern. A pattern left `\\` and `\"` as
+		# written, so the command judged was not the command run — the incident's own
+		# `cmd /c "rmdir /s /q \"...\""` reached the PowerShell reader with its escapes doubled
+		# and passed, and a stock Windows desktop is exactly the host whose `python3` is the
+		# Store alias that does not run (AMH ledger row DD030).
+		if json_command_string "$payload" && [ -n "$JSON_STRING" ]; then
+			printf '%s\n%s\n' "$tool" "$JSON_STRING"
+		fi
 	fi
 }
+
+# The value of `tool_input.command` in a JSON payload, decoded: `\"`, `\\`, `\/`, `\n`, `\t`
+# and `\r` become what they encode, and a `\uXXXX` escape is left as written. Fails (status 1)
+# on anything it cannot read to a closing quote, and the caller then judges nothing — the
+# fallback's fail-open direction. Sets JSON_STRING.
+json_command_string() { # json_command_string <payload>
+	local rest=$1 chunk decoded='' e
+	case $rest in *'"tool_input"'*) rest=${rest#*\"tool_input\"} ;; *) return 1 ;; esac
+	case $rest in *'"command"'*) rest=${rest#*\"command\"} ;; *) return 1 ;; esac
+	rest=${rest#"${rest%%[![:space:]]*}"}
+	[ "${rest:0:1}" = : ] || return 1
+	rest=${rest:1}
+	rest=${rest#"${rest%%[![:space:]]*}"}
+	[ "${rest:0:1}" = '"' ] || return 1
+	rest=${rest:1}
+	while :; do
+		chunk=${rest%%[\\\"]*}
+		[ "$chunk" != "$rest" ] || return 1
+		decoded=$decoded$chunk
+		rest=${rest:${#chunk}}
+		if [ "${rest:0:1}" = '"' ]; then
+			JSON_STRING=$decoded
+			return 0
+		fi
+		e=${rest:1:1}
+		case $e in
+		n) decoded=$decoded$'\n' ;;
+		t) decoded=$decoded$'\t' ;;
+		r) decoded=$decoded$'\r' ;;
+		b | f) ;;
+		u) decoded=$decoded'\u' ;;
+		'') return 1 ;;
+		*) decoded=$decoded$e ;;
+		esac
+		rest=${rest:2}
+	done
+}
+JSON_STRING=''
 
 # Set ONLY on the path where a pass means the command actually runs next. `--command` is an
 # inspection: it answers "would this be blocked" and executes nothing, so counting it as the
@@ -3584,12 +4480,19 @@ except Exception:
 HOOK_INVOCATION=0
 
 run_hook() {
-	local payload cmd
+	local payload cmd tool checker=check_command
 	HOOK_INVOCATION=1
 	payload=$(cat) || exit 0
 	cmd=$(extract_command "$payload")
-	[ -n "$cmd" ] || exit 0 # malformed or non-Bash tool: fail open
-	if ! check_command "$cmd"; then
+	[ -n "$cmd" ] || exit 0 # malformed or non-shell tool: fail open
+	# The first line names the tool. A result with no second line held no command at all — a
+	# command of nothing but line ends loses them to the substitution above — and is not judged.
+	case $cmd in *$'\n'*) ;; *) exit 0 ;; esac
+	tool=${cmd%%$'\n'*}
+	cmd=${cmd#*$'\n'}
+	[ "$tool" = PowerShell ] && checker=check_powershell_command
+	[ -n "$cmd" ] || exit 0
+	if ! "$checker" "$cmd"; then
 		printf 'BLOCKED by the AMH command guard.\n\n%s\n' "$BLOCK_REASON" >&2
 		exit 2
 	fi
@@ -3677,14 +4580,21 @@ run_prepush() {
 
 # --- self-test --------------------------------------------------------------
 ST_FAILS=0
+# The checker the shared helpers call. `check_command` unless a fixture names another: the
+# PowerShell fixtures run the same helpers through `check_powershell_command`, so a PowerShell
+# verdict is held to exactly the assertions a bash one is.
+st_check() {
+	"${ST_CHECKER:-check_command}" "$@"
+}
+
 st_blocked() {
-	if check_command "$1"; then
+	if st_check "$1"; then
 		printf 'SELF-TEST FAIL: should have been BLOCKED: %s\n' "$1" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	fi
 }
 st_allowed() {
-	if ! check_command "$1"; then
+	if ! st_check "$1"; then
 		printf 'SELF-TEST FAIL: should have been ALLOWED: %s\n   reason given: %s\n' "$1" "$BLOCK_REASON" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	elif [ -n "$WARN_REASON" ]; then
@@ -3769,13 +4679,13 @@ st_interpreter_advisory_once() { # st_interpreter_advisory_once <cmd> [<call nam
 	state=$(mktemp "${TMPDIR:-/tmp}/amh-interpreter-advisory-test.XXXXXX") || exit 1
 	rm -f -- "$state"
 	INTERPRETER_ADVISORY_STATE=$state
-	if check_command "$cmd"; then
+	if st_check "$cmd"; then
 		printf 'SELF-TEST FAIL: should have had one-time interpreter-deletion advisory: %s\n' "$cmd" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	elif [ -n "$want" ] && case $BLOCK_REASON in *"$want"*) false ;; *) true ;; esac; then
 		printf 'SELF-TEST FAIL: interpreter advisory did not name %s: %s\n   reason given: %s\n' "$want" "$cmd" "$BLOCK_REASON" >&2
 		ST_FAILS=$((ST_FAILS + 1))
-	elif ! check_command "$cmd"; then
+	elif ! st_check "$cmd"; then
 		printf 'SELF-TEST FAIL: second interpreter attempt should have reached normal rails: %s\n   reason given: %s\n' "$cmd" "$BLOCK_REASON" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	fi
@@ -3896,13 +4806,13 @@ st_destructive_advisory_once() {
 	state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-advisory-test.XXXXXX") || exit 1
 	rm -f -- "$state"
 	DESTRUCTIVE_ADVISORY_STATE=$state
-	if check_command "$1"; then
+	if st_check "$1"; then
 		printf 'SELF-TEST FAIL: should have had one-time destructive advisory: %s\n' "$1" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	elif [ -z "$ADVISORY_REASON" ]; then
 		printf 'SELF-TEST FAIL: destructive advisory did not explain itself: %s\n' "$1" >&2
 		ST_FAILS=$((ST_FAILS + 1))
-	elif ! check_command "$1"; then
+	elif ! st_check "$1"; then
 		printf 'SELF-TEST FAIL: second destructive attempt should have reached normal rails: %s\n   reason given: %s\n' "$1" "$BLOCK_REASON" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	fi
@@ -3924,13 +4834,13 @@ st_destructive_never_clears() { # st_destructive_never_clears <cmd> <class phras
 	state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-catastrophic-test.XXXXXX") || exit 1
 	rm -f -- "$state"
 	DESTRUCTIVE_ADVISORY_STATE=$state
-	if check_command "$cmd"; then
+	if st_check "$cmd"; then
 		printf 'SELF-TEST FAIL: catastrophic target should have been blocked: %s\n' "$cmd" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	elif case $BLOCK_REASON in *"$want"*) false ;; *) true ;; esac; then
 		printf 'SELF-TEST FAIL: catastrophic refusal did not name %s: %s\n   reason given: %s\n' "$want" "$cmd" "$BLOCK_REASON" >&2
 		ST_FAILS=$((ST_FAILS + 1))
-	elif check_command "$cmd"; then
+	elif st_check "$cmd"; then
 		printf 'SELF-TEST FAIL: catastrophic target must NOT clear on a rerun: %s\n' "$cmd" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	elif [ -s "$state" ]; then
@@ -3951,13 +4861,13 @@ st_destructive_rearms_per_target() { # st_destructive_rearms_per_target <first> 
 	state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-rearm-test.XXXXXX") || exit 1
 	rm -f -- "$state"
 	DESTRUCTIVE_ADVISORY_STATE=$state
-	if check_command "$first"; then
+	if st_check "$first"; then
 		printf 'SELF-TEST FAIL: first deletion should have been advised: %s\n' "$first" >&2
 		ST_FAILS=$((ST_FAILS + 1))
-	elif ! check_command "$first"; then
+	elif ! st_check "$first"; then
 		printf 'SELF-TEST FAIL: rerunning the SAME deletion should proceed: %s\n   reason given: %s\n' "$first" "$BLOCK_REASON" >&2
 		ST_FAILS=$((ST_FAILS + 1))
-	elif check_command "$second"; then
+	elif st_check "$second"; then
 		printf 'SELF-TEST FAIL: a deletion aimed at a NEW target must be advised even after an earlier one was cleared: %s (after %s)\n' "$second" "$first" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	fi
@@ -4031,7 +4941,7 @@ st_destructive_reason_names() { # st_destructive_reason_names <substring> <comma
 	state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-reason-test.XXXXXX") || exit 1
 	rm -f -- "$state"
 	DESTRUCTIVE_ADVISORY_STATE=$state
-	if check_command "$cmd"; then
+	if st_check "$cmd"; then
 		printf 'SELF-TEST FAIL: should have been advised: %s\n' "$cmd" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	else
@@ -4057,7 +4967,7 @@ st_destructive_reason_lacks() { # st_destructive_reason_lacks <substring> <comma
 	state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-lacks-test.XXXXXX") || exit 1
 	rm -f -- "$state"
 	DESTRUCTIVE_ADVISORY_STATE=$state
-	if check_command "$cmd"; then
+	if st_check "$cmd"; then
 		printf 'SELF-TEST FAIL: should have been advised: %s\n' "$cmd" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	else
@@ -4788,6 +5698,92 @@ EOF'
 	st_destructive_reason_names 'Do NOT retry this deletion in another spelling' 'rm -rf /'
 	# Prose naming the shape is data, never a command: the first design rule.
 	st_allowed 'git commit -m "deny cmd /c \"rmdir /s /q \\\"C:\\\"\""'
+
+	# --- the PowerShell arm (AMH ledger row DD039). The same helpers, run through the
+	# PowerShell reader, so a PowerShell verdict is held to the assertions a bash one is. The
+	# incident command comes first, verbatim but for the user name, as the PowerShell tool
+	# received it.
+	ST_CHECKER=check_powershell_command st_destructive_never_clears 'cmd /c "rmdir /s /q \"\\?\C:\Users\x\Desktop\CLAUDE CODE\proj\.claude\worktrees\agent-a27e\""' 'nested quotes'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears "Remove-Item -Recurse -Force C:\\" 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears 'rm -r -fo C:\Users\bob' 'a home directory'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears 'ri -r C:\*' 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears 'Remove-Item -Path:C:\ -Recurse:$true' 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears 'Microsoft.PowerShell.Management\Remove-Item C:\ -Recurse' 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears 'Remove-Item -Path $env:USERPROFILE -Recurse' 'your home directory'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears 'Remove-Item -LiteralPath $Home -Recurse -Force' 'your home directory'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears 'Remove-Item "$env:SystemDrive\" -Recurse' 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears 'Get-ChildItem | ForEach-Object { Remove-Item C:\ -Recurse }' 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears "& cmd.exe /c rd /s /q D:\\" 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears 'Remove-Item C:\ -Recurse -ErrorAction SilentlyContinue 2>&1 | Out-Null' 'the root of a Windows drive'
+	# PowerShell's quoting keeps a quoted path with a space whole, and an ordinary target is the
+	# ordinary advisory — with the PowerShell form of the variable paragraph, never the bash one.
+	ST_CHECKER=check_powershell_command st_destructive_advisory_once "Remove-Item -LiteralPath 'C:\Users\John Smith\proj\build' -Recurse -Force"
+	ST_CHECKER=check_powershell_command st_destructive_advisory_once 'Remove-Item "C:\Users\John Smith\proj\build" -Recurse'
+	ST_CHECKER=check_powershell_command st_destructive_advisory_once 'Get-ChildItem C:\tmp | Remove-Item -Recurse -Force'
+	ST_CHECKER=check_powershell_command st_destructive_advisory_once 'git clean -fdx'
+	ST_CHECKER=check_powershell_command st_destructive_reason_names 'PowerShell variable' 'Remove-Item "$p\build" -Recurse'
+	ST_CHECKER=check_powershell_command st_destructive_reason_lacks '${S:?}' 'Remove-Item "$p/build" -Recurse'
+	ST_CHECKER=check_powershell_command st_destructive_reason_names 'git worktree remove --force' "Remove-Item 'C:\x\.claude\worktrees\a' -Recurse"
+	# A subpath of home written with backslashes is a subpath, not the home; a sub-expression is
+	# one target the arm cannot place, never the `$HOME` inside it; and an expression's own
+	# command is judged where it runs.
+	ST_CHECKER=check_powershell_command st_destructive_advisory_once 'Remove-Item -Recurse -Force "$env:USERPROFILE\AppData\Local\Temp\build"'
+	ST_CHECKER=check_powershell_command st_destructive_advisory_once 'Remove-Item -Recurse -Force ~\proj\build'
+	ST_CHECKER=check_powershell_command st_destructive_advisory_once "Remove-Item (Join-Path \$env:USERPROFILE '.cache\\pip') -Recurse -Force"
+	ST_CHECKER=check_powershell_command st_destructive_advisory_once "Remove-Item -Path (Join-Path C:\\ 'tmp\\x') -Recurse"
+	ST_CHECKER=check_powershell_command st_destructive_never_clears '$null = Remove-Item C:\ -Recurse -Force' 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears '$r=Remove-Item -Recurse -Force $HOME' 'your home directory'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears '[void](Remove-Item C:\ -Recurse)' 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears '$o = cmd /c "rd /s /q C:\"' 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears 'Remove-Item ${HOME} -Recurse -Force' 'your home directory'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears 'Remove-Item -Recurse -Force ${env:USERPROFILE}' 'your home directory'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears 'Remove-Item -Path build,C:\ -Recurse' 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears "Remove-Item -Rec C:\\" 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears 'Remove-Item -LiteralPath:C:\ -Recurse' 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears 'Remove-Item -Recurse C:\ -WhatIf:$false' 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears $'Remove-Item C:\\ `\r\n -Recurse -Force' 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_blocked '$o = git push --force origin main'
+	ST_CHECKER=check_powershell_command st_blocked '(git push --force origin main)'
+	ST_CHECKER=check_powershell_command st_blocked 'Write-Output (git push -f origin main)'
+	ST_CHECKER=check_powershell_command st_blocked '$null = git push origin HEAD:main 2>&1'
+	ST_CHECKER=check_powershell_command st_blocked '[string]$o = git push --force origin main'
+	ST_CHECKER=check_powershell_command st_blocked '& git push --force origin main'
+	# Pipeline input: the paths a listing names are the targets, and two pipelines aimed at
+	# different places are two decisions, never one empty key.
+	ST_CHECKER=check_powershell_command st_destructive_never_clears 'Get-ChildItem C:\ | Remove-Item -Recurse -Force' 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears 'gci $HOME | ri -r' 'your home directory'
+	ST_CHECKER=check_powershell_command st_destructive_rearms_per_target 'Get-ChildItem C:\tmp\build | Remove-Item -Recurse -Force' 'Get-ChildItem C:\tmp\other | Remove-Item -Recurse -Force'
+	# A value assigned from a here-string is not a command, and the statement after it still is.
+	ST_CHECKER=check_powershell_command st_destructive_never_clears $'$x = @\'\nsome text, a lot of it\n\'@\nRemove-Item C:\\ -Recurse' 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_allowed $'$x = @\'\nRemove-Item C:\\ -Recurse\n\'@\nSet-Content f.txt $x'
+	# An unterminated string is PowerShell's error to report; the words before it are judged.
+	ST_CHECKER=check_powershell_command st_allowed 'Write-Output "unterminated'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears 'Remove-Item C:\ -Recurse; Write-Output "x' 'the root of a Windows drive'
+	# Not recursive, a dry run, prose, comments and a here-string are no verdict at all.
+	ST_CHECKER=check_powershell_command st_allowed 'Remove-Item C:\x.txt'
+	ST_CHECKER=check_powershell_command st_allowed 'Remove-Item C:\ -Recurse -WhatIf'
+	ST_CHECKER=check_powershell_command st_allowed 'Remove-Item C:\ -Recurse:$false'
+	ST_CHECKER=check_powershell_command st_allowed 'git commit -m "Remove-Item C:\ -Recurse; cmd /c rd /s /q C:\"'
+	ST_CHECKER=check_powershell_command st_allowed 'Write-Output '"'"'it'"''"'s fine'"'"'; Get-ChildItem'
+	ST_CHECKER=check_powershell_command st_allowed '# Remove-Item C:\ -Recurse'
+	ST_CHECKER=check_powershell_command st_allowed $'<# notes\nRemove-Item C:\\ -Recurse\n#>\nGet-Date'
+	ST_CHECKER=check_powershell_command st_allowed $'$x = @\'\nRemove-Item C:\\ -Recurse\n\'@'
+	# The bash rails reach PowerShell statements re-quoted word for word: the push rail, and the
+	# interpreter advisory on a program holding single quotes.
+	ST_CHECKER=check_powershell_command st_blocked 'git push --force origin main'
+	ST_CHECKER=check_powershell_command st_blocked 'Set-Location C:\x; git push origin HEAD:main'
+	ST_CHECKER=check_powershell_command st_interpreter_advisory_once 'python3 -c "import shutil; shutil.rmtree('"'"'x'"'"')"' rmtree
+	# From bash, `powershell -Command` and `pwsh -c` hand their text to the PowerShell reader,
+	# read with bash's own quoting so the single quotes inside survive.
+	st_destructive_never_clears "pwsh -c 'Remove-Item C:\\ -Recurse -Force'" 'the root of a Windows drive'
+	st_destructive_never_clears "powershell -NoProfile -Command \"cmd /c 'rmdir /s /q C:\\'\"" 'the root of a Windows drive'
+	st_destructive_never_clears 'powershell.exe -ExecutionPolicy Bypass -Command "Remove-Item $env:USERPROFILE -Recurse"' 'your home directory'
+	st_destructive_advisory_once "powershell -Command \"Remove-Item 'C:\\Users\\John Smith\\x' -Recurse\""
+	st_allowed "git commit -m 'powershell -Command \"Remove-Item C:\\ -Recurse\"'"
+	st_allowed 'pwsh ./cleanup.ps1'
+	# Windows PowerShell 5.1 reads a bare first argument as a command; pwsh 7 reads it as a file.
+	st_destructive_never_clears 'powershell "Remove-Item C:\ -Recurse"' 'the root of a Windows drive'
+	st_allowed 'pwsh "Remove-Item C:\ -Recurse"'
 	st_destructive_never_clears 'git -C ~ clean -fd -- "?*"' 'your home directory'
 	st_destructive_never_clears 'git --work-tree="$HOME" clean -fd -- "*/"' 'your home directory'
 	st_destructive_never_clears 'git -C ~ clean -fd :/' 'your home directory'
@@ -5694,13 +6690,21 @@ case "${1:-}" in
 	printf 'BLOCKED by the AMH command guard.\n\n%s\n' "$BLOCK_REASON" >&2
 	exit 2
 	;;
+--powershell)
+	if check_powershell_command "${2:-}"; then
+		[ -n "$WARN_REASON" ] && printf 'WARNING from the AMH command guard.\n\n%s\n' "$WARN_REASON" >&2
+		exit 0
+	fi
+	printf 'BLOCKED by the AMH command guard.\n\n%s\n' "$BLOCK_REASON" >&2
+	exit 2
+	;;
 --pre-push) run_prepush ;;
 --pre-task) run_pretask ;;
 --self-test) self_test ;;
 --advisory-report) advisory_report ;;
 --spawn-report) spawn_report ;;
 *)
-	printf 'usage: %s [--command CMD|--pre-push|--pre-task|--self-test|--advisory-report|--spawn-report]\n' "$0" >&2
+	printf 'usage: %s [--command CMD|--powershell CMD|--pre-push|--pre-task|--self-test|--advisory-report|--spawn-report]\n' "$0" >&2
 	exit 2
 	;;
 esac

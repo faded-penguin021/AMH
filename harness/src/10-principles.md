@@ -428,8 +428,10 @@ one other permanent denial is of a SPELLING rather than a target, and the reason
 when a deletion's path must cross a quoting layer the guard cannot read — `cmd /c` with `\"`
 nested quotes, which neither `cmd.exe` nor Windows PowerShell 5.1 reads as an escape — the path
 the agent can read is not evidence of what will be deleted, so neither the guard nor a rerun can
-settle it, and the denial names the spellings that need no nesting instead. Pair both with the
-rule no scanner can hold: a refused deletion is a stop, and retrying it through another shell, a
+settle it, and the denial names the spellings that need no nesting instead. A guard extended
+to another shell gets that shell's own reader, never the first shell's parser pointed at foreign
+text: re-quoting each statement word for word is how it reuses the rails it already has. Pair
+both with the rule no scanner can hold: a refused deletion is a stop, and retrying it through another shell, a
 wrapper or an interpreter is the sidestep, not the fix. Three properties keep it from becoming the alarm that cries
 wolf, and each is load-bearing: the list is literal and small enough to read in one breath (a
 system directory like `/etc` is deliberately outside it, so the file's own fixtures still expect

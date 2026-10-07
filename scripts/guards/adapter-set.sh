@@ -270,5 +270,36 @@ elif [ "$codex_post" -ne "$codex_files" ]; then
 	note "checked NOTHING for $((codex_files - codex_post)) of $codex_files Codex PostToolUse redaction hook(s)"
 fi
 
+# The command guard's PreToolUse matcher must name BOTH shell tools. On Windows, wherever Claude
+# Code's PowerShell tool is enabled, shell commands are routed through it, and a matcher of
+# `Bash` alone leaves the guard wired, self-testing green and never firing — the drive-root
+# deletion that earned the PowerShell arm ran exactly there (DD-038, DD-039). Structural, like
+# the checks above: the matcher read is the last `"matcher":` line before the guard's own
+# command line, so a reordered or reformatted group is reported as unread, not passed.
+claude_pre=0
+for declaration in "${ADAPTERS[@]}"; do
+	case $declaration in
+	*claude-settings.json*) ;;
+	*) continue ;;
+	esac
+	for settings in "${declaration%|*}" "${declaration#*|}"; do
+		[ -f "$settings" ] || continue
+		pre_matcher=$(awk '
+			/^[[:space:]]*"matcher":/ { m = $0 }
+			/^[[:space:]]*"command": "scripts\/command-guard\.sh"$/ { print m; found++ }
+			END { if (found != 1) print "UNREAD " found }
+		' "$settings")
+		case $pre_matcher in
+		*UNREAD*)
+			note "$settings: the PreToolUse command-guard hook was not found exactly once at the layout this guard reads, so which tools it fires on is UNVERIFIED"
+			;;
+		*'"matcher": "Bash|PowerShell",'*) claude_pre=$((claude_pre + 1)) ;;
+		*)
+			note "$settings: the PreToolUse matcher in front of scripts/command-guard.sh is not \"Bash|PowerShell\" — on Windows the PowerShell tool is the primary shell wherever it is enabled, and a guard that matches Bash alone never fires there (DD-039)"
+			;;
+		esac
+	done
+done
+
 [ "$fails" -eq 0 ] || exit 1
-printf 'first-class adapter set is complete across sources, reference paths, installation and legislation; %s Claude command hook(s) across %s file(s) pin shell=bash, %s Claude and %s Codex adapter(s) wire the PostToolUse redaction rail for every tool\n' "$claude_hooks" "$claude_files" "$claude_post" "$codex_post"
+printf 'first-class adapter set is complete across sources, reference paths, installation and legislation; %s Claude command hook(s) across %s file(s) pin shell=bash, %s Claude command guard(s) match Bash|PowerShell, %s Claude and %s Codex adapter(s) wire the PostToolUse redaction rail for every tool\n' "$claude_hooks" "$claude_files" "$claude_pre" "$claude_post" "$codex_post"

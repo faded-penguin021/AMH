@@ -42,18 +42,45 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   or `powershell -Command` wrapper, an interpreter or a script file, and the target denial says so
   in its own text. A one-time advisory still clears on a rerun of the same command. The incident behind this release retried a blocked cleanup as a separate
   `cmd /c rmdir`, which nothing caught.
-- **What this does NOT cover.** These arms read text a bash-shaped hook receives. Where Claude
-  Code routes commands through its PowerShell tool — every Windows host where that tool is
-  enabled — the shipped adapter's `Bash` matcher does not fire at all, and nothing here judges
-  the command.
+- **The command guard reads PowerShell.** The Claude adapter's `PreToolUse` matcher is now
+  `Bash|PowerShell`: on Windows, wherever Claude Code's PowerShell tool is enabled, shell commands
+  are routed through it, so a guard matching `Bash` never fired there. This covers a Windows host
+  that has Git Bash — every hook is pinned to bash, so without it no hook runs whatever the
+  matcher says. A PowerShell payload goes to its own reader, never the bash parser: it reads
+  PowerShell's quoting (`'...'` with `''`, `"..."` with backtick escapes, here-strings,
+  `${name}`, `#` and `<# #>` comments), splits statements at `;`, line ends, pipes, `&`, `&&`,
+  `||` and braces, judges the command inside every `(...)`, `$(...)` and `@(...)`, and drops an
+  assignment, cast, `&` or `.` in front of a command — so `$null = Remove-Item C:\ -Recurse` and
+  `$o = git push --force origin main` are judged, and `Remove-Item (Join-Path $HOME x)` is one
+  target it cannot place rather than the home directory. `Remove-Item` and its aliases (`rm`,
+  `rmdir`, `rd`, `del`, `erase`, `ri`) with `-Recurse` or any prefix of it are judged against the
+  same target list — `$HOME`, `${HOME}`, `$env:USERPROFILE` and `$env:SystemDrive` included,
+  and a `Get-ChildItem` or `Get-Item` piped into it supplying its targets — while `-WhatIf` (not
+  `-WhatIf:$false`) and `-Recurse:$false` pass; `cmd /c` goes to the `cmd.exe` arm; every other
+  command is re-quoted word for word and handed to the bash rails, so `git push --force origin
+  main` is blocked there too. From bash, `powershell -Command`, `pwsh -c` and Windows
+  PowerShell's bare `powershell "<command>"` hand their text to the same deletion scan. The
+  no-python fallback now decodes the JSON string it reads, so `\"` and `\\` are judged as what
+  they encode — before, the incident command passed it on a host whose `python3` does not run.
+  NOT read: PowerShell's own file readers and environment dumps, `.NET` deletions,
+  `Invoke-Expression`, `Start-Process`, splatting, a `.ps1` file, `-EncodedCommand`, and a
+  `$(...)` inside a double-quoted string. `scripts/command-guard.sh --powershell '<command>'`
+  asks the reader directly. Nothing has yet observed the hook firing on a Windows host.
 
 ### Upgrading
 
 Copy the 15.1.0 shipped scripts and manifest through the normal upgrade procedure. The new rule
 is in the seed constitution, which is yours once installed: copy the bullet **A refused deletion
 is a stop, not a spelling problem** and the revised **Which layer holds which half** bullet from
-`harness/templates/seed/AGENTS.md` into your `AGENTS.md`. Nothing you do now becomes wrong — a
-deletion retried past a refusal was never sanctioned — so this is MINOR.
+`harness/templates/seed/AGENTS.md` into your `AGENTS.md`.
+
+If you use the Claude adapter, change the `"matcher"` of the `PreToolUse` group that runs
+`scripts/command-guard.sh` from `"Bash"` to `"Bash|PowerShell"` in your `.claude/settings.json`
+(the template is `harness/templates/configs/claude-settings.json`). Until you do, the new reader
+ships and never runs on a Windows host that routes commands through PowerShell.
+
+Nothing you do now becomes wrong — a deletion retried past a refusal was never sanctioned, and
+the matcher is additive — so this is MINOR.
 
 ## 15.0.1 — 2026-10-04
 
