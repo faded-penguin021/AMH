@@ -726,6 +726,24 @@ mv "$d/.claude/settings.json.cut" "$d/.claude/settings.json"
 expect fail "adapter-set: a file truncated after a hook opens is not a pass" "$d" adapter-set.sh \
 	"1 of 1 command hook(s) are not followed by"
 
+# The command guard's matcher must name both shell tools: on Windows the PowerShell tool is the
+# primary shell wherever it is enabled, and a guard matching Bash alone is wired, self-tests green
+# and never fires there (DD-039). Narrowed in either copy, and the hook moved out of reach.
+d=$(snapshot adapter_claude_pre_matcher_bash_only_template)
+sed_in_place 's/"matcher": "Bash|PowerShell",/"matcher": "Bash",/' "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: the command guard matcher was narrowed to Bash in the template" "$d" adapter-set.sh \
+	"is not \"Bash|PowerShell\""
+
+d=$(snapshot adapter_claude_pre_matcher_bash_only_reference)
+sed_in_place 's/"matcher": "Bash|PowerShell",/"matcher": "Bash",/' "$d/.claude/settings.json"
+expect fail "adapter-set: the command guard matcher was narrowed to Bash in the reference copy" "$d" adapter-set.sh \
+	"is not \"Bash|PowerShell\""
+
+d=$(snapshot adapter_claude_pre_hook_gone)
+sed_in_place 's#"command": "scripts/command-guard.sh"$#"command": "scripts/command-guard.sh --pre-task"#' "$d/.claude/settings.json"
+expect fail "adapter-set: the command guard hook is not found exactly once" "$d" adapter-set.sh \
+	"PreToolUse command-guard hook was not found exactly once"
+
 # The PostToolUse redaction hook is the second hand-applied Claude step and, unlike the pin, its
 # absence is invisible in BOTH directions: the host discards a replacement that misses a tool's
 # schema and uses the original output, and a host without python3 stands the rail down — so a

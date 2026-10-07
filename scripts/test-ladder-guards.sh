@@ -494,6 +494,24 @@ out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Read"
 rc=$?
 if [ "$rc" -eq 0 ]; then report ok "a non-Bash Codex payload fails open"; else report no "a non-Bash Codex payload fails open" "rc=$rc" "$out"; fi
 
+# The PowerShell tool's payload carries the same `tool_input.command` and goes to the PowerShell
+# reader, never the bash one. The drive root in its PowerShell spelling is denied, and a statement
+# a bash reader would misjudge — PowerShell's doubled single quote — passes as the plain command
+# it is. Shipping a matcher that names PowerShell is pointless unless the payload is read.
+out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"PowerShell","tool_input":{"command":"Remove-Item -Recurse -Force C:\\"}}' |
+	scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'the root of a Windows drive'; then
+	report ok "a PowerShell payload deleting a drive root is blocked by the PowerShell reader"
+else
+	report no "a PowerShell payload deleting a drive root is blocked by the PowerShell reader" "rc=$rc" "$out"
+fi
+
+out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"PowerShell","tool_input":{"command":"Write-Output '"'"'it'"''"'s fine'"'"'; Get-ChildItem"}}' |
+	scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ]; then report ok "an allowed PowerShell payload passes"; else report no "an allowed PowerShell payload passes" "rc=$rc" "$out"; fi
+
 # The distributed baseline does not require Python. Hide it from command lookup and prove
 # the conservative coreutils fallback still enforces a straightforward Codex Bash payload.
 fallback_path="$d/no-python-bin"
@@ -506,6 +524,39 @@ out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash"
 	env PATH="$fallback_path" scripts/command-guard.sh 2>&1)
 rc=$?
 if [ "$rc" -eq 2 ]; then report ok "a Codex Bash payload is guarded without Python"; else report no "a Codex Bash payload is guarded without Python" "rc=$rc" "$out"; fi
+out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"PowerShell","tool_input":{"command":"Remove-Item -Recurse -Force C:\\"}}' |
+	env PATH="$fallback_path" scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'the root of a Windows drive'; then
+	report ok "a PowerShell payload is guarded without Python"
+else
+	report no "a PowerShell payload is guarded without Python" "rc=$rc" "$out"
+fi
+
+# The incident's own command, JSON-encoded as a host sends it and followed by another key. The
+# fallback must DECODE the string: read with its escapes doubled it passed, and a stock Windows
+# desktop is the host whose python3 does not run. Both readers must reach the same verdict.
+incident_payload='{"hook_event_name":"PreToolUse","tool_name":"PowerShell","tool_input":{"command":"cmd /c \"rmdir /s /q \\\"\\\\?\\C:\\x\\\"\"","description":"clean up worktrees"}}'
+out=$(cd "$d" && printf '%s' "$incident_payload" | env PATH="$fallback_path" scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'nested quotes'; then
+	report ok "the incident command is denied without Python, decoded from its JSON escapes"
+else
+	report no "the incident command is denied without Python, decoded from its JSON escapes" "rc=$rc" "$out"
+fi
+out=$(cd "$d" && printf '%s' "$incident_payload" | scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'nested quotes'; then
+	report ok "the incident command is denied through the Python reader"
+else
+	report no "the incident command is denied through the Python reader" "rc=$rc" "$out"
+fi
+
+# A command of nothing but a line end holds no command, and is not judged as one.
+out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"\n"}}' |
+	scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ]; then report ok "a payload whose command is only a line end passes"; else report no "a payload whose command is only a line end passes" "rc=$rc" "$out"; fi
 
 # A `python3` that EXISTS and does not run — the Windows Store alias on a stock desktop answers
 # with an install prompt and a non-zero exit. Its silence used to read as "no command in this

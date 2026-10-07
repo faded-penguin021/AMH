@@ -16,14 +16,18 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 15.0.1** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 15.1.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-This tree declares **15.0.1**: the author-identity rung sets aside the forge's test merge a
-pull-request CI checks out — two parents, the first already in the base, no branch at it — and
-judges `origin/<default>..HEAD^2` instead, with a `note` line saying so (**DD-036**). Under it is
-15.0.0 — a deletion aimed at the filesystem root or a home directory is permanently denied, an
+This tree declares **15.1.0**: the command guard's permanent denial covers a Windows drive's
+root, `Users` and `Users\<name>` in every spelling it folds, a `cmd /c` recursive `rd`/`del` is
+judged, one spelled with `\"` nested quotes is denied whatever its path, the constitution
+forbids retrying a refused deletion in another spelling (**DD-038**), and the Claude adapter's
+command guard matches `Bash|PowerShell`, with PowerShell read by its own reader (**DD-039**).
+Under it is 15.0.1, whose
+author-identity rung sets aside the forge's test merge a pull-request CI checks out and judges
+`origin/<default>..HEAD^2` instead (**DD-036**), over 15.0.0 — a deletion aimed at the filesystem root or a home directory is permanently denied, an
 inline interpreter deletion buys one advisory, and both adapters wire output redaction
 (**DD-015**–**DD-035**) — over 14.1.0's shell pin (**DD-007**–**DD-014**). Whether this draft
 is tagged or released is not recorded here — `scripts/session-start.sh` probes it every session
@@ -47,10 +51,12 @@ Operational gotchas:
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**OPEN — tag the drafted 15.0.1 release after its PR merges.** Tagging is an owner action, and
+**OPEN — tag the drafted 15.1.0 release after its PR merges.** Tagging is an owner action, and
 the README Quick Start follows the release playbook by naming the draft tag before it exists.
-Check: `git ls-remote --exit-code --tags origin refs/tags/amh-v15.0.1` — a matching ref resolves
-this item; no output means the documented install command is not live yet.
+15.0.1 merged and was not tagged when this was written; whether it gets its own tag is yours, and
+15.1.0 is a MINOR successor of `amh-v15.0.0` either way. Check: `git ls-remote --exit-code --tags
+origin refs/tags/amh-v15.1.0` — a matching ref resolves this item; no output means the documented
+install command is not live yet.
 
 **OPEN — nothing has observed the Codex `PostToolUse` redaction hook actually firing.** The
 Claude half is settled: on 2026-10-04 a Claude Code cloud session on Linux got runtime-generated
@@ -69,15 +75,16 @@ was withdrawn (**DD-010**). Still unobserved is discovery finding NOTHING: that 
 the shipped code, and how it fails differs between the bundles read (**DD-011** for the method).
 Low stakes — both readings are loud — and no check settles it short of that host.
 
-**OPEN — the `printf | grep -q` class survives at 73 non-comment sites.** Unit 3 fixed the two
+**OPEN — the `printf | grep -q` class survives at 81 non-comment sites.** Unit 3 fixed the two
 with reachable unbounded input; the residue was safe on bounded, mostly single-line input rather
 than on a loud direction when last classified, but the fixture/non-fixture split has not been
 recounted since the output-redaction rail landed. The 2026-09-29 installer fixtures added seven,
 all asserting on short installer output in the loud direction; the redaction self-test's python3
 fix then added four on one hook response each (two in the quiet direction, bounded far below a
-pipe buffer), and the Claude matcher check one on a JSON group, loud. Not queued as work; reopen
+pipe buffer), the Claude matcher check one on a JSON group, loud, and the 15.1.0 PowerShell
+payload fixtures eight on one guard verdict each, loud. Not queued as work; reopen
 if any starts matching something unbounded. Check: `grep -rn "printf.*| *grep -q" --include=*.sh
-scripts/ harness/templates/` prints 79 lines, 6 of them comments — resolved only if that stops
+scripts/ harness/templates/` prints 87 lines, 6 of them comments — resolved only if that stops
 matching the description, which it deliberately does not (**DC-038**).
 
 **OPEN — the 2026-08-29 `path-refs.sh` false failure on `` `session-start.sh` `` still has no
@@ -85,11 +92,11 @@ reproducer.** Closed once as the EPIPE defect, then restored when the pass falsi
 (**DC-035**, **DC-029** for the residue): a listing git completed, reported success for, and cut
 short anyway. No check; only a recurrence settles it.
 
-**OPEN — the destructive rail sees no Windows shell, and two reported incidents live there.** The
-owner's (2026-08-29) `cmd /c "rd /s /q ..."` resolved to the root of `D:` through a
-backslash-quote mismatch, pairing with the Antigravity `rmdir /s /q d:\` (**DC-027**). Which
-layer mis-parsed is unsettled and matters to whoever builds the arm; a Windows arm is the owner's
-call since the harness targets bash. No check until a session builds it.
+**OPEN — nobody has observed the command guard firing on a PowerShell payload on Windows.** The
+matcher and the reader shipped in 15.1.0 (**DD-039**); `scripts/command-guard.sh --powershell`
+and the fixtures prove the reader on Linux and nothing about the host. Only a Claude Code
+session on Windows that gets a block for a PowerShell `Remove-Item -Recurse` aimed at a drive
+root settles it — the owner's, on the host that lost `C:`. No check.
 
 **OPEN — two permanent-denial edges the fold unit found and left (DD-035).** Misses, and
 widening is yours: `~/.?*`, `~/.??*`, `~/.[!.]*`, git's `-- '.?*'` under a home `-C`, and bracket
@@ -128,8 +135,7 @@ from.
   constitution byte cap (**DB-038**); a Python-write advisory (**DC-007**); the 2026-08-10 review
   proposals (**DB-024**); a guard that opens a file to classify it (**DB-027**); a configurable
   ledger-id prefix (**DC-015**); ledger immutability across commits (**DC-020**); a guard that
-  judges a State sentence's temporal validity (**DD-006**); widening the command guard's hook
-  matcher to PowerShell before a Windows arm exists (**DD-012**).
+  judges a State sentence's temporal validity (**DD-006**).
 
 ## Changelog
 
@@ -138,6 +144,12 @@ rows — this section is a pointer index, not a narrative.
 
 - 2026-10-04 — **The Claude `PostToolUse` redaction hook was observed firing** on Bash, Read and
   Grep results (**DD-037**). Both Claude adapter comments now say so; the Codex half stays queued.
+
+- 2026-10-07 — **15.1.0 (drafted): Windows drive roots and `cmd /c` deletions reach the command
+  guard.** A Claude Code session on Windows PowerShell 5.1 deleted its account's files on `C:`
+  through `cmd /c "rmdir /s /q \"...\""`, retrying a cleanup a safety check had blocked; the
+  bash half of the Windows arm and the no-respelling rule landed (**DD-038**); then the PowerShell
+  reader and the `Bash|PowerShell` matcher, which retired **DD-012**'s decided non-item (**DD-039**).
 
 - 2026-10-04 — **15.0.1: the author-identity rung no longer judges the forge's test merge.** A
   downstream contributor re-authored every commit and force-pushed, and the rung kept failing on
