@@ -11,6 +11,46 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 15.2.0 — 2026-10-14
+
+- **The Claude adapter's hooks no longer go missing after a `cd`.** Claude Code's hooks
+  documentation says a hook runs in the session's current directory, and the relative
+  `scripts/command-guard.sh` did stop resolving
+  the moment the agent changed into a subdirectory. The host counted the missing script as a
+  non-blocking error and ran the command, so the guard was off for the rest of the session and
+  nothing said so. Every hook command is now `bash "${CLAUDE_PROJECT_DIR}"/scripts/...`: the
+  quoted project root, run through `bash` so a lost executable bit cannot refuse every call.
+- **A command guard that fails now refuses the call.** Both `PreToolUse` hooks, the shell guard
+  and the subagent speed bump, set `"onFailure": "block"`. A guard that crashes, exits with
+  anything but 0 or 2, times out or cannot start used to let the call through; now it blocks it.
+  This needs Claude Code 2.1.295 or later; an older build ignores the key and behaves as before.
+  A crash in this repository's own guard copy now refuses every Bash call too; the runbook's
+  editor-path recovery for an unparseable copy covers it.
+- **On Windows, Git Bash is now a hard requirement for the Claude adapter.** Every hook runs under
+  bash, so with the refusal above a Windows machine without Git Bash refuses every shell command
+  and subagent spawn. Claude Code's refusal quotes the hook's command, and both commands end with
+  a bash comment, `# On Windows AMH requires Git Bash: install Git for Windows, or AMH is not
+  usable`, so that is what the owner reads. The constitution tells the agent to report such a
+  refusal and never to remove a hook, its `onFailure` or its shell pin to get past it. Nobody has
+  yet seen the anchored path or the refusal on a Windows host.
+
+### Upgrading
+
+If you use the Claude adapter, update the `hooks` block of your `.claude/settings.json` from
+`harness/templates/configs/claude-settings.json`. Prefix each AMH hook's `"command"` — the four
+that run `scripts/...`, not hooks of your own — with `bash \"${CLAUDE_PROJECT_DIR}\"/` (the
+JSON spelling of a quoted placeholder), and on the two `PreToolUse` entries add the trailing
+Windows comment and a following `"onFailure": "block"` line, as the last key of the entry. Copy the new bullet **A hook that fails refuses the call, where the adapter says so** from
+`harness/templates/seed/AGENTS.md` into your `AGENTS.md`.
+
+Check what this costs you before applying it. On a Windows machine without Git for Windows, every
+shell command is refused afterwards, so install Git for Windows first or AMH stops working there.
+A command guard that was quietly crashing will start blocking too. That is the point, but it
+surfaces at once.
+
+Nothing that was correct becomes wrong, and the change is yours to apply, so this is MINOR —
+the owner's call on 2026-10-14, asked because the Windows requirement made it arguable.
+
 ## 15.1.0 — 2026-10-07
 
 - **A Windows drive's root is on the command guard's permanent-denial list.** A deletion aimed at

@@ -106,7 +106,12 @@ written before the acceptance run, so the ladder verifies the tree that is commi
   semantics are legislation). **Run `bash -n` on the template before copying it down**: the
   command guard is this harness's own pre-execution hook, so an unparseable copy in `scripts/`
   refuses the next Bash call — including the one that would repair it — and the way out is an
-  editor path that does not go through the hook (**DD-021**).
+  editor path that does not go through the hook (**DD-021**). Since the Claude adapter's
+  `PreToolUse` hooks refuse the call on failure, the same holds for ANY crash of that copy, not
+  just a syntax error — an unbound variable under `set -u` exits 1 and refuses every Bash call.
+  The way out is unchanged: with the editor, write `scripts/command-guard.sh` back to its last
+  committed bytes (restoring the byte-identical copy is not patching it), and then fix the
+  template. Never remove the hook or its `onFailure` to get a shell back (**DD-040**).
 - **Acceptance:** `scripts/ladder.sh` green, including the fixture suite and both rail
   self-tests; the new fixture must FAIL against the old script — check by stashing the
   behaviour change, or the fixture proves nothing.

@@ -48,7 +48,10 @@ Run the scripts by hand from Git Bash; native PowerShell and `cmd.exe` are not
 shell-compatible execution environments for AMH. An agent that cannot find Git's bash where it
 expects it may accept an explicit path: Claude Code reads `CLAUDE_CODE_GIT_BASH_PATH`, the
 escape hatch for a Git installed outside its default location. Check your own agent for an
-equivalent. ShellCheck is optional locally and installed
+equivalent. Under the Claude Code adapter this is not a soft requirement: its command guard
+refuses the call whenever the guard cannot run, so on a Windows machine without Git Bash every
+shell command and subagent spawn is refused, and AMH is not usable until Git for Windows is
+installed. ShellCheck is optional locally and installed
 by CI. You do not need Homebrew, GNU sed, or GNU coreutils on macOS.
 
 Open your coding agent in the repository you want to adopt AMH in, and paste this:
@@ -58,7 +61,7 @@ Install the latest stable release of the Agentic Maintenance Harness (AMH) into 
 
 Run:
 
-    git clone --depth 1 --branch amh-v15.1.0 https://github.com/faded-penguin021/AMH.git /tmp/amh
+    git clone --depth 1 --branch amh-v15.2.0 https://github.com/faded-penguin021/AMH.git /tmp/amh
     /tmp/amh/scripts/amh-init.sh .
 
 Once the harness has been instantiated, read `AMH-ADOPT.md` and follow it completely.

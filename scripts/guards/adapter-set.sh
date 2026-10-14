@@ -190,6 +190,10 @@ fi
 # satisfy this — and a file whose layout the range cannot find is reported as unread rather than
 # passed.
 POST_HOOK_SCRIPT=scripts/redact-tool-output.sh
+# The literal every Claude hook command opens with — `bash` and the quoted project root — as written
+# in the JSON file. See the anchoring check below for why nothing else is accepted.
+# shellcheck disable=SC2016 # the placeholder is a literal in the file; Claude Code expands it
+CLAUDE_ROOT='"bash \"${CLAUDE_PROJECT_DIR}\"/'
 claude_post=0
 for declaration in "${ADAPTERS[@]}"; do
 	case $declaration in
@@ -208,7 +212,7 @@ for declaration in "${ADAPTERS[@]}"; do
 		# a minified group would otherwise go uncounted while a canonical "*" elsewhere vouched.
 		matchers=$(printf '%s\n' "$group" | grep -c '^[[:space:]]*"matcher":')
 		matcher_keys=$(printf '%s\n' "$group" | grep -o '"matcher"[[:space:]]*:' | wc -l | tr -d ' ')
-		if [ "$(printf '%s\n' "$group" | grep -cF "\"command\": \"$POST_HOOK_SCRIPT\"")" -ne 1 ]; then
+		if [ "$(printf '%s\n' "$group" | grep -cF "\"command\": $CLAUDE_ROOT$POST_HOOK_SCRIPT\"")" -ne 1 ]; then
 			note "$settings: the \"PostToolUse\" group does not invoke $POST_HOOK_SCRIPT exactly once — the group exists and the rail it is supposed to wire does not run"
 		elif ! printf '%s\n' "$group" | grep -qF '"shell": "bash",'; then
 			note "$settings: the \"PostToolUse\" hook carries no \"shell\": \"bash\" pin. The pin loop above counts entries across the whole file, so it cannot say WHICH entry is unpinned; this says it for the one entry whose failure is silent in both directions"
@@ -284,9 +288,12 @@ for declaration in "${ADAPTERS[@]}"; do
 	esac
 	for settings in "${declaration%|*}" "${declaration#*|}"; do
 		[ -f "$settings" ] || continue
-		pre_matcher=$(awk '
+		# The guard's own line is the anchored script followed by the end of the string or by the
+		# trailing comment; ` --pre-task` after it is the spawn hook, a different entry.
+		pre_matcher=$(GUARD_HOOK="\"command\": ${CLAUDE_ROOT}scripts/command-guard.sh" awk '
 			/^[[:space:]]*"matcher":/ { m = $0 }
-			/^[[:space:]]*"command": "scripts\/command-guard\.sh"$/ { print m; found++ }
+			{ line = $0; sub(/^[[:space:]]*/, "", line) }
+			index(line, ENVIRON["GUARD_HOOK"]) == 1 && substr(line, length(ENVIRON["GUARD_HOOK"]) + 1) ~ /^("|  *#)/ { print m; found++ }
 			END { if (found != 1) print "UNREAD " found }
 		' "$settings")
 		case $pre_matcher in
@@ -301,5 +308,83 @@ for declaration in "${ADAPTERS[@]}"; do
 	done
 done
 
+# Two failures that let a call through with nothing reported, and the one sentence a Windows
+# owner needs when the fix for them refuses everything (DD-040).
+#
+# Anchoring: Claude Code's hooks documentation says a handler runs in the session's CURRENT
+# directory, so a relative `scripts/...` stops resolving the moment the agent runs `cd` into a
+# subdirectory. The host counts the missing script as a non-blocking error and runs the call, so
+# the command guard went dark for the rest of the session with nothing printed. Every hook command
+# must open with `bash` and the quoted project root; a command key outside the one-key-per-line
+# layout is counted by the layout-independent total and reported, never passed.
+#
+# Refusal on failure: each command-guard entry — the shell guard and the spawn speed bump — must
+# be EXACTLY the object {type, shell, command, "onFailure": "block"}, under its own matcher, with
+# its command line exactly as shipped. Exact, because every looser reading was satisfied by a
+# defeated entry: a second `"onFailure": "continue"` key (JSON keeps the last), an added
+# `"async": true` (the host ignores `block` on an async hook), `|| true` appended to the command,
+# and a deleted or re-matched spawn entry all passed a check that only looked for the line after
+# the command. The command's trailing comment is part of the exact line: with `block` set, a host
+# where Claude Code finds no Git Bash refuses every shell call and spawn, the refusal quotes the
+# hook's command, and that comment is the only AMH text the owner reads there.
+claude_anchor_files=0
+GUARD_TAIL=' # On Windows AMH requires Git Bash: install Git for Windows, or AMH is not usable",'
+for declaration in "${ADAPTERS[@]}"; do
+	case $declaration in
+	*claude-settings.json*) ;;
+	*) continue ;;
+	esac
+	for settings in "${declaration%|*}" "${declaration#*|}"; do
+		[ -f "$settings" ] || continue
+		read -r keys anchored < <(HOOK_ROOT="\"command\": $CLAUDE_ROOT" awk '
+			{ keys += gsub(/"command"[[:space:]]*:/, "&") }
+			{ line = $0; sub(/^[[:space:]]*/, "", line) }
+			index(line, ENVIRON["HOOK_ROOT"]) == 1 { anchored++ }
+			END { print keys + 0, anchored + 0 }
+		' "$settings")
+		if [ "${keys:-0}" -eq 0 ]; then
+			note "$settings: checked NOTHING for hook anchoring — not one \"command\" key found at any layout"
+			continue
+		fi
+		if [ "$anchored" -ne "$keys" ]; then
+			note "$settings: $((keys - anchored)) of $keys hook command(s) do not open with bash and the quoted project root \"\${CLAUDE_PROJECT_DIR}\"/ at the layout this guard reads. Claude Code runs a hook in the session's current directory, so a relative path stops resolving after any \`cd\`, and the missing script is a non-blocking error: the call runs unjudged (DD-040)"
+		fi
+		entry_fails=0
+		for entry in 'shell guard;Bash|PowerShell;' 'spawn speed bump;Task; --pre-task'; do
+			IFS=';' read -r label matcher arg <<<"$entry"
+			verdict=$(EXPECT="\"command\": ${CLAUDE_ROOT}scripts/command-guard.sh$arg$GUARD_TAIL" \
+				MATCHER="\"matcher\": \"$matcher\"," awk '
+				{ n++; line = $0; sub(/^[[:space:]]*/, "", line); L[n] = line }
+				/^[[:space:]]*"matcher":/ { m = line }
+				line == ENVIRON["EXPECT"] { hits++; k = n; km = m }
+				END {
+					if (hits != 1) { print "MISSING " hits + 0; exit }
+					if (km != ENVIRON["MATCHER"]) { print "MATCHER"; exit }
+					if (L[k - 3] != "{" || L[k - 2] != "\"type\": \"command\"," ||
+						L[k - 1] != "\"shell\": \"bash\"," || L[k + 1] != "\"onFailure\": \"block\"" ||
+						L[k + 2] !~ /^}/) { print "SHAPE"; exit }
+					print "OK"
+				}
+			' "$settings")
+			case $verdict in
+			OK) ;;
+			MISSING*)
+				note "$settings: the PreToolUse $label entry was not found exactly once (found ${verdict#MISSING }) as its exact shipped command line, Windows comment included. A missing entry, a changed or appended command such as \`|| true\`, and a dropped comment all land here; the comment is what a Windows host without Git Bash shows the owner when every call is refused (DD-040)"
+				entry_fails=1
+				;;
+			MATCHER)
+				note "$settings: the PreToolUse $label entry does not sit under \"matcher\": \"$matcher\" — under any other matcher it never fires (DD-040)"
+				entry_fails=1
+				;;
+			*)
+				note "$settings: the PreToolUse $label entry is not exactly {\"type\": \"command\", \"shell\": \"bash\", its command, \"onFailure\": \"block\"}. A missing or relaxed onFailure, a duplicate key (JSON keeps the last) or an added async key all let a guard that crashes, exits 1, times out or cannot start pass the call (DD-040)"
+				entry_fails=1
+				;;
+			esac
+		done
+		[ "$entry_fails" -eq 1 ] || [ "$anchored" -ne "$keys" ] || claude_anchor_files=$((claude_anchor_files + 1))
+	done
+done
+
 [ "$fails" -eq 0 ] || exit 1
-printf 'first-class adapter set is complete across sources, reference paths, installation and legislation; %s Claude command hook(s) across %s file(s) pin shell=bash, %s Claude command guard(s) match Bash|PowerShell, %s Claude and %s Codex adapter(s) wire the PostToolUse redaction rail for every tool\n' "$claude_hooks" "$claude_files" "$claude_pre" "$claude_post" "$codex_post"
+printf 'first-class adapter set is complete across sources, reference paths, installation and legislation; %s Claude command hook(s) across %s file(s) pin shell=bash, %s file(s) anchor every Claude hook at the project root and refuse calls when a command guard fails, %s Claude command guard(s) match Bash|PowerShell, %s Claude and %s Codex adapter(s) wire the PostToolUse redaction rail for every tool\n' "$claude_hooks" "$claude_files" "$claude_anchor_files" "$claude_pre" "$claude_post" "$codex_post"

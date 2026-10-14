@@ -16,11 +16,14 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 15.1.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 15.2.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-This tree declares **15.1.0**: the command guard's permanent denial covers a Windows drive's
+This tree declares **15.2.0**: every Claude adapter hook is anchored at the project root, both
+`PreToolUse` hooks refuse the call when the hook itself fails, and on Windows that makes Git for
+Windows a hard requirement, said in the refusal itself (**DD-040**). Under it is 15.1.0: the
+command guard's permanent denial covers a Windows drive's
 root, `Users` and `Users\<name>` in every spelling it folds, a `cmd /c` recursive `rd`/`del` is
 judged, one spelled with `\"` nested quotes is denied whatever its path, the constitution
 forbids retrying a refused deletion in another spelling (**DD-038**), and the Claude adapter's
@@ -51,12 +54,10 @@ Operational gotchas:
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**OPEN — tag the drafted 15.1.0 release after its PR merges.** Tagging is an owner action, and
-the README Quick Start follows the release playbook by naming the draft tag before it exists.
-15.0.1 merged and was not tagged when this was written; whether it gets its own tag is yours, and
-15.1.0 is a MINOR successor of `amh-v15.0.0` either way. Check: `git ls-remote --exit-code --tags
-origin refs/tags/amh-v15.1.0` — a matching ref resolves this item; no output means the documented
-install command is not live yet.
+**OPEN — tag the drafted 15.2.0 release after its PR merges.** Tagging is an owner action, and
+the README Quick Start names the draft tag before it exists. Check: `git ls-remote --exit-code
+--tags origin refs/tags/amh-v15.2.0` — a matching ref resolves this item; no output means the
+documented install command is not live yet.
 
 **OPEN — nothing has observed the Codex `PostToolUse` redaction hook actually firing.** The
 Claude half is settled: on 2026-10-04 a Claude Code cloud session on Linux got runtime-generated
@@ -73,7 +74,10 @@ a pinned guard pass its self-test and actually fire mid-session, so pinned hooks
 on Windows (**DD-014**); bash being off `PATH` is not the failing case, which is why the WSL hazard
 was withdrawn (**DD-010**). Still unobserved is discovery finding NOTHING: that path is read from
 the shipped code, and how it fails differs between the bundles read (**DD-011** for the method).
-Low stakes — both readings are loud — and no check settles it short of that host.
+Since 15.2.0 both `PreToolUse` hooks set `"onFailure": "block"`, so that host should refuse every
+shell call and spawn with a message quoting the hook's Git Bash comment, and the quoted
+`${CLAUDE_PROJECT_DIR}` path has not run on any Windows host either (**DD-040**). No check settles
+it short of such a host — the owner's, if one is ever used.
 
 **OPEN — the `printf | grep -q` class survives at 81 non-comment sites.** Unit 3 fixed the two
 with reachable unbounded input; the residue was safe on bounded, mostly single-line input rather
@@ -141,6 +145,13 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-10-14 — **15.2.0 (drafted): a failing or missing Claude hook refuses the call.** A public
+  report listed four ways a hook guard silently does nothing; checked against this tree, the
+  relative hook paths and the default fail-open on a hook's own failure applied. Hooks are
+  anchored at `${CLAUDE_PROJECT_DIR}`, both `PreToolUse` hooks set `onFailure` to `block`, and the
+  Windows refusal names Git for Windows (**DD-040**). `amh-v15.1.0` was seen on origin, so that tag
+  item left the queue.
 
 - 2026-10-04 — **The Claude `PostToolUse` redaction hook was observed firing** on Bash, Read and
   Grep results (**DD-037**). Both Claude adapter comments now say so; the Codex half stays queued.

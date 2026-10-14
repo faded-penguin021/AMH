@@ -1,7 +1,7 @@
 # AMH meta-repository — maintenance guide
 
 This repository is the source of truth for the **Agentic Maintenance Harness** (AMH) and its
-reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 15.1.0**
+reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 15.2.0**
 (`harness/VERSION`).
 
 This file states the harness and this repository as they are now. Rules are rewritten in place
@@ -156,7 +156,16 @@ definition of that scope.
   PowerShell tool, the command rail exists only if the adapter's matcher names that tool and the
   hook's own shell (bash) is present; the Claude adapter's matcher does, and PowerShell text then
   goes to the guard's PowerShell reader, a shorter list than the bash one, whose misses the
-  guard's header names (**DD-039**).
+  guard's header names (**DD-039**). The Claude adapter anchors every hook at the project root
+  and, on Claude Code 2.1.295 or later (an older build fails open as before), sets both
+  PreToolUse hooks to refuse the call when the hook itself fails, so a guard that crashes, times
+  out or cannot start blocks the call instead of letting it run (**DD-040**). On Windows that
+  makes Git for Windows a hard requirement: without Git Bash every shell call and spawn is
+  refused, and AMH is not usable. A refusal that names a failed hook or Git Bash is a stop, not
+  an obstacle: report it to the owner — on Windows, that Git for Windows must be installed —
+  and never remove a hook, its `onFailure` or its shell pin to get past it. The one case you
+  repair yourself is a defect in this repository's own guard copy, by the editor path in
+  `docs/RUNBOOK.md` → **Change a shipped script**.
 - New guard behavior ships with a fixture that demonstrably fails without the behavior. Keep
   repo-local fixtures separate from the shipped fixture suite.
 - Add no dependency without owner approval; the distributed harness targets `bash`, `git`,

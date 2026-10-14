@@ -314,7 +314,16 @@ rather than the command.
   deny list stays beneath it as the second net. Follow the P13 pattern rules: leading-command
   matching, mistake-not-evasion threat model, fail open on malformed input — but never on the
   guard's own failure to parse, which is not an odd command and must not be reported as a clean
-  one — and a self-test run by the ladder. Two honesty obligations come with it. The guard's header carries a consolidated
+  one — and a self-test run by the ladder. Wire it so the guard's OWN failure cannot pass
+  silently either: anchor every hook path at the project root and run the script through its
+  interpreter rather than by path, because an agent may run hooks
+  in the session's current directory and a relative path then goes missing after the first
+  `cd`, and where the agent can refuse the call when a hook fails, declare it (Claude Code:
+  `"onFailure": "block"` on both PreToolUse hooks) — by default a crash, a timeout or a missing
+  script is a non-blocking error and the command runs unjudged. On Windows that refusal is what
+  a host without Git Bash meets on every call, so the adapter must say AMH needs Git for
+  Windows where the refusal shows it (the Claude adapter's trailing command comment). Two
+  honesty obligations come with it. The guard's header carries a consolidated
   **what this guard does NOT catch** block — interpreters outside its enumerated reader list,
   wrappers, constructed commands, heredocs, window limits — because a rail whose limits are
   only discoverable by reading its scanners will be mistaken for a vault. And an agent with no

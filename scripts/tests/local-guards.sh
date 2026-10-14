@@ -740,7 +740,7 @@ expect fail "adapter-set: the command guard matcher was narrowed to Bash in the 
 	"is not \"Bash|PowerShell\""
 
 d=$(snapshot adapter_claude_pre_hook_gone)
-sed_in_place 's#"command": "scripts/command-guard.sh"$#"command": "scripts/command-guard.sh --pre-task"#' "$d/.claude/settings.json"
+sed_in_place 's|/scripts/command-guard.sh # On|/scripts/command-guard.sh --pre-task # On|' "$d/.claude/settings.json"
 expect fail "adapter-set: the command guard hook is not found exactly once" "$d" adapter-set.sh \
 	"PreToolUse command-guard hook was not found exactly once"
 
@@ -763,7 +763,7 @@ expect fail "adapter-set: the PostToolUse redaction hook was dropped from the re
 # PostToolUse hook that does anything at all, which is the shape a future adapter revision would
 # most plausibly arrive in.
 d=$(snapshot adapter_claude_post_hook_rewired)
-sed_in_place 's|"command": "scripts/redact-tool-output.sh"|"command": "scripts/session-start.sh"|' "$d/.claude/settings.json"
+sed_in_place 's|/scripts/redact-tool-output.sh"|/scripts/session-start.sh"|' "$d/.claude/settings.json"
 expect fail "adapter-set: a PostToolUse group that does not invoke the redaction rail" "$d" adapter-set.sh \
 	"does not invoke scripts/redact-tool-output.sh exactly once"
 
@@ -800,6 +800,68 @@ awk '{ print } /^[[:space:]]*"PostToolUse": \[$/ { print "      {"; print "     
 	"$d/.claude/settings.json" >"$d/settings.json.off" && mv "$d/settings.json.off" "$d/.claude/settings.json"
 expect fail "adapter-set: a narrowed Claude matcher off the readable layout, beside a canonical \"*\"" "$d" adapter-set.sh \
 	"UNVERIFIED, not all-tools"
+
+# Claude Code runs a hook in the session's current directory, so a relative path stops resolving
+# after any `cd` and the missing script is a non-blocking error: the call runs unjudged with nothing
+# printed. One hook back on the old relative spelling, and the guard itself in the other copy
+# (DD-040).
+d=$(snapshot adapter_claude_hook_relative_reference)
+# shellcheck disable=SC2016 # the placeholder is a literal in the adapter file
+sed_in_place 's|"command": "bash \\"${CLAUDE_PROJECT_DIR}\\"/scripts/session-start.sh"|"command": "scripts/session-start.sh"|' "$d/.claude/settings.json"
+expect fail "adapter-set: a Claude hook path relative to the current directory" "$d" adapter-set.sh \
+	"1 of $claude_ref_hooks hook command(s) do not open with bash and the quoted project root"
+
+d=$(snapshot adapter_claude_guard_relative_template)
+# shellcheck disable=SC2016 # the placeholder is a literal in the adapter file
+sed_in_place 's|"command": "bash \\"${CLAUDE_PROJECT_DIR}\\"/scripts/command-guard.sh # On|"command": "scripts/command-guard.sh # On|' "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: the Claude command guard on a relative path" "$d" adapter-set.sh \
+	"do not open with bash and the quoted project root"
+
+# Without `"onFailure": "block"` a command guard that crashes, exits 1, times out or cannot start
+# is a non-blocking error and the call runs. Every mutation below changes ONE entry and keeps the
+# JSON valid, and each one passed the first draft of this check, which only read the line after the
+# command: the entry has to be exactly {type, shell, command, onFailure}, under its own matcher.
+first_only() { # first_only <ERE> <replacement> <file> — sub() on the first matching line only
+	awk -v re="$1" -v to="$2" '!done && $0 ~ re { sub(re, to); done = 1 } { print }' "$3" >"$3.first" &&
+		mv "$3.first" "$3"
+}
+d=$(snapshot adapter_claude_guard_onfailure_continue)
+first_only '"block"$' '"continue"' "$d/.claude/settings.json"
+expect fail "adapter-set: the shell guard falls back to onFailure continue" "$d" adapter-set.sh \
+	"PreToolUse shell guard entry is not exactly"
+
+d=$(snapshot adapter_claude_guard_onfailure_gone)
+sed_in_place '/"onFailure": "block"/d' "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: the Claude command guards lost onFailure" "$d" adapter-set.sh \
+	"PreToolUse spawn speed bump entry is not exactly"
+
+d=$(snapshot adapter_claude_guard_onfailure_duplicated)
+first_only '"onFailure": "block"$' '"onFailure": "block",\n            "onFailure": "continue"' "$d/.claude/settings.json"
+expect fail "adapter-set: a second onFailure key overrides block" "$d" adapter-set.sh \
+	"PreToolUse shell guard entry is not exactly"
+
+d=$(snapshot adapter_claude_guard_async)
+first_only '"onFailure": "block"$' '"onFailure": "block",\n            "async": true' "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: an async guard, on which the host ignores block" "$d" adapter-set.sh \
+	"PreToolUse shell guard entry is not exactly"
+
+d=$(snapshot adapter_claude_spawn_or_true)
+sed_in_place 's/--pre-task # On/--pre-task || true # On/' "$d/.claude/settings.json"
+expect fail "adapter-set: a spawn speed bump that always passes" "$d" adapter-set.sh \
+	"PreToolUse spawn speed bump entry was not found exactly once (found 0)"
+
+d=$(snapshot adapter_claude_spawn_matcher_renamed)
+sed_in_place 's/"matcher": "Task",/"matcher": "NoSuchTool",/' "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: the spawn speed bump under a matcher that never fires" "$d" adapter-set.sh \
+	"PreToolUse spawn speed bump entry does not sit under"
+
+# With `block` set, a Windows host without Git Bash refuses every call, and the refusal quotes the
+# hook's command — so its trailing comment is the only AMH text the owner reads there. ONE entry,
+# so a check that found the comment anywhere in the file would pass it.
+d=$(snapshot adapter_claude_guard_windows_note_gone)
+first_only ' # On Windows AMH requires Git Bash: install Git for Windows, or AMH is not usable",$' '",' "$d/.claude/settings.json"
+expect fail "adapter-set: the shell guard lost the Windows Git Bash comment" "$d" adapter-set.sh \
+	"PreToolUse shell guard entry was not found exactly once (found 0)"
 
 d=$(snapshot adapter_codex_post_hook_gone)
 sed_in_place '/^\[\[hooks.PostToolUse\]\]$/,/^]$/d' "$d/.codex/config.toml"
