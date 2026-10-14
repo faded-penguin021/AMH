@@ -22,7 +22,8 @@ Adopted harness version: **AMH 15.2.0** — see `harness/VERSION`, the copy that
 
 This tree declares **15.2.0**: every Claude adapter hook is anchored at the project root, both
 `PreToolUse` hooks refuse the call when the hook itself fails, and on Windows that makes Git for
-Windows a hard requirement, said in the refusal itself (**DD-040**). Under it is 15.1.0: the
+Windows a hard requirement, said in the refusal itself (**DD-040**), and the command guard judges
+`\rm` and `/usr/bin/env` as `rm` and `env` (**DD-041**). Under it is 15.1.0: the
 command guard's permanent denial covers a Windows drive's
 root, `Users` and `Users\<name>` in every spelling it folds, a `cmd /c` recursive `rd`/`del` is
 judged, one spelled with `\"` nested quotes is denied whatever its path, the constitution
@@ -58,6 +59,12 @@ Operational gotchas:
 the README Quick Start names the draft tag before it exists. Check: `git ls-remote --exit-code
 --tags origin refs/tags/amh-v15.2.0` — a matching ref resolves this item; no output means the
 documented install command is not live yet.
+
+**OPEN — reserved words and `.exe` names hide a command from every guard rail (DD-041).**
+`if true; then git push --force origin main; fi`, `while true; do printenv; done`, `! printenv`
+and `rm.exe -rf /` all pass. Older than 15.2.0, named in the guard's header, not fixed; a unit is
+yours to approve. Check: `scripts/command-guard.sh --command 'if true; then printenv; fi'` —
+exit 0 means still open.
 
 **OPEN — nothing has observed the Codex `PostToolUse` redaction hook actually firing.** The
 Claude half is settled: on 2026-10-04 a Claude Code cloud session on Linux got runtime-generated
@@ -146,12 +153,10 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-10-14 — **15.2.0 (drafted): a failing or missing Claude hook refuses the call.** A public
-  report listed four ways a hook guard silently does nothing; checked against this tree, the
-  relative hook paths and the default fail-open on a hook's own failure applied. Hooks are
-  anchored at `${CLAUDE_PROJECT_DIR}`, both `PreToolUse` hooks set `onFailure` to `block`, and the
-  Windows refusal names Git for Windows (**DD-040**). `amh-v15.1.0` was seen on origin, so that tag
-  item left the queue.
+- 2026-10-14 — **15.2.0 (drafted): a failing or missing Claude hook refuses the call, and the
+  guard reads `\rm` and `/usr/bin/env` as `rm` and `env`.** Found by checking this tree against a
+  public report on silent hook guards (**DD-040**, **DD-041**). `amh-v15.1.0` was seen on origin,
+  so that tag item left the queue.
 
 - 2026-10-04 — **The Claude `PostToolUse` redaction hook was observed firing** on Bash, Read and
   Grep results (**DD-037**). Both Claude adapter comments now say so; the Codex half stays queued.

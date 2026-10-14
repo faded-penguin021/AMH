@@ -85,7 +85,9 @@
 #     with an option list, and it is read the way POSIX defines it: given a utility to run
 #     it is a prefix, given none it PRINTS the environment and is blocked on its own
 #     account — so `env`, `env -i`, `env -0`, `env FOO=1` and `env -u FOO` are dumps while
-#     `env -u FOO cmd` and `env -i cmd` are prefixes whose `cmd` is judged. Three shapes of
+#     `env -u FOO cmd` and `env -i cmd` are prefixes whose `cmd` is judged — by the secret and
+#     push rails only: the destructive and interpreter rails stop at any `env` option, so
+#     `env -i rm -rf /` reaches neither the denial nor the advisory. Three shapes of
 #     that option walk are worth naming because they are the honest edges rather than the
 #     rule: `env -S 'cat .env'` and `--split-string=` hide the utility inside a string this
 #     guard cannot split, so they get past exactly as `bash -c` does; `env -u` and the other
@@ -98,7 +100,17 @@
 #     `ssh host cat .env`, `bash -c 'cat .env'`, and any shell function or alias standing in
 #     for the command. Do not read this bullet as "wrappers defeat the guard" — several do
 #     not, and deleting the strip loop because a comment said it was useless would remove
-#     real coverage the self-test asserts.
+#     real coverage the self-test asserts. The command word and each of those prefixes are
+#     judged by the name bash looks up: a path (`/usr/bin/env`, `/usr/bin/sudo`), one leading
+#     backslash (`\rm`, the alias bypass) and one more after the path (`/bin/\rm`) are folded
+#     away. A backslash elsewhere in the word (`r\m`) is not, and that command gets past every
+#     rail but the text-only `.env` advisory — it is evasion, not a mistake.
+#   * RESERVED WORDS AND `.exe` NAMES HIDE THE COMMAND. A command after `if`, `then`, `else`,
+#     `elif`, `while`, `until`, `do` or `!` is not judged by any rail —
+#     `if true; then git push --force origin main; fi` and `while true; do printenv; done` pass —
+#     and neither is a name spelled with its Windows suffix (`rm.exe`, `git.exe`, `env.exe`),
+#     which Git Bash runs. `{ ...; }`, `( ... )` and `case` arms are read. Found by review and
+#     left for its own unit (AMH ledger row DD041).
 #   * CONSTRUCTED AND ENCODED COMMANDS. `eval`, base64/hex payloads decoded at runtime,
 #     and any command assembled from variables are text at scan time, not commands.
 #   * A COMMAND SUBSTITUTION INSIDE DOUBLE QUOTES RUNS, AND NO WALKER LOOKS IN. Bash executes
@@ -1506,6 +1518,25 @@ forge_api_mutation() {
 	forge_operation_class "$endpoint"
 }
 
+# The name bash looks up for a command WORD. Two spellings reach the same program as the bare
+# name and were judged as something else. A leading backslash is a quote bash removes before the
+# lookup — it is how a shell bypasses an alias — so `\rm -rf /` ran with no verdict at all. And a
+# path runs its last component: that was folded for the command itself but not for the
+# transparent prefixes, so `/usr/bin/env` alone printed the environment unjudged while
+# `/usr/bin/printenv` was blocked (AMH ledger row DD041). Only a LEADING backslash is read: one
+# inside the word (`r\m`) is the deliberate evasion this guard's threat model does not chase, and
+# a Windows path such as `C:\Windows\System32\cmd.exe` keeps its backslashes for the arms that read
+# them. Never call this on an operand — `\*` and `\~` keep their meaning there. Two costs, both in
+# the safe direction: quotes are gone by the time a word gets here, so a quoted `'\rm'` — a literal
+# name bash will not find — is judged as `rm`; and the PowerShell arm's re-quoted hand-off reaches
+# this too, where `\x` is a path from the drive root rather than an alias bypass. Sets COMMAND_WORD.
+command_word() { # command_word <word>
+	local w=${1#\\}
+	w=${w##*/}
+	COMMAND_WORD=${w#\\}
+}
+COMMAND_WORD=''
+
 check_segment() {
 	local raw=$1
 	local words=() i=0 w
@@ -1551,8 +1582,13 @@ check_segment() {
 	# `env FOO=1 git push --force` is judged as a git command, not an env dump.
 	while [ "$i" -lt "${#words[@]}" ]; do
 		w=${words[$i]}
-		case $w in
-		*=*) i=$((i + 1)) ;;
+		case $w in *=*)
+			i=$((i + 1))
+			continue
+			;;
+		esac
+		command_word "$w"
+		case $COMMAND_WORD in
 		sudo | nohup | nice | time | command | builtin | exec) i=$((i + 1)) ;;
 		env)
 			# `env` handed something to run is a prefix; handed nothing it is the dump.
@@ -1576,8 +1612,8 @@ check_segment() {
 	done
 	[ "$i" -lt "${#words[@]}" ] || return 0
 
-	local cmd=${words[$i]}
-	cmd=${cmd##*/}
+	command_word "${words[$i]}"
+	local cmd=$COMMAND_WORD
 	local args=("${words[@]:$((i + 1))}")
 
 	if forge_api_mutation "$cmd" ${args[@]+"${args[@]}"}; then
@@ -1833,12 +1869,18 @@ leading_command() {
 	words=(${SPLIT_WORDS[@]+"${SPLIT_WORDS[@]}"})
 	while [ "$i" -lt "${#words[@]}" ]; do
 		w=${words[$i]}
-		case $w in
-		*=*) i=$((i + 1)) ;;
+		case $w in *=*)
+			i=$((i + 1))
+			continue
+			;;
+		esac
+		command_word "$w"
+		case $COMMAND_WORD in
 		sudo | nohup | nice | time | command | builtin | exec) i=$((i + 1)) ;;
 		env)
-			# Mirror check_segment's transparent-prefix treatment for ordinary
-			# `env NAME=value cmd` forms. An `env` dump is not the advisory's subject.
+			# Mirrors check_segment for `env NAME=value cmd` only: any option stops this walk,
+			# where check_segment's `env_prefix_width` reads past it. An `env` dump is not the
+			# advisory's subject.
 			if [ $((i + 1)) -lt "${#words[@]}" ]; then
 				case ${words[$((i + 1))]} in -*) break ;; *) i=$((i + 1)) ;; esac
 			else
@@ -1849,7 +1891,8 @@ leading_command() {
 		esac
 	done
 	[ "$i" -lt "${#words[@]}" ] || return 1
-	printf '%s' "${words[$i]##*/}"
+	command_word "${words[$i]}"
+	printf '%s' "$COMMAND_WORD"
 }
 
 # Normalise ONE operand for the signature. `$d`, `${d}` and `${d:?}` name the same target,
@@ -3651,8 +3694,14 @@ is_destructive_segment() {
 	# later quoted prose or operands as commands.
 	while [ "$i" -lt "${#words[@]}" ]; do
 		w=${words[$i]}
-		case $w in
-		*=* | sudo | nohup | nice | time | command | builtin | exec) i=$((i + 1)) ;;
+		case $w in *=*)
+			i=$((i + 1))
+			continue
+			;;
+		esac
+		command_word "$w"
+		case $COMMAND_WORD in
+		sudo | nohup | nice | time | command | builtin | exec) i=$((i + 1)) ;;
 		env)
 			if [ $((i + 1)) -lt "${#words[@]}" ]; then
 				case ${words[$((i + 1))]} in -*) break ;; *) i=$((i + 1)) ;; esac
@@ -3663,7 +3712,8 @@ is_destructive_segment() {
 		esac
 	done
 	[ "$i" -lt "${#words[@]}" ] || return 1
-	cmd=${words[$i]##*/}
+	command_word "${words[$i]}"
+	cmd=$COMMAND_WORD
 	i=$((i + 1))
 	# Package runners are how the data-plane tools below are ACTUALLY invoked — nobody types
 	# a bare `prisma`. This strip is deliberately NOT part of the transparent-prefix loop
@@ -3701,7 +3751,8 @@ is_destructive_segment() {
 			esac
 		done
 		[ "$i" -lt "${#words[@]}" ] || return 1
-		cmd=${words[$i]##*/}
+		command_word "${words[$i]}"
+		cmd=$COMMAND_WORD
 		i=$((i + 1))
 		;;
 	npm | pnpm | yarn | bun)
@@ -3738,7 +3789,8 @@ is_destructive_segment() {
 			[ "$i" -lt "${#words[@]}" ] || return 1
 			;;
 		esac
-		cmd=${words[$i]##*/}
+		command_word "${words[$i]}"
+		cmd=$COMMAND_WORD
 		i=$((i + 1))
 		;;
 	esac
@@ -5296,6 +5348,18 @@ self_test() {
 	st_blocked "git push origin refs/heads/$DEFAULT_BRANCH"
 	st_blocked 'env'
 	st_blocked 'env -0'
+	# A path or a leading backslash names the same program as the bare word, for the command
+	# and for every transparent prefix (AMH ledger row DD041).
+	st_blocked '/usr/bin/env'
+	st_blocked '\env'
+	st_blocked '\printenv'
+	st_blocked '\cat .env'
+	st_blocked '/usr/bin/sudo cat .env'
+	st_blocked '\sudo /usr/bin/env'
+	st_blocked '\git push --force origin feature'
+	st_blocked '/usr/bin/env FOO=1 git push --force origin feature'
+	st_allowed '\ls -la'
+	st_allowed '/usr/bin/env FOO=1 make test'
 	# `env` handed no utility prints the environment WHATEVER its options did to it, so
 	# each of these is a dump: `-i` empties it first, `-u` drops one name, an assignment
 	# adds one. The last was allowed until 10.1.2 — the arm read a leading `-` as the
@@ -5480,6 +5544,8 @@ printenv'
 	# The interpreter tier: an enumerated interpreter plus an enumerated deletion call, one
 	# advisory, rearmed per command text.
 	st_interpreter_advisory_once 'python3 -c "import shutil; shutil.rmtree(sys.argv[1])"' 'rmtree'
+	st_interpreter_advisory_once '\python3 -c "import shutil; shutil.rmtree(d)"' 'rmtree'
+	st_interpreter_advisory_once '\sudo python3 -c "import shutil; shutil.rmtree(d)"' 'rmtree'
 	st_interpreter_advisory_once 'node -e "fs.rmSync(p, {recursive: true})"' 'rmSync'
 	st_interpreter_advisory_once 'ruby -e "FileUtils.rm_rf(x)"' 'rm_rf'
 	st_interpreter_advisory_once 'perl -e "remove_tree($d)"' 'remove_tree'
@@ -5532,6 +5598,15 @@ EOF'
 	# permanent denial, because a rail an agent steps around with a trailing slash teaches the
 	# trailing slash.
 	st_destructive_never_clears 'rm -rf /' 'the filesystem root'
+	st_destructive_never_clears '\rm -rf /' 'the filesystem root'
+	st_destructive_never_clears '/bin/\rm -rf /' 'the filesystem root'
+	st_destructive_never_clears 'sudo \rm -rf ~' 'your home directory'
+	# One per site that resolves the command: the destructive walk's prefix fold and both of its
+	# package-runner re-resolutions. Each passed with its own site reverted before these existed.
+	st_destructive_never_clears '\sudo rm -rf /' 'the filesystem root'
+	st_destructive_never_clears '/usr/bin/sudo rm -rf /' 'the filesystem root'
+	st_destructive_never_clears 'npx \rm -rf /' 'the filesystem root'
+	st_destructive_never_clears 'npm exec \rm -rf /' 'the filesystem root'
 	st_destructive_never_clears 'rm -rf //' 'the filesystem root'
 	st_destructive_never_clears 'rm -rf /*' 'the filesystem root'
 	st_destructive_never_clears 'rm -rf -- /' 'the filesystem root'

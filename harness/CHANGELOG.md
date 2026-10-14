@@ -33,6 +33,18 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   usable`, so that is what the owner reads. The constitution tells the agent to report such a
   refusal and never to remove a hook, its `onFailure` or its shell pin to get past it. Nobody has
   yet seen the anchored path or the refusal on a Windows host.
+- **The command guard reads the name bash looks up.** A leading backslash, the usual way to
+  bypass an alias, hid the command from the rails: `\rm -rf /` and `\git push --force` got no
+  verdict at all, and `\cat .env` met only the one-time `.env` advisory. A path on a prefix did
+  the same: `/usr/bin/env` alone printed the environment unjudged while `/usr/bin/printenv` was
+  blocked. The command word and every transparent prefix (`sudo`, `env`, `command` and the rest)
+  now have a path and a leading backslash removed before they are judged, at every site that
+  picks the command, package runners included. A backslash elsewhere in the word (`r\m`) is
+  still not read, and a quoted `'\rm'`, which bash cannot run, is now judged as `rm`.
+- **Two gaps the review found are named, not fixed.** A command after a reserved word (`if`,
+  `then`, `else`, `elif`, `while`, `until`, `do`, `!`) and a name with its Windows suffix
+  (`rm.exe`, `git.exe`) reach no rail. Both predate this release and are in the guard's
+  does-not-catch list.
 
 ### Upgrading
 
@@ -43,7 +55,10 @@ JSON spelling of a quoted placeholder), and on the two `PreToolUse` entries add 
 Windows comment and a following `"onFailure": "block"` line, as the last key of the entry. Copy the new bullet **A hook that fails refuses the call, where the adapter says so** from
 `harness/templates/seed/AGENTS.md` into your `AGENTS.md`.
 
-Check what this costs you before applying it. On a Windows machine without Git for Windows, every
+Copy the 15.2.0 shipped scripts and manifest through the normal upgrade procedure for the
+command-guard change; it needs nothing else.
+
+Check what the adapter change costs you before applying it. On a Windows machine without Git for Windows, every
 shell command is refused afterwards, so install Git for Windows first or AMH stops working there.
 A command guard that was quietly crashing will start blocking too. That is the point, but it
 surfaces at once.
