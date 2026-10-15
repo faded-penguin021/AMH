@@ -104,13 +104,21 @@
 #     judged by the name bash looks up: a path (`/usr/bin/env`, `/usr/bin/sudo`), one leading
 #     backslash (`\rm`, the alias bypass) and one more after the path (`/bin/\rm`) are folded
 #     away. A backslash elsewhere in the word (`r\m`) is not, and that command gets past every
-#     rail but the text-only `.env` advisory — it is evasion, not a mistake.
-#   * RESERVED WORDS AND `.exe` NAMES HIDE THE COMMAND. A command after `if`, `then`, `else`,
-#     `elif`, `while`, `until`, `do` or `!` is not judged by any rail —
-#     `if true; then git push --force origin main; fi` and `while true; do printenv; done` pass —
-#     and neither is a name spelled with its Windows suffix (`rm.exe`, `git.exe`, `env.exe`),
-#     which Git Bash runs. `{ ...; }`, `( ... )` and `case` arms are read. Found by review and
-#     left for its own unit (AMH ledger row DD041).
+#     rail but the text-only `.env` advisory — it is evasion, not a mistake. A Windows `.exe`
+#     suffix, which Git Bash runs as the bare name, is folded too, in any case, and a name
+#     carrying it is lowered whole (`RM.EXE` is `rm`); a backslashed Windows path keeps both,
+#     for the `cmd` and PowerShell arms that read it. Not folded: the same name with no
+#     suffix in another case (`RM`, `Printenv`), which a case-insensitive Windows filesystem
+#     also finds, and the other runnable suffixes (`.com`, `.bat`, `.cmd`).
+#   * RESERVED WORDS ARE READ AS PREFIXES. `if`, `then`, `else`, `elif`, `while`, `until`, `do`
+#     and `!` leading a segment are skipped like the wrappers above, so the command after one
+#     is judged by every rail — `if true; then git push --force origin main; fi` and
+#     `while true; do printenv; done` are blocked, and a deletion in a `for` body reaches the
+#     destructive rail. They are skipped in COMMAND position only, so `echo then printenv`
+#     stays prose; a quoted `'if'`, which bash runs as a command of that name, is skipped too,
+#     in the safe direction. Not read: `coproc printenv` still hides its command.
+#     `{ ...; }`, `( ... )` and `case` arms were already read, because the segment splitter
+#     breaks on them (AMH ledger row DD042).
 #   * CONSTRUCTED AND ENCODED COMMANDS. `eval`, base64/hex payloads decoded at runtime,
 #     and any command assembled from variables are text at scan time, not commands.
 #   * A COMMAND SUBSTITUTION INSIDE DOUBLE QUOTES RUNS, AND NO WALKER LOOKS IN. Bash executes
@@ -1529,11 +1537,25 @@ forge_api_mutation() {
 # them. Never call this on an operand — `\*` and `\~` keep their meaning there. Two costs, both in
 # the safe direction: quotes are gone by the time a word gets here, so a quoted `'\rm'` — a literal
 # name bash will not find — is judged as `rm`; and the PowerShell arm's re-quoted hand-off reaches
-# this too, where `\x` is a path from the drive root rather than an alias bypass. Sets COMMAND_WORD.
+# this too, where `\x` is a path from the drive root rather than an alias bypass. A Windows
+# suffix is folded too: Git Bash runs `rm.exe` as `rm`, so `rm.exe -rf /` and `git.exe push
+# --force` reached no rail. A Windows filesystem ignores case, so a name carrying the suffix in
+# any case is lowered whole (`RM.EXE`, `Git.exe`); a bare `RM` with no suffix is not, and gets
+# past every rail on such a host. A word that still holds a backslash is a Windows path and is
+# left whole, suffix and case included, for the `cmd` and PowerShell arms that match those
+# spellings (AMH ledger row DD042). Sets COMMAND_WORD.
 command_word() { # command_word <word>
 	local w=${1#\\}
 	w=${w##*/}
-	COMMAND_WORD=${w#\\}
+	w=${w#\\}
+	case $w in
+	*\\*) ;;
+	?*.[Ee][Xx][Ee])
+		cmd_lower "${w%.???}"
+		w=$CMD_LOWER
+		;;
+	esac
+	COMMAND_WORD=$w
 }
 COMMAND_WORD=''
 
@@ -1589,7 +1611,7 @@ check_segment() {
 		esac
 		command_word "$w"
 		case $COMMAND_WORD in
-		sudo | nohup | nice | time | command | builtin | exec) i=$((i + 1)) ;;
+		sudo | nohup | nice | time | command | builtin | exec | if | then | else | elif | while | until | do | '!') i=$((i + 1)) ;;
 		env)
 			# `env` handed something to run is a prefix; handed nothing it is the dump.
 			# `env_prefix_width` above is where that distinction is drawn and argued.
@@ -1876,7 +1898,7 @@ leading_command() {
 		esac
 		command_word "$w"
 		case $COMMAND_WORD in
-		sudo | nohup | nice | time | command | builtin | exec) i=$((i + 1)) ;;
+		sudo | nohup | nice | time | command | builtin | exec | if | then | else | elif | while | until | do | '!') i=$((i + 1)) ;;
 		env)
 			# Mirrors check_segment for `env NAME=value cmd` only: any option stops this walk,
 			# where check_segment's `env_prefix_width` reads past it. An `env` dump is not the
@@ -3701,7 +3723,7 @@ is_destructive_segment() {
 		esac
 		command_word "$w"
 		case $COMMAND_WORD in
-		sudo | nohup | nice | time | command | builtin | exec) i=$((i + 1)) ;;
+		sudo | nohup | nice | time | command | builtin | exec | if | then | else | elif | while | until | do | '!') i=$((i + 1)) ;;
 		env)
 			if [ $((i + 1)) -lt "${#words[@]}" ]; then
 				case ${words[$((i + 1))]} in -*) break ;; *) i=$((i + 1)) ;; esac
@@ -5607,6 +5629,53 @@ EOF'
 	st_destructive_never_clears '/usr/bin/sudo rm -rf /' 'the filesystem root'
 	st_destructive_never_clears 'npx \rm -rf /' 'the filesystem root'
 	st_destructive_never_clears 'npm exec \rm -rf /' 'the filesystem root'
+	# A reserved word leads a segment and a Windows suffix names the same program; both are
+	# folded at every site that resolves the command (AMH ledger row DD042).
+	st_blocked 'if true; then git push --force origin feature; fi'
+	st_blocked 'if true; then git push origin main; fi'
+	st_blocked 'while true; do printenv; done'
+	st_blocked 'until false; do printenv; done'
+	st_blocked 'if false; then :; elif printenv; then :; fi'
+	st_blocked 'if false; then :; else printenv; fi'
+	st_blocked 'while printenv; do :; done'
+	st_blocked '! printenv'
+	st_blocked 'if ! printenv; then :; fi'
+	st_blocked 'for f in a b; do cat .env; done'
+	st_blocked 'printenv.exe'
+	st_blocked 'env.exe'
+	st_blocked '/usr/bin/env.exe'
+	st_blocked 'PRINTENV.EXE'
+	st_blocked 'git.exe push --force origin feature'
+	st_blocked 'Git.Exe push origin main'
+	st_blocked 'Git.exe push --force origin feature'
+	st_blocked 'sudo.exe cat .env'
+	st_allowed 'if true; then echo hi; fi'
+	st_allowed 'for f in a b; do echo "$f"; done'
+	st_allowed 'echo then printenv'
+	st_allowed 'git commit -m "if true; then printenv; fi"'
+	st_allowed 'do'
+	st_allowed 'git.exe status'
+	st_allowed 'notepad.exe notes.txt'
+	st_interpreter_advisory_once 'if true; then python3 -c "import shutil; shutil.rmtree(d)"; fi' 'rmtree'
+	st_interpreter_advisory_once 'python3.exe -c "import shutil; shutil.rmtree(d)"' 'rmtree'
+	st_destructive_never_clears 'if true; then rm -rf /; fi' 'the filesystem root'
+	st_destructive_never_clears 'while true; do rm -rf ~; done' 'your home directory'
+	st_destructive_never_clears 'rm.exe -rf /' 'the filesystem root'
+	st_destructive_never_clears 'RM.EXE -rf /' 'the filesystem root'
+	st_destructive_never_clears 'npx rm.exe -rf /' 'the filesystem root'
+	st_destructive_never_clears 'npm exec rm.exe -rf /' 'the filesystem root'
+	# A Windows path keeps its suffix for the arms that read it: folding it hid both wrappers.
+	st_destructive_never_clears "'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe' -Command \"Remove-Item \$env:USERPROFILE -Recurse\"" 'your home directory'
+	st_destructive_never_clears "'C:\\Program Files\\PowerShell\\7\\pwsh.exe' -Command \"Remove-Item \$env:USERPROFILE -Recurse\"" 'your home directory'
+	# Every reserved word in every loop, so the three cannot drift apart unseen.
+	st_blocked 'until printenv; do :; done'
+	for rw in if elif while until '!'; do
+		st_interpreter_advisory_once "$rw python3 -c \"import shutil; shutil.rmtree(d)\"" 'rmtree'
+		st_destructive_never_clears "$rw rm -rf /" 'the filesystem root'
+	done
+	st_interpreter_advisory_once 'if false; then :; else python3 -c "import shutil; shutil.rmtree(d)"; fi' 'rmtree'
+	st_interpreter_advisory_once 'while false; do python3 -c "import shutil; shutil.rmtree(d)"; done' 'rmtree'
+	st_destructive_never_clears 'if false; then :; else rm -rf /; fi' 'the filesystem root'
 	st_destructive_never_clears 'rm -rf //' 'the filesystem root'
 	st_destructive_never_clears 'rm -rf /*' 'the filesystem root'
 	st_destructive_never_clears 'rm -rf -- /' 'the filesystem root'

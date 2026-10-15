@@ -41,10 +41,16 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   now have a path and a leading backslash removed before they are judged, at every site that
   picks the command, package runners included. A backslash elsewhere in the word (`r\m`) is
   still not read, and a quoted `'\rm'`, which bash cannot run, is now judged as `rm`.
-- **Two gaps the review found are named, not fixed.** A command after a reserved word (`if`,
-  `then`, `else`, `elif`, `while`, `until`, `do`, `!`) and a name with its Windows suffix
-  (`rm.exe`, `git.exe`) reach no rail. Both predate this release and are in the guard's
-  does-not-catch list.
+- **A command after a reserved word, or spelled with `.exe`, is judged.** `if true; then git
+  push --force origin main; fi`, `while true; do printenv; done` and `! printenv` used to reach
+  no rail, because the segment's first word was `then`, `do` or `!`. `if`, `then`, `else`,
+  `elif`, `while`, `until`, `do` and `!` leading a segment are now skipped like `sudo`, at
+  every site that picks the command. A Windows suffix, which Git Bash runs as the bare name, is
+  folded in any case and lowers the name with it, so `rm.exe -rf /` and `RM.EXE -rf /` reach the
+  permanent denial and `git.exe push --force` the push rail; a backslashed Windows path such as
+  `C:\...\powershell.exe` is left as written for the arms that match it. Still missed, and listed in the
+  guard's header: a bare `RM` with no suffix, the `.com`, `.bat` and `.cmd` suffixes, and
+  `coproc`.
 
 ### Upgrading
 
