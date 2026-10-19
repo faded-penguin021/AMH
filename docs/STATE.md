@@ -61,49 +61,6 @@ the README Quick Start names the draft tag before it exists. Check: `git ls-remo
 --tags origin refs/tags/amh-v15.2.0` — a matching ref resolves this item; no output means the
 documented install command is not live yet.
 
-**OPEN — nothing has observed the Codex `PostToolUse` redaction hook actually firing.** The
-Claude half is settled: on 2026-10-04 a Claude Code cloud session on Linux got runtime-generated
-key-shaped strings back redacted in Bash, Read and Grep results (**DD-037**). `scripts/redact-tool-output.sh --self-test` settles this repository's half and
-nothing about whether Codex honours block-and-feedback, which fails open on hook failure, as does a
-missing `python3`, so a hook that never fires looks exactly like output with no credential in it
-(**DD-015**, **DD-017**). Only a Codex session that starts in this repository and gets a redaction
-marker or a block for a runtime-generated `AKIA` string settles it — the owner's, if Codex is used
-here at all. No command settles it, and `--self-test` passing is NOT evidence either way.
-
-**OPEN — nobody has run a pinned hook on a host where Git bash cannot be found at all.** Two
-hosts have now run the pinned arm where discovery SUCCEEDS — the second, reported 2026-09-10, saw
-a pinned guard pass its self-test and actually fire mid-session, so pinned hooks demonstrably deny
-on Windows (**DD-014**); bash being off `PATH` is not the failing case, which is why the WSL hazard
-was withdrawn (**DD-010**). Still unobserved is discovery finding NOTHING: that path is read from
-the shipped code, and how it fails differs between the bundles read (**DD-011** for the method).
-Since 15.2.0 both `PreToolUse` hooks set `"onFailure": "block"`, so that host should refuse every
-shell call and spawn with a message quoting the hook's Git Bash comment, and the quoted
-`${CLAUDE_PROJECT_DIR}` path has not run on any Windows host either (**DD-040**). No check settles
-it short of such a host — the owner's, if one is ever used.
-
-**OPEN — the `printf | grep -q` class survives at 81 non-comment sites.** Unit 3 fixed the two
-with reachable unbounded input; the residue was safe on bounded, mostly single-line input rather
-than on a loud direction when last classified, but the fixture/non-fixture split has not been
-recounted since the output-redaction rail landed. The 2026-09-29 installer fixtures added seven,
-all asserting on short installer output in the loud direction; the redaction self-test's python3
-fix then added four on one hook response each (two in the quiet direction, bounded far below a
-pipe buffer), the Claude matcher check one on a JSON group, loud, and the 15.1.0 PowerShell
-payload fixtures eight on one guard verdict each, loud. Not queued as work; reopen
-if any starts matching something unbounded. Check: `grep -rn "printf.*| *grep -q" --include=*.sh
-scripts/ harness/templates/` prints 87 lines, 6 of them comments — resolved only if that stops
-matching the description, which it deliberately does not (**DC-038**).
-
-**OPEN — the 2026-08-29 `path-refs.sh` false failure on `` `session-start.sh` `` still has no
-reproducer.** Closed once as the EPIPE defect, then restored when the pass falsified that
-(**DC-035**, **DC-029** for the residue): a listing git completed, reported success for, and cut
-short anyway. No check; only a recurrence settles it.
-
-**OPEN — nobody has observed the command guard firing on a PowerShell payload on Windows.** The
-matcher and the reader shipped in 15.1.0 (**DD-039**); `scripts/command-guard.sh --powershell`
-and the fixtures prove the reader on Linux and nothing about the host. Only a Claude Code
-session on Windows that gets a block for a PowerShell `Remove-Item -Recurse` aimed at a drive
-root settles it — the owner's, on the host that lost `C:`. No check.
-
 **OPEN — two permanent-denial edges the fold unit found and left (DD-035).** Misses, and
 widening is yours: `~/.?*`, `~/.??*`, `~/.[!.]*`, git's `-- '.?*'` under a home `-C`, and bracket
 globs such as `/[!.]*` keep the advisory while `~/.*` is denied. A false positive, a defect: the
@@ -147,6 +104,10 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-10-19 — **Owner queue triaged to actionable items only.** On the owner's call, five
+  observation gaps that no owner action can settle left the queue; what each still lacks and what
+  would reopen it is in **DD-043**.
 
 - 2026-10-15 — **15.2.0 (drafted): the command guard judges a command after a reserved word or
   spelled with `.exe`**, which closed that Owner-queue item (**DD-042**).
