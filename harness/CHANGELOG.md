@@ -51,6 +51,18 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   `C:\...\powershell.exe` is left as written for the arms that match it. Still missed, and listed in the
   guard's header: a bare `RM` with no suffix, the `.com`, `.bat` and `.cmd` suffixes, and
   `coproc`.
+- **A glob that matches every hidden entry of a directory on the denial list is that directory,
+  and a brace expansion is judged word by word.** `rm -rf ~/.?*`, `~/.??*`, `~/.[!.]*` and
+  `/[!.]*` — and git's `-- '.?*'` under a home `-C` — got the one-time advisory while `~/.*` was
+  denied. They are now denied too: a last component made of `?` and `*` behind one dot is every
+  hidden entry, and in a bash operand `[!.]` or `[^.]` reads as the `?` it equals. A glob that
+  matches only some entries keeps the advisory (`~/.c*`, `/[a-m]*`, `~/[!.a]*`, `~/.?`). In the
+  other direction, a `{` or `}` inside a word no longer splits the command: `rm -rf
+  ~/{.cache,.npm}` was read as `rm -rf ~/` and denied for good, and so was `rm -rf ~/}x`. A brace
+  is a command group only as a word of its own, and a brace list is expanded, so `~/{.cache,.npm}`
+  gets the advisory and `~/{,.cache}` or `~/{*,.*}` the denial. Unlike bash, a quoted brace is
+  expanded too, as a quoted glob already was; the expansion reads at most 256 words of an operand
+  of at most 64 braces and 1024 characters, and leaves `cmd.exe` and PowerShell operands alone.
 
 ### Upgrading
 

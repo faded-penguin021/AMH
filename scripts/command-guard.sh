@@ -167,7 +167,11 @@
 #     clean -fd -- build` is `$HOME/build` and gets the ordinary advisory, while the same `-C`
 #     with no pathspec, with `.` or with a glob such as `*/`, or a `--work-tree` naming home,
 #     is the home directory and is denied; a `--git-dir` is never the target (see
-#     `record_destructive_targets`). That and ONE spelling are the only permanent denials this
+#     `record_destructive_targets`). A glob that matches EVERY entry of a listed directory, or
+#     every hidden one, is that directory — `/*`, `~/?*`, `~/.*`, `~/.?*`, `/[!.]*` — and one
+#     that matches only some keeps the advisory (`~/.c*`, `/[a-m]*`, `~/??`); a brace expansion
+#     is judged as each word it expands to, within the bounds `names_catastrophic_target` names,
+#     so `~/{,.cache}` is denied and `~/{.cache,.npm}` is advised (AMH ledger row DD044). That and ONE spelling are the only permanent denials this
 #     guard issues: a recursive `cmd.exe` deletion whose text carries `\"` nested quotes, denied
 #     whatever its path because the path written is not the path `cmd.exe` receives (AMH ledger
 #     row DD038). The target list is affordable exactly because it is
@@ -354,7 +358,7 @@ CHAR_LOOKAHEAD=512
 # locale, above). Splitting on index boundaries copies each segment exactly once.
 split_segments() { # sets SEGMENTS
 	local s=$1
-	local i=0 n=${#s} c q='' start=0 parameter_depth=0
+	local i=0 n=${#s} c q='' start=0 parameter_depth=0 brace_depth=0 group
 	SEGMENTS=()
 	local wbase=0 wbuf='' wsafe=0
 	local out=()
@@ -401,26 +405,55 @@ split_segments() { # sets SEGMENTS
 			fi
 			out+=("${s:start:i-start}")
 			start=$((i + 1))
+			brace_depth=0
 			;;
 		';' | '|' | $'\n' | '(' | ')' | '`')
 			out+=("${s:start:i-start}")
 			start=$((i + 1))
+			brace_depth=0
 			;;
+		' ' | $'\t') brace_depth=0 ;;
 		'{')
 			# A `{` immediately consumed by the `$` arm below opens a parameter
 			# expansion, not a command group. Nested `${...}` expansions are counted.
-			# Other braces remain simple-command separators.
+			#
+			# A command group opens only where bash reads `{` as a reserved WORD: at the
+			# start of a word and followed by a blank, a newline, an operator or a redirection
+			# (`{>log cmd; }` is a group), or the end. Anywhere else it
+			# is part of a word — a brace expansion, usually — and splitting there cut
+			# `rm -rf ~/{.cache,.npm}` down to `rm -rf ~/`, which the permanent denial then
+			# read as the home directory itself and refused forever (AMH ledger row DD044).
+			# Such a brace is counted so that its `}` stays in the word too; a blank or an
+			# operator ends the word, and the count with it, exactly as it ends bash's.
 			if [ "$parameter_depth" -eq 0 ]; then
-				out+=("${s:start:i-start}")
-				start=$((i + 1))
+				case ${s:i+1:1} in
+				' ' | $'\t' | $'\n' | '' | ';' | '&' | '|' | '(' | ')' | '<' | '>') group=0 ;;
+				*) group=1 ;;
+				esac
+				[ "$group" -eq 0 ] && [ "$i" -gt 0 ] && ! brace_word_start "${s:i-1:1}" && group=1
+				if [ "$group" -eq 0 ]; then
+					out+=("${s:start:i-start}")
+					start=$((i + 1))
+				else
+					brace_depth=$((brace_depth + 1))
+				fi
 			fi
 			;;
 		'}')
+			# The closing brace is a reserved word on the same terms: a word of its own. A `}`
+			# inside one — closing a brace expansion, or a stray one in a name — is a character
+			# of the word, and splitting there read `rm -rf ~/}x` as `rm -rf ~/`.
 			if [ "$parameter_depth" -gt 0 ]; then
 				parameter_depth=$((parameter_depth - 1))
-			else
-				out+=("${s:start:i-start}")
-				start=$((i + 1))
+			elif [ "$brace_depth" -gt 0 ]; then
+				brace_depth=$((brace_depth - 1))
+			elif [ "$i" -eq 0 ] || brace_word_start "${s:i-1:1}"; then
+				case ${s:i+1:1} in
+				' ' | $'\t' | $'\n' | '' | ';' | '&' | '|' | '(' | ')' | '<' | '>')
+					out+=("${s:start:i-start}")
+					start=$((i + 1))
+					;;
+				esac
 			fi
 			;;
 		'$')
@@ -445,6 +478,17 @@ split_segments() { # sets SEGMENTS
 	SEGMENTS=("${out[@]}")
 }
 SEGMENTS=()
+
+# Whether a brace after the character $1 starts a word for `split_segments`: one after a blank
+# or an operator does. A brace can be a reserved word only there, and a brace is not an operator,
+# so `}}` is one word to bash — and so is the `}` that ends `~/{a,}}`. Handed the one character
+# rather than the command, because a call per brace that copied the command was quadratic.
+brace_word_start() { # brace_word_start <the character before the brace>
+	case $1 in
+	' ' | $'\t' | $'\n' | ';' | '&' | '|' | '(' | ')' | '`') return 0 ;;
+	esac
+	return 1
+}
 
 # Remove here-document BODIES before segmenting. A heredoc body is data — a
 # commit message, a doc block, a file being written — and it routinely quotes
@@ -2004,12 +2048,118 @@ NORMALIZED=''
 # is right there; `"$R"` with `R=/` is not, and no scanner reading command text before the
 # shell expands it ever will be. That case keeps the unexpanded-variable paragraph it already
 # had, which is the rail asking the agent to print the expansion.
-names_catastrophic_target() { # sets DESTRUCTIVE_CATASTROPHIC_CLASS
-	local w prev c
+#
+# A BRACE EXPANSION is read the way bash reads it, as the list of words it expands to, and the
+# operand is catastrophic when ANY of them is: `~/{.cache,.npm}` is two subdirectories of home
+# and keeps the advisory, while `~/{,.cache}` and `~/{*,.*}` name home itself and every entry in
+# it. Only a `{` holding a top-level comma expands — `{x}` is a literal to bash and stays one
+# here — and a `${...}` is a parameter, never a list. Quotes are gone by the time an operand
+# gets here, so a quoted brace is expanded too; that is the reading this function already gives a
+# quoted glob, and unlike bash, which expands no quoted brace. `cmd.exe` and PowerShell expand no
+# braces, so their callers pass 0 and the operand is read as one path. Two bounds keep the cost
+# bounded on hostile input: an operand longer than BRACE_LENGTH_CAP characters or holding more than
+# BRACE_COUNT_CAP braces is read as one path, unexpanded, and the expansion judges at most
+# BRACE_ALTERNATIVE_CAP words. A word it never
+# produced keeps the ordinary advisory: a permanent denial is never issued on words it did not read.
+BRACE_ALTERNATIVE_CAP=256
+BRACE_COUNT_CAP=64
+BRACE_LENGTH_CAP=1024
+names_catastrophic_target() { # names_catastrophic_target <operand> <expand-braces:0|1>; sets DESTRUCTIVE_CATASTROPHIC_CLASS
 	# An empty operand names nothing, and answering "the filesystem root" for it would be a
 	# verdict invented from a caller's promise rather than read from an argument. The callers
 	# drop empty operands today; a function that is right only while that stays true is the
 	# shape this file keeps finding bugs in.
+	[ -n "$1" ] || return 1
+	local opens=${1//[!\{]/}
+	if [ "${2:-1}" -eq 0 ] || [ "${#opens}" -gt "$BRACE_COUNT_CAP" ] || [ "${#1}" -gt "$BRACE_LENGTH_CAP" ]; then
+		names_catastrophic_path "$1" "${2:-1}"
+		return
+	fi
+	local queue=("$1") w alt seen=1
+	while [ "${#queue[@]}" -gt 0 ]; do
+		w=${queue[0]}
+		queue=("${queue[@]:1}")
+		if brace_alternatives "$w"; then
+			for alt in "${BRACE_ALTS[@]}"; do
+				[ "$seen" -lt "$BRACE_ALTERNATIVE_CAP" ] || break
+				queue+=("$BRACE_PRE$alt$BRACE_POST")
+				seen=$((seen + 1))
+			done
+			continue
+		fi
+		names_catastrophic_path "$w" 1 && return 0
+	done
+	return 1
+}
+
+# The first brace expansion in $1, as bash finds it: a `{` that is not a parameter's, closed at
+# its own depth, with at least one comma at that depth. Sets BRACE_PRE, BRACE_ALTS and
+# BRACE_POST and returns 0; returns 1 when $1 holds none. A backslash keeps the next character
+# literal, as it does to bash. An alternative may itself hold braces; the caller expands again.
+brace_alternatives() { # sets BRACE_PRE BRACE_ALTS BRACE_POST
+	local w=$1
+	local n=${#w} i=0 j c depth from commas
+	BRACE_ALTS=()
+	while [ "$i" -lt "$n" ]; do
+		c=${w:i:1}
+		case $c in
+		\\) i=$((i + 2)); continue ;;
+		'$')
+			if [ "${w:i+1:1}" = '{' ]; then
+				# Skip the parameter, nested ones included.
+				depth=1 j=$((i + 2))
+				while [ "$j" -lt "$n" ] && [ "$depth" -gt 0 ]; do
+					case ${w:j:1} in
+					'{') depth=$((depth + 1)) ;;
+					'}') depth=$((depth - 1)) ;;
+					esac
+					j=$((j + 1))
+				done
+				i=$j
+				continue
+			fi
+			;;
+		'{')
+			depth=1 j=$((i + 1)) from=$((i + 1)) commas=0
+			BRACE_ALTS=()
+			while [ "$j" -lt "$n" ]; do
+				case ${w:j:1} in
+				\\) j=$((j + 1)) ;;
+				'{') depth=$((depth + 1)) ;;
+				'}')
+					depth=$((depth - 1))
+					[ "$depth" -eq 0 ] && break
+					;;
+				,)
+					if [ "$depth" -eq 1 ]; then
+						BRACE_ALTS+=("${w:from:j-from}")
+						from=$((j + 1))
+						commas=$((commas + 1))
+					fi
+					;;
+				esac
+				j=$((j + 1))
+			done
+			if [ "$j" -lt "$n" ] && [ "$commas" -gt 0 ]; then
+				BRACE_ALTS+=("${w:from:j-from}")
+				BRACE_PRE=${w:0:i}
+				BRACE_POST=${w:j+1}
+				return 0
+			fi
+			BRACE_ALTS=()
+			;;
+		esac
+		i=$((i + 1))
+	done
+	return 1
+}
+BRACE_PRE='' BRACE_POST='' BRACE_ALTS=()
+
+# One operand with no brace expansion left in it — see `names_catastrophic_target`. The second
+# argument is 1 for a POSIX shell's operand, whose `[!.]` means "not a dot"; `cmd.exe` reads it as
+# text and PowerShell as a set holding `!` and `.`, so on those arms it is left alone.
+names_catastrophic_path() { # names_catastrophic_path <operand> <posix-globs:0|1>; sets DESTRUCTIVE_CATASTROPHIC_CLASS
+	local w prev c dots
 	[ -n "$1" ] || return 1
 	normalize_operand "$1"
 	w=$NORMALIZED
@@ -2085,12 +2235,25 @@ names_catastrophic_target() { # sets DESTRUCTIVE_CATASTROPHIC_CLASS
 			# and it is how git spells "everything" in a pathspec. It goes first because the
 			# run below would strip its `*` and leave a `?` that matches one-letter names only.
 			# A component of `?` alone matches only names that long, and is left alone.
+			#
+			# The same component behind one leading `.` is every HIDDEN entry, as `.*` is —
+			# `.?*` and `.??*` are the spellings that skip `..`, and `~/.ssh` and `~/.gnupg` are
+			# in all of them. Two bracket expressions are read as the `?` they equal for this
+			# purpose: `[!.]` and `[^.]`, any character but a dot, which is how `*` itself
+			# treats a leading one — `/[!.]*` is `/*`, and `~/.[!.]*` is `~/.?*`. Any other
+			# bracket narrows the names it matches (`[a-m]*`, `[!.a]*`), so it deletes PART of
+			# the directory and keeps the advisory (AMH ledger row DD044).
 			case $w in
 			*/*)
 				c=${w##*/}
-				case $c in
+				if [ "${2:-1}" -eq 1 ]; then
+					c=${c//'[!.]'/?}
+					c=${c//'[^.]'/?}
+				fi
+				dots=${c#.}
+				case $dots in
 				'' | *[!*?]*) ;;
-				*'*'*) w=${w%"$c"} ;;
+				*'*'*) w=${w%/*}/ ;;
 				esac
 				;;
 			esac
@@ -2372,8 +2535,10 @@ JOINED=''
 # All three still set DESTRUCTIVE_UNEXPANDED, so they get the weaker "print the expansion"
 # text. The exclusion narrows which paragraph fires, never whether the advisory fires.
 record_destructive_targets() { # record_destructive_targets <kind> <operand>...
-	local kind=$1 w bare name entry
+	local kind=$1 w bare name entry braces=1
 	shift
+	# `cmd.exe` and PowerShell expand no braces, so their operands are read as written.
+	case $kind in cmd-* | ps-*) braces=0 ;; esac
 	# Whether this verb's operands are filesystem PATHS or git REVISIONS decides whether the
 	# rootish paragraph is allowed to fire, and it is a correctness question rather than a
 	# stylistic one. That paragraph asserts a specific mechanism — "if that variable is empty
@@ -2475,14 +2640,14 @@ record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 				# Judged where it lands: `-- build` under `-C "$HOME"` is `$HOME/build`, and
 				# `-- .` under the same `-C` is the home directory itself.
 				git_place_join "$place" "$w"
-				names_catastrophic_target "$JOINED" && DESTRUCTIVE_CATASTROPHIC=1
+				names_catastrophic_target "$JOINED" "$braces" && DESTRUCTIVE_CATASTROPHIC=1
 				# Run from outside a `--work-tree`, git reads a pathspec from the TOP of that
 				# tree, and where the command stands is invisible here — so the pathspec is
 				# judged on the tree as well: `--work-tree="$HOME" clean -fd -- .` empties home.
 				if [ -n "$tree" ]; then
 					git_place_join "$place" "$tree"
 					git_place_join "$JOINED" "$w"
-					names_catastrophic_target "$JOINED" && DESTRUCTIVE_CATASTROPHIC=1
+					names_catastrophic_target "$JOINED" "$braces" && DESTRUCTIVE_CATASTROPHIC=1
 				fi
 			fi
 		fi
@@ -2511,10 +2676,10 @@ record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 	# pathspec as "here"; the other deleting git verbs refuse to run without one.
 	if [ "$deletes_here" -eq 1 ] && [ "$revision_operands" -eq 1 ] &&
 		{ [ "$whole" -eq 1 ] || { [ "$kind" = git-clean ] && [ "$pathspecs" -eq 0 ]; }; }; then
-		[ -n "$place" ] && names_catastrophic_target "$place" && DESTRUCTIVE_CATASTROPHIC=1
+		[ -n "$place" ] && names_catastrophic_target "$place" "$braces" && DESTRUCTIVE_CATASTROPHIC=1
 		if [ -n "$tree" ]; then
 			git_place_join "$place" "$tree"
-			names_catastrophic_target "$JOINED" && DESTRUCTIVE_CATASTROPHIC=1
+			names_catastrophic_target "$JOINED" "$braces" && DESTRUCTIVE_CATASTROPHIC=1
 		fi
 	fi
 	# One entry per destructive SEGMENT, and the entry names the command kind as well as
@@ -6010,6 +6175,86 @@ EOF'
 	st_destructive_advisory_once 'rm -rf ~/*/..'
 	rm -f -- "$self_destructive_advisory_state"
 	st_destructive_advisory_once 'git -C ~ clean -fd -- "build/*/"'
+	rm -f -- "$self_destructive_advisory_state"
+	# A glob that matches every hidden entry is the directory, as `.*` is: `.?*` and `.??*`
+	# skip only `..` and the shortest names, `[!.]` is the `?` that `*` already is about a
+	# leading dot, and git's pathspec lands under its `-C` (AMH ledger row DD044).
+	st_destructive_never_clears 'rm -rf ~/.?*' 'your home directory'
+	st_destructive_never_clears 'rm -rf ~/.??*' 'your home directory'
+	st_destructive_never_clears 'rm -rf ~/.[!.]*' 'your home directory'
+	st_destructive_never_clears 'rm -rf ~/.[^.]*' 'your home directory'
+	st_destructive_never_clears 'rm -rf /[!.]*' 'the filesystem root'
+	st_destructive_never_clears 'rm -rf "$HOME"/.?*/' 'your home directory'
+	st_destructive_never_clears "git -C ~ clean -fdx -- '.?*'" 'your home directory'
+	# ...and a glob that matches only SOME entries deletes part of the directory, so it keeps
+	# the advisory: a named prefix, any other bracket, a dot and one `?`, and `..` behind a dot.
+	st_destructive_advisory_once 'rm -rf ~/.c*'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf /[a-m]*'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf ~/[!.a]*'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf ~/.?'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf ~/..*'
+	rm -f -- "$self_destructive_advisory_state"
+	# A brace expansion is the words it expands to. Two subdirectories of home are two ordinary
+	# targets; an empty alternative, a glob alternative, a nested one or a listed directory
+	# among them is the denial. The `{` inside a word is not a command group, so the segment
+	# reaches this list whole — split there, the first form read as `rm -rf ~/` and was denied
+	# forever — while a `{` standing as a word still opens a group whose commands are judged.
+	st_destructive_advisory_once 'rm -rf ~/{.cache,.npm}'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf "${HOME}"/{a,b}'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_never_clears 'rm -rf ~/{,.cache}' 'your home directory'
+	st_destructive_never_clears 'rm -rf ~/{*,.*}' 'your home directory'
+	st_destructive_never_clears 'rm -rf ~/{a,{b,}}' 'your home directory'
+	st_destructive_never_clears 'rm -rf /{tmp,home}' 'the directory holding every home directory'
+	st_destructive_never_clears 'rm -rf ~/{.cache,.npm} ~/{,x}' 'your home directory'
+	st_destructive_never_clears '{ rm -rf /; }' 'the filesystem root'
+	st_blocked '{ git push --force origin main;}'
+	st_blocked '{>/dev/null git push --force origin main; }'
+	st_blocked 'true&&{</dev/null printenv;}'
+	st_blocked 'echo {a,b}x && git push --force origin main'
+	st_destructive_advisory_once '{ rm -rf /tmp/x;}'
+	rm -f -- "$self_destructive_advisory_state"
+	# Where bash expands nothing, nothing is expanded: a `{home}` with no comma and an escaped
+	# brace are literal names, and `cmd.exe` reads braces as characters of a path. An escaped
+	# `}` inside a list is a character of one alternative, not its end.
+	st_destructive_advisory_once 'rm -rf /{home}'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf \{,/}'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_never_clears 'rm -rf ~/{a\},}' 'your home directory'
+	st_destructive_advisory_once 'cmd /c "rd /s /q C:/{,x}"'
+	rm -f -- "$self_destructive_advisory_state"
+	# A brace that is not a word of its own is never a reserved word, whether or not it
+	# expands: a `{` ending a name, a `}` ending or starting one, are characters of that name.
+	st_destructive_advisory_once 'rm -rf ~/{ x'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf ~/}x'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -rf ~/}'
+	rm -f -- "$self_destructive_advisory_state"
+	st_allowed 'echo }rm -rf ~'
+	# A brace is not an operator, so the `}` after a closing one is still part of the word:
+	# `~/{a,}}` is `~/a}` and `~/}`, and neither is home.
+	st_destructive_advisory_once 'rm -rf ~/{a,}}'
+	rm -f -- "$self_destructive_advisory_state"
+	# `[!.]` is "not a dot" to bash alone; to PowerShell it is a set, and to `cmd.exe` text.
+	st_destructive_advisory_once 'cmd /c "del /s /q C:\[!.]*"'
+	rm -f -- "$self_destructive_advisory_state"
+	# The expansion judges at most BRACE_ALTERNATIVE_CAP words, and a word past it keeps the
+	# advisory — a recorded boundary, as is an operand with more braces than BRACE_COUNT_CAP.
+	# The empty alternative that names home is first in one list and past the cap in the other.
+	st_destructive_never_clears "rm -rf ~/{$(printf ',x%.0s' {1..300})}" 'your home directory'
+	st_destructive_advisory_once "rm -rf ~/{$(printf 'x,%.0s' {1..300})}"
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once "rm -rf ~/{,$(printf '{x}%.0s' {1..65})}"
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once "rm -rf ~/{,$(printf 'x%.0s' {1..1030})}"
+	rm -f -- "$self_destructive_advisory_state"
 	rm -f -- "$self_destructive_advisory_state"
 	# The catastrophic gate reads THIS segment's verb. An earlier deleting segment must not
 	# lend its property to a later verb that deletes nothing: `git worktree add` overwrites,

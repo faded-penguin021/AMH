@@ -24,7 +24,9 @@ This tree declares **15.2.0**: every Claude adapter hook is anchored at the proj
 `PreToolUse` hooks refuse the call when the hook itself fails, and on Windows that makes Git for
 Windows a hard requirement, said in the refusal itself (**DD-040**), and the command guard judges
 `\rm` and `/usr/bin/env` as `rm` and `env` (**DD-041**), and a command after a reserved word
-(`then`, `do`, `!`) or spelled with `.exe` as the command it runs (**DD-042**). Under it is 15.1.0: the
+(`then`, `do`, `!`) or spelled with `.exe` as the command it runs (**DD-042**), and it denies a
+glob matching every hidden entry of a listed directory while judging a brace expansion word by
+word (**DD-044**). Under it is 15.1.0: the
 command guard's permanent denial covers a Windows drive's
 root, `Users` and `Users\<name>` in every spelling it folds, a `cmd /c` recursive `rd`/`del` is
 judged, one spelled with `\"` nested quotes is denied whatever its path, the constitution
@@ -61,14 +63,6 @@ the README Quick Start names the draft tag before it exists. Check: `git ls-remo
 --tags origin refs/tags/amh-v15.2.0` — a matching ref resolves this item; no output means the
 documented install command is not live yet.
 
-**OPEN — two permanent-denial edges the fold unit found and left (DD-035).** Misses, and
-widening is yours: `~/.?*`, `~/.??*`, `~/.[!.]*`, git's `-- '.?*'` under a home `-C`, and bracket
-globs such as `/[!.]*` keep the advisory while `~/.*` is denied. A false positive, a defect: the
-segment splitter reads a brace expansion's `{` as a separator, so `rm -rf ~/{.cache,.npm}` is
-judged as `rm -rf ~/` and denied for good. Check: each twice through `scripts/command-guard.sh
---command` under one `DESTRUCTIVE_ADVISORY_STATE` — `2 0` on a miss or `2 2` on the brace form
-means still open.
-
 **OPEN — the pin check is repo-local, and whether adopters get one is yours.**
 `scripts/guards/adapter-set.sh` now fails on a Claude hook missing `"shell": "bash"`, but it is
 this repository's own guard: an adopter's ladder still checks nothing, exactly as 14.1.0's
@@ -104,6 +98,10 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-10-19 — **15.2.0 (drafted): the permanent denial covers `~/.?*`, `~/.[!.]*` and
+  `/[!.]*`, and a brace inside a word no longer splits the command**, so `rm -rf
+  ~/{.cache,.npm}` gets the advisory; that closed the DD-035 Owner-queue item (**DD-044**).
 
 - 2026-10-19 — **Owner queue triaged to actionable items only.** On the owner's call, five
   observation gaps that no owner action can settle left the queue; what each still lacks and what
