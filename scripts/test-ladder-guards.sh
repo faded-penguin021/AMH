@@ -1529,6 +1529,142 @@ tok=$(akia_token)
 printf 'key = %s\n' "$tok" >"$d/scripts/deploy notes.sh"
 expect_fail "a secret in a file name with a space is still caught" "$d" "credential-shaped"
 
+# --- Claude adapter: AMH hooks pin their shell
+# The fixture adapter is written here, in the shipped layout, rather than copied: an adopter
+# running this suite has no harness checkout to copy from. It carries one hook of the adopter's
+# OWN, unpinned, which the rung must not judge.
+write_claude_settings() { # <fixture-dir>
+	mkdir -p "$1/.claude"
+	cat >"$1/.claude/settings.json" <<-'JSON'
+		{
+		  "$comment": "fixture adapter; scripts/command-guard.sh is named here and is not a hook",
+		  "permissions": { "allow": ["Bash(scripts/command-guard.sh:*)"] },
+		  "hooks": {
+		    "PostToolUse": [
+		      { "matcher": "*", "hooks": [
+		        {
+		          "type": "command",
+		          "shell": "bash",
+		          "command": "bash \"${CLAUDE_PROJECT_DIR}\"/scripts/redact-tool-output.sh"
+		        }
+		      ] }
+		    ],
+		    "SessionStart": [
+		      { "hooks": [
+		        {
+		          "type": "command",
+		          "shell": "bash",
+		          "command": "bash \"${CLAUDE_PROJECT_DIR}\"/scripts/session-start.sh"
+		        },
+		        {
+		          "type": "command",
+		          "command": "echo my own hook"
+		        }
+		      ] }
+		    ],
+		    "PreToolUse": [
+		      { "matcher": "Bash|PowerShell", "hooks": [
+		        {
+		          "type": "command",
+		          "shell": "bash",
+		          "command": "bash \"${CLAUDE_PROJECT_DIR}\"/scripts/command-guard.sh",
+		          "onFailure": "block"
+		        }
+		      ] },
+		      { "matcher": "Task", "hooks": [
+		        {
+		          "type": "command",
+		          "shell": "bash",
+		          "command": "bash \"${CLAUDE_PROJECT_DIR}\"/scripts/command-guard.sh --pre-task",
+		          "onFailure": "block"
+		        }
+		      ] }
+		    ]
+		  }
+		}
+	JSON
+}
+
+# No adapter file is the common case for a repository on another agent, and it costs nothing.
+d=$(mk claude_absent)
+expect_pass_saying "no Claude settings file skips the hook-shell rung" "$d" \
+	"   skip  .claude/settings.json is absent"
+
+# The pinned baseline: four AMH hooks counted, the adopter's own unpinned hook not judged, and
+# a script named in a comment and a permission rule not mistaken for a hook.
+d=$(mk claude_pinned)
+write_claude_settings "$d"
+expect_pass_saying "four pinned AMH hooks pass and the adopter's own hook is not judged" "$d" \
+	'   ok    4 AMH hook(s) in .claude/settings.json carry "shell": "bash"'
+
+# The hand step undone on one entry — the state an upgrade that skipped it leaves behind.
+d=$(mk claude_unpinned)
+write_claude_settings "$d"
+awk '/"shell": "bash"/ && !done { done = 1; next } { print }' "$d/.claude/settings.json" >"$d/s" &&
+	mv "$d/s" "$d/.claude/settings.json"
+expect_fail "an AMH hook without the shell pin fails" "$d" "1 of 4 AMH hook(s) do not carry"
+# ...and a failing rung prints no `ok` beside its failure.
+out=$(run "$d")
+if grep -qF '   ok    4 AMH hook(s)' <<<"$out"; then
+	report no "a failing hook-shell rung prints no ok line" "the ok line printed beside the failure" "$out"
+else
+	report ok "a failing hook-shell rung prints no ok line"
+fi
+
+# The script is found by its file name, so a path spelled another way is still an AMH hook.
+d=$(mk claude_respelled)
+write_claude_settings "$d"
+awk '/"shell": "bash"/ && !done { done = 1; next } { print }' "$d/.claude/settings.json" |
+	sed 's#/scripts/redact-tool-output#/scripts//redact-tool-output#' >"$d/s" &&
+	mv "$d/s" "$d/.claude/settings.json"
+expect_fail "an unpinned AMH hook with a respelled path still fails" "$d" "1 of 4 AMH hook(s) do not carry"
+
+# A value that is not exactly `bash` is not the pin; to the host it drops the entry outright.
+d=$(mk claude_near_value)
+write_claude_settings "$d"
+sed_in_place 's/"shell": "bash",/"shell": "bash ",/' "$d/.claude/settings.json"
+expect_fail "a shell value that is only nearly bash fails" "$d" "4 of 4 AMH hook(s) do not carry"
+
+# A key is a key only after `{` or `,`: a string ending in an escaped `"shell` is not one.
+d=$(mk claude_spoofed_key)
+write_claude_settings "$d"
+sed_in_place 's/"shell": "bash",/"x \\"shell": "bash",/' "$d/.claude/settings.json"
+expect_fail "a key spelled inside another key's string is not the pin" "$d" "4 of 4 AMH hook(s) do not carry"
+
+# A misspelled key leaves the entry unpinned, which is what Claude Code does with it too.
+d=$(mk claude_misspelled)
+write_claude_settings "$d"
+sed_in_place 's/"shell": "bash"/"shel": "bash"/' "$d/.claude/settings.json"
+expect_fail "a misspelled shell key is read as no pin" "$d" "4 of 4 AMH hook(s) do not carry"
+
+# JSON keeps the LAST of two equal keys, so a later non-bash value is the one in force.
+d=$(mk claude_duplicate)
+write_claude_settings "$d"
+sed_in_place 's/"shell": "bash",/"shell": "bash", "shell": "powershell",/' "$d/.claude/settings.json"
+expect_fail "a later duplicate shell key overrides the pin" "$d" "4 of 4 AMH hook(s) do not carry"
+
+# The same file minified: layout is not what the rung reads.
+d=$(mk claude_minified)
+write_claude_settings "$d"
+tr -d '\n\t' <"$d/.claude/settings.json" | sed 's/  */ /g; s/": /":/g; s/, /,/g; s/{ /{/g' >"$d/s" &&
+	mv "$d/s" "$d/.claude/settings.json"
+expect_pass_saying "a minified adapter is read the same as the shipped layout" "$d" \
+	'   ok    4 AMH hook(s) in .claude/settings.json carry "shell": "bash"'
+
+# An AMH command the entry reader cannot reach is UNVERIFIED, never passed.
+d=$(mk claude_unreadable)
+write_claude_settings "$d"
+sed_in_place 's/"onFailure": "block"/"onFailure": "block", "extra": {}/' "$d/.claude/settings.json"
+expect_warn "an AMH hook in an entry the rung cannot read flat is reported unverified" "$d" \
+	"2 of 4 AMH hook command(s) are not in a flat"
+
+# A settings file that holds no AMH hook at all checked nothing, and says so.
+d=$(mk claude_no_hooks)
+mkdir -p "$d/.claude"
+printf '{ "permissions": { "allow": [] } }\n' >"$d/.claude/settings.json"
+expect_warn "a settings file with no AMH hook warns that it checked nothing" "$d" \
+	"names no AMH hook script"
+
 # --- repo-local guard extension point
 d=$(mk guard_ok)
 printf '#!/usr/bin/env bash\nexit 0\n' >"$d/scripts/guards/fine.sh"

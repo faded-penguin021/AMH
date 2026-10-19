@@ -230,6 +230,19 @@ The guards it ships with:
   script, visible only as a lower count, and nothing inside a script can notice that the script
   was deleted from the ladder. The manifest is `sha256sum -c`-compatible so that a reader who
   wants none of this can check it by hand.
+- **Claude adapter shell pin** — where `.claude/settings.json` exists, every entry whose command
+  names one of the harness's three hook scripts must carry exactly `"shell": "bash"`; where it does not, the rung
+  prints a `skip` and nothing else, so a repository on another agent pays nothing for it. The pin
+  is a hand step in the one file an agent may be refused permission to edit, and an unpinned hook
+  on Windows can be handed to the file association, which runs it detached and reports success,
+  so a guard's deny becomes an allow with nothing saying so. Judge only the harness's own hooks —
+  what shell an adopter's own hooks need is theirs to say — and find them by script file name, so
+  a respelled path is still one; an adopter's entry that merely mentions such a name is judged
+  too, which is the safe direction. Read the file without a JSON parser and without regard to
+  layout: a hook entry is a flat object, a key follows a `{` or a `,`, JSON keeps the LAST of two
+  equal keys, and the population of harness commands is counted separately and reconciled, so an
+  entry the reader cannot reach is reported unverified rather than passed, and a file naming no
+  harness hook at all warns that it checked nothing.
 - **Repo-local guards** — `scripts/guards/*.sh`, the extension point that keeps this script
   repo-agnostic. Domain rules live there: a store changelog length cap (mind the unit — a
   "500 character" limit is codepoints, and `wc -c` overcounts multibyte text), a

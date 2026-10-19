@@ -63,6 +63,15 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   gets the advisory and `~/{,.cache}` or `~/{*,.*}` the denial. Unlike bash, a quoted brace is
   expanded too, as a quoted glob already was; the expansion reads at most 256 words of an operand
   of at most 64 braces and 1024 characters, and leaves `cmd.exe` and PowerShell operands alone.
+- **Your ladder now checks the Claude adapter's shell pin.** 14.1.0 shipped `"shell": "bash"` on
+  the adapter's hooks as a hand step with nothing behind it, so an upgrade that skipped it stayed
+  green. A new rung, run only when `.claude/settings.json` exists, fails when an entry whose
+  command names `command-guard.sh`, `session-start.sh` or `redact-tool-output.sh` lacks exactly
+  `"shell": "bash"`, or when a later duplicate `"shell"` key overrides it. Your own hooks are not
+  judged unless their command names one of those scripts.
+  It reads any layout, minified included; an AMH hook inside an entry it cannot read as a flat
+  object, and a settings file naming no AMH hook at all, are warnings that say what went unchecked.
+  A repository without that file gets a `skip` line.
 
 ### Upgrading
 
@@ -74,7 +83,12 @@ Windows comment and a following `"onFailure": "block"` line, as the last key of 
 `harness/templates/seed/AGENTS.md` into your `AGENTS.md`.
 
 Copy the 15.2.0 shipped scripts and manifest through the normal upgrade procedure for the
-command-guard change; it needs nothing else.
+command-guard changes; they need nothing else. The new ladder rung needs nothing either, but if
+you use the Claude adapter it fails your ladder until every AMH hook in `.claude/settings.json`
+carries `"shell": "bash"` — the 14.1.0 hand step, which the adapter update above includes. A
+`.claude/settings.json` that holds no AMH hook — permissions only, say, in a repository that runs
+AMH through another agent — gets a standing warning that the rung checked nothing; there is no
+switch for it, because a hooks block that went missing must not read as a pass.
 
 Check what the adapter change costs you before applying it. On a Windows machine without Git for Windows, every
 shell command is refused afterwards, so install Git for Windows first or AMH stops working there.

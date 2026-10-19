@@ -26,7 +26,8 @@ Windows a hard requirement, said in the refusal itself (**DD-040**), and the com
 `\rm` and `/usr/bin/env` as `rm` and `env` (**DD-041**), and a command after a reserved word
 (`then`, `do`, `!`) or spelled with `.exe` as the command it runs (**DD-042**), and it denies a
 glob matching every hidden entry of a listed directory while judging a brace expansion word by
-word (**DD-044**). Under it is 15.1.0: the
+word (**DD-044**), and the shipped ladder checks the Claude adapter's shell pin wherever
+`.claude/settings.json` exists (**DD-045**). Under it is 15.1.0: the
 command guard's permanent denial covers a Windows drive's
 root, `Users` and `Users\<name>` in every spelling it folds, a `cmd /c` recursive `rd`/`del` is
 judged, one spelled with `\"` nested quotes is denied whatever its path, the constitution
@@ -63,17 +64,6 @@ the README Quick Start names the draft tag before it exists. Check: `git ls-remo
 --tags origin refs/tags/amh-v15.2.0` — a matching ref resolves this item; no output means the
 documented install command is not live yet.
 
-**OPEN — the pin check is repo-local, and whether adopters get one is yours.**
-`scripts/guards/adapter-set.sh` now fails on a Claude hook missing `"shell": "bash"`, but it is
-this repository's own guard: an adopter's ladder still checks nothing, exactly as 14.1.0's
-Upgrading note says. Shipping it means a rung in the shipped `ladder.sh` keyed to one vendor's
-adapter file — an agent-agnosticism question as much as a version-semantics one (additive, so
-MINOR), and adjacent to the shipped config-schema guard already declined pre-3.0.0 (**DA-022**),
-which is why it is yours rather than a unit's. Recommendation: ship it gated on the file
-existing, so a repo with no Claude adapter is unaffected (**DD-013**).
-Check: `grep -c '"shell": "bash"' harness/templates/scripts/ladder.sh` — a non-zero count means
-it shipped; `0` means adopters still have only the hand step.
-
 ## Decided non-items (don't re-litigate without new evidence)
 
 A pointer index, not an argument: **read the cited row before reopening any of these**, because
@@ -98,6 +88,9 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-10-19 — **15.2.0 (drafted): adopters' ladders check the Claude shell pin**, gated on
+  `.claude/settings.json` existing; that closed the pin-check Owner-queue item (**DD-045**).
 
 - 2026-10-19 — **15.2.0 (drafted): the permanent denial covers `~/.?*`, `~/.[!.]*` and
   `/[!.]*`, and a brace inside a word no longer splits the command**, so `rm -rf
