@@ -15,7 +15,9 @@
 # none — is driving the shell, closing the hole this script's hook mode leaves open for
 # an agent whose harness runs no pre-execution hook. It is a guardrail, not a boundary:
 # `--no-verify` skips it, and it sees git-CLI pushes only, never a push made through a
-# forge API. NEITHER rail carries a branch-prefix check (AMH ledger row DA022).
+# forge API. The command rail denies the common spellings of that skip (see THE PRE-PUSH
+# RAIL'S OFF SWITCHES below), but only for an agent whose harness runs it. NEITHER rail
+# carries a branch-prefix check (AMH ledger row DA022).
 #
 # Design rules this guard is bound by — each one paid for in false positives:
 #   * Judge only the LEADING command of each simple-command segment, with quoting
@@ -287,6 +289,19 @@
 #     The trade was made knowingly: a rail that cannot tell an assigned name from an invented
 #     one blocks both, and the two-item unresolvable list is the honest size of what this
 #     scanner can decide rather than a claim to cover the category.
+#   * THE PRE-PUSH RAIL'S OFF SWITCHES ARE READ ON THE COMMAND LINE ONLY. Denied: `git push
+#     --no-verify`; a `core.hooksPath` override on a push (`-c`, `--config-env` in either
+#     spelling, any case); and `git config` SETTING `core.hooksPath` in any scope, which
+#     switches the rail off for every later push. Reading or unsetting the key passes. An
+#     agent once used `--no-verify` across six consecutive commits against explicit
+#     instructions, and retrying a refused push with its check off is the respelling AMH
+#     forbids (AMH ledger row DD048). Not read, and passing: `--no-verify` shortened to a
+#     prefix git accepts (`--no-veri`), as for the push rail's other long options; the
+#     `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_n` and `GIT_CONFIG_PARAMETERS` environment, an
+#     `include.path`, `git config --edit`, or a hand edit of a config file; a tool that sets
+#     the key itself (a hook manager's install step); and `git commit --no-verify`, which
+#     skips no AMH rail because AMH installs no pre-commit hook. Removing or disabling the
+#     hook file is a different command, not read here.
 #   * THE SUBAGENT RAIL SEES ONE SPAWN, NEVER THE FLEET. `--pre-task` fires per spawn and holds
 #     no view of what is already running, so it cannot tell a second spawn beside a live first
 #     from a second after the first finished — it advises every spawn and records the ones that
@@ -1711,6 +1726,106 @@ command_word() { # command_word <word>
 }
 COMMAND_WORD=''
 
+# `core.hooksPath` is where git looks for every hook, the pre-push rail's included, so a
+# command that points it elsewhere switches that rail off without touching the hook file.
+# Git folds the case of a section and key name (`CORE.HOOKSPATH` is the same key), and a
+# bare `-c core.hooksPath` with no `=` still names it. True when <name[=value]> names it.
+names_hooks_path_key() { # names_hooks_path_key <word>
+	case ${1%%=*} in
+	[Cc][Oo][Rr][Ee].[Hh][Oo][Oo][Kk][Ss][Pp][Aa][Tt][Hh]) return 0 ;;
+	esac
+	return 1
+}
+
+# The `git config` long option that <name> (dashes stripped) selects, as git's parse-options
+# selects one: the exact name, or else the option it abbreviates, so `--get-reg` is
+# `--get-regexp` and `--typ` is `--type`. Only the options that change what the command
+# writes are listed: the ones that take a value and the modes that read or remove. A prefix
+# of two of them is ambiguous, and git refuses it before writing anything, so whichever one
+# is returned costs nothing. Each name is listed before every longer name it is a prefix of
+# (`get` before `get-all`), so the first match of an exact name is that name. Sets
+# CONFIG_OPTION, empty for any other option.
+config_long_option() { # config_long_option <name>
+	local o
+	CONFIG_OPTION=''
+	[ -n "$1" ] || return 0
+	for o in file blob type default comment value get get-all get-regexp get-urlmatch get-color \
+		get-colorbool list unset unset-all remove-section rename-section edit; do
+		case $o in "$1"*) CONFIG_OPTION=$o && return 0 ;; esac
+	done
+}
+CONFIG_OPTION=''
+
+# True when the words after `git config` SET `core.hooksPath`, read with git's own grammar
+# (measured on git 2.43 against throwaway `--file` targets). The classic form
+# (`git config [--global] [--add] core.hooksPath DIR`) parses options only up to the first
+# word that is not one: after the key EVERY word is a value, so `git config core.hooksPath
+# --get` sets the key to `--get`, and a mode counts only in front of the key. A mode that
+# reads or removes there — `--get` and its family, `--list`, `--unset`, a section removal or
+# rename, `--edit` — sets nothing and passes, and unsetting puts the hooks back where the
+# rail lives; `--no-get` cancels `--get`, so `--get --no-get core.hooksPath DIR` writes. Long
+# options are read by unique prefix too, and short ones in a cluster: `-f` and `-t` take the
+# rest of the cluster or the next word (`-zf FILE`, `-tpath`). `-l` and `-e` take no key,
+# and git refuses one given with a value, so they are passed over with `--`, a glued
+# `--file=X` and every other option.
+# Only the FIRST classic positional is a key: in `git config alias.x
+# core.hooksPath y` it is a value. Behind the `set` subcommand of git 2.46 and later, options
+# are read anywhere before the key and any word may be the key, so `set --comment
+# core.hooksPath alias.x v` sets `alias.x`. After the key, a word of any shape is read as a
+# value in both forms: whether `set` parses an option there could not be measured on git
+# 2.43, and that reading can only deny, never pass. The `get` and `unset` subcommands put no
+# value after the key and pass as they are. `--edit` opens an editor this scanner cannot see
+# into, so a key written there is a miss, named in the header.
+git_config_sets_hooks_path() { # git_config_sets_hooks_path <args after `config`>
+	local a positional=0 subcommand=0 named=0 skip=0 modes=' ' cluster
+	for a in "$@"; do
+		if [ "$skip" -eq 1 ]; then
+			skip=0
+			continue
+		fi
+		[ "$named" -eq 1 ] && return 0
+		if [ "$positional" -eq 0 ] || [ "$subcommand" -eq 1 ]; then
+			case $a in
+			--no-*)
+				config_long_option "${a#--no-}"
+				[ -n "$CONFIG_OPTION" ] && modes=${modes// $CONFIG_OPTION / }
+				continue
+				;;
+			--*)
+				config_long_option "${a#--}"
+				case $CONFIG_OPTION in
+				'') ;;
+				file | blob | type | default | comment | value) skip=1 ;;
+				*) modes="$modes$CONFIG_OPTION " ;;
+				esac
+				continue
+				;;
+			-?*)
+				cluster=${a#-}
+				while [ -n "$cluster" ]; do
+					case $cluster in
+					f | t) skip=1 ;;
+					f* | t*) break ;;
+					esac
+					cluster=${cluster#?}
+				done
+				continue
+				;;
+			esac
+		fi
+		positional=$((positional + 1))
+		if [ "$positional" -eq 1 ] && [ "$a" = set ]; then
+			subcommand=1
+		elif names_hooks_path_key "$a"; then
+			[ "$modes" = ' ' ] || return 1
+			named=1
+		elif [ "$subcommand" -eq 0 ]; then
+			return 1
+		fi
+	done
+	return 1
+}
+
 check_segment() {
 	local raw=$1
 	local words=() i=0 w
@@ -1838,15 +1953,42 @@ check_segment() {
 	git)
 		# `push` must be the SUBCOMMAND, not any word anywhere in the line — otherwise
 		# `git commit -m "never git push --force"` trips the rail on its own message.
-		local j=0 a
+		# `--config-env` takes the next word as `-c` does, and git accepts both spellings
+		# of it; read as a lone flag, its value was taken for the subcommand and every
+		# push behind it went unjudged. Either one naming `core.hooksPath` moves the
+		# hooks directory for this one command, which switches the pre-push rail off.
+		local j=0 a hooks_override=''
 		while [ "$j" -lt "${#args[@]}" ]; do
 			case ${args[$j]} in
-			-C | -c | --exec-path) j=$((j + 2)) ;;
+			-c | --config-env)
+				names_hooks_path_key "${args[$((j + 1))]:-}" && hooks_override="${args[$j]} ${args[$((j + 1))]}"
+				j=$((j + 2))
+				;;
+			--config-env=*)
+				names_hooks_path_key "${args[$j]#--config-env=}" && hooks_override=${args[$j]}
+				j=$((j + 1))
+				;;
+			-C | --exec-path) j=$((j + 2)) ;;
 			-*) j=$((j + 1)) ;;
 			*) break ;;
 			esac
 		done
-		[ "$j" -lt "${#args[@]}" ] && [ "${args[$j]}" = push ] || return 0
+		[ "$j" -lt "${#args[@]}" ] || return 0
+		case ${args[$j]} in
+		config)
+			if git_config_sets_hooks_path "${args[@]:$((j + 1))}"; then
+				BLOCK_REASON="Setting \`core.hooksPath\` moves git's hooks directory away from the one holding the AMH pre-push rail, which switches that rail off for every later push, by any agent or none (AMH P13). Moving where a repository's hooks live is an owner decision: ask via the Owner queue. Reading the setting (\`git config --get core.hooksPath\`) and unsetting it are allowed."
+				return 1
+			fi
+			return 0
+			;;
+		push) ;;
+		*) return 0 ;;
+		esac
+		if [ -n "$hooks_override" ]; then
+			BLOCK_REASON="\`git $hooks_override\` points this push at another hooks directory, which switches off the git-native pre-push rail for it (AMH P13). If that rail refused the push, the refusal is the answer: read what it objected to and fix the push. Retrying a refused operation with its check switched off is the respelling AMH forbids (AMH ledger row DD038). If the hook itself is broken, report that to the owner."
+			return 1
+		fi
 		local ref_count=0 implicit_ref=0 positional=0 delete_push=0 skip_option_arg=0 cluster
 		for a in "${args[@]:$((j + 1))}"; do
 			if [ "$skip_option_arg" -eq 1 ]; then skip_option_arg=0; continue; fi
@@ -1895,6 +2037,12 @@ check_segment() {
 					BLOCK_REASON="A leading \`+\` on the refspec \`$a\` force-pushes it (AMH P7), and pushed checkpoints are immutable. Drop the \`+\`; if the branch diverged, merge the default branch in — never rewrite pushed history."
 					;;
 				esac
+				return 1
+				;;
+			# `--no-verify` is the documented off switch of the pre-push rail, and the
+			# standard way to retry a push that rail refused.
+			--no-verify)
+				BLOCK_REASON="\`git push --no-verify\` skips the git-native pre-push rail, the one check on this push that runs whatever drives the shell (AMH P13). If that rail refused the push, the refusal is the answer: read what it objected to and fix the push. Retrying a refused operation with its check switched off is the respelling AMH forbids (AMH ledger row DD038). If the hook itself is broken, report that to the owner. Drop \`--no-verify\`."
 				return 1
 				;;
 			--delete | -d) delete_push=1 ;;
@@ -6993,6 +7141,67 @@ cat .env'
 	st_allowed "git push --dry-run origin $BRANCH_PREFIX/x"
 	st_allowed "git push --signed=no origin $BRANCH_PREFIX/x"
 	ST_CHECKER=check_powershell_command st_allowed "git push --dry-run origin $BRANCH_PREFIX/x"
+	# The pre-push rail's off switches. Each of these passed every rail.
+	st_blocked "git push --no-verify -u origin $BRANCH_PREFIX/x"
+	st_blocked "git push -u origin $BRANCH_PREFIX/x --no-verify"
+	st_blocked "git -C /repo push --no-verify -u origin $BRANCH_PREFIX/x"
+	st_blocked "git -c core.hooksPath=/dev/null push -u origin $BRANCH_PREFIX/x"
+	st_blocked "git -c CORE.HOOKSPATH=/dev/null push -u origin $BRANCH_PREFIX/x"
+	st_blocked "git -c \"core.hooksPath=/dev/null\" push -u origin $BRANCH_PREFIX/x"
+	st_blocked "git -c core.hooksPath push -u origin $BRANCH_PREFIX/x"
+	st_blocked "git --config-env=core.hooksPath=HP push -u origin $BRANCH_PREFIX/x"
+	st_blocked "git --config-env core.hooksPath=HP push -u origin $BRANCH_PREFIX/x"
+	st_blocked 'git config core.hooksPath /tmp/none'
+	st_blocked 'git config --global core.hooksPath /dev/null'
+	st_blocked 'git config --add core.hookspath /dev/null'
+	st_blocked 'git config set core.hooksPath /dev/null'
+	st_blocked 'git config --file .git/config core.hooksPath /dev/null'
+	st_blocked 'git -C /repo config core.hooksPath .githooks'
+	st_blocked 'git config set --global core.hooksPath /dev/null'
+	# The classic form stops reading options at the key, so each of these SETS the key to
+	# the word after it (`--type`, `--get`), measured on git 2.43.
+	st_blocked 'git config core.hooksPath --type path'
+	st_blocked 'git config core.hooksPath --get'
+	# Options read as git's parse-options reads them, each measured on git 2.43 writing the
+	# key: a short value option alone, in a cluster and glued; a negated mode; and a long
+	# option shortened to a prefix git accepts.
+	st_blocked 'git config -t path core.hooksPath /tmp/none'
+	st_blocked 'git config -zf /tmp/other.cfg core.hooksPath /tmp/none'
+	st_blocked 'git config -tpath core.hooksPath /tmp/none'
+	st_blocked 'git config --get --no-get core.hooksPath /tmp/none'
+	st_blocked 'git config --unset --no-unset core.hooksPath /tmp/none'
+	st_blocked 'git config --typ path core.hooksPath /tmp/none'
+	st_blocked 'git config --fil other.cfg core.hooksPath /tmp/none'
+	st_blocked 'git config --file=other.cfg core.hooksPath /tmp/none'
+	st_blocked 'git config -- core.hooksPath /tmp/none'
+	ST_CHECKER=check_powershell_command st_blocked "git push --no-verify -u origin $BRANCH_PREFIX/x"
+	ST_CHECKER=check_powershell_command st_blocked 'git config core.hooksPath /tmp/none'
+	# `--config-env` takes the next word as its value, as `-c` does. Read as a lone flag,
+	# `user.name=X` was taken for the subcommand and the force push behind it passed.
+	st_blocked "git --config-env user.name=X push --force origin $BRANCH_PREFIX/x"
+	# Reading or unsetting the key, another key, a message that names the flag, and a
+	# commit, which no AMH hook guards.
+	st_allowed 'git config --get core.hooksPath'
+	st_allowed 'git config core.hooksPath'
+	st_allowed 'git config get core.hooksPath'
+	st_allowed 'git config --unset core.hooksPath'
+	st_allowed 'git config --unset core.hooksPath /dev/null'
+	st_allowed 'git config --get core.hooksPath /dev/null'
+	st_allowed 'git config --get-reg core.hooksPath /dev/null'
+	st_allowed 'git config --get --no-unset core.hooksPath /dev/null'
+	# Behind `set` (git 2.46), `--comment` takes the next word: this sets `alias.example`.
+	st_allowed 'git config set --comment core.hooksPath alias.example value'
+	st_allowed 'git config unset core.hooksPath'
+	st_allowed 'git config --show-origin --get core.hooksPath'
+	st_allowed 'git config --type path core.hooksPath'
+	st_allowed 'git config user.name x'
+	st_allowed 'git config alias.x core.hooksPath y'
+	st_allowed "git -c user.name=x push -u origin $BRANCH_PREFIX/x"
+	st_allowed "git --config-env user.name=X push -u origin $BRANCH_PREFIX/x"
+	st_allowed 'git -c core.hooksPath=/dev/null commit -m x'
+	st_allowed 'git commit -m "never use --no-verify"'
+	st_allowed 'git commit --no-verify -m x'
+	ST_CHECKER=check_powershell_command st_allowed 'git config --get core.hooksPath'
 	st_allowed 'env FOO=1 make test'
 	# The rail's own false positive, and the reason this arm was rewritten: unsetting a
 	# name prints nothing, and this repository's shipped fixture suite runs that exact

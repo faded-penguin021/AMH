@@ -1,7 +1,7 @@
 # PLAN — close the command-guard gaps that measuring cc-safe-setup exposed
 
-> **Status: APPROVED 2026-10-23, IN PROGRESS — Units 1–2 done (DD-046, DD-047), Units 3–6 not
-> started.**
+> **Status: APPROVED 2026-10-23, IN PROGRESS — Units 1–3 done (DD-046, DD-047, DD-048), Units
+> 4–6 not started.**
 > Drafted 2026-10-22. The owner approved all six units, chose the block tier for Unit 5, and
 > allowed one fresh-context review pass per unit (**Owner decisions** below). Units run in order.
 

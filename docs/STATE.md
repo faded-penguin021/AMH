@@ -52,7 +52,7 @@ are approved, Unit 5 at the block tier, each with one fresh-context review pass.
 
 - [x] 1 — a backslash-newline defeats the permanent denial and wrongly denies a legal push
 - [x] 2 — bundled `-f`/`-d` flags on `git push`
-- [ ] 3 — `--no-verify` and `core.hooksPath` on the command rail
+- [x] 3 — `--no-verify` and `core.hooksPath` on the command rail
 - [ ] 4 — the pre-push hook file, and deny rails for the file-editing tools on it
 - [ ] 5 — well-known credential stores, at the block tier
 - [ ] 6 — Claude Code's `--safe-mode` named as a hook-less state
@@ -90,8 +90,9 @@ own. Check: pass `echo a # don't`, a newline, then `printenv` to `scripts/comman
 **OPEN — decide whether to plan a fix for abbreviated long options on `git push`, found during
 cc-safe-setup Unit 2 and outside it.** Git accepts a long option shortened to a unique prefix, so
 `git push --del origin <branch>` deletes and `--force-w` force-pushes, and the command rail reads
-neither; only the `--pre-push` rail, where installed, stops them by outcome. It is in the guard
-header's push-rail bullet and would be a unit of its own. Check: pass `git push --del origin
+neither; only the `--pre-push` rail, where installed, stops them by outcome. Since Unit 3 the
+same gap covers `--no-veri`, and there nothing backstops it, because that flag is what skips the
+pre-push rail (**DD-048**). It is in the guard header and would be a unit of its own. Check: pass `git push --del origin
 session/x` to `scripts/command-guard.sh --command` — exit 0 means it is still open.
 
 ## Decided non-items (don't re-litigate without new evidence)
@@ -118,6 +119,11 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-10-23 — **15.2.0 (drafted), cc-safe-setup Unit 3: the command guard denies the pre-push
+  rail's off switches**: `git push --no-verify`, a `core.hooksPath` override on a push, and
+  `git config` setting `core.hooksPath`. A `--config-env` that hid a force push from every rail
+  is closed too (**DD-048**).
 
 - 2026-10-23 — **15.2.0 (drafted), cc-safe-setup Unit 2: the push rail reads a short-flag
   cluster as git does**, so `git push -uf` and `-qd` are denied and the legal `git push -uo f

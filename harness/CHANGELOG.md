@@ -82,6 +82,17 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   push option named `f`, and the legal `git push -uo f origin <branch>`, which was denied as
   naming two refs, now passes. Still missed, and named in the guard's header: a long option
   shortened to a prefix git accepts, such as `--del` or `--force-w`.
+- **The command guard denies the pre-push rail's off switches.** `git push --no-verify`, a
+  `core.hooksPath` override on a push (`git -c core.hooksPath=… push`, or `--config-env` in
+  either spelling), and `git config` setting `core.hooksPath` in any scope all passed, although
+  each one switches the git-native pre-push rail off. Reading or unsetting the key still passes,
+  and so does `git commit --no-verify`, because AMH installs no pre-commit hook. `git config` is
+  read as git reads it: in the classic form, `git config core.hooksPath --get` sets the key to
+  `--get`; options count when shortened to a prefix (`--typ`) or clustered (`-zf FILE`); and
+  `--no-get` cancels `--get`. The global-option walk also read `--config-env` as a flag with no value, so
+  `git --config-env k=V push --force origin main` passed every rail; it is now denied as a
+  force push. Still missed, and named in the guard's header: the `GIT_CONFIG_*` environment, an
+  `include.path`, `git config --edit`, and a `--no-verify` shortened to a prefix git accepts.
 - **Your ladder now checks the Claude adapter's shell pin.** 14.1.0 shipped `"shell": "bash"` on
   the adapter's hooks as a hand step with nothing behind it, so an upgrade that skipped it stayed
   green. A new rung, run only when `.claude/settings.json` exists, fails when an entry whose
@@ -102,7 +113,9 @@ Windows comment and a following `"onFailure": "block"` line, as the last key of 
 `harness/templates/seed/AGENTS.md` into your `AGENTS.md`.
 
 Copy the 15.2.0 shipped scripts and manifest through the normal upgrade procedure for the
-command-guard changes; they need nothing else. The new ladder rung needs nothing either, but if
+command-guard changes; they need nothing else. If your repository keeps its hooks under
+`core.hooksPath`, an agent can no longer set that key itself; a hook manager's own install
+step, which runs git without passing through the guard, is unaffected. The new ladder rung needs nothing either, but if
 you use the Claude adapter it fails your ladder until every AMH hook in `.claude/settings.json`
 carries `"shell": "bash"` — the 14.1.0 hand step, which the adapter update above includes. A
 `.claude/settings.json` that holds no AMH hook — permissions only, say, in a repository that runs
