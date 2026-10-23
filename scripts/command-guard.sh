@@ -129,7 +129,13 @@
 #     backslash rule beside it and belongs to whoever takes it (AMH ledger row DC028).
 #   * HEREDOCS AND LONG LINES. `cmd <<EOF` hides its body until the delimiter, and the
 #     window-based scanners give up past `CHAR_LOOKAHEAD` characters — a variable name or
-#     redirection target longer than the window is not classified.
+#     redirection target longer than the window is not classified. A backslash-newline is
+#     removed as bash removes it, but only after the bodies are cut, so one on the OPERATOR
+#     line opens the body a line early: `cat <<EOF \⏎&& git push --force origin main` hides
+#     the push (AMH ledger row DD046).
+#   * A QUOTE INSIDE A `#` COMMENT. Only the continuation pass knows comments; every other
+#     walker reads the `'` in `echo a # don't` as opening a string, which runs past the
+#     newline and hides the next line from every rail.
 #   * POWERSHELL IS READ BY ITS OWN READER, AND A SHORTER ONE. A PowerShell tool payload (and the
 #     text behind `powershell -Command` or `pwsh -c` from bash) goes to the PowerShell arm, which
 #     judges `Remove-Item` and its aliases and `cmd /c` deletions itself and hands every other
@@ -349,6 +355,101 @@ BRANCH_PREFIX=session
 CHAR_WINDOW=2048
 CHAR_LOOKAHEAD=512
 
+# --- line continuations -----------------------------------------------------
+# Bash deletes an unquoted backslash-newline pair before it splits a line into words, so
+# `rm \⏎-rf /` runs `rm -rf /`. The walkers below read the backslash as escaping the next
+# character instead and keep both characters in the word, which judged words bash never
+# produces, in both directions: `rm -rf \⏎/` got the one-time advisory instead of the
+# permanent denial, `rm \⏎-rf /` and `git \⏎-C /repo push --force` passed, and the legal
+# `git push \⏎-u origin session/x` was denied as a push naming two refs. So the pairs go
+# before `split_segments` walks the text, and every walker behind it reads what bash runs.
+# Two readers sit in front of it and still see the raw text: `strip_heredocs`, so a
+# continuation on a heredoc's OPERATOR line is not joined (see the header's HEREDOCS bullet),
+# and the one-time `.pem`/`.key` advisory's substring test, which `id.pe\⏎m` slips.
+#
+# The pair is removed outside quotes and inside DOUBLE quotes, where bash removes it too, and
+# kept inside SINGLE quotes, where it is literal. An escaped backslash (`\\⏎`) is no
+# continuation: the walk consumes backslash pairs, so its newline stays a separator. A `#`
+# comment ends at the newline whatever precedes it, so `# note \⏎rm -rf /` and
+# `# C:\temp\\⏎rm -rf /` both run the `rm`; there EVERY backslash the comment ends in is
+# dropped and the newline stays, because the walker behind would read the last one left as
+# escaping the newline. A comment starts only where bash starts one: after a space, tab,
+# newline or operator character, never inside `${…}` (`${x:- #}` is a word). The quote model
+# is `split_segments`'s, so the two never disagree about where a string ends — including
+# where both disagree with bash: neither honours `\'` inside `$'…'`. Called from
+# `split_segments`, after `strip_heredocs`: a heredoc body is data, and joining a body line
+# onto its delimiter would hide the delimiter, so body mode would discard everything after it
+# (AMH ledger row DD046).
+join_continuations() { # join_continuations <text> -> sets JOINED_COMMAND
+	local s=$1
+	JOINED_COMMAND=$s
+	case $s in *\\$'\n'*) ;; *) return 0 ;; esac
+	local i=0 n=${#s} c q='' start=0 out='' prev=' ' parameter_depth=0 kept
+	local wbase=0 wbuf='' wsafe=0
+	while [ "$i" -lt "$n" ]; do
+		if [ "$i" -ge "$wsafe" ]; then # windowed scan — see CHAR_WINDOW
+			wbase=$i
+			wbuf=${s:wbase:CHAR_WINDOW}
+			wsafe=$((wbase + CHAR_WINDOW - CHAR_LOOKAHEAD))
+		fi
+		c=${wbuf:i-wbase:1}
+		case $q in
+		"'")
+			[ "$c" = "'" ] && q=''
+			prev=$c
+			i=$((i + 1))
+			continue
+			;;
+		'#')
+			if [ "$c" = $'\n' ]; then
+				if [ "$prev" = "\\" ]; then
+					kept=${s:start:i-start}
+					while [ "${kept: -1}" = "\\" ]; do kept=${kept%?}; done
+					out+=$kept
+					start=$i
+				fi
+				q=''
+			fi
+			prev=$c
+			i=$((i + 1))
+			continue
+			;;
+		esac
+		if [ "$c" = "\\" ]; then
+			# The backslash rule — see `split_segments`. A removed pair leaves `prev` alone:
+			# the character before it is what the next one follows once the pair is gone.
+			if [ "${wbuf:i-wbase+1:1}" = $'\n' ]; then
+				out+=${s:start:i-start}
+				start=$((i + 2))
+			else
+				prev=x
+			fi
+			i=$((i + 2))
+			continue
+		fi
+		if [ "$q" = '"' ]; then
+			[ "$c" = '"' ] && q=''
+		else
+			case $c in
+			"'" | '"') q=$c ;;
+			'$') [ "${wbuf:i-wbase+1:1}" = '{' ] && parameter_depth=$((parameter_depth + 1)) ;;
+			'}') [ "$parameter_depth" -gt 0 ] && parameter_depth=$((parameter_depth - 1)) ;;
+			# Only at the start of a word: `$#`, `${#x}` and `a#b` open no comment. Not
+			# `[[:space:]]`: a carriage return is no shell blank, so `\r#x` is a word.
+			'#')
+				if [ "$parameter_depth" -eq 0 ]; then
+					case $prev in ' ' | $'\t' | $'\n' | ';' | '&' | '|' | '(' | ')' | '<' | '>' | '`') q='#' ;; esac
+				fi
+				;;
+			esac
+		fi
+		prev=$c
+		i=$((i + 1))
+	done
+	JOINED_COMMAND=$out${s:start}
+}
+JOINED_COMMAND=''
+
 # --- segment splitting ------------------------------------------------------
 # Emit one line per simple-command segment, splitting on UNQUOTED shell operators.
 # Quoted regions stay inside their segment and are therefore never a leading command.
@@ -356,8 +457,10 @@ CHAR_LOOKAHEAD=512
 # Slices, never accumulates: `seg+=$c` per character reallocates the segment on
 # every byte, which is the second half of the quadratic blow-up (the first is the
 # locale, above). Splitting on index boundaries copies each segment exactly once.
+# Line continuations are gone before the walk starts — see `join_continuations`.
 split_segments() { # sets SEGMENTS
-	local s=$1
+	join_continuations "$1"
+	local s=$JOINED_COMMAND
 	local i=0 n=${#s} c q='' start=0 parameter_depth=0 brace_depth=0 group
 	SEGMENTS=()
 	local wbase=0 wbuf='' wsafe=0
@@ -6632,6 +6735,45 @@ EOF'
 	# after it is real. A walker that treated the backslash as an escape there would swallow
 	# the closing quote and the push with it — the same hole, one quote character over.
 	st_blocked "echo 'a \\' && git push --force origin main"
+	# LINE CONTINUATIONS. Bash removes an unquoted backslash-newline before it splits words, and
+	# the walkers kept it, which cost both directions at once: the permanent denial became an
+	# advisory or nothing, and a legal push was denied as naming two refs. Shapes from
+	# cc-safe-setup's line-continuation suite (AMH ledger row DD046).
+	st_destructive_never_clears $'rm -rf \\\n/' 'the filesystem root'
+	st_destructive_never_clears $'rm \\\n-rf /' 'the filesystem root'
+	st_destructive_never_clears $'rm \\\n-rf ~' 'your home directory'
+	st_destructive_never_clears $'rm -rf \\\n  ~' 'your home directory'
+	st_destructive_never_clears $'echo $(rm \\\n-rf /)' 'the filesystem root'
+	st_blocked $'git \\\n-C /repo push --force'
+	st_blocked $'git push -u origin \\\nmain'
+	st_blocked $'git push --for\\\nce origin feature'
+	st_destructive_advisory_once $'git \\\nreset --hard "$X"'
+	st_allowed $'git push \\\n-u origin '"$BRANCH_PREFIX/x"
+	st_allowed $'git status \\\n--short'
+	# Each of these dies with one rule of `join_continuations`. An escaped backslash before a
+	# newline is no continuation, so the newline still separates; a backslash inside SINGLE
+	# quotes escapes nothing, so the pair after the string is still outside it; a `\"` inside
+	# DOUBLE quotes is no closing quote, so the `'` after it opens nothing; a `#` comment ends at
+	# its newline however many backslashes precede it, so the line after it runs; a comment
+	# starts after a space, tab, newline or operator, and not inside a word, after a carriage
+	# return or inside `${…}`; and a removed pair leaves the character before it as the one the
+	# next follows, so `a\⏎#b` is the word `a#b`, no comment, and the `rm` is echo's argument.
+	st_destructive_never_clears $'echo x\\\\\nrm -rf /' 'the filesystem root'
+	st_allowed $'echo \'a \\\' && git push \\\n-u origin '"$BRANCH_PREFIX/x"
+	st_allowed $'echo "a \\"\'" && git push \\\n-u origin '"$BRANCH_PREFIX/x"
+	st_destructive_never_clears $'echo a # note \\\nrm -rf /' 'the filesystem root'
+	st_destructive_never_clears $'echo a #x \\\\\nrm -rf /' 'the filesystem root'
+	st_blocked $'echo a # C:\\\\temp\\\\\ngit push --force origin main'
+	st_destructive_never_clears $'echo a;# x \\\nrm -rf /' 'the filesystem root'
+	st_destructive_never_clears $'echo a\t# x \\\nrm -rf /' 'the filesystem root'
+	st_destructive_never_clears $'echo a\n# x \\\nrm -rf /' 'the filesystem root'
+	st_destructive_never_clears $'rm -rf a#b \\\n/' 'the filesystem root'
+	st_blocked $'git push origin \r#x \\\n--force main'
+	st_blocked $'git push ${x:- #} \\\n--force origin main'
+	st_allowed $'echo a\\\n#b \\\nrm -rf /'
+	# The pairs go AFTER the heredoc bodies: a quoted-delimiter body keeps its backslash, and
+	# joining its last line onto the delimiter would hide the delimiter and the push after it.
+	st_blocked $'cat <<\'EOF\'\nx \\\nEOF\ngit push --force origin main'
 	# ONE FIXTURE PER WALKER, because six sites are six ways to break this and the first draft
 	# of this block demonstrated exactly one of them — every mutation but `split_segments`
 	# survived a green suite. Each command below dies with the walker it names; two of them die

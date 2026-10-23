@@ -63,6 +63,18 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   gets the advisory and `~/{,.cache}` or `~/{*,.*}` the denial. Unlike bash, a quoted brace is
   expanded too, as a quoted glob already was; the expansion reads at most 256 words of an operand
   of at most 64 braces and 1024 characters, and leaves `cmd.exe` and PowerShell operands alone.
+- **A backslash-newline is read as bash reads it.** Bash removes an unquoted backslash and the
+  newline after it before it splits a line into words; the guard kept both characters in the
+  word. So `rm -rf \⏎/` got the one-time advisory instead of the permanent denial, `rm \⏎-rf /`,
+  `git \⏎-C /repo push --force` and `git push -u origin \⏎main` passed, and the legal
+  `git push \⏎-u origin session/x` was denied as naming two refs (`⏎` is a real newline). The
+  pairs are now removed before the guard splits the command into commands and words, outside
+  quotes and inside double quotes as bash does, and kept inside single quotes, after an escaped
+  backslash (`\\⏎`) and in a here-document body. A `#` comment ends at its newline whatever
+  precedes it, so the line after `# note \⏎` is judged as its own command. Still missed, and
+  listed in the guard's header: a continuation on a here-document's operator line
+  (`cat <<EOF \⏎&& git push --force origin main` hides the push), a quote inside a comment, and
+  PowerShell's backtick continuation.
 - **Your ladder now checks the Claude adapter's shell pin.** 14.1.0 shipped `"shell": "bash"` on
   the adapter's hooks as a hand step with nothing behind it, so an upgrade that skipped it stayed
   green. A new rung, run only when `.claude/settings.json` exists, fails when an entry whose

@@ -1,8 +1,8 @@
 # PLAN — close the command-guard gaps that measuring cc-safe-setup exposed
 
-> **Status: APPROVED 2026-10-23, NOT STARTED.** Drafted 2026-10-22. The owner approved all six
-> units, chose the block tier for Unit 5, and allowed one fresh-context review pass per unit
-> (**Owner decisions** below). Units run in order.
+> **Status: APPROVED 2026-10-23, IN PROGRESS — Unit 1 done (DD-046), Units 2–6 not started.**
+> Drafted 2026-10-22. The owner approved all six units, chose the block tier for Unit 5, and
+> allowed one fresh-context review pass per unit (**Owner decisions** below). Units run in order.
 
 The plan is provisional while it is live. Its durable outcomes go to Changelog lines and ledger
 rows. Code cites ledger rows and never this file, and no ledger row may cite this file's path.
