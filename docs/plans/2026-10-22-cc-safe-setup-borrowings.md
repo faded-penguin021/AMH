@@ -1,8 +1,8 @@
 # PLAN — close the command-guard gaps that measuring cc-safe-setup exposed
 
-> **Status: DRAFTED 2026-10-22. NOT APPROVED, NOT STARTED.** The owner asked for this plan to be
-> committed and for nothing else to happen yet. No unit starts until the owner answers the
-> Owner-queue item in `docs/STATE.md`, approving the whole plan, part of it, or none of it.
+> **Status: APPROVED 2026-10-23, NOT STARTED.** Drafted 2026-10-22. The owner approved all six
+> units, chose the block tier for Unit 5, and allowed one fresh-context review pass per unit
+> (**Owner decisions** below). Units run in order.
 
 The plan is provisional while it is live. Its durable outcomes go to Changelog lines and ledger
 rows. Code cites ledger rows and never this file, and no ledger row may cite this file's path.
@@ -38,20 +38,17 @@ This guard already handles the following, so no unit is planned for them:
   guard prints no JSON at all; it exits 2 with the reason on stderr.
 - A hook payload read with no `python3` present (**DD-030**).
 
-## Owner decisions this plan needs
+## Owner decisions (answered 2026-10-23)
 
-1. **Approve the plan**, or name the units to drop.
-2. **Unit 5's tier and list.** Recommendation: BLOCK, the same tier as `.env`. That covers
-   reader commands on the home-anchored stores in the Unit 5 table, plus `gh auth token` and
-   `git credential fill`, which print a credential by design. A project-level `.npmrc` stays out:
-   it is commonly committed and commonly holds no secret. The alternative is the one-time
-   advisory tier that `.pem` and `.key` use.
-3. **One fresh-context review pass per unit.** All six units are in Rule-review protocol scope:
-   Units 1–5 change guard semantics or adapter rails, and Unit 6 edits `AGENTS.md`. The protocol
-   requires ONE blocking reviewer per unit. The session that drafted this plan runs under a
-   standing instruction not to spawn subagents unless asked. That is a policy, not a missing
-   capability, so the protocol says to ask. Approve one pass per unit, or say which units park
-   unreviewed.
+1. **Scope: all six units approved.** None dropped.
+2. **Unit 5: BLOCK**, the same tier as `.env`. That covers reader commands on the home-anchored
+   stores in the Unit 5 table, plus `gh auth token` and `git credential fill`, which print a
+   credential by design. A project-level `.npmrc` stays out: it is commonly committed and
+   commonly holds no secret. The one-time advisory tier that `.pem` and `.key` use was declined.
+3. **One fresh-context review pass per unit: approved for all six.** All six units are in
+   Rule-review protocol scope: Units 1–5 change guard semantics or adapter rails, and Unit 6
+   edits `AGENTS.md`. The protocol requires ONE blocking reviewer per unit, and this answer is
+   the owner's request that lifts the standing no-subagents instruction for exactly that pass.
 
 ## How every unit runs
 
@@ -173,13 +170,13 @@ file-editing tools remain, so the adapter rail is the only layer there. Incident
 [hook-tamper-guard.sh](https://github.com/yurukusa/cc-safe-setup/blob/793c6c12ddca009b2f108b2cc931caaa83151844/examples/hook-tamper-guard.sh)
 cites the report it was written for as issue 32376. Confirm it as in Unit 3.
 
-### Unit 5 — well-known credential stores (rule widening; waits on Owner decision 2)
+### Unit 5 — well-known credential stores (rule widening; BLOCK tier, Owner decision 2)
 
 The guard's block tier is `.env`, `/proc/*/environ` and the OpenSSH private-key names. Its header
 says other key files carry "no name convention this scanner could read". The stores below sit at
 fixed, well-known paths, so a scanner can read them.
 
-| Shape | Now | Must be (if the owner picks BLOCK) |
+| Shape | Now | Must be |
 |---|---|---|
 | `cat ~/.git-credentials` | ALLOW | DENY |
 | `cat ~/.netrc` | ALLOW | DENY |

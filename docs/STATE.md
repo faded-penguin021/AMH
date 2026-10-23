@@ -43,16 +43,16 @@ and reports present, absent or could-not-ask, which is the only answer that can 
 
 `docs/LEDGER_D.md` is the live ledger volume.
 
-Multi-unit work is drafted but NOT approved: `docs/plans/2026-10-22-cc-safe-setup-borrowings.md`.
-It has six units that close command-guard gaps found by measuring an external hook collection's
-bypass shapes against this guard. No unit starts until the owner answers the Owner-queue item
-below.
+Multi-unit work, owner-approved 2026-10-23 and not yet started:
+`docs/plans/2026-10-22-cc-safe-setup-borrowings.md`. It has six units that close command-guard
+gaps found by measuring an external hook collection's bypass shapes against this guard. All six
+are approved, Unit 5 at the block tier, each with one fresh-context review pass.
 
 - [ ] 1 — a backslash-newline defeats the permanent denial and wrongly denies a legal push
 - [ ] 2 — bundled `-f`/`-d` flags on `git push`
 - [ ] 3 — `--no-verify` and `core.hooksPath` on the command rail
 - [ ] 4 — the pre-push hook file, and deny rails for the file-editing tools on it
-- [ ] 5 — well-known credential stores (waits on the owner's choice of tier)
+- [ ] 5 — well-known credential stores, at the block tier
 - [ ] 6 — Claude Code's `--safe-mode` named as a hook-less state
 
 Operational gotchas:
@@ -75,17 +75,6 @@ Operational gotchas:
 the README Quick Start names the draft tag before it exists. Check: `git ls-remote --exit-code
 --tags origin refs/tags/amh-v15.2.0` — a matching ref resolves this item; no output means the
 documented install command is not live yet.
-
-**OPEN — approve, trim or decline the cc-safe-setup plan.** Unit 1 cannot start until the owner
-gives three answers:
-
-1. approval, for the whole plan or unit by unit;
-2. the tier for Unit 5 (recommended: block);
-3. permission for one fresh-context review pass per unit, which this session's standing
-   no-subagents instruction otherwise prevents.
-
-The questions and recommendations are in the plan's **Owner decisions** section. No check
-settles this item; only the owner's answer does.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -111,6 +100,10 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-10-23 — **The owner approved the cc-safe-setup plan whole:** all six units, Unit 5 at the
+  block tier, and one fresh-context review pass per unit. That closed its Owner-queue item. No
+  unit has started.
 
 - 2026-10-22 — **Plan drafted, not started: six command-guard units, from measuring
   cc-safe-setup's bypass shapes against this guard.** The worst finding is that a
