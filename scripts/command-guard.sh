@@ -261,10 +261,15 @@
 #     of the three spellings git resolves to it (`main`, `heads/main`, `refs/heads/main`, on
 #     either side of a colon), force, deletion, an explicit `refs/tags/` push, exactly two
 #     unresolvable destinations (`HEAD` and `@`), and a second ref. Every one of those is a
-#     fact of the command standing in front of it. It does NOT check that the branch sits
-#     under `BRANCH_PREFIX`: the harness assigns session branch names the repository may not
-#     itself prefix, so a namespace rail rejects the very branches it exists to protect (AMH
-#     P13, AMH ledger row DA022) — and this one did, blocking a correctly assigned branch.
+#     fact of the command standing in front of it. Force and deletion are read inside a
+#     short-flag cluster the way git reads one (`-uf`, `-qd`), with `-o` taking the rest of
+#     its cluster or the next word as its value. A long option shortened to a unique prefix,
+#     which git also accepts (`--del`, `--force-w`), is NOT read and passes; the `--pre-push`
+#     rail below still judges that force or deletion by its outcome where it is installed.
+#     It does NOT check that the branch sits under `BRANCH_PREFIX`: the harness assigns
+#     session branch names the repository may not itself prefix, so a namespace rail rejects
+#     the very branches it exists to protect (AMH P13, AMH ledger row DA022) — and this one
+#     did, blocking a correctly assigned branch.
 #     Read the loss that bought, because the namespace test had been stopping these as a side
 #     effect of stopping everything unfamiliar, and nothing stops them here now:
 #       - ONE explicitly named off-convention ref. `git push -u origin work` is allowed, and
@@ -1842,9 +1847,29 @@ check_segment() {
 			esac
 		done
 		[ "$j" -lt "${#args[@]}" ] && [ "${args[$j]}" = push ] || return 0
-		local ref_count=0 implicit_ref=0 positional=0 delete_push=0 skip_option_arg=0
+		local ref_count=0 implicit_ref=0 positional=0 delete_push=0 skip_option_arg=0 cluster
 		for a in "${args[@]:$((j + 1))}"; do
 			if [ "$skip_option_arg" -eq 1 ]; then skip_option_arg=0; continue; fi
+			# A cluster of short flags is read letter by letter, left to right, as git
+			# reads it: `-uf` is `-u -f` and `-qd` is `-q -d`, and both used to fall
+			# through to the `-*` arm unread. `-o` is the one short flag that takes a
+			# value — the rest of the cluster, or the next word when it ends the cluster
+			# — so `-of` is a push option named `f`, never a force. A force found here
+			# is handed to the force arm below by rewriting the word to `-f`.
+			case $a in
+			-[!-]?*)
+				cluster=${a#-}
+				while [ -n "$cluster" ]; do
+					case $cluster in
+					o) skip_option_arg=1; break ;;
+					o*) break ;;
+					f*) a=-f; break ;;
+					d*) delete_push=1 ;;
+					esac
+					cluster=${cluster#?}
+				done
+				;;
+			esac
 			case $a in
 			--force | -f | --force-with-lease | --force-with-lease=* | --force-if-includes)
 				BLOCK_REASON="Force-push is denied (AMH P7): pushed checkpoints are immutable. If the branch diverged, merge the default branch in — never rewrite pushed history. A history rewrite is owner-executed and only for a leaked-credential incident."
@@ -6942,6 +6967,32 @@ cat .env'
 	st_allowed 'git commit -m "use > to redirect, and read the 2> form"'
 	st_allowed "git push -o ci.skip origin $BRANCH_PREFIX/x"
 	st_allowed "git push --receive-pack git-receive-pack origin $BRANCH_PREFIX/x"
+	# A short-flag cluster is read letter by letter; each of these passed while the rail
+	# knew `-f` and `-d` only as whole words.
+	st_blocked "git push -uf origin $BRANCH_PREFIX/x"
+	st_blocked "git push -fu origin $BRANCH_PREFIX/x"
+	st_blocked "git push -qf origin $BRANCH_PREFIX/x"
+	st_blocked "git push -vuf origin $BRANCH_PREFIX/x"
+	st_blocked "git push -ud origin $BRANCH_PREFIX/x"
+	st_blocked "git push -qd origin $BRANCH_PREFIX/x"
+	st_blocked "git push origin -qd $BRANCH_PREFIX/x"
+	st_blocked "git -C /repo push -uf origin $BRANCH_PREFIX/x"
+	ST_CHECKER=check_powershell_command st_blocked "git push -uf origin $BRANCH_PREFIX/x"
+	ST_CHECKER=check_powershell_command st_blocked "git push -ud origin $BRANCH_PREFIX/x"
+	# `-o` takes the rest of its cluster as its value, or the next word when it ends the
+	# cluster, so the `f` and `d` here are push options. The `-uo f` spelling was DENIED
+	# as naming two refs, because its value was read as the remote.
+	st_allowed "git push -of origin $BRANCH_PREFIX/x"
+	st_allowed "git push -uof origin $BRANCH_PREFIX/x"
+	st_allowed "git push -uod origin $BRANCH_PREFIX/x"
+	st_allowed "git push -uo f origin $BRANCH_PREFIX/x"
+	st_allowed "git push -uq origin $BRANCH_PREFIX/x"
+	st_blocked "git push -uo ci.skip -f origin $BRANCH_PREFIX/x"
+	# A long option is not a cluster: walking `--dry-run` or `--signed=no` letter by letter
+	# finds a `d` and denies the push as a deletion.
+	st_allowed "git push --dry-run origin $BRANCH_PREFIX/x"
+	st_allowed "git push --signed=no origin $BRANCH_PREFIX/x"
+	ST_CHECKER=check_powershell_command st_allowed "git push --dry-run origin $BRANCH_PREFIX/x"
 	st_allowed 'env FOO=1 make test'
 	# The rail's own false positive, and the reason this arm was rewritten: unsetting a
 	# name prints nothing, and this repository's shipped fixture suite runs that exact

@@ -28,7 +28,8 @@ Windows a hard requirement, said in the refusal itself (**DD-040**), and the com
 glob matching every hidden entry of a listed directory while judging a brace expansion word by
 word (**DD-044**), and the shipped ladder checks the Claude adapter's shell pin wherever
 `.claude/settings.json` exists (**DD-045**), and it removes a backslash-newline before reading a
-command, as bash does (**DD-046**). Under it is 15.1.0: the
+command, as bash does (**DD-046**), and reads a short-flag cluster on `git push` as git does
+(**DD-047**). Under it is 15.1.0: the
 command guard's permanent denial covers a Windows drive's
 root, `Users` and `Users\<name>` in every spelling it folds, a `cmd /c` recursive `rd`/`del` is
 judged, one spelled with `\"` nested quotes is denied whatever its path, the constitution
@@ -50,7 +51,7 @@ gaps found by measuring an external hook collection's bypass shapes against this
 are approved, Unit 5 at the block tier, each with one fresh-context review pass.
 
 - [x] 1 — a backslash-newline defeats the permanent denial and wrongly denies a legal push
-- [ ] 2 — bundled `-f`/`-d` flags on `git push`
+- [x] 2 — bundled `-f`/`-d` flags on `git push`
 - [ ] 3 — `--no-verify` and `core.hooksPath` on the command rail
 - [ ] 4 — the pre-push hook file, and deny rails for the file-editing tools on it
 - [ ] 5 — well-known credential stores, at the block tier
@@ -86,6 +87,13 @@ early and hides the push. Both are in the guard header's misses; each would be a
 own. Check: pass `echo a # don't`, a newline, then `printenv` to `scripts/command-guard.sh
 --command` — exit 0 means (a) is still open.
 
+**OPEN — decide whether to plan a fix for abbreviated long options on `git push`, found during
+cc-safe-setup Unit 2 and outside it.** Git accepts a long option shortened to a unique prefix, so
+`git push --del origin <branch>` deletes and `--force-w` force-pushes, and the command rail reads
+neither; only the `--pre-push` rail, where installed, stops them by outcome. It is in the guard
+header's push-rail bullet and would be a unit of its own. Check: pass `git push --del origin
+session/x` to `scripts/command-guard.sh --command` — exit 0 means it is still open.
+
 ## Decided non-items (don't re-litigate without new evidence)
 
 A pointer index, not an argument: **read the cited row before reopening any of these**, because
@@ -110,6 +118,10 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-10-23 — **15.2.0 (drafted), cc-safe-setup Unit 2: the push rail reads a short-flag
+  cluster as git does**, so `git push -uf` and `-qd` are denied and the legal `git push -uo f
+  origin <branch>` is no longer denied as naming two refs (**DD-047**).
 
 - 2026-10-23 — **15.2.0 (drafted), cc-safe-setup Unit 1: the command guard removes a
   backslash-newline before it reads a command**, so `rm \⏎-rf /` is denied for good and

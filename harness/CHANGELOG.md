@@ -75,6 +75,13 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   listed in the guard's header: a continuation on a here-document's operator line
   (`cat <<EOF \⏎&& git push --force origin main` hides the push), a quote inside a comment, and
   PowerShell's backtick continuation.
+- **A cluster of short flags on `git push` is read as git reads it.** The push rail knew `-f` and
+  `-d` only as whole words, so `git push -uf`, `-qf`, `-ud` and `-qd` passed. A cluster is now
+  read letter by letter, and an `f` or `d` in it is denied as `-f` or `-d` alone is. `-o` takes
+  the rest of its cluster, or the next word when it ends the cluster, as its value: `-of` is a
+  push option named `f`, and the legal `git push -uo f origin <branch>`, which was denied as
+  naming two refs, now passes. Still missed, and named in the guard's header: a long option
+  shortened to a prefix git accepts, such as `--del` or `--force-w`.
 - **Your ladder now checks the Claude adapter's shell pin.** 14.1.0 shipped `"shell": "bash"` on
   the adapter's hooks as a hand step with nothing behind it, so an upgrade that skipped it stayed
   green. A new rung, run only when `.claude/settings.json` exists, fails when an entry whose
