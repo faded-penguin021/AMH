@@ -11,8 +11,26 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
-## 15.2.0 — 2026-10-14
+## 16.0.0 — 2026-10-26
 
+- **A unit owes the reviews of what it was set to change, not only those of the diff it ends
+  with.** In an adopting repository, a planned unit recorded in a commit and a ledger row that a
+  shared helper "came out longer", and skipped the reviews its plan required because no code
+  changed. Asked, the session said the helper had never been written and the length was an
+  estimate. Both review protocols name the diff as what triggers them, so that skip was arguably
+  within the rules. Session discipline item 10 now fixes a unit's review from the change it was
+  planned or asked to make, before the work starts; a unit framed as evaluating a change owes
+  that change's review. A unit that concludes the change is not needed still owes it: the
+  reviewer gets the conclusion and its evidence, not the author's argument, at the tier the
+  change would have earned, and replays the evidence. The acceptance ladder still follows the
+  tree, and both protocols, the constitution and the seed's playbook template now point here.
+- **A decision says whether its evidence was measured, estimated or reported.** Session
+  discipline item 11: a ledger row, commit message or report that rests a decision on a number
+  or an outcome names the command and keeps its input where the reviewer can reach it, or says
+  it was estimated by reading, or names who reported it. "It came out longer" claims an attempt
+  was built, and a measurement nobody can replay reads as an estimate. A ledger row names no
+  branch, which would not outlive it. Prose-only by design: no field requires it, because a
+  required field would be filled either way.
 - **The Claude adapter's hooks no longer go missing after a `cd`.** Claude Code's hooks
   documentation says a hook runs in the session's current directory, and the relative
   `scripts/command-guard.sh` did stop resolving
@@ -119,6 +137,15 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
 
 ### Upgrading
 
+Copy Session discipline items 10 and 11 from `harness/templates/seed/docs/RUNBOOK.md` into your
+`docs/RUNBOOK.md`. If your Session discipline list does not end at item 9, number them after your
+last item and renumber the cross-references inside them — items 5, 6, 7, 8, 10 and 11 — to your
+list. Copy the one-sentence additions to the openings of both review protocols from the same
+file. These two items are what make the release MAJOR: a session that skipped a review because
+its unit ended without code, or recorded an estimate in the past tense, was within the rules
+before and is not now. If your plans name per-unit reviews, they need no edit; those reviews now
+bind whatever a unit ends with.
+
 If you use the Claude adapter, update the `hooks` block of your `.claude/settings.json` from
 `harness/templates/configs/claude-settings.json`. Prefix each AMH hook's `"command"` — the four
 that run `scripts/...`, not hooks of your own — with `bash \"${CLAUDE_PROJECT_DIR}\"/` (the
@@ -126,7 +153,7 @@ JSON spelling of a quoted placeholder), and on the two `PreToolUse` entries add 
 Windows comment and a following `"onFailure": "block"` line, as the last key of the entry. Copy the new bullet **A hook that fails refuses the call, where the adapter says so** from
 `harness/templates/seed/AGENTS.md` into your `AGENTS.md`.
 
-Copy the 15.2.0 shipped scripts and manifest through the normal upgrade procedure for the
+Copy the 16.0.0 shipped scripts and manifest through the normal upgrade procedure for the
 command-guard changes and the new banner line; they need nothing else. If your repository keeps its hooks under
 `core.hooksPath`, an agent can no longer set that key itself; a hook manager's own install
 step, which runs git without passing through the guard, is unaffected. The new ladder rung needs nothing either, but if
@@ -141,8 +168,9 @@ shell command is refused afterwards, so install Git for Windows first or AMH sto
 A command guard that was quietly crashing will start blocking too. That is the point, but it
 surfaces at once.
 
-Nothing that was correct becomes wrong, and the change is yours to apply, so this is MINOR —
-the owner's call on 2026-10-14, asked because the Windows requirement made it arguable.
+Everything else here was drafted as MINOR 15.2.0: nothing that was correct became wrong, the
+owner's call on 2026-10-14, asked because the Windows requirement made it arguable. The two
+session-discipline rules made the release MAJOR, the owner's call on 2026-10-26.
 
 ## 15.1.0 — 2026-10-07
 

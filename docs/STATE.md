@@ -16,11 +16,14 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 15.2.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 16.0.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-This tree declares **15.2.0**: every Claude adapter hook is anchored at the project root, both
+This tree declares **16.0.0**, MAJOR on the owner's call: a unit owes the review of what it
+was set to change, never only that of the diff it ends with, and a decision says whether its
+evidence was measured, estimated or reported (**DD-050**). It carries the 15.2.0 draft whole: every Claude
+adapter hook is anchored at the project root, both
 `PreToolUse` hooks refuse the call when the hook itself fails, and on Windows that makes Git for
 Windows a hard requirement, said in the refusal itself (**DD-040**), and the command guard judges
 `\rm` and `/usr/bin/env` as `rm` and `env` (**DD-041**), and a command after a reserved word
@@ -29,17 +32,9 @@ glob matching every hidden entry of a listed directory while judging a brace exp
 word (**DD-044**), and the shipped ladder checks the Claude adapter's shell pin wherever
 `.claude/settings.json` exists (**DD-045**), and it removes a backslash-newline before reading a
 command, as bash does (**DD-046**), and reads a short-flag cluster on `git push` as git does
-(**DD-047**). Under it is 15.1.0: the
-command guard's permanent denial covers a Windows drive's
-root, `Users` and `Users\<name>` in every spelling it folds, a `cmd /c` recursive `rd`/`del` is
-judged, one spelled with `\"` nested quotes is denied whatever its path, the constitution
-forbids retrying a refused deletion in another spelling (**DD-038**), and the Claude adapter's
-command guard matches `Bash|PowerShell`, with PowerShell read by its own reader (**DD-039**).
-Under it is 15.0.1, whose
-author-identity rung sets aside the forge's test merge a pull-request CI checks out and judges
-`origin/<default>..HEAD^2` instead (**DD-036**), over 15.0.0 — a deletion aimed at the filesystem root or a home directory is permanently denied, an
-inline interpreter deletion buys one advisory, and both adapters wire output redaction
-(**DD-015**–**DD-035**) — over 14.1.0's shell pin (**DD-007**–**DD-014**). Whether this draft
+(**DD-047**), and denies the pre-push rail's off switches (**DD-048**), and the session banner
+says when newer working memory builds on this checkout (**DD-049**). What each older version
+added is in `harness/CHANGELOG.md` and the Changelog below. Whether this draft
 is tagged or released is not recorded here — `scripts/session-start.sh` probes it every session
 and reports present, absent or could-not-ask, which is the only answer that can be right twice.
 
@@ -73,9 +68,9 @@ Operational gotchas:
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**OPEN — tag the drafted 15.2.0 release after its PR merges.** Tagging is an owner action, and
+**OPEN — tag the drafted 16.0.0 release after its PR merges.** Tagging is an owner action, and
 the README Quick Start names the draft tag before it exists. Check: `git ls-remote --exit-code
---tags origin refs/tags/amh-v15.2.0` — a matching ref resolves this item; no output means the
+--tags origin refs/tags/amh-v16.0.0` — a matching ref resolves this item; no output means the
 documented install command is not live yet.
 
 **OPEN — decide whether to plan a fix for two command-guard parse gaps found during
@@ -119,6 +114,10 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-10-26 — **16.0.0 (drafted, MAJOR, owner): a unit owes the review of what it was set to
+  change, and a decision says whether its evidence was measured, estimated or reported**
+  (Session discipline 10–11). The 15.2.0 draft rides it whole (**DD-050**).
 
 - 2026-10-26 — **15.2.0 (drafted): the session banner says when a branch or worktree that builds
   on HEAD has a newer `docs/STATE.md`**, by ancestry and that file, never this branch's name; a

@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 15.2.0.** Repos that adopt it record the version they took
+**Harness version 16.0.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -243,6 +243,15 @@ by typing, and the work it stood for is now optional. Never let a disclosure gra
 gate. Where you write such a sentence, say what it is worth — prose that overstates its own
 enforcement is the failure P20's companion rule names.
 
+The same disclosure says what its evidence was. A sentence that rests a decision on a number or
+an outcome — a size, a count, "it came out longer", "it does not reproduce" — says whether that
+was measured, naming the command and keeping its input where a reviewer can reach it, estimated
+by reading, or reported by someone else, naming who. A past tense claims an attempt was built,
+a reader cannot tell an estimate from a measurement unless the sentence says which, and a
+measurement nobody can replay reads as an estimate. No field may require it — a required
+"measured:" is filled either way — so it stays a disclosure. Where P12's pass is owed its
+reviewer replays what it can; elsewhere the reader is the only check.
+
 **P4. One verification entrypoint, shared by CI and local *by construction*.** A single
 `scripts/ladder.sh` — guards, then the full test/build/lint set — that CI invokes directly. No
 hand-maintained lockstep between "what the agent runs" and "what CI runs": divergence there is
@@ -390,6 +399,20 @@ arbitrates. Nobody reviews the reviewer.
 Separately from the three: the pass is the harness's default, not a permission to request. Do
 not ask whether to review a legislation diff; spawn the reviewer, and escalate the *diff's
 substance* if anything needs the human. Asking every time trains the human to rubber-stamp.
+
+**Which pass a unit owes is fixed by what it was set to change, never only by the diff it ends
+with.** A unit planned or asked to touch glue or legislation owes that pass even when it ends
+smaller, and above all when it concludes the change is not needed. Then the reviewer gets what
+the unit was set to change, the conclusion and the evidence it rests on — never the author's
+argument for it, the same exclusion as for a diff — works at the tier the planned change would
+have earned, and replays the evidence first. "Not needed" is the cheapest outcome a unit can
+reach, and if reaching it also removed the review that would test it, every unit would have a
+route past its gate that consists of doing less — bound (b)'s laundering, reached by shrinking
+instead of re-running. A unit framed as evaluating a change owes that change's pass, and
+redefining what a unit of an owner-approved plan was set to change is the owner's call (P16),
+never a way to shed its pass. The acceptance check still follows the tree, because it verifies
+what was committed, while the pass verifies a judgement. Prose-only: which pass a unit owes is
+decided from intent, which no guard can read.
 
 While the pass is in flight the diff stays green, uncommitted and unpushed. A harness that
 prompts for a commit on every idle turn is not an argument against the gate: hold, and say so
@@ -1445,7 +1468,8 @@ ladder verifies the tree that is committed (**Session discipline** 3).
 - **Read first:** {{reference docs + related ledger rows}}
 - **Steps / code:** {{where the change goes — e.g. reproduce → failing test first → fix so it
   conforms to the fixtures (never edit a fixture to pass) → ladder → adversarial review if the
-  diff touches {{UNTESTED_GLUE_AREAS}}}}
+  unit was set to touch {{UNTESTED_GLUE_AREAS}}, whatever its diff ends as — Session
+  discipline 10}}
 - **Acceptance:** {{the binary gate — which ladder rungs}}
 - **Record:** {{STATE changelog line; ledger row if durable; which reference doc to update}}
 
@@ -1533,6 +1557,40 @@ cut (version invariants; the owner does the tagging), etc.}}
    prose-only and must stay so: the defect is the generalisation drawn from a
    command's output, and no pre-execution rail can see a belief formed after the command
    returned.
+10. **A unit owes the review of what it was set to change, never only that of the diff it
+   ends with.** Decide which pass the unit owes — the adversarial pass, the rule-review pass,
+   or a review its plan names — from the change it was planned or asked to make, before the
+   work starts. A unit framed as evaluating whether to make a change owes that change's pass,
+   because its outcome is that decision, and an asked unit's change is the ask as the owner
+   wrote it, not the session's paraphrase of it. Keep the pass when the unit ends smaller, and
+   above all when it concludes the change is not needed: the reviewer then gets what the unit
+   was set to change, the conclusion and the evidence it rests on — the attempt, the
+   measurement — but, as with a diff, not the author's argument for it; it works at the tier
+   the planned change would have earned and replays that evidence first (item 11). "No code
+   changed, so no review" is the shape to watch for. "Not needed" is the cheapest outcome a
+   unit can reach, and if it also removed the review that would test it, doing less would be a
+   route past every gate — the laundering of re-reviewing until a pass comes back clean,
+   reached by shrinking instead. Concluding "not needed" is an outcome the pass tests;
+   redefining what a unit of an owner-approved plan was set to change is the owner's call
+   (item 5). A unit that stops at a blocker (item 6) or a fork (item 7) has concluded nothing:
+   it parks, and its pass waits with it. The commit body says what the unit was set to change
+   and which pass that owed (item 8) — a disclosure nothing consumes. "A unit is what one
+   reviewer saw" counts passes; this item says which pass is owed. The acceptance ladder still
+   follows the tree — a docs-only result runs the docs-only gate — because the ladder checks what was
+   committed, while the pass checks a judgement. Prose-only: which pass a unit owes is decided
+   from intent, which no guard can read.
+11. **A decision says whether its evidence was measured, estimated or reported.** A ledger row,
+   commit message or report that rests a decision on a number or an outcome — a diff size, a
+   line count, "it came out longer", "it does not reproduce" — says how it got it: measured,
+   naming the command, with its input kept where the reviewer can reach it until the pass
+   reports; estimated by reading; or reported by someone else, naming who. A past tense is a
+   measurement claim: "it came out longer" asserts that an attempt was built. A measurement
+   nobody can replay reads as an estimate. A ledger row outlives every session branch, so it
+   carries the number and the command themselves and names no branch, as item 5 rules for a
+   plan's path. Where a pass is owed its reviewer replays what it can (item 10); elsewhere the
+   reader is the only check. Prose-only, and it must stay so — nothing in the artifacts tells
+   an estimate from a measurement, and a required "measured:" field would be filled either
+   way; the sentence stays a disclosure because nothing consumes it.
 
 ## Adversarial review protocol (MANDATORY for {{UNTESTED_GLUE_AREAS}} diffs)
 
@@ -1541,7 +1599,8 @@ Test suites cannot see all code. After the ladder is green, hand the FULL diff t
 tree access, but NOT the authoring context, which is anchored on its own rationale and
 predisposed to accept it. Scale the reviewer's model tier to the diff: small mechanical change
 → light tier; large or glue-heavy → the strongest available. Self-review is the fallback only
-where no fresh context can be spawned.
+where no fresh context can be spawned. A unit set to make such a change owes this pass even
+when it ends without one; the reviewer then reviews its conclusion (Session discipline 10).
 
 Hunt these proven bug classes — each one a real shipped bug from this repo's ledger; append
 new classes as the ledger grows:
@@ -1564,7 +1623,8 @@ semantics AND their fixture suite, the mechanical rail scripts (a silently weake
 weakened rail), the session bootstrap, ledger preambles, adapter permission rails — get the
 same fresh-context pass at the **strongest tier regardless of diff size**: a three-line rule
 edit can carry a semantic bomb, and a bad rule manufactures defects in every future session
-that obeys it. **No self-review fallback:** a harness that cannot spawn a fresh context parks
+that obeys it. A unit set to change legislation owes the pass even when it ends without a
+diff (Session discipline 10). **No self-review fallback:** a harness that cannot spawn a fresh context parks
 the rule change for the human rather than reviewing its own legislation. Routine state-file
 edits are exempt, EXCEPT the state file's rule-bearing sections (its Owner-queue preamble, its
 length-guard pointer, its decided non-items). The compression rules themselves live in

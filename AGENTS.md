@@ -1,7 +1,7 @@
 # AMH meta-repository — maintenance guide
 
 This repository is the source of truth for the **Agentic Maintenance Harness** (AMH) and its
-reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 15.2.0**
+reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 16.0.0**
 (`harness/VERSION`).
 
 This file states the harness and this repository as they are now. Rules are rewritten in place
@@ -61,7 +61,8 @@ the rule-review protocol.
 
 The procedures named in `docs/RUNBOOK.md` are binding. Follow **Session discipline** every
 session; use **Change-type playbooks** for the task; apply **Rule-review protocol** when the
-diff changes binding rules or guard semantics. `RULE_FILES` is a tripwire, not a complete
+diff changes binding rules or guard semantics, or the unit was set to (**Session
+discipline** 10). `RULE_FILES` is a tripwire, not a complete
 definition of that scope.
 
 ## Hard boundaries
