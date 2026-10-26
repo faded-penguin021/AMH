@@ -120,6 +120,11 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-10-26 — **15.2.0 (drafted): the session banner says when a branch or worktree that builds
+  on HEAD has a newer `docs/STATE.md`**, by ancestry and that file, never this branch's name; a
+  freshly cut HEAD is judged against the default branch only. Owner-directed, between
+  cc-safe-setup Units 3 and 4 (**DD-049**).
+
 - 2026-10-23 — **15.2.0 (drafted), cc-safe-setup Unit 3: the command guard denies the pre-push
   rail's off switches**: `git push --no-verify`, a `core.hooksPath` override on a push, and
   `git config` setting `core.hooksPath`. A `--config-env` that hid a force push from every rail

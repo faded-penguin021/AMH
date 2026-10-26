@@ -102,6 +102,20 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   It reads any layout, minified included; an AMH hook inside an entry it cannot read as a flat
   object, and a settings file naming no AMH hook at all, are warnings that say what went unchecked.
   A repository without that file gets a `skip` line.
+- **The session banner says when the state file you are about to read is not the newest.** A
+  unit finished in a second worktree and pushed with `git push origin <local>:<remote>` moves
+  the remote branch and leaves the main checkout's branch behind. The next session there read the
+  old state file and reported the finished unit as not started. When HEAD has commits of its
+  own, the banner now lists every branch, remote-tracking ref or detached worktree that builds on
+  it and changes the state file since, one line per commit; it never uses this branch's name or
+  its upstream's, so the two spellings of that push do not matter. When HEAD has none, as in a
+  freshly cut session, a sibling unit's branch cannot be told from a continuation, so the banner
+  judges only `DEFAULT_BRANCH` and says the rest was not judged. A dependency bot's branch is
+  never listed: it never edits the state file. The banner reads refs as last fetched and fetches
+  nothing, not even the trees a partial clone lacks, and bounds each git call with `timeout`
+  where one exists. A shallow clone's empty answer is hedged, and every way git can fail to answer
+  says it did not check. A continuation that was rebased, or cut from a newer commit than HEAD,
+  is missed.
 
 ### Upgrading
 
@@ -113,7 +127,7 @@ Windows comment and a following `"onFailure": "block"` line, as the last key of 
 `harness/templates/seed/AGENTS.md` into your `AGENTS.md`.
 
 Copy the 15.2.0 shipped scripts and manifest through the normal upgrade procedure for the
-command-guard changes; they need nothing else. If your repository keeps its hooks under
+command-guard changes and the new banner line; they need nothing else. If your repository keeps its hooks under
 `core.hooksPath`, an agent can no longer set that key itself; a hook manager's own install
 step, which runs git without passing through the guard, is unaffected. The new ladder rung needs nothing either, but if
 you use the Claude adapter it fails your ladder until every AMH hook in `.claude/settings.json`

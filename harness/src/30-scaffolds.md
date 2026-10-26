@@ -298,6 +298,20 @@ pre-execution warning on the command itself is the wrong layer: the rail is bina
 is correct nearly every time (two ladder rungs run it), and the mistake is the generalisation
 rather than the command.
 
+It also says when the state file the session is about to read is not the newest one. A unit
+finished in another worktree and pushed with a `<local>:<remote>` refspec moves the remote branch
+and leaves this checkout's branch behind, so the next session acts on a plan that has already
+moved on. For a HEAD with commits of its own the banner lists each branch, remote-tracking ref or
+detached worktree that builds on it and changes the state file since: ancestry plus that one
+file, and never this branch's name, because that push spells the same branch two ways. The state
+file is the discriminator because a dependency bot never edits it and every unit does. A HEAD with
+no commits of its own is an ancestor of every branch cut since, and a sibling unit edits the
+state file exactly as a continuation does; which one carries a train is the owner's to say, so
+there the banner judges the default branch alone and says the rest was not judged. It reads refs
+as last fetched without fetching anything, hedges a shallow clone's empty answer, and reports
+"could not look" as its own outcome rather than as "nothing". It misses a continuation that was
+rebased, or cut from a newer commit than HEAD.
+
 ### 3.8 Permission rails — the adapter layer
 
 - **Allow:** the ladder, the setup, warm-up and bootstrap scripts, the build tool.
