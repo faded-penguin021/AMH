@@ -301,7 +301,19 @@
 #     `include.path`, `git config --edit`, or a hand edit of a config file; a tool that sets
 #     the key itself (a hook manager's install step); and `git commit --no-verify`, which
 #     skips no AMH rail because AMH installs no pre-commit hook. Removing or disabling the
-#     hook file is a different command, not read here.
+#     hook file is the next bullet.
+#   * THE HOOK FILE ITSELF GETS A ONE-TIME ADVISORY, NEVER A DENIAL. `rm`, `mv` or `chmod`
+#     naming `.git/hooks/pre-push` — or `.git/hooks`, or an entry there a glob would match it
+#     with (`.git/hooks/*`), case folded — is stopped once per command text, as is
+#     `Remove-Item`, `Move-Item`, `Rename-Item`, an alias of them, or `chmod` in PowerShell. An advisory,
+#     because the owner may legitimately replace or chain the hook, and the bootstrap writes a
+#     missing one again; the text says which of the three outcomes does NOT come back. Reported
+#     incident: an agent rewrote the hook that guarded it, to weaken it — a Claude Code hook,
+#     not this file, so this rail rests on the class (AMH ledger row DD051). Not read, and
+#     passing: any other way to reach the file — `cp`, `ln`, `tee`, `truncate`, a `>`
+#     redirect, an interpreter, a `..` component, `hooks/pre-push` from inside `.git`, a path built by
+#     `$(git rev-parse --git-path hooks)` or a variable — and any hook directory named by
+#     `core.hooksPath`. The file-editing tools are the adapter's to deny, not this script's.
 #   * THE SUBAGENT RAIL SEES ONE SPAWN, NEVER THE FLEET. `--pre-task` fires per spawn and holds
 #     no view of what is already running, so it cannot tell a second spawn beside a live first
 #     from a second after the first finished — it advises every spawn and records the ones that
@@ -787,6 +799,7 @@ advisory_state_file() { # advisory_state_file <name>
 	destructive) [ -n "${DESTRUCTIVE_ADVISORY_STATE+x}" ] && { printf '%s' "$DESTRUCTIVE_ADVISORY_STATE"; return 0; } ;;
 	interpreter) [ -n "${INTERPRETER_ADVISORY_STATE+x}" ] && { printf '%s' "$INTERPRETER_ADVISORY_STATE"; return 0; } ;;
 	subagent) [ -n "${SUBAGENT_ADVISORY_STATE+x}" ] && { printf '%s' "$SUBAGENT_ADVISORY_STATE"; return 0; } ;;
+	hookfile) [ -n "${HOOKFILE_ADVISORY_STATE+x}" ] && { printf '%s' "$HOOKFILE_ADVISORY_STATE"; return 0; } ;;
 	*) return 1 ;;
 	esac
 	slug=${ROOT//\//_}
@@ -820,6 +833,13 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		fi
 		;;
 	interpreter) is_interpreter_deletion "$cmd" || return 1 ;;
+	hookfile)
+		if [ "${GUARD_SHELL:-bash}" = powershell ]; then
+			is_ps_hook_file_command "$cmd" || return 1
+		else
+			is_hook_file_command "$cmd" || return 1
+		fi
+		;;
 	# No condition to test: the caller only invokes this category when a subagent spawn is
 	# actually about to happen, and the spawn itself is the whole trigger.
 	subagent) ;;
@@ -888,7 +908,9 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# right direction — at the cost of a duplicate line per attempt. Bounded by the
 		# session, and the bootstrap deletes the file; not worth a second mechanism.
 		printf '%s\n' "$sig" >>"$state" 2>/dev/null || return 1
-	elif [ "$name" = interpreter ]; then
+	elif [ "$name" = interpreter ] || [ "$name" = hookfile ]; then
+		# The hook-file tier rearms the same way, per command text: removing the hook at minute
+		# two must not buy silence for moving it aside at minute forty.
 		# Rearmed per COMMAND TEXT, for the reason AMH ledger row DC004 forced on the
 		# destructive rail: a per-session one-shot is spent by the first harmless match and
 		# silent for every deletion after it. Two different one-liners are two decisions.
@@ -960,6 +982,14 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		ADVISORY_REASON="This command hands \`${INTERPRETER_LEAD}\` a program that names \`${INTERPRETER_CALL}\`, and the command guard is stopping it once. Deletions written inside an interpreter are the half of the destructive rail no command scanner reaches: the verb tiers judge a command, and this is program text, so nothing here knows what path that call resolves to at run time. Spend the turn on that question. The harness rule is that an unguarded destructive path is exercised against a fixture tree — a fresh \`mktemp -d\`, a directory the test itself made — and never against the working tree, a home directory or anything whose loss would matter, and that a safety check is never removed from the source to observe what it prevents."
 		# shellcheck disable=SC2016 # the examples must print literally, unexpanded.
 		ADVISORY_REASON="$ADVISORY_REASON"' Rerun the same command to proceed; a different one-liner gets its own advisory. Then read what this does NOT see, because a cleared prompt is not a safe command: a deletion inside a SCRIPT FILE or a test suite (`python3 cleanup.py`, `pytest` — the shape of the most widely reported incident of this kind, in which an agent asked to add a delete feature removed its own guard, ran the test against a live path, and the user lost a repository, a home directory, SSH private keys and a GPG keyring), a heredoc body, anything behind `bash -c` or `xargs`, and every language and spelling off this list — `os.system("rm -rf /")` above all. This rail saw a word in a command line. It did not read your program. And read the asymmetry with the tier above rather than around it: `rm -rf /` is denied permanently and never clears, while this spelling of the same deletion clears on your rerun — not because it is safer, but because judging program text cannot be made safe enough to deny on, so the rerun is the only thing standing between this command and the filesystem.'
+		;;
+	hookfile)
+		# The plan for this rail said "it is reinstalled at the next boot", and that is true of
+		# only one of the three outcomes: the bootstrap writes the hook when it is MISSING, leaves
+		# any file already there alone, and never restores an execute bit. Said of `chmod -x`, the
+		# promise would be false and would make the advisory read as harmless.
+		# shellcheck disable=SC2016 # the backticked names are markdown, not substitutions.
+		ADVISORY_REASON='This command removes, moves, replaces or changes the mode of the git pre-push hook (`.git/hooks/pre-push`, or the directory holding it). That file is the pre-push rail: the one check on a push that runs whatever drives the shell, so taking it away switches the rail off as surely as `--no-verify` does. If the rail refused a push, the refusal is the answer — read what it objected to and fix the push; removing a check to get past it is the respelling the harness forbids. What happens next depends on the command: a hook that is REMOVED or moved aside is written again by `scripts/session-start.sh` at the next session start, but until then pushes are unguarded; a hook with its execute bit taken STAYS off, because the bootstrap never touches a hook that exists; and a different file moved into its place is a foreign hook the bootstrap will never overwrite. If the owner asked for this — replacing a foreign hook, chaining the rail into a hook manager — run the same command again; a different command gets its own advisory.'
 		;;
 	keymaterial)
 		# shellcheck disable=SC2016 # the backticked file names are markdown, not substitutions.
@@ -4083,9 +4113,147 @@ is_ps_destructive_command() {
 	ps_destructive_scan "$1"
 }
 
+# The pre-push rail is a FILE, `.git/hooks/pre-push`, and three ordinary commands switch it off
+# without touching git's own options: remove it, move it aside, take its execute bit. That is
+# the hook-tamper class an agent has been reported doing to the hook that guarded it, and
+# deleting a check to get past it is the respelling AMH forbids (AMH ledger row DD051).
+# True when <path> names the hook or a directory holding it: `.git/hooks` itself, or an entry
+# under it that `pre-push` would match as a glob — `pre-push`, `*`, `pre-*`. Case is folded,
+# because the filesystems of two of the three platforms this file supports fold it, and `//` and
+# `/./` are folded as the kernel folds them. A path reaching the hook any other way — a `..`
+# component, `hooks/pre-push` from inside `.git`, a `core.hooksPath` directory,
+# `$(git rev-parse --git-path hooks)` — is not read here; the header says so.
+names_prepush_hook_path() { # names_prepush_hook_path <path>
+	local w rest
+	cmd_lower "$1"
+	w=$CMD_LOWER
+	while :; do
+		case $w in
+		*//*) w=${w//"//"/"/"} ;;
+		*/./*) w=${w//"/./"/"/"} ;;
+		*) break ;;
+		esac
+	done
+	case $w in
+	.git/hooks* | */.git/hooks*) rest=${w#*.git/hooks} ;;
+	*) return 1 ;;
+	esac
+	while :; do case $rest in */) rest=${rest%/} ;; */.) rest=${rest%/.} ;; *) break ;; esac; done
+	[ -z "$rest" ] && return 0
+	case $rest in /*) ;; *) return 1 ;; esac
+	rest=${rest#/}
+	# shellcheck disable=SC2053 # the operand is matched AS a glob on purpose: `rm .git/hooks/*`
+	# removes the hook just as surely as naming it.
+	[[ pre-push == $rest ]]
+}
+
+# A bash operand: each word a brace expansion makes of it, within the caps
+# `names_catastrophic_target` uses, so `.git/hooks/{pre-push,pre-commit}` names the hook.
+names_prepush_hook_file() { # names_prepush_hook_file <word>
+	local opens=${1//[!\{]/}
+	if [ "${#opens}" -gt "$BRACE_COUNT_CAP" ] || [ "${#1}" -gt "$BRACE_LENGTH_CAP" ]; then
+		names_prepush_hook_path "$1"
+		return
+	fi
+	local queue=("$1") w alt seen=1
+	while [ "${#queue[@]}" -gt 0 ]; do
+		w=${queue[0]}
+		queue=("${queue[@]:1}")
+		if brace_alternatives "$w"; then
+			for alt in "${BRACE_ALTS[@]}"; do
+				[ "$seen" -lt "$BRACE_ALTERNATIVE_CAP" ] || break
+				queue+=("$BRACE_PRE$alt$BRACE_POST")
+				seen=$((seen + 1))
+			done
+			continue
+		fi
+		names_prepush_hook_path "$w" && return 0
+	done
+	return 1
+}
+
+# The bash walk: in any segment whose leading command is `rm`, `mv` or `chmod`, every operand
+# that names the hook. `mv x .git/hooks/pre-push` replaces the hook as surely as
+# `mv .git/hooks/pre-push x` removes it, and `mv`'s target directory, glued to `-t` or to
+# `--target-directory=`, is an operand too. Options are not: `chmod --reference=<hook> f` only
+# READS the hook's mode. Every word after `--` is an operand.
+is_hook_file_command() {
+	local cmd=$1 seg lead w i start skip end_of_options
+	local words=()
+	cmd=$(strip_heredocs "$cmd")
+	split_segments "$cmd"
+	for seg in ${SEGMENTS[@]+"${SEGMENTS[@]}"}; do
+		[ -n "${seg// /}" ] || continue
+		lead=$(leading_command "$seg") || continue
+		case $lead in rm | mv | chmod) ;; *) continue ;; esac
+		split_words "$seg"
+		words=(${SPLIT_WORDS[@]+"${SPLIT_WORDS[@]}"})
+		# The leading command's own word: the first one that names it, past the prefixes
+		# `leading_command` skipped.
+		start=${#words[@]}
+		for i in "${!words[@]}"; do
+			command_word "${words[$i]}"
+			[ "$COMMAND_WORD" = "$lead" ] && { start=$((i + 1)); break; }
+		done
+		skip=0 end_of_options=0
+		for w in "${words[@]:start}"; do
+			if [ "$skip" -eq 1 ]; then
+				skip=0
+				continue
+			fi
+			if [ "$end_of_options" -eq 0 ]; then
+				case $lead:$w in
+				*:--) end_of_options=1; continue ;;
+				mv:--target-directory=* | mv:--t*=*) w=${w#*=} ;;
+				mv:-[!-]*t?*) w=${w#*t} ;;
+				# `--ref` is the shortest prefix GNU reads as `--reference`; `--re` is ambiguous
+				# with `--recursive`.
+				chmod:--ref*=*) continue ;;
+				chmod:--ref | chmod:--refe*) skip=1; continue ;;
+				*:-*) continue ;;
+				esac
+			fi
+			names_prepush_hook_file "$w" && return 0
+		done
+	done
+	return 1
+}
+
+# The PowerShell walk: the deletion and move cmdlets and their aliases, with `\` read as the
+# path separator it is there. `chmod` is no cmdlet, but Git for Windows puts one on PATH.
+is_ps_hook_file_command() {
+	local cmd=$1 k c w p
+	local stmts=() parts=()
+	ps_split_statements "$cmd"
+	stmts=(${PS_STATEMENT_WORDS[@]+"${PS_STATEMENT_WORDS[@]}"})
+	for k in ${stmts[@]+"${!stmts[@]}"}; do
+		ps_commands "${stmts[$k]}"
+		for c in ${PS_COMMANDS[@]+"${PS_COMMANDS[@]}"}; do
+			ps_words "$c"
+			case ${#PS_WORDS[0]} in ?? | ? | 1?? | 2[0-4]? | 25[0-5]) ;; *) continue ;; esac
+			ps_lower "${PS_WORDS[0]##*\\}"
+			# Git for Windows' own `rm.exe`, `mv.exe` and `chmod.exe` are on PATH beside the cmdlets.
+			case ${PS_LOWER%.exe} in
+			remove-item | rm | rmdir | rd | del | erase | ri | move-item | mv | move | mi | rename-item | ren | rni | chmod) ;;
+			*) continue ;;
+			esac
+			for w in "${PS_WORDS[@]:1}"; do
+				# `-Path:.git\hooks\pre-push` glues the value to its parameter, and `-Path a,b`
+				# is a list. Braces are no expansion here, so the path is read as it stands.
+				case $w in -*:*) w=${w#*:} ;; esac
+				IFS=, read -r -a parts <<<"$w" || :
+				for p in ${parts[@]+"${parts[@]}"}; do
+					names_prepush_hook_path "${p//\\//}" && return 0
+				done
+			done
+		done
+	done
+	return 1
+}
+
 # The PowerShell entry point. What it judges, in order: the `.env` and key-material advisories,
 # which read command TEXT and so read PowerShell text as well as bash; the destructive tier
-# through `ps_destructive_scan`; then each statement that is not a deletion, re-quoted, through
+# through `ps_destructive_scan`; the hook-file advisory through `is_ps_hook_file_command`; then each statement that is not a deletion, re-quoted, through
 # the interpreter advisory and the bash segment rails — the push rails above all, since
 # `git push --force origin main` is the same command in either shell.
 check_powershell_command() {
@@ -4109,6 +4277,7 @@ check_powershell_command() {
 	# self-test runs every fixture in one process.
 	GUARD_SHELL=powershell
 	needs_one_time_advisory destructive "$cmd" && rc=1
+	[ "$rc" -eq 1 ] || { needs_one_time_advisory hookfile "$cmd" && rc=1; }
 	GUARD_SHELL=bash
 	if [ "$rc" -eq 1 ]; then
 		BLOCK_REASON=$ADVISORY_REASON
@@ -4854,6 +5023,12 @@ check_command() {
 		BLOCK_REASON=$ADVISORY_REASON
 		return 1
 	fi
+	# After the destructive tier, so a permanent denial in the same command is the first verdict
+	# and never waits behind a one-time advisory.
+	if needs_one_time_advisory hookfile "$cmd"; then
+		BLOCK_REASON=$ADVISORY_REASON
+		return 1
+	fi
 	if needs_one_time_advisory interpreter "$cmd"; then
 		BLOCK_REASON=$ADVISORY_REASON
 		return 1
@@ -5314,6 +5489,38 @@ st_keymaterial_advisory() { # st_keymaterial_advisory <expect: fires|silent> <co
 	if [ -n "$old_set" ]; then KEYMATERIAL_ADVISORY_STATE=$old_state; else unset KEYMATERIAL_ADVISORY_STATE; fi
 }
 
+# The hook-file tier, through whichever reader ST_CHECKER names, with its own unspent state.
+# `fires` asks four things: advised, in this tier's own words, cleared by a rerun of the same
+# command, and armed again for a different one (<other>, also a hook-file command).
+st_hookfile_advisory() { # st_hookfile_advisory <expect: fires|silent> <command> [<other>]
+	local expect=$1 cmd=$2 other=${3:-} state old_set old_state
+	old_set=${HOOKFILE_ADVISORY_STATE+x}
+	old_state=${HOOKFILE_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-hookfile-advisory-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	HOOKFILE_ADVISORY_STATE=$state
+	if [ "$expect" = fires ]; then
+		if st_check "$cmd"; then
+			printf 'SELF-TEST FAIL: should have had the one-time hook-file advisory: %s\n' "$cmd" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+		elif case $BLOCK_REASON in *'git pre-push hook'*) false ;; *) true ;; esac; then
+			printf 'SELF-TEST FAIL: blocked, but not by the hook-file advisory: %s\n   reason given: %s\n' "$cmd" "$BLOCK_REASON" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+		elif ! st_check "$cmd"; then
+			printf 'SELF-TEST FAIL: rerunning the SAME hook-file command should proceed: %s\n   reason given: %s\n' "$cmd" "$BLOCK_REASON" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+		elif [ -n "$other" ] && st_check "$other"; then
+			printf 'SELF-TEST FAIL: a DIFFERENT hook-file command must be advised after an earlier one cleared: %s (after %s)\n' "$other" "$cmd" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+		fi
+	elif ! st_check "$cmd"; then
+		printf 'SELF-TEST FAIL: should NOT have had the hook-file advisory: %s\n   reason given: %s\n' "$cmd" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then HOOKFILE_ADVISORY_STATE=$old_state; else unset HOOKFILE_ADVISORY_STATE; fi
+}
+
 st_destructive_advisory_once() {
 	local state old_set old_state
 	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
@@ -5760,6 +5967,14 @@ self_test() {
 	self_destructive_advisory_state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-advisory-self-test.XXXXXX") || exit 1
 	rm -f -- "$self_destructive_advisory_state"
 	DESTRUCTIVE_ADVISORY_STATE=$self_destructive_advisory_state
+	# Unspent and private, so no fixture outside `st_hookfile_advisory` reads or writes the
+	# session's real state file: one that strays into the tier fails on the advisory.
+	local old_hookfile_advisory_state_set=${HOOKFILE_ADVISORY_STATE+x}
+	local old_hookfile_advisory_state=${HOOKFILE_ADVISORY_STATE:-}
+	local self_hookfile_advisory_state
+	self_hookfile_advisory_state=$(mktemp "${TMPDIR:-/tmp}/amh-hookfile-advisory-self-test.XXXXXX") || exit 1
+	rm -f -- "$self_hookfile_advisory_state"
+	HOOKFILE_ADVISORY_STATE=$self_hookfile_advisory_state
 
 	# --- the parser's own failure is a BLOCK, never a pass
 	# A rail that hands back an empty word list has not judged the command, and until
@@ -7202,6 +7417,70 @@ cat .env'
 	st_allowed 'git commit -m "never use --no-verify"'
 	st_allowed 'git commit --no-verify -m x'
 	ST_CHECKER=check_powershell_command st_allowed 'git config --get core.hooksPath'
+	# The hook FILE: removed, moved aside, its execute bit taken, or replaced. Each passed every
+	# rail. A one-time advisory per command text, never a denial.
+	st_hookfile_advisory fires 'rm -f .git/hooks/pre-push' 'mv .git/hooks/pre-push /tmp/'
+	st_hookfile_advisory fires 'mv .git/hooks/pre-push /tmp/' 'chmod -x .git/hooks/pre-push'
+	st_hookfile_advisory fires 'chmod -x .git/hooks/pre-push' 'rm -f .git/hooks/pre-push'
+	st_hookfile_advisory fires 'rm .git/hooks/pre-push'
+	st_hookfile_advisory fires 'chmod 644 .git/hooks/pre-push'
+	st_hookfile_advisory fires 'mv my-hook .git/hooks/pre-push'
+	st_hookfile_advisory fires 'mv .git/hooks .git/hooks.off'
+	st_hookfile_advisory fires 'chmod -R a-x .git/hooks/'
+	st_hookfile_advisory fires 'rm -f .git/hooks/*'
+	st_hookfile_advisory fires 'rm -f .git/hooks/pre-*'
+	st_hookfile_advisory fires 'rm -f ./.git/hooks/pre-push'
+	st_hookfile_advisory fires 'rm -f /repo/.git/hooks/pre-push'
+	st_hookfile_advisory fires 'rm -f ".git/hooks/pre-push"'
+	st_hookfile_advisory fires 'rm -f .GIT/Hooks/Pre-Push'
+	st_hookfile_advisory fires 'sudo rm -f .git/hooks/pre-push'
+	st_hookfile_advisory fires 'cd /repo && rm -f .git/hooks/pre-push'
+	st_hookfile_advisory fires '/bin/rm -f .git/hooks/pre-push'
+	st_hookfile_advisory fires 'rm \
+-f .git/hooks/pre-push'
+	ST_CHECKER=check_powershell_command st_hookfile_advisory fires 'Remove-Item .git\hooks\pre-push' 'Move-Item .git\hooks\pre-push C:\tmp'
+	ST_CHECKER=check_powershell_command st_hookfile_advisory fires 'rm -Force .git/hooks/pre-push'
+	ST_CHECKER=check_powershell_command st_hookfile_advisory fires 'Rename-Item -Path:.git\hooks\pre-push -NewName pre-push.off'
+	ST_CHECKER=check_powershell_command st_hookfile_advisory fires 'Remove-Item C:\repo\.git\hooks\pre-push'
+	ST_CHECKER=check_powershell_command st_hookfile_advisory fires 'chmod -x .git/hooks/pre-push'
+	ST_CHECKER=check_powershell_command st_hookfile_advisory fires "mv '.git\\hooks\\pre-push' 'C:\\tmp\\'"
+	# Literal spellings of the same path, and operands an option carries. Each passed the first
+	# version of this rail, found by its review.
+	st_hookfile_advisory fires 'rm -f .git/hooks/./pre-push'
+	st_hookfile_advisory fires 'rm -f .git//hooks/pre-push'
+	st_hookfile_advisory fires 'chmod -x .git/./hooks/pre-push'
+	st_hookfile_advisory fires 'mv .git/hooks/. /tmp/hooks'
+	st_hookfile_advisory fires 'rm -f .git/hooks/{pre-push,pre-commit}'
+	st_hookfile_advisory fires 'mv --target-directory=.git/hooks pre-push'
+	st_hookfile_advisory fires 'mv -t.git/hooks pre-push'
+	st_hookfile_advisory fires 'mv -ft.git/hooks pre-push'
+	st_hookfile_advisory fires 'mv -t .git/hooks pre-push'
+	st_hookfile_advisory fires 'rm -f -- .git/hooks/pre-push'
+	ST_CHECKER=check_powershell_command st_hookfile_advisory fires 'Remove-Item .git/hooks/./pre-push'
+	ST_CHECKER=check_powershell_command st_hookfile_advisory fires 'Remove-Item -Path .git/hooks/pre-commit,.git/hooks/pre-push'
+	ST_CHECKER=check_powershell_command st_hookfile_advisory fires 'rm.exe -f .git/hooks/pre-push'
+	ST_CHECKER=check_powershell_command st_hookfile_advisory fires 'mv.exe .git/hooks/pre-push C:/tmp'
+	# `--reference` only READS the hook's mode; the file it changes is the other one.
+	st_hookfile_advisory silent 'chmod --reference=/repo/.git/hooks/pre-push scripts/tool.sh'
+	st_hookfile_advisory silent 'chmod --reference /repo/.git/hooks/pre-push scripts/tool.sh'
+	st_hookfile_advisory silent 'chmod --ref /repo/.git/hooks/pre-push scripts/tool.sh'
+	# A glued `--reference=` takes no next word, so the hook after it is still the operand.
+	st_hookfile_advisory fires 'chmod --reference=scripts/tool.sh .git/hooks/pre-push'
+	# An option's own value is not an operand; after `--`, a word that looks like one is.
+	st_hookfile_advisory silent 'mv --suffix=/x/.git/hooks/pre-push a b'
+	st_hookfile_advisory fires 'rm -f -- -/.git/hooks/pre-push'
+	# A permanent denial in the same command is the first verdict, not this advisory.
+	st_destructive_never_clears 'rm -rf / .git/hooks/pre-push' 'the filesystem root'
+	# Other hooks, the sample, reading or listing the hook, and prose naming it.
+	st_hookfile_advisory silent 'rm -f .git/hooks/pre-commit'
+	st_hookfile_advisory silent 'rm -f .git/hooks/pre-push.sample'
+	st_hookfile_advisory silent 'chmod +x scripts/pre-push'
+	st_hookfile_advisory silent 'mv .git/hooksbak/pre-push /tmp/'
+	st_hookfile_advisory silent 'cat .git/hooks/pre-push'
+	st_hookfile_advisory silent 'ls -l .git/hooks/pre-push'
+	st_hookfile_advisory silent 'git commit -m "rm -f .git/hooks/pre-push is advised"'
+	st_hookfile_advisory silent 'echo rm .git/hooks/pre-push'
+	ST_CHECKER=check_powershell_command st_hookfile_advisory silent 'Get-Content .git\hooks\pre-push'
 	st_allowed 'env FOO=1 make test'
 	# The rail's own false positive, and the reason this arm was rewritten: unsetting a
 	# name prints nothing, and this repository's shipped fixture suite runs that exact
@@ -7399,6 +7678,12 @@ git push --force origin main
 		DESTRUCTIVE_ADVISORY_STATE=$old_destructive_advisory_state
 	else
 		unset DESTRUCTIVE_ADVISORY_STATE
+	fi
+	rm -f -- "$self_hookfile_advisory_state"
+	if [ -n "$old_hookfile_advisory_state_set" ]; then
+		HOOKFILE_ADVISORY_STATE=$old_hookfile_advisory_state
+	else
+		unset HOOKFILE_ADVISORY_STATE
 	fi
 	if [ "$ST_FAILS" -ne 0 ]; then
 		printf 'command-guard.sh self-test: %d failure(s)\n' "$ST_FAILS" >&2

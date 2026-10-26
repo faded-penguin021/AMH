@@ -863,6 +863,44 @@ first_only ' # On Windows AMH requires Git Bash: install Git for Windows, or AMH
 expect fail "adapter-set: the shell guard lost the Windows Git Bash comment" "$d" adapter-set.sh \
 	"PreToolUse shell guard entry was not found exactly once (found 0)"
 
+# The editing tools' rail on the git pre-push hook: gone from either copy, respelled as a
+# `Write(...)` rule the host accepts and never matches, anchored at the project instead of the
+# root, or moved out of `"deny"` (DD-051).
+d=$(snapshot adapter_claude_hookfile_deny_gone_template)
+sed_in_place '/"Edit(\/\/\*\*\/\.git\/hooks\/\*\*)"/d' "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: the editing tools' hook-file deny was dropped from the template" "$d" adapter-set.sh \
+	"permissions.deny does not carry"
+
+d=$(snapshot adapter_claude_hookfile_deny_gone_reference)
+sed_in_place '/"Edit(\/\/\*\*\/\.git\/hooks\/\*\*)"/d' "$d/.claude/settings.json"
+expect fail "adapter-set: the editing tools' hook-file deny was dropped from the reference copy" "$d" adapter-set.sh \
+	"permissions.deny does not carry"
+
+d=$(snapshot adapter_claude_hookfile_deny_write)
+sed_in_place 's|"Edit(//\*\*/\.git/hooks/\*\*)"|"Write(//**/.git/hooks/**)"|' "$d/.claude/settings.json"
+expect fail "adapter-set: a Write(...) path rule, which never matches, stands in for the hook-file deny" "$d" adapter-set.sh \
+	"permissions.deny does not carry"
+
+d=$(snapshot adapter_claude_hookfile_deny_project_anchor)
+sed_in_place 's|"Edit(//\*\*/\.git/hooks/\*\*)"|"Edit(/.git/hooks/**)"|' "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: the hook-file deny anchored at the project misses a worktree's hooks" "$d" adapter-set.sh \
+	"permissions.deny does not carry"
+
+d=$(snapshot adapter_claude_hookfile_deny_moved_to_allow)
+sed_in_place '/"Edit(\/\/\*\*\/\.git\/hooks\/\*\*)"/d' "$d/.claude/settings.json"
+awk '$0 == "      \"Bash(git ls-remote:*)\"" { print $0 ","; print "      \"Edit(//**/.git/hooks/**)\""; next } { print }' \
+	"$d/.claude/settings.json" >"$d/settings.amh-awk" && cat "$d/settings.amh-awk" >"$d/.claude/settings.json"
+expect fail "adapter-set: the hook-file entry under allow does not vouch for the deny" "$d" adapter-set.sh \
+	"permissions.deny does not carry"
+
+# A second, empty "deny" after the populated one governs (JSON keeps the last key), while the
+# populated one is still there to be read.
+d=$(snapshot adapter_claude_hookfile_deny_overridden)
+awk '{ print } /^      "Edit\(\/\/\*\*\/\.git\/hooks\/\*\*\)"$/ { getline; print "    ],"; print "    \"deny\": []"; next }' \
+	"$d/.claude/settings.json" >"$d/settings.amh-awk" && cat "$d/settings.amh-awk" >"$d/.claude/settings.json"
+expect fail "adapter-set: a later empty deny array overrides the hook-file deny" "$d" adapter-set.sh \
+	"2 \"deny\" key(s) found"
+
 d=$(snapshot adapter_codex_post_hook_gone)
 sed_in_place '/^\[\[hooks.PostToolUse\]\]$/,/^]$/d' "$d/.codex/config.toml"
 expect fail "adapter-set: the Codex PostToolUse hook was dropped" "$d" adapter-set.sh \

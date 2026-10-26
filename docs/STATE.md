@@ -33,7 +33,8 @@ word (**DD-044**), and the shipped ladder checks the Claude adapter's shell pin 
 `.claude/settings.json` exists (**DD-045**), and it removes a backslash-newline before reading a
 command, as bash does (**DD-046**), and reads a short-flag cluster on `git push` as git does
 (**DD-047**), and denies the pre-push rail's off switches (**DD-048**), and the session banner
-says when newer working memory builds on this checkout (**DD-049**). What each older version
+says when newer working memory builds on this checkout (**DD-049**), and the pre-push hook file
+gets a one-time advisory and an adapter deny rail (**DD-051**). What each older version
 added is in `harness/CHANGELOG.md` and the Changelog below. Whether this draft
 is tagged or released is not recorded here — `scripts/session-start.sh` probes it every session
 and reports present, absent or could-not-ask, which is the only answer that can be right twice.
@@ -48,7 +49,7 @@ are approved, Unit 5 at the block tier, each with one fresh-context review pass.
 - [x] 1 — a backslash-newline defeats the permanent denial and wrongly denies a legal push
 - [x] 2 — bundled `-f`/`-d` flags on `git push`
 - [x] 3 — `--no-verify` and `core.hooksPath` on the command rail
-- [ ] 4 — the pre-push hook file, and deny rails for the file-editing tools on it
+- [x] 4 — the pre-push hook file, and deny rails for the file-editing tools on it
 - [ ] 5 — well-known credential stores, at the block tier
 - [ ] 6 — Claude Code's `--safe-mode` named as a hook-less state
 
@@ -114,6 +115,10 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-10-26 — **16.0.0 (drafted), cc-safe-setup Unit 4: `rm`, `mv` and `chmod` on the pre-push
+  hook file get a one-time advisory, and the Claude adapter denies the editing tools it**; the
+  incident bar was met by class, on the owner's call (**DD-051**).
 
 - 2026-10-26 — **16.0.0 (drafted, MAJOR, owner): a unit owes the review of what it was set to
   change, and a decision says whether its evidence was measured, estimated or reported**

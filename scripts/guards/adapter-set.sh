@@ -386,5 +386,43 @@ for declaration in "${ADAPTERS[@]}"; do
 	done
 done
 
+# The file-editing tools' rail on the git pre-push hook. Under `--restricted` Bash is gone and the
+# editing tools remain, so this entry is the only layer between an agent and the hook that guards
+# its pushes, and a deleted entry looks exactly like a session that never tried to edit it —
+# DD-013's lesson once more (DD-051). The exact spelling, because the near misses are silent:
+# `Write(...)` and `NotebookEdit(...)` path rules are accepted by the host and never match, and a
+# single leading `/` anchors at the project, which misses a linked worktree's hooks in the main
+# checkout's `.git`. Read inside the `"deny"` array, one entry per line, so the same string under
+# `"allow"` or `"ask"` does not vouch for it.
+HOOK_FILE_DENY='"Edit(//**/.git/hooks/**)"'
+claude_hookfile=0
+for declaration in "${ADAPTERS[@]}"; do
+	case $declaration in
+	*claude-settings.json*) ;;
+	*) continue ;;
+	esac
+	for settings in "${declaration%|*}" "${declaration#*|}"; do
+		[ -f "$settings" ] || continue
+		deny=$(sed -n '/^[[:space:]]*"deny": \[$/,/^[[:space:]]*\]/p' "$settings")
+		# Counted at any layout, for the PostToolUse check's reason: JSON keeps the LAST of two
+		# keys, so a second, empty `"deny"` after the first is the array that governs, while the
+		# range above would still read the first and vouch for it.
+		deny_keys=$(grep -o '"deny"[[:space:]]*:' "$settings" | wc -l | tr -d ' ')
+		if [ "$deny_keys" -ne 1 ]; then
+			note "$settings: $deny_keys \"deny\" key(s) found, so which array governs is UNVERIFIED, and the file-editing tools' rail on the git pre-push hook with it. This guard reads one \"deny\" array, one entry per line (DD-051)"
+		elif [ -z "$deny" ]; then
+			note "$settings: no \"deny\" array found at the layout this guard reads (one entry per line), so the file-editing tools' rail on the git pre-push hook is UNVERIFIED, not present (DD-051)"
+		elif ! printf '%s\n' "$deny" | HOOK_FILE_DENY=$HOOK_FILE_DENY awk '
+			{ line = $0; sub(/^[[:space:]]*/, "", line); sub(/,$/, "", line) }
+			line == ENVIRON["HOOK_FILE_DENY"] { found = 1 }
+			END { exit !found }
+		'; then
+			note "$settings: permissions.deny does not carry $HOOK_FILE_DENY — without it the file-editing tools can rewrite or empty the git pre-push hook, the one push check left under \`--restricted\`. A \`Write(...)\` path rule never matches, and a single leading \`/\` misses a linked worktree's hooks (DD-051)"
+		else
+			claude_hookfile=$((claude_hookfile + 1))
+		fi
+	done
+done
+
 [ "$fails" -eq 0 ] || exit 1
-printf 'first-class adapter set is complete across sources, reference paths, installation and legislation; %s Claude command hook(s) across %s file(s) pin shell=bash, %s file(s) anchor every Claude hook at the project root and refuse calls when a command guard fails, %s Claude command guard(s) match Bash|PowerShell, %s Claude and %s Codex adapter(s) wire the PostToolUse redaction rail for every tool\n' "$claude_hooks" "$claude_files" "$claude_anchor_files" "$claude_pre" "$claude_post" "$codex_post"
+printf 'first-class adapter set is complete across sources, reference paths, installation and legislation; %s Claude command hook(s) across %s file(s) pin shell=bash, %s file(s) anchor every Claude hook at the project root and refuse calls when a command guard fails, %s Claude command guard(s) match Bash|PowerShell, %s Claude and %s Codex adapter(s) wire the PostToolUse redaction rail for every tool, %s Claude file(s) deny the editing tools the git pre-push hook\n' "$claude_hooks" "$claude_files" "$claude_anchor_files" "$claude_pre" "$claude_post" "$codex_post" "$claude_hookfile"

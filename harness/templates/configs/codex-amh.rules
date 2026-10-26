@@ -37,6 +37,14 @@ prefix_rule(pattern = [["cat", "head", "tail", "less", "more", "strings", "grep"
 # only, and that is most of what it can promise. scripts/command-guard.sh covers
 # its enumerated reader forms; AGENTS.md remains binding beyond both mechanical rails.
 
+# The git pre-push hook FILE has no rule here, and none can be written: a prefix rule matches a
+# command's leading words literally, so it cannot say "any `rm`, `mv` or `chmod` whose operand
+# names `.git/hooks/pre-push`", it has no one-time-advisory decision, and it governs commands,
+# not the file-editing path. Where the host fires the PreToolUse command guard that config.toml
+# wires, those three commands get its one-time advisory; a host that fires no such hook has no
+# command rail at all (AGENTS.md -> Working guidance). What Codex's own editing does to the file
+# is covered by AGENTS.md alone. Read from the rule semantics, not observed on a live Codex host.
+
 # Git publication rails. The instructive command guard covers more spellings
 # when run directly; these rules express the forms Codex's prefix policy can.
 prefix_rule(pattern = ["git", "push", ["--force", "-f", "--force-with-lease", "--mirror", "--all"]], decision = "forbidden", justification = "AMH forbids force-pushes and broad pushes.")

@@ -401,11 +401,11 @@ report_newer_state() {
 		/^HEAD / { h = $2 } /^detached$/ { d = 1 } /^prunable/ { p = 1 }
 		/^$/ { if (d && !p && h != "") print h; h = ""; d = 0; p = 0 }')
 	while IFS=: read -r sha sym name; do
-		[ -n "$sha" ] && [ "$sha" != "$head" ] && [ -z "$sym" ] || continue
+		{ [ -n "$sha" ] && [ "$sha" != "$head" ] && [ -z "$sym" ]; } || continue
 		found="$found$sha $name"$'\n'
 	done <<<"$refs"
 	while IFS= read -r sha; do
-		[ -n "$sha" ] && [ "$sha" != "$head" ] || continue
+		{ [ -n "$sha" ] && [ "$sha" != "$head" ]; } || continue
 		wm_git merge-base --is-ancestor "$head" "$sha" 2>/dev/null || continue
 		found="${found}$sha a detached worktree"$'\n'
 	done <<<"$wts"

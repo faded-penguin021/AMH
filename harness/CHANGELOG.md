@@ -111,6 +111,18 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   `git --config-env k=V push --force origin main` passed every rail; it is now denied as a
   force push. Still missed, and named in the guard's header: the `GIT_CONFIG_*` environment, an
   `include.path`, `git config --edit`, and a `--no-verify` shortened to a prefix git accepts.
+- **Removing the pre-push hook file gets a one-time advisory, and the Claude adapter denies the
+  editing tools that file.** `rm`, `mv` and `chmod` on `.git/hooks/pre-push` passed every rail,
+  and each switches the git-native pre-push rail off as surely as `--no-verify`. The command
+  guard now stops them once per command text, as it does `.git/hooks` itself, a glob that
+  matches the hook, and PowerShell's `Remove-Item`, `Move-Item` and `Rename-Item` with their
+  aliases. Its text says what comes back: a removed or moved hook is written again at the next
+  session start, but a hook whose execute bit was taken stays off, and a file moved into its
+  place is never overwritten. It is an advisory, not a denial, because an owner may replace or
+  chain the hook. The Claude adapter adds `Edit(//**/.git/hooks/**)` to `permissions.deny`, which
+  Claude Code applies to every built-in editing tool; under `--restricted`, where Bash is gone,
+  it is the only layer left. Still missed, and named in the guard's header: `cp`, `ln`, `tee`, a
+  redirect, an interpreter, a path built at run time, and a `core.hooksPath` directory.
 - **Your ladder now checks the Claude adapter's shell pin.** 14.1.0 shipped `"shell": "bash"` on
   the adapter's hooks as a hand step with nothing behind it, so an upgrade that skipped it stayed
   green. A new rung, run only when `.claude/settings.json` exists, fails when an entry whose
@@ -150,7 +162,9 @@ If you use the Claude adapter, update the `hooks` block of your `.claude/setting
 `harness/templates/configs/claude-settings.json`. Prefix each AMH hook's `"command"` — the four
 that run `scripts/...`, not hooks of your own — with `bash \"${CLAUDE_PROJECT_DIR}\"/` (the
 JSON spelling of a quoted placeholder), and on the two `PreToolUse` entries add the trailing
-Windows comment and a following `"onFailure": "block"` line, as the last key of the entry. Copy the new bullet **A hook that fails refuses the call, where the adapter says so** from
+Windows comment and a following `"onFailure": "block"` line, as the last key of the entry. Add
+`"Edit(//**/.git/hooks/**)"` to its `permissions.deny`, spelled exactly so: a `Write(...)` path
+rule is accepted and never matches, and a single leading `/` misses a linked worktree's hooks. Copy the new bullet **A hook that fails refuses the call, where the adapter says so** from
 `harness/templates/seed/AGENTS.md` into your `AGENTS.md`.
 
 Copy the 16.0.0 shipped scripts and manifest through the normal upgrade procedure for the
