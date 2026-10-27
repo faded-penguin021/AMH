@@ -1,8 +1,9 @@
 # PLAN — close the command-guard gaps that measuring cc-safe-setup exposed
 
-> **Status: APPROVED 2026-10-23, IN PROGRESS — Units 1–4 done (DD-046, DD-047, DD-048, DD-051),
-> Units 5–6 not started.** Unit 4's incident bar was met by class, on the owner's call of
-> 2026-10-26: the report it cites concerns a Claude Code hook, not a git hook.
+> **Status: APPROVED 2026-10-23, IN PROGRESS — Units 1–5 done (DD-046, DD-047, DD-048, DD-051,
+> DD-052), Unit 6 not started.** Unit 4's incident bar was met by class, on the owner's call of
+> 2026-10-26: the report it cites concerns a Claude Code hook, not a git hook. Unit 5 added
+> `~/.cargo/credentials[.toml]`, which its report names, on the owner's call of 2026-10-27.
 > Drafted 2026-10-22. The owner approved all six units, chose the block tier for Unit 5, and
 > allowed one fresh-context review pass per unit (**Owner decisions** below). Units run in order.
 

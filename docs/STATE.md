@@ -34,7 +34,8 @@ word (**DD-044**), and the shipped ladder checks the Claude adapter's shell pin 
 command, as bash does (**DD-046**), and reads a short-flag cluster on `git push` as git does
 (**DD-047**), and denies the pre-push rail's off switches (**DD-048**), and the session banner
 says when newer working memory builds on this checkout (**DD-049**), and the pre-push hook file
-gets a one-time advisory and an adapter deny rail (**DD-051**). What each older version
+gets a one-time advisory and an adapter deny rail (**DD-051**), and it denies reading a tool's
+stored credentials or printing one with `gh auth token` or `git credential fill` (**DD-052**). What each older version
 added is in `harness/CHANGELOG.md` and the Changelog below. Whether this draft
 is tagged or released is not recorded here — `scripts/session-start.sh` probes it every session
 and reports present, absent or could-not-ask, which is the only answer that can be right twice.
@@ -50,7 +51,7 @@ are approved, Unit 5 at the block tier, each with one fresh-context review pass.
 - [x] 2 — bundled `-f`/`-d` flags on `git push`
 - [x] 3 — `--no-verify` and `core.hooksPath` on the command rail
 - [x] 4 — the pre-push hook file, and deny rails for the file-editing tools on it
-- [ ] 5 — well-known credential stores, at the block tier
+- [x] 5 — well-known credential stores, at the block tier
 - [ ] 6 — Claude Code's `--safe-mode` named as a hook-less state
 
 Operational gotchas:
@@ -116,6 +117,10 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-10-27 — **16.0.0 (drafted), cc-safe-setup Unit 5: reading a tool's credential store, and
+  `gh auth token` and `git credential fill`, are denied at the block tier**, with the cargo store
+  added on the owner's call of 2026-10-27 (**DD-052**).
+
 - 2026-10-26 — **16.0.0 (drafted), cc-safe-setup Unit 4: `rm`, `mv` and `chmod` on the pre-push
   hook file get a one-time advisory, and the Claude adapter denies the editing tools it**; the
   incident bar was met by class, on the owner's call (**DD-051**).
@@ -142,15 +147,9 @@ rows — this section is a pointer index, not a narrative.
   backslash-newline before it reads a command**, so `rm \⏎-rf /` is denied for good and
   `git push \⏎-u origin session/x` is no longer denied as naming two refs (**DD-046**).
 
-- 2026-10-23 — **The owner approved the cc-safe-setup plan whole:** all six units, Unit 5 at the
-  block tier, and one fresh-context review pass per unit. That closed its Owner-queue item. No
-  unit has started.
-
-- 2026-10-22 — **Plan drafted, not started: six command-guard units, from measuring
-  cc-safe-setup's bypass shapes against this guard.** The worst finding is that a
-  backslash-newline turns `rm -rf /` from a permanent denial into a one-time advisory. Bundled
-  push flags, `--no-verify` and `core.hooksPath` also pass. The plan waits on the owner (Owner
-  queue).
+- 2026-10-22/23 — **cc-safe-setup plan drafted, then approved whole by the owner**: six
+  command-guard units from measuring that collection's bypass shapes against this guard, Unit 5
+  at the block tier, one fresh-context review pass per unit.
 
 - 2026-10-19 — **15.2.0 (drafted): adopters' ladders check the Claude shell pin**, gated on
   `.claude/settings.json` existing; that closed the pin-check Owner-queue item (**DD-045**).

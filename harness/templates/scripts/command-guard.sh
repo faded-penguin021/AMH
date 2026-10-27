@@ -41,11 +41,19 @@
 # every spelling inside them:
 #
 #   * SECRET-FILE NAMES ARE A LIST TOO. The block tier fires on `.env` and its path forms,
-#     `/proc/*/environ`, and the OpenSSH private keys `id_rsa`, `id_dsa`, `id_ecdsa`,
-#     `id_ed25519` and the `_sk` variants — nothing else. A key stored under any other name
-#     (`deploy_key`, `id_rsa.bak`, `~/.ssh/work`) is not recognised, and neither are the
-#     other private-key containers (`.p12`, `.pfx`, `.jks`, `.keystore`): they carry no
-#     name convention this scanner could read. `.pem` and `.key` are handled one tier down,
+#     `/proc/*/environ`, the OpenSSH private keys `id_rsa`, `id_dsa`, `id_ecdsa`,
+#     `id_ed25519` and the `_sk` variants, and the credential stores that tools keep at a
+#     fixed path — `.git-credentials`, `.netrc` and `_netrc` anywhere; `.aws/credentials`,
+#     `.config/gh/hosts.yml`, `.config/git/credentials`, `.docker/config.json`,
+#     `.kube/config`, `.config/gcloud/application_default_credentials.json` and
+#     `.cargo/credentials[.toml]` under any directory; and `.npmrc` in a home directory only
+#     (`names_credential_store` says why each is shaped as it is) — nothing else. Two commands
+#     that print a stored credential by design are in the same tier: `gh auth token` (and
+#     `gh auth status -t`), and `git credential fill` (and a helper's `get`). A key stored
+#     under any other name (`deploy_key`, `id_rsa.bak`, `~/.ssh/work`) is not recognised, nor
+#     a store its tool's environment variable moved, nor a project-level `.npmrc` even when
+#     it holds a token, and neither are the other private-key containers (`.p12`, `.pfx`,
+#     `.jks`, `.keystore`): they carry no name convention this scanner could read. `.pem` and `.key` are handled one tier down,
 #     as a one-time advisory rather than a block, because both are CONTAINER extensions
 #     rather than secret markers — `fullchain.pem`, `cert.pem` and a CA bundle are public
 #     by design, and a block reason claiming they expose credential values would be false
@@ -782,6 +790,76 @@ names_private_key_file() {
 	esac
 }
 
+# True if a path names a well-known credential STORE: the fixed file a tool writes its login
+# token or password to. These are block-tier for the reason `id_rsa` is — the path alone says
+# what the file holds — and an agent printing `~/.netrc` and `~/.npmrc` into a conversation
+# while checking for a stored token is the reported incident behind the list (AMH ledger row
+# DD052). Three shapes, each as narrow as the name allows:
+#   * a basename that is a credential store wherever it sits: `.git-credentials`, and `.netrc`
+#     with `_netrc`, its Windows spelling. Neither name has a benign use.
+#   * a tool's directory plus its credential file, matched as a path SUFFIX so `~/`, `$HOME/`,
+#     an absolute home and a relative spelling from the home directory all count:
+#     `.aws/credentials`, `.config/gh/hosts.yml`, `.config/git/credentials` (git's other
+#     credential-store file), `.docker/config.json`, `.kube/config`,
+#     `.config/gcloud/application_default_credentials.json`, and `.cargo/credentials` with its
+#     `.toml` form. The directory is what makes `config` or `credentials` a secret.
+#   * `.npmrc` only in a HOME directory (`~`, `~user`, `$HOME`, `${HOME}`, `/root`, `/home/<u>`,
+#     `/Users/<u>`, `<drive>:/Users/<u>`). A project's `.npmrc` is commonly committed and
+#     commonly holds no token, so `cat .npmrc` and `cat packages/web/.npmrc` stay allowed.
+# Backslashes are read as separators first, for the PowerShell arm's re-quoted Windows paths, and
+# `//` and `/./` are folded.
+#
+# Accepted misses, fail-open: a store moved by its tool's environment variable
+# (`AWS_SHARED_CREDENTIALS_FILE`, `KUBECONFIG`, `DOCKER_CONFIG`, `GH_CONFIG_DIR`,
+# `XDG_CONFIG_HOME`, `CARGO_HOME`); `cat .npmrc` run FROM the home directory, which no word in
+# the command can tell from a project's; a case-folded spelling (`~/.NETRC`) on a
+# case-insensitive filesystem; gcloud's `credentials.db` and `legacy_credentials/`; and every
+# tool that prints its own secret on request (`kubectl config view --raw`, `docker login`'s
+# helpers) other than the `gh` and `git credential` verbs judged in `check_segment`.
+names_credential_store() {
+	local p=${1//\\//} dir rest
+	# `~/.aws//credentials` and `~/.aws/./credentials` open the same file.
+	while :; do
+		case $p in
+		*//*) p=${p//\/\//\/} ;;
+		*/./*) p=${p//\/.\//\/} ;;
+		*) break ;;
+		esac
+	done
+	case ${p##*/} in
+	.git-credentials | .netrc | _netrc) return 0 ;;
+	.npmrc) ;;
+	*)
+		case $p in
+		.aws/credentials | */.aws/credentials | \
+			.config/gh/hosts.yml | */.config/gh/hosts.yml | \
+			.config/git/credentials | */.config/git/credentials | \
+			.docker/config.json | */.docker/config.json | \
+			.kube/config | */.kube/config | \
+			.config/gcloud/application_default_credentials.json | */.config/gcloud/application_default_credentials.json | \
+			.cargo/credentials | */.cargo/credentials | .cargo/credentials.toml | */.cargo/credentials.toml)
+			return 0
+			;;
+		esac
+		return 1
+		;;
+	esac
+	# `.npmrc`: only the one in a home directory.
+	dir=${p%/*}
+	[ "$dir" != "$p" ] || return 1
+	# shellcheck disable=SC2016 # the home spellings are matched as written, unexpanded.
+	case $dir in
+	'~' | '$HOME' | '${HOME}' | /root) return 0 ;;
+	'~'*) rest=${dir#\~} ;;
+	/home/?*) rest=${dir#/home/} ;;
+	/Users/?*) rest=${dir#/Users/} ;;
+	[A-Za-z]:/Users/?*) rest=${dir#?:/Users/} ;;
+	*) return 1 ;;
+	esac
+	case $rest in */*) return 1 ;; esac
+	return 0
+}
+
 
 # A broad, one-time speed bump for commands that merely CONTAIN `.env`, including
 # interpreter snippets this guard deliberately cannot parse as file reads. This is an
@@ -1440,6 +1518,28 @@ UNQUOTED=''
 # rather than
 # from a file and are skipped; a digit prefix (`0<file`) is just an fd number and
 # needs no special case, since the `<` is what this scan looks for.
+# The word a redirection names, read as bash reads it: a quoted run is part of the word, spaces
+# and all, so `< "/home/Example User/.netrc"` is one target and not `"/home/Example`. It ends at
+# the first unquoted blank or metacharacter, and the scan stops at CHAR_LOOKAHEAD characters,
+# longer than any path a store sits at.
+redirect_word() { # sets REDIRECT_WORD
+	local r=$1 k=0 m=${#1} ch qq=''
+	[ "$m" -le "$CHAR_LOOKAHEAD" ] || m=$CHAR_LOOKAHEAD
+	while [ "$k" -lt "$m" ]; do
+		ch=${r:k:1}
+		if [ -n "$qq" ]; then
+			[ "$ch" = "$qq" ] && qq=''
+		else
+			case $ch in
+			"'" | '"') qq=$ch ;;
+			[[:space:]] | ';' | '|' | '&' | '<' | '>' | ')' | '(' | '`') break ;;
+			esac
+		fi
+		k=$((k + 1))
+	done
+	REDIRECT_WORD=${r:0:k}
+}
+
 redirect_targets() { # sets REDIRECT_TARGETS
 	local s=$1
 	local i=0 n=${#s} c q='' rest target
@@ -1471,9 +1571,11 @@ redirect_targets() { # sets REDIRECT_TARGETS
 				i=$((i + 1)) # a here-doc or here-string, not a file
 			else
 				rest=${wbuf:i-wbase+1}
+				# `<>` opens the file for reading AND writing, so it is still a read.
+				case $rest in '>'*) rest=${rest#>} ;; esac
 				rest=${rest#"${rest%%[![:space:]]*}"}
-				target=${rest%%[[:space:];|&<>)(\`]*}
-				strip_quotes "$target"
+				redirect_word "$rest"
+				strip_quotes "$REDIRECT_WORD"
 				[ -n "$UNQUOTED" ] && REDIRECT_TARGETS+=("$UNQUOTED")
 			fi
 			;;
@@ -1499,6 +1601,10 @@ reads_env_operand() {
 			BLOCK_REASON="Reading \`$UNQUOTED\` prints private key material (AMH P17). \`redact.sh\` redacts a key block header and body, but only where output is actually piped through it — nothing here guarantees that. Check that the file exists (\`[ -f $UNQUOTED ] && echo present\`) or read the public half (\`$UNQUOTED.pub\`), or ask the owner for a narrower evidence contract via the Owner queue."
 			return 1
 		fi
+		if names_credential_store "$UNQUOTED"; then
+			BLOCK_REASON="Reading \`$UNQUOTED\` prints the login tokens or passwords a tool stored there (AMH P17), and filtering the output with \`grep\` or \`head\` does not keep them out: in these formats a secret shares a line with what you were looking for. Check that the file exists (\`[ -f $UNQUOTED ] && echo present\`), or ask the tool whether it is logged in (\`gh auth status\`, \`npm whoami\`), or ask the owner for a narrower evidence contract via the Owner queue."
+			return 1
+		fi
 	done
 	return 0
 }
@@ -1518,6 +1624,10 @@ copies_env_operand() {
 		fi
 		if names_private_key_file "$UNQUOTED"; then
 			BLOCK_REASON="\`$cmd\` copies \`$UNQUOTED\` — private key material — to another path, where no rail here can see what reads them next (AMH P17). Leave the key where it is; if a tool needs it, point the tool at this path, or ask the owner for a narrower evidence contract via the Owner queue."
+			return 1
+		fi
+		if names_credential_store "$UNQUOTED"; then
+			BLOCK_REASON="\`$cmd\` copies \`$UNQUOTED\` — a tool's stored login tokens or passwords — to another path, where no rail here can see what reads them next (AMH P17). Leave the file where it is; the tool that wrote it reads it from there, or ask the owner for a narrower evidence contract via the Owner queue."
 			return 1
 		fi
 	done
@@ -1882,6 +1992,10 @@ check_segment() {
 			BLOCK_REASON="Redirecting from \`$target\` feeds private key material into the command (AMH P17). Check that the file exists, or read the public half (\`$target.pub\`), or ask the owner for a narrower evidence contract via the Owner queue."
 			return 1
 		fi
+		if names_credential_store "$target"; then
+			BLOCK_REASON="Redirecting from \`$target\` feeds a tool's stored login tokens or passwords into the command (AMH P17). Check that the file exists, or ask the tool whether it is logged in, or ask the owner for a narrower evidence contract via the Owner queue."
+			return 1
+		fi
 	done
 
 	# A non-blank command that parses to NO words is a parser failure, not an empty
@@ -1998,7 +2112,10 @@ check_segment() {
 				names_hooks_path_key "${args[$j]#--config-env=}" && hooks_override=${args[$j]}
 				j=$((j + 1))
 				;;
-			-C | --exec-path) j=$((j + 2)) ;;
+			# Git takes these options' values as the NEXT word too (git.c), and read as lone
+			# flags each value was taken for the subcommand: `git --git-dir /r push --force`
+			# went unjudged while `--git-dir=/r` was denied.
+			-C | --exec-path | --git-dir | --work-tree | --namespace | --super-prefix) j=$((j + 2)) ;;
 			-*) j=$((j + 1)) ;;
 			*) break ;;
 			esac
@@ -2008,6 +2125,30 @@ check_segment() {
 		config)
 			if git_config_sets_hooks_path "${args[@]:$((j + 1))}"; then
 				BLOCK_REASON="Setting \`core.hooksPath\` moves git's hooks directory away from the one holding the AMH pre-push rail, which switches that rail off for every later push, by any agent or none (AMH P13). Moving where a repository's hooks live is an owner decision: ask via the Owner queue. Reading the setting (\`git config --get core.hooksPath\`) and unsetting it are allowed."
+				return 1
+			fi
+			return 0
+			;;
+		# `git credential fill` asks every configured helper for the username and password
+		# of the host on its input and PRINTS them, by design. A helper called directly
+		# (`git credential-store get`, `credential-cache`, `credential-manager`) answers
+		# the same question the same way. `approve`, `reject`, `store` and `erase` print
+		# nothing and pass.
+		credential | credential-?*)
+			local verb='fill' action='' skip=0
+			case ${args[$j]} in credential-?*) verb='get' ;; esac
+			# The action is the first operand. The value of a store or cache helper's own
+			# option is not one: in `credential-store --file get store`, `get` is the file.
+			for a in "${args[@]:$((j + 1))}"; do
+				if [ "$skip" -eq 1 ]; then skip=0; continue; fi
+				case $a in
+				--file | --socket | --timeout) skip=1 ;;
+				-*) ;;
+				*) action=$a; break ;;
+				esac
+			done
+			if [ "$action" = "$verb" ]; then
+				BLOCK_REASON="\`git ${args[$j]} $verb\` prints the username and password git's credential helper holds for that host (AMH P17). To see whether git can authenticate, run the command that needs it (\`git ls-remote origin\`); to see which helper is configured, \`git config --get-all credential.helper\`. Never a value, prefix, suffix, length or hash."
 				return 1
 			fi
 			return 0
@@ -2139,6 +2280,51 @@ check_segment() {
 			return 1
 		fi
 		;;
+	gh)
+		# `gh auth token` prints the stored token by design, and `gh auth status` does when
+		# asked to (`-t`, `--show-token`). Plain `gh auth status` masks the token and is the
+		# check this guard recommends, so it passes. Cobra reads flags anywhere among the
+		# operands — `gh auth -h github.com token` is `gh auth token -h github.com` — so the
+		# walk skips every option, and the value of each one that takes a value, and reads
+		# the first two operands as the command group and the command. `-t` is read in a
+		# cluster of short flags too, where `-h`, `-u` and `-q` take the rest of the cluster
+		# as their value, or the next word when they end it. A `false` value turns either
+		# spelling off.
+		local a skip=0 cluster show=1 ops=()
+		for a in ${args[@]+"${args[@]}"}; do
+			if [ "$skip" -eq 1 ]; then skip=0; continue; fi
+			case $a in
+			--show-token=false | --show-token=0 | --show-token=f | --show-token=F | --show-token=FALSE | --show-token=False) ;;
+			--show-token | --show-token=*) show=0 ;;
+			--hostname | --user | --jq | --json | --template | --repo) skip=1 ;;
+			--*) ;;
+			-?*)
+				cluster=${a#-}
+				while [ -n "$cluster" ]; do
+					case $cluster in
+					t=false | t=0 | t=f | t=F | t=FALSE | t=False) break ;;
+					t=*) show=0; break ;;
+					t*) show=0 ;;
+					[huqR]) skip=1; break ;;
+					[huqR]*) break ;;
+					esac
+					cluster=${cluster#?}
+				done
+				;;
+			*) ops+=("$a") ;;
+			esac
+		done
+		[ "${ops[0]:-}" = auth ] || return 0
+		case ${ops[1]:-} in
+		token) show=0 ;;
+		status) ;;
+		*) return 0 ;;
+		esac
+		if [ "$show" -eq 0 ]; then
+			BLOCK_REASON="\`gh auth ${ops[1]}\` in this form prints the GitHub token gh stored (AMH P17). \`gh auth status\` without \`-t\`/\`--show-token\` says whether you are logged in, as whom and with which scopes, and masks the token. Never a value, prefix, suffix, length or hash."
+			return 1
+		fi
+		;;
 	source | .)
 		# Sourcing does not print anything, so the reader reason would be false — but
 		# it loads every credential in the file into the shell, where any later command
@@ -2213,7 +2399,7 @@ check_segment() {
 					to_dir=0
 					skip=0
 					;;
-				--target-directory=*) to_dir=0 ;;
+				--target-directory=* | -t?*) to_dir=0 ;;
 				-*) ;;
 				*) ops+=("$a") ;;
 				esac
@@ -6164,6 +6350,74 @@ printenv'
 	st_blocked 'cp ~/.ssh/id_rsa /tmp/k'
 	st_blocked 'cp -t /tmp id_rsa'
 	st_blocked 'dd if=id_rsa of=/tmp/k'
+	# Credential stores at their fixed paths, through the reader list, a redirection and a
+	# copy. The first line is the reported incident's own shape: the filter did not help.
+	st_blocked 'cat ~/.netrc 2>/dev/null | grep -E "machine|login" | head -10'
+	st_blocked 'cat ~/.git-credentials'
+	st_blocked 'cat ~/.netrc'
+	st_blocked 'cat ~/.npmrc'
+	st_blocked 'cat ~/.aws/credentials'
+	st_blocked 'cat ~/.config/gh/hosts.yml'
+	st_blocked 'cat ~/.docker/config.json'
+	st_blocked 'cat ~/.kube/config'
+	st_blocked 'cat ~/.config/gcloud/application_default_credentials.json'
+	st_blocked 'cat ~/.cargo/credentials.toml'
+	st_blocked 'cat ~/.cargo/credentials'
+	st_blocked 'cat ~/.config/git/credentials'
+	st_blocked 'cat "$HOME/.git-credentials"'
+	st_blocked 'cat "${HOME}/.npmrc"'
+	st_blocked 'cat /home/dev/.npmrc'
+	st_blocked 'cat /root/.npmrc'
+	st_blocked 'cat ~dev/.npmrc'
+	st_blocked 'head -3 /Users/dev/.aws/credentials'
+	st_blocked 'cat .aws/credentials'
+	ST_CHECKER=check_powershell_command st_blocked 'cat C:\Users\dev\.netrc'
+	ST_CHECKER=check_powershell_command st_blocked 'cat $HOME\.npmrc'
+	ST_CHECKER=check_powershell_command st_blocked 'gh auth token'
+	st_blocked 'cat project/_netrc'
+	st_blocked 'grep -c machine ~/.netrc'
+	st_blocked 'wc -c ~/.kube/config'
+	st_blocked 'jq . < ~/.docker/config.json'
+	st_blocked 'cp ~/.aws/credentials /tmp/c'
+	# The review's replays: a folded path, a quoted redirect target with a space, the `<>`
+	# redirect, a glued copy target, a home `.npmrc` on macOS and Windows.
+	st_blocked 'cat ~/.aws/./credentials'
+	st_blocked 'cat ~/.aws//credentials'
+	st_blocked 'cat /home/dev//.npmrc'
+	st_blocked 'cat < "/home/Example User/.netrc"'
+	st_blocked 'cat <> ~/.netrc'
+	st_blocked 'cat <> .env'
+	st_blocked 'cp -t/tmp ~/.aws/credentials'
+	st_blocked 'cp -t/tmp .env'
+	st_blocked 'cat /Users/dev/.npmrc'
+	ST_CHECKER=check_powershell_command st_blocked 'cat C:\Users\dev\.npmrc'
+	# The two commands that print a stored credential by design, and the respellings that do
+	# the same.
+	st_blocked 'gh auth token'
+	st_blocked 'gh auth token -h github.com'
+	st_blocked 'GH_HOST=github.com gh auth token'
+	st_blocked 'gh auth status --show-token'
+	st_blocked 'gh auth status --show-token=true'
+	st_blocked 'gh auth status -t'
+	st_blocked 'gh auth status -at'
+	st_blocked 'gh auth status -h github.com -t'
+	st_blocked "printf 'host=github.com\\n' | git credential fill"
+	st_blocked 'git -C /some/repo credential fill'
+	st_blocked 'echo host=github.com | git credential-store get'
+	st_blocked 'git credential-store --file /tmp/c get'
+	st_blocked 'git credential-manager get'
+	# Options anywhere among the operands, and option values that are not the command.
+	st_blocked 'gh auth -h github.com token'
+	st_blocked 'gh auth --hostname github.com status -t'
+	st_blocked 'gh --help=false auth token'
+	st_blocked 'gh auth status -t=true'
+	st_blocked 'git --namespace foo credential fill'
+	st_blocked 'git --git-dir /some/repo credential fill'
+	# ...and the same walk on the push rail, which had read each of these values as the
+	# subcommand.
+	st_blocked 'git --git-dir /some/repo push --force origin x'
+	st_blocked 'git --work-tree /some/tree push --force origin x'
+	st_blocked 'git --namespace foo push --force origin x'
 	st_dotenv_advisory_once 'python3 -c "open('"'"'.env'"'"')"'
 	# `.pem`/`.key` get the advisory tier, not the block tier: the extension is a container,
 	# not a secret marker. Both directions, each on its own unspent state file.
@@ -7541,6 +7795,39 @@ cat .env'
 	# A file whose name merely contains the stem is not the key, and prose about one is prose.
 	st_allowed 'cat id_rsa_fixture_notes.md'
 	st_allowed 'git commit -m "block cat id_rsa at the rail"'
+	# A project's `.npmrc` is commonly committed and commonly tokenless: only the home one is
+	# a store. The same holds for a file merely BESIDE a store, and for checks that print no
+	# value.
+	st_allowed 'cat .npmrc'
+	st_allowed 'cat ./.npmrc'
+	st_allowed 'cat packages/web/.npmrc'
+	st_allowed 'cat /home/dev/project/.npmrc'
+	st_allowed 'cat ~/.aws/config'
+	st_allowed 'cat ~/.cargo/config.toml'
+	st_allowed 'cat ~/.docker/daemon.json'
+	st_allowed 'cat ~/.config/gh/config.yml'
+	st_allowed '[ -f ~/.netrc ] && echo present'
+	st_allowed 'ls -la ~/.aws'
+	st_allowed 'git commit -m "never cat ~/.netrc"'
+	st_allowed 'gh auth status'
+	st_allowed 'gh auth status -h github.com'
+	# `-h` takes the rest of its cluster as the host, so the `t` in it is no flag.
+	st_allowed 'gh auth status -hgithub.com'
+	st_allowed 'gh auth status --show-token=false'
+	st_allowed 'gh auth status -t=false'
+	st_allowed 'gh auth status --json hosts --template "-t"'
+	st_allowed 'git credential-store --file get store'
+	st_allowed 'git --git-dir /some/repo status'
+	st_allowed 'cat < "notes with space.txt"'
+	st_allowed 'cat <&3'
+	st_allowed 'gh auth login'
+	st_allowed 'gh pr view 1'
+	st_allowed 'git credential approve'
+	st_allowed 'git config --get-all credential.helper'
+	st_allowed 'echo "gh auth token prints it"'
+	# The same inherited false positive as `id_rsa` above, a decision rather than a surprise:
+	# the one-word pattern reads as the path.
+	st_blocked 'grep -rn ".netrc" docs/'
 	# Inherited false positive, fixtured so it is a decision rather than a surprise: a
 	# one-word search PATTERN is indistinguishable from a path after quote stripping, so
 	# grepping the tree for the literal stem is blocked — exactly as `grep -rn ".env" docs/`

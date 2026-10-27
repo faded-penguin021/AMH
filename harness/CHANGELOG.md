@@ -123,6 +123,28 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   Claude Code applies to every built-in editing tool; under `--restricted`, where Bash is gone,
   it is the only layer left. Still missed, and named in the guard's header: `cp`, `ln`, `tee`, a
   redirect, an interpreter, a path built at run time, and a `core.hooksPath` directory.
+- **Reading a tool's stored credentials is denied, and so are the two commands that print one.**
+  An agent checking for a publish token ran `cat ~/.netrc | grep -E "machine|login"` with
+  `cat ~/.npmrc` and `cat ~/.cargo/credentials.toml`, and printed every token it held into the
+  conversation; the `grep` kept the passwords, which share lines with what it matched. Each of
+  those passed every rail. The command guard's block tier, which already covered the `.env`
+  family and the OpenSSH key names, now covers the stores tools keep at a fixed path, through its
+  reader list, a `<` redirect and a copy: `.netrc`, `_netrc` and `.git-credentials` by name
+  wherever they sit; `~/.aws/credentials`, `~/.config/gh/hosts.yml`, `~/.config/git/credentials`,
+  `~/.docker/config.json`, `~/.kube/config`,
+  `~/.config/gcloud/application_default_credentials.json` and `~/.cargo/credentials[.toml]`, as
+  that directory and file under any parent, so a relative spelling from the home directory
+  counts too; and `~/.npmrc` in a home directory only, because a project's `.npmrc` is commonly
+  committed and holds no token. It also denies `gh auth token`, `gh auth status -t` and
+  `git credential fill`, with a credential helper's own `get`. The Claude adapter adds matching
+  `Read(...)` and `Bash(...)` denials, and the Codex rules name the two commands. Still missed,
+  and named in the guard's header: a store moved by its tool's environment variable,
+  `cat .npmrc` run from the home directory, and a tool that prints its own secret by another
+  verb. Two fixes reach past the stores. A `<>` redirect and a quoted redirect target with a
+  space in it are now read, for `.env` and the key names too. Git's `--git-dir`, `--work-tree`,
+  `--namespace` and `--super-prefix` given their value as the next word no longer hide the
+  command behind them: `git --git-dir <dir> push --force origin x` passed the push rail, and
+  is now denied.
 - **Your ladder now checks the Claude adapter's shell pin.** 14.1.0 shipped `"shell": "bash"` on
   the adapter's hooks as a hand step with nothing behind it, so an upgrade that skipped it stayed
   green. A new rung, run only when `.claude/settings.json` exists, fails when an entry whose
@@ -164,7 +186,7 @@ that run `scripts/...`, not hooks of your own — with `bash \"${CLAUDE_PROJECT_
 JSON spelling of a quoted placeholder), and on the two `PreToolUse` entries add the trailing
 Windows comment and a following `"onFailure": "block"` line, as the last key of the entry. Add
 `"Edit(//**/.git/hooks/**)"` to its `permissions.deny`, spelled exactly so: a `Write(...)` path
-rule is accepted and never matches, and a single leading `/` misses a linked worktree's hooks. Copy the new bullet **A hook that fails refuses the call, where the adapter says so** from
+rule is accepted and never matches, and a single leading `/` misses a linked worktree's hooks. Add the credential-store entries — the `Read(...)` lines after `Read(**/id_ed25519_sk)` and the two `Bash(...)` lines after `Bash(typeset -x)` — to the same `permissions.deny`; if you use the Codex adapter, copy the two new `prefix_rule` lines and their comment from `harness/templates/configs/codex-amh.rules`. Copy the new bullet **A hook that fails refuses the call, where the adapter says so** from
 `harness/templates/seed/AGENTS.md` into your `AGENTS.md`.
 
 Copy the 16.0.0 shipped scripts and manifest through the normal upgrade procedure for the
