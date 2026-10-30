@@ -1,7 +1,9 @@
 # PLAN — close the command-guard gaps that measuring cc-safe-setup exposed
 
-> **Status: APPROVED 2026-10-23, IN PROGRESS — Units 1–5 done (DD-046, DD-047, DD-048, DD-051,
-> DD-052), Unit 6 not started.** Unit 4's incident bar was met by class, on the owner's call of
+> **Status: COMPLETE 2026-10-30, archived — Units 1–6 done (DD-046, DD-047, DD-048, DD-051,
+> DD-052, DD-053).** Unit 6 named `--bare` beside `--safe-mode` and corrected Unit 4's
+> `--restricted` claim, both on the owner's call of 2026-10-30, after Claude Code 2.1.314's
+> `--help` showed `--restricted` ignoring project settings. Unit 4's incident bar was met by class, on the owner's call of
 > 2026-10-26: the report it cites concerns a Claude Code hook, not a git hook. Unit 5 added
 > `~/.cargo/credentials[.toml]`, which its report names, on the owner's call of 2026-10-27.
 > Drafted 2026-10-22. The owner approved all six units, chose the block tier for Unit 5, and

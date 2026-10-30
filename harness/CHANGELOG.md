@@ -120,9 +120,11 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   session start, but a hook whose execute bit was taken stays off, and a file moved into its
   place is never overwritten. It is an advisory, not a denial, because an owner may replace or
   chain the hook. The Claude adapter adds `Edit(//**/.git/hooks/**)` to `permissions.deny`, which
-  Claude Code applies to every built-in editing tool; under `--restricted`, where Bash is gone,
-  it is the only layer left. Still missed, and named in the guard's header: `cp`, `ln`, `tee`, a
-  redirect, an interpreter, a path built at run time, and a `core.hooksPath` directory.
+  Claude Code applies to every built-in editing tool, which the command guard never judges. It
+  does not load under `--restricted`, which ignores the project's settings file unless
+  `--settings` names it; there Claude Code lets only a person or the configured permission
+  handler approve a write to git files. Still missed, and named in the guard's
+  header: `cp`, `ln`, `tee`, a redirect, an interpreter, a path built at run time, and a `core.hooksPath` directory.
 - **Reading a tool's stored credentials is denied, and so are the two commands that print one.**
   An agent checking for a publish token ran `cat ~/.netrc | grep -E "machine|login"` with
   `cat ~/.npmrc` and `cat ~/.cargo/credentials.toml`, and printed every token it held into the
@@ -145,6 +147,13 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   `--namespace` and `--super-prefix` given their value as the next word no longer hide the
   command behind them: `git --git-dir <dir> push --force origin x` passed the push rail, and
   is now denied.
+- **The Claude adapter says which host modes load none of it.** Claude Code's own `--help`
+  (2.1.314) says `--safe-mode` and `--bare` skip the hooks that settings files define, and
+  `--restricted` ignores the project's settings file unless `--settings` names it. A session
+  started in any of them has no command rail, no output redaction and no session bootstrap, and
+  no AMH script checks for that. The
+  adapter's comment now says so. Nothing to apply: it is a comment, and the reason to know it is
+  the session you start, not the file you copy.
 - **Your ladder now checks the Claude adapter's shell pin.** 14.1.0 shipped `"shell": "bash"` on
   the adapter's hooks as a hand step with nothing behind it, so an upgrade that skipped it stayed
   green. A new rung, run only when `.claude/settings.json` exists, fails when an entry whose

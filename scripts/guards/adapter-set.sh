@@ -386,10 +386,13 @@ for declaration in "${ADAPTERS[@]}"; do
 	done
 done
 
-# The file-editing tools' rail on the git pre-push hook. Under `--restricted` Bash is gone and the
-# editing tools remain, so this entry is the only layer between an agent and the hook that guards
-# its pushes, and a deleted entry looks exactly like a session that never tried to edit it —
-# DD-013's lesson once more (DD-051). The exact spelling, because the near misses are silent:
+# The file-editing tools' rail on the git pre-push hook. The command guard judges shell commands,
+# never an editing tool, so this entry is the only layer between those tools and the hook that
+# guards an agent's pushes, and a deleted entry looks exactly like a session that never tried to
+# edit it — DD-013's lesson once more (DD-051). It does not load under `--restricted`, which
+# ignores the project's settings file unless `--settings` names it; there the host's own rule,
+# that only a person or the configured permission handler approves a write to git files, stands
+# in for it (DD-053). The exact spelling, because the near misses are silent:
 # `Write(...)` and `NotebookEdit(...)` path rules are accepted by the host and never match, and a
 # single leading `/` anchors at the project, which misses a linked worktree's hooks in the main
 # checkout's `.git`. Read inside the `"deny"` array, one entry per line, so the same string under
@@ -417,7 +420,7 @@ for declaration in "${ADAPTERS[@]}"; do
 			line == ENVIRON["HOOK_FILE_DENY"] { found = 1 }
 			END { exit !found }
 		'; then
-			note "$settings: permissions.deny does not carry $HOOK_FILE_DENY — without it the file-editing tools can rewrite or empty the git pre-push hook, the one push check left under \`--restricted\`. A \`Write(...)\` path rule never matches, and a single leading \`/\` misses a linked worktree's hooks (DD-051)"
+			note "$settings: permissions.deny does not carry $HOOK_FILE_DENY — without it the file-editing tools can rewrite or empty the git pre-push hook, which the command guard never sees them touch. A \`Write(...)\` path rule never matches, and a single leading \`/\` misses a linked worktree's hooks (DD-051)"
 		else
 			claude_hookfile=$((claude_hookfile + 1))
 		fi

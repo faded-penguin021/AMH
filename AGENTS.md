@@ -153,8 +153,13 @@ definition of that scope.
   script runs. It judges refs, never a commit message or an identity. No script can detect the
   hook-less state for you: telling a hook invocation from a
   manual one requires one vendor's environment variables, which the harness may not assume, so
-  this stays prose on purpose (**DA-022**). Where a host routes shell commands through a
-  PowerShell tool, the command rail exists only if the adapter's matcher names that tool and the
+  this stays prose on purpose (**DA-022**). A host mode can take the hooks away for one session,
+  and no AMH script checks for that either: Claude Code's `--safe-mode` and `--bare` skip the
+  hooks its settings files define, and the CLAUDE.md that points here, and `--restricted`
+  ignores the project's settings file unless it is passed again with `--settings`, so a session
+  started in any of them has no command rail, no output redaction and no session bootstrap,
+  whatever `.claude/settings.json` says (**DD-053**). Where a host routes shell commands through
+  a PowerShell tool, the command rail exists only if the adapter's matcher names that tool and the
   hook's own shell (bash) is present; the Claude adapter's matcher does, and PowerShell text then
   goes to the guard's PowerShell reader, a shorter list than the bash one, whose misses the
   guard's header names (**DD-039**). The Claude adapter anchors every hook at the project root

@@ -35,24 +35,14 @@ command, as bash does (**DD-046**), and reads a short-flag cluster on `git push`
 (**DD-047**), and denies the pre-push rail's off switches (**DD-048**), and the session banner
 says when newer working memory builds on this checkout (**DD-049**), and the pre-push hook file
 gets a one-time advisory and an adapter deny rail (**DD-051**), and it denies reading a tool's
-stored credentials or printing one with `gh auth token` or `git credential fill` (**DD-052**). What each older version
+stored credentials or printing one with `gh auth token` or `git credential fill` (**DD-052**),
+and the constitution names Claude Code's `--safe-mode`, `--bare` and `--restricted` as modes that
+leave the adapter's hooks out (**DD-053**). What each older version
 added is in `harness/CHANGELOG.md` and the Changelog below. Whether this draft
 is tagged or released is not recorded here — `scripts/session-start.sh` probes it every session
 and reports present, absent or could-not-ask, which is the only answer that can be right twice.
 
 `docs/LEDGER_D.md` is the live ledger volume.
-
-Multi-unit work, owner-approved 2026-10-23, in progress:
-`docs/plans/2026-10-22-cc-safe-setup-borrowings.md`. It has six units that close command-guard
-gaps found by measuring an external hook collection's bypass shapes against this guard. All six
-are approved, Unit 5 at the block tier, each with one fresh-context review pass.
-
-- [x] 1 — a backslash-newline defeats the permanent denial and wrongly denies a legal push
-- [x] 2 — bundled `-f`/`-d` flags on `git push`
-- [x] 3 — `--no-verify` and `core.hooksPath` on the command rail
-- [x] 4 — the pre-push hook file, and deny rails for the file-editing tools on it
-- [x] 5 — well-known credential stores, at the block tier
-- [ ] 6 — Claude Code's `--safe-mode` named as a hook-less state
 
 Operational gotchas:
 
@@ -116,6 +106,11 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-10-30 — **16.0.0 (drafted), cc-safe-setup Unit 6, which completes that plan: Claude
+  Code's `--safe-mode`, `--bare` and `--restricted` are named as modes that leave the adapter's
+  hooks out**, and Unit 4's `--restricted` claim is corrected, both on the owner's call; the
+  plan is archived in `docs/history/` (**DD-053**).
 
 - 2026-10-27 — **16.0.0 (drafted), cc-safe-setup Unit 5: reading a tool's credential store, and
   `gh auth token` and `git credential fill`, are denied at the block tier**, with the cargo store
