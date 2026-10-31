@@ -44,6 +44,19 @@ and reports present, absent or could-not-ask, which is the only answer that can 
 
 `docs/LEDGER_D.md` is the live ledger volume.
 
+Multi-unit work, owner-approved 2026-10-31, in progress:
+`docs/plans/2026-10-31-owner-queue-closure.md`. It closes the command-guard gaps the Owner queue
+named: a quote inside a `#` comment, heredoc bodies cut at the wrong line, and abbreviated
+`git push` long options. It also closes the related shapes that measuring those gaps turned up.
+All of it rides the 16.0.0 draft, and each guard unit gets one fresh-context review pass.
+
+- [x] 0 — the plan committed, and the cc-safe-setup Changelog lines folded
+- [ ] 1 — `git push` long options read by unique prefix
+- [ ] 2 — the comment rule becomes bash's, and comments are removed before any walker reads
+- [ ] 3 — heredoc bodies end where bash ends them
+- [ ] 3s — an unclosed heredoc body blocks the command (parked: the owner's open decision)
+- [ ] 4 — heredoc bodies start where bash starts them
+
 Operational gotchas:
 
 - A poison token in a squash-merge message suppresses the release commit's CI run entirely. Edit
@@ -65,22 +78,13 @@ the README Quick Start names the draft tag before it exists. Check: `git ls-remo
 --tags origin refs/tags/amh-v16.0.0` — a matching ref resolves this item; no output means the
 documented install command is not live yet.
 
-**OPEN — decide whether to plan a fix for two command-guard parse gaps found during
-cc-safe-setup Unit 1, both older than it and outside it.** (a) Only the continuation pass knows
-`#` comments, so the `'` in `echo a # don't` opens a string for every other walker, and a
-`printenv` or `rm -rf /` on the next line gets no verdict. (b) Continuations are joined after
-heredoc bodies are cut, so `cat <<EOF \⏎&& git push --force origin main` opens the body a line
-early and hides the push. Both are in the guard header's misses; each would be a unit of its
-own. Check: pass `echo a # don't`, a newline, then `printenv` to `scripts/command-guard.sh
---command` — exit 0 means (a) is still open.
-
-**OPEN — decide whether to plan a fix for abbreviated long options on `git push`, found during
-cc-safe-setup Unit 2 and outside it.** Git accepts a long option shortened to a unique prefix, so
-`git push --del origin <branch>` deletes and `--force-w` force-pushes, and the command rail reads
-neither; only the `--pre-push` rail, where installed, stops them by outcome. Since Unit 3 the
-same gap covers `--no-veri`, and there nothing backstops it, because that flag is what skips the
-pre-push rail (**DD-048**). It is in the guard header and would be a unit of its own. Check: pass `git push --del origin
-session/x` to `scripts/command-guard.sh --command` — exit 0 means it is still open.
+**OPEN — decide whether a heredoc body still open at the end of a command blocks the command
+(plan Unit 3s).** Today the guard silently skips everything after such a body. So a delimiter it
+misreads, such as `<<E"O"F`, `<<"E O F"` or a backslash-newline inside the delimiter, hides every
+later line from every rail. Blocking turns each misread into a refusal; the cost is refusing a
+command that bash runs with a warning. Plan Unit 4 corrects the misreads known today, and the net
+would cover the ones not yet found. Recommendation: block. The owner approved the plan on
+2026-10-31 and kept this decision explicitly open, so Units 3 and 4 run without it.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -107,18 +111,18 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-10-30 — **16.0.0 (drafted), cc-safe-setup Unit 6, which completes that plan: Claude
-  Code's `--safe-mode`, `--bare` and `--restricted` are named as modes that leave the adapter's
-  hooks out**, and Unit 4's `--restricted` claim is corrected, both on the owner's call; the
-  plan is archived in `docs/history/` (**DD-053**).
+- 2026-10-31 — **Owner-queue-closure plan approved by the owner, rev 2.** The two queue items
+  asking whether to plan fixes, for command-guard parse gaps and for abbreviated `git push` long
+  options, are answered: fix them inside 16.0.0, with one fresh-context review per unit. Both
+  items leave the queue. The plan's safety-net unit stays the owner's open decision, in the queue.
 
-- 2026-10-27 — **16.0.0 (drafted), cc-safe-setup Unit 5: reading a tool's credential store, and
-  `gh auth token` and `git credential fill`, are denied at the block tier**, with the cargo store
-  added on the owner's call of 2026-10-27 (**DD-052**).
-
-- 2026-10-26 — **16.0.0 (drafted), cc-safe-setup Unit 4: `rm`, `mv` and `chmod` on the pre-push
-  hook file get a one-time advisory, and the Claude adapter denies the editing tools it**; the
-  incident bar was met by class, on the owner's call (**DD-051**).
+- 2026-10-22 through 2026-10-30 — **cc-safe-setup plan, folded: six command-guard units,
+  approved whole by the owner and done.** The guard removes a backslash-newline before it reads a
+  command (**DD-046**) and reads `git push` short-flag clusters as git does (**DD-047**). It
+  denies the pre-push rail's off switches (**DD-048**), and the pre-push hook file gets an
+  advisory and a deny rail (**DD-051**). Credential stores and the two commands that print a
+  stored credential are denied (**DD-052**), and Claude Code's hook-less modes are named
+  (**DD-053**). The plan is archived in `docs/history/`.
 
 - 2026-10-26 — **16.0.0 (drafted, MAJOR, owner): a unit owes the review of what it was set to
   change, and a decision says whether its evidence was measured, estimated or reported**
@@ -128,23 +132,6 @@ rows — this section is a pointer index, not a narrative.
   on HEAD has a newer `docs/STATE.md`**, by ancestry and that file, never this branch's name; a
   freshly cut HEAD is judged against the default branch only. Owner-directed, between
   cc-safe-setup Units 3 and 4 (**DD-049**).
-
-- 2026-10-23 — **15.2.0 (drafted), cc-safe-setup Unit 3: the command guard denies the pre-push
-  rail's off switches**: `git push --no-verify`, a `core.hooksPath` override on a push, and
-  `git config` setting `core.hooksPath`. A `--config-env` that hid a force push from every rail
-  is closed too (**DD-048**).
-
-- 2026-10-23 — **15.2.0 (drafted), cc-safe-setup Unit 2: the push rail reads a short-flag
-  cluster as git does**, so `git push -uf` and `-qd` are denied and the legal `git push -uo f
-  origin <branch>` is no longer denied as naming two refs (**DD-047**).
-
-- 2026-10-23 — **15.2.0 (drafted), cc-safe-setup Unit 1: the command guard removes a
-  backslash-newline before it reads a command**, so `rm \⏎-rf /` is denied for good and
-  `git push \⏎-u origin session/x` is no longer denied as naming two refs (**DD-046**).
-
-- 2026-10-22/23 — **cc-safe-setup plan drafted, then approved whole by the owner**: six
-  command-guard units from measuring that collection's bypass shapes against this guard, Unit 5
-  at the block tier, one fresh-context review pass per unit.
 
 - 2026-10-19 — **15.2.0 (drafted): adopters' ladders check the Claude shell pin**, gated on
   `.claude/settings.json` existing; that closed the pin-check Owner-queue item (**DD-045**).
