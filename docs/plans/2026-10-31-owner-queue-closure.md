@@ -1,10 +1,10 @@
 # PLAN — close the three open Owner-queue items inside 16.0.0
 
-> **Status: APPROVED by the owner 2026-10-31 (rev 2), in progress.** Unit 3's safety net is
-> split out as Unit 3s and **kept explicitly open as the owner's decision**. It is not
-> implemented unless the owner decides for it (§1, decision 5). Rev 2 recorded the owner's first
-> four decisions and folded in an external review (verdict REVISE_PLAN, four findings, each
-> re-measured, §2.2).
+> **Status: rev 2, committed 2026-10-31 by Unit 0, which is the only unit the owner has
+> approved. Every later unit starts only on the owner's explicit approval of that unit (§1,
+> decision 5).** Unit 3's safety net is split out as Unit 3s, and that decision is still open with
+> the owner. Rev 2 recorded the owner's first four decisions and folded in an external review
+> (verdict REVISE_PLAN, four findings, each re-measured, §2.2).
 > **Every claim is re-verified when the plan is EXECUTED.** Re-measure each shape at the start of
 > the unit that acts on it.
 
@@ -30,14 +30,16 @@ Reading key:
 4. **The version stays 16.0.0.** No new number. Each unit adds a bullet to the existing 16.0.0
    entry in `harness/CHANGELOG.md`. Each ledger row says the change was drafted as part of MAJOR
    16.0.0.
-5. **Rev 2 approved; the safety net stays open.** The owner keeps the one decision rev 2 put to
-   them, Unit 3's safety net, explicitly open. So:
-   - it is split out as **Unit 3s**, decided before any review pass;
-   - it waits in the Owner queue;
-   - Units 3 and 4 run without it.
-
-   Unit 0 removes the two queue items about planning fixes, because the owner has answered them;
-   the STATE checklist tracks the work from then on.
+5. **Each unit needs the owner's approval; the safety net stays open.** The owner approved
+   Unit 0 only, on 2026-10-31.
+   - **No unit starts without the owner's explicit approval of that unit.** Approving one unit
+     approves only that unit, and an approved plan is not an approval of its units.
+   - **The safety net is still the owner's open decision.** It is split out as **Unit 3s**,
+     decided before any review pass, and it waits in the Owner queue. Units 3 and 4, if
+     approved, run without it.
+   - **Queue items 2 and 3 are answered.** They asked whether to plan these fixes, and decision 2
+     answered that, so Unit 0 removed them. An Owner-queue item names the next unit waiting for
+     approval, and the STATE checklist tracks what is done.
 
 ## 2. What was measured
 
@@ -168,6 +170,9 @@ the gap DC-028 already records: the guard does not look inside `"$(…)"` at all
    the reading that judges more text.
 
 ## 4. The units, in order: 0 → 1 → 2 → 3 → 4, with Unit 3s parked, then Phase A
+
+**Each unit starts only when the owner approves that unit** (§1, decision 5). The order below
+is the plan's proposed order, not a licence to start the next unit.
 
 Units 1–4, and Unit 3s if it runs, each follow `docs/RUNBOOK.md` → **Change a shipped script**:
 

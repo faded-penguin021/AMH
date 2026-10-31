@@ -44,11 +44,12 @@ and reports present, absent or could-not-ask, which is the only answer that can 
 
 `docs/LEDGER_D.md` is the live ledger volume.
 
-Multi-unit work, owner-approved 2026-10-31, in progress:
-`docs/plans/2026-10-31-owner-queue-closure.md`. It closes the command-guard gaps the Owner queue
-named: a quote inside a `#` comment, heredoc bodies cut at the wrong line, and abbreviated
-`git push` long options. It also closes the related shapes that measuring those gaps turned up.
-All of it rides the 16.0.0 draft, and each guard unit gets one fresh-context review pass.
+Multi-unit work, planned: `docs/plans/2026-10-31-owner-queue-closure.md`. It closes the
+command-guard gaps the Owner queue named: a quote inside a `#` comment, heredoc bodies cut at
+the wrong line, and abbreviated `git push` long options. It also closes the related shapes that
+measuring those gaps turned up. All of it rides the 16.0.0 draft, and each guard unit gets one
+fresh-context review pass. **Each unit starts only on the owner's explicit approval of that
+unit.** The owner approved Unit 0 only; the Owner queue names the unit waiting for approval.
 
 - [x] 0 — the plan committed, and the cc-safe-setup Changelog lines folded
 - [ ] 1 — `git push` long options read by unique prefix
@@ -83,8 +84,14 @@ documented install command is not live yet.
 misreads, such as `<<E"O"F`, `<<"E O F"` or a backslash-newline inside the delimiter, hides every
 later line from every rail. Blocking turns each misread into a refusal; the cost is refusing a
 command that bash runs with a warning. Plan Unit 4 corrects the misreads known today, and the net
-would cover the ones not yet found. Recommendation: block. The owner approved the plan on
-2026-10-31 and kept this decision explicitly open, so Units 3 and 4 run without it.
+would cover the ones not yet found. Recommendation: block. The decision is the owner's and still
+open; Units 3 and 4, if the owner approves them, run without it.
+
+**OPEN — approve, or not, the next unit of the owner-queue-closure plan: Unit 1, `git push` long
+options read by unique prefix.** Each unit of the plan starts only on the owner's explicit
+approval of that unit, and approving one unit approves only that one. When a unit lands, this
+item moves to the next one. Units 1 to 4 each owe a rule-review pass, which the owner has already
+allowed.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -111,10 +118,13 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-10-31 — **Owner-queue-closure plan approved by the owner, rev 2.** The two queue items
-  asking whether to plan fixes, for command-guard parse gaps and for abbreviated `git push` long
-  options, are answered: fix them inside 16.0.0, with one fresh-context review per unit. Both
-  items leave the queue. The plan's safety-net unit stays the owner's open decision, in the queue.
+- 2026-10-31 — **Owner-queue-closure plan, rev 2, committed by its Unit 0, the only unit the
+  owner approved.** The two queue items asking whether to plan fixes, for command-guard parse gaps
+  and for abbreviated `git push` long options, are answered: fix them inside 16.0.0, with one
+  fresh-context review per unit. Both items leave the queue. Each later unit waits for the
+  owner's approval of that unit, and the plan's safety-net unit stays the owner's open decision;
+  both are in the queue. This line was corrected the same day: it first called the whole plan
+  approved.
 
 - 2026-10-22 through 2026-10-30 — **cc-safe-setup plan, folded: six command-guard units,
   approved whole by the owner and done.** The guard removes a backslash-newline before it reads a
