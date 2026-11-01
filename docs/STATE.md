@@ -93,6 +93,11 @@ approval of that unit, and approving one unit approves only that one. When a uni
 item moves to the next one. Units 1 to 4 each owe a rule-review pass, which the owner has already
 allowed.
 
+**OPEN — decide whether to adopt the harness-research-gaps plan,
+`docs/plans/2026-11-01-harness-research-gaps.md`, and each decision in its §1.** It is committed
+as a draft, and nothing in it is approved. No unit starts without the owner's approval of that
+unit.
+
 ## Decided non-items (don't re-litigate without new evidence)
 
 A pointer index, not an argument: **read the cited row before reopening any of these**, because
