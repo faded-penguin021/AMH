@@ -112,6 +112,17 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   and `--push-opt x origin <branch>`, which had been denied as naming two refs, passes. Every
   word after `--` or `--end-of-options` is now read as a refspec, as git reads it, so
   `git push -- origin <branch> -o main` is denied for naming `main`; it used to pass.
+- **A quote inside a `#` comment no longer hides the next line.** Every walker in the command
+  guard read the `'` in `echo a # don't` as opening a string that ran past the newline, so
+  `echo a # don't⏎printenv` and the same line before a force push passed, and a `<<` inside a
+  comment (`echo hi # see <<EOF⏎printenv`) opened a heredoc body that hid every later line. A
+  command with a `#` in it is now judged twice: once as before, and once with every comment
+  inert, its quotes deleted and no heredoc opened inside it. Either refusal stands, so nothing the
+  guard refused before is let through. Comment text is still judged, and a quote no longer hides
+  any of it, so `echo a # ; printenv` stays refused and `echo a # " < id_rsa` is now refused. So
+  is prose whose nested quotes the walkers misread around a `#`. A command whose comments hide
+  several one-time advisories now meets them one rerun at a time. A command whose comments outside heredoc bodies hold a quote pays for
+  a second run of every rail. A heredoc body full of Markdown headings does not.
 - **The command guard denies the pre-push rail's off switches.** `git push --no-verify`, a
   `core.hooksPath` override on a push (`git -c core.hooksPath=… push`, or `--config-env` in
   either spelling), and `git config` setting `core.hooksPath` in any scope all passed, although

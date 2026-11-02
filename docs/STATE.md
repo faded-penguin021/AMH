@@ -37,13 +37,14 @@ the wrong line, and abbreviated `git push` long options. It also closes the rela
 measuring those gaps turned up. All of it rides the 16.0.0 draft, and each guard unit gets one
 fresh-context review pass. **Each unit starts only on the owner's explicit approval of that
 unit.** The owner approved Units 0, 1 and 2, one at a time. Unit 2's first attempt failed its
-review and was not shipped; plan rev 3 redesigns it, and executing that waits for approval
-(**DD-055**). That attempt is kept whole as `docs/plans/2026-11-02-unit2-attempt-1.patch`,
-which applies to `be7a4df` and retires with the plan. The Owner queue names the unit waiting.
+review and was not shipped (**DD-055**). Its second attempt, plan rev 4, judges a command under two
+readings of its comments, and the stricter verdict wins (**DD-056**). The first attempt is kept
+whole as `docs/plans/2026-11-02-unit2-attempt-1.patch`, which applies to `be7a4df` and retires
+with the plan. The Owner queue names the unit waiting.
 
 - [x] 0 — the plan committed, and the cc-safe-setup Changelog lines folded
 - [x] 1 — `git push` long options read by unique prefix
-- [ ] 2 — comments made inert before any walker reads the text (rev 3; attempt 1 not shipped)
+- [x] 2 — comments made inert before any walker reads the text (rev 4, attempt 2)
 - [ ] 3 — heredoc bodies end where bash ends them
 - [ ] 3s — an unclosed heredoc body blocks the command (parked: the owner's open decision)
 - [ ] 4 — heredoc bodies start where bash starts them
@@ -77,18 +78,15 @@ command that bash runs with a warning. Plan Unit 4 corrects the misreads known t
 would cover the ones not yet found. Recommendation: block. The decision is the owner's and still
 open; Units 3 and 4, if the owner approves them, run without it.
 
-**OPEN — approve, or not, executing Unit 2 as plan rev 3 redesigns it: comments made inert, not
-removed.** The first attempt removed comment text and failed its review (**DD-055**); the owner
-chose the redesign on 2026-11-02, committed as a design only, and granted the unit a fresh review
-pass. Each unit of the plan starts only on the owner's explicit approval of that unit, and
-approving one unit approves only that one. When a unit lands, this item moves to the next one.
-Units 1 to 4 each owe a rule-review pass, which the owner has already allowed.
+**OPEN — approve, or not, starting plan Unit 3: heredoc bodies end where bash ends them.** Each
+unit of the plan starts only on the owner's explicit approval of that unit, and approving one
+unit approves only that one. When a unit lands, this item moves to the next one. Units 3 and 4
+each owe a rule-review pass, which the owner has already allowed.
 
 **OPEN — decide whether to plan a fix for a quote inside backticks.** Found while building Unit 2:
 bash ends a backtick substitution at the first unescaped backtick, quotes or not, and every walker
 in the command guard reads a `'` inside one as opening a string that hides the rest, so
-`` echo `echo 'x`; printenv `` passes. No plan covers it, and the guard's header does not yet name
-it (plan rev 3's Unit 2 would).
+`` echo `echo 'x`; printenv `` passes. No plan covers it; the guard's header names it.
 Check: `scripts/command-guard.sh --command "echo \`echo 'x\`; printenv"` — exit status 0 means
 it is still open.
 
@@ -121,6 +119,12 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-02 — **Owner-queue-closure plan: Unit 2 done, on its second attempt.** A gpt-6-astra
+  spec review found inputs that rev 3's inert comments would newly allow, and plan rev 4 folded
+  it in. The command guard now judges a command with a `#` twice, comments as text and comments
+  inert, and either refusal stands, so `echo a # don't⏎printenv` and a `<<` inside a comment
+  are refused (**DD-056**). The backtick queue item's header gap is now named.
 
 - 2026-10-31 to 2026-11-02 — **Owner-queue-closure plan: Units 0 and 1, each approved by the
   owner on its own, are done.** Unit 0 committed the plan; the two queue items asking whether to

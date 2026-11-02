@@ -143,9 +143,21 @@
 #     removed as bash removes it, but only after the bodies are cut, so one on the OPERATOR
 #     line opens the body a line early: `cat <<EOF \⏎&& git push --force origin main` hides
 #     the push (AMH ledger row DD046).
-#   * A QUOTE INSIDE A `#` COMMENT. Only the continuation pass knows comments; every other
-#     walker reads the `'` in `echo a # don't` as opening a string, which runs past the
-#     newline and hides the next line from every rail.
+#   * COMMENTS ARE READ TWICE, AND THE STRICTER VERDICT WINS. A command with a `#` in it is
+#     judged once with its comments as text, as before, and once with each comment inert, its
+#     quotes deleted, so `echo a # don't⏎printenv` is refused (see COMMENT_READING). Neither
+#     reading drops a comment, so its text is judged as it always was, and a quote no longer
+#     hides any of it: `echo a # ; printenv` and `echo a # " < id_rsa` are refused. Where the
+#     walkers misread the quotes around a `#` — they do not nest the quotes inside `"$(…)"` —
+#     the inert reading can refuse prose bash only echoes:
+#     `echo "$(printf "fix #1")" "; printenv "`. What neither reading catches is what the
+#     first already let through: a comment inside `"$(…)"`, where no walker looks (the `"$(…)"`
+#     bullet above). The second reading costs a second run of every rail on any command whose
+#     comments, outside heredoc bodies, hold a quote: measured on one host, 3.2s became 7.9s
+#     for 32 KB of such lines, against a hook timeout of ten (AMH ledger row DD056).
+#   * A QUOTE INSIDE BACKTICKS. Bash ends a backtick substitution at the first unescaped
+#     backtick, quotes or not; every walker here reads a `'` inside one as opening a string, so
+#     `` echo `echo 'x`; printenv `` passes.
 #   * POWERSHELL IS READ BY ITS OWN READER, AND A SHORTER ONE. A PowerShell tool payload (and the
 #     text behind `powershell -Command` or `pwsh -c` from bash) goes to the PowerShell arm, which
 #     judges `Remove-Item` and its aliases and `cmd /c` deletions itself and hands every other
@@ -399,6 +411,34 @@ BRANCH_PREFIX=session
 CHAR_WINDOW=2048
 CHAR_LOOKAHEAD=512
 
+# --- where a `#` starts a comment, and the two readings -------------------------
+# Whether an unquoted `#` outside `${…}` that follows the character $1 starts a comment. Only
+# at the start of a word: `$#`, `${#x}` and `a#b` open no comment. Not `[[:space:]]`: a
+# carriage return is no shell blank, so `\r#x` is a word. Bash starts a comment at every place
+# this says yes (bash 5.2: after a blank, a newline, `;`, `&`, `|`, `(`, an opening backtick, a
+# `)` that closes a subshell or a case pattern, and after `<` or `>`, where it then refuses the
+# line for a redirection with no target). The rule is broader than bash's: it also says yes
+# after the `)` of `$(`, `<(`, `>(` or `$((`, after a closing backtick, and inside arithmetic
+# or an extglob, where bash reads `#` as part of a word. One shared rule for both readers that act on a
+# comment, `join_continuations` and `heredoc_delim`, so that the two never disagree about one.
+comment_starts_after() { # comment_starts_after <the character before the `#`>
+	case $1 in
+	' ' | $'\t' | $'\n' | ';' | '&' | '|' | '(' | ')' | '<' | '>' | '`') return 0 ;;
+	esac
+	return 1
+}
+
+# Every command with a `#` in it is read TWICE, and the stricter verdict wins (`check_command`).
+# Reading 1 keeps every comment as text with its quotes live: its verdicts are the guard's
+# before comments were read at all, so whatever it refuses stays refused. Reading 2 makes each
+# comment inert — `join_continuations` deletes its quotes and `heredoc_delim` opens no body on a
+# `<<` inside it — so `echo a # don't⏎printenv` is judged. Neither reading is safe alone. The
+# walkers misplace comments (no walker nests the quotes inside `"$(…)"`), and a misplaced
+# comment made inert can turn a later closing quote into an opener and hide what follows it:
+# `echo "$(printf "fix #1")⏎"; printenv`. Reading 1 refuses that. So a misplaced comment costs
+# at most a refusal, never a command let through (AMH ledger row DD056).
+COMMENT_READING=1
+
 # --- line continuations -----------------------------------------------------
 # Bash deletes an unquoted backslash-newline pair before it splits a line into words, so
 # `rm \⏎-rf /` runs `rm -rf /`. The walkers below read the backslash as escaping the next
@@ -424,10 +464,34 @@ CHAR_LOOKAHEAD=512
 # `split_segments`, after `strip_heredocs`: a heredoc body is data, and joining a body line
 # onto its delimiter would hide the delimiter, so body mode would discard everything after it
 # (AMH ledger row DD046).
+#
+# Under the second reading (see COMMENT_READING) this pass also makes every comment INERT: it
+# walks any text holding a `#`, and in each comment region it deletes every `'` and `"`, with
+# the backslashes right before one, and keeps every other character. Every walker behind this
+# one reads quotes and none knows a comment, so the `'` in `echo a # don't` opened a string
+# that ran past the newline and hid the next line from every rail. Deleted, not replaced, because
+# deleting is bash's own quote removal: where the region is really code — the walkers misplace
+# comments, `"$(printf "fix #1")"` above all — `"printenv"` still reads as `printenv`.
+# Nothing else in the region goes, so a misplaced comment keeps its commands in view (AMH
+# ledger row DD055).
 join_continuations() { # join_continuations <text> -> sets JOINED_COMMAND
 	local s=$1
 	JOINED_COMMAND=$s
-	case $s in *\\$'\n'*) ;; *) return 0 ;; esac
+	case $s in
+	*\\$'\n'*) ;;
+	*'#'*) [ "$COMMENT_READING" -eq 2 ] || return 0 ;;
+	*) return 0 ;;
+	esac
+	# Every rail hands this the same text, and the second reading walks every text with a `#`
+	# in it, so the last answer is kept: five walks of a long commented command were most of
+	# its time (see the timing note at the top of this file).
+	if [ "$COMMENT_READING" = "$JOIN_MEMO_READING" ] && [ "$s" = "$JOIN_MEMO_INPUT" ]; then
+		JOINED_COMMAND=$JOIN_MEMO_OUTPUT
+		return 0
+	fi
+	JOIN_MEMO_READING=$COMMENT_READING
+	JOIN_MEMO_INPUT=$s
+	JOIN_MEMO_OUTPUT=''
 	local i=0 n=${#s} c q='' start=0 out='' prev=' ' parameter_depth=0 kept
 	local wbase=0 wbuf='' wsafe=0
 	while [ "$i" -lt "$n" ]; do
@@ -453,6 +517,13 @@ join_continuations() { # join_continuations <text> -> sets JOINED_COMMAND
 					start=$i
 				fi
 				q=''
+			elif [ "$COMMENT_READING" -eq 2 ] && { [ "$c" = "'" ] || [ "$c" = '"' ]; }; then
+				# The backslashes before the quote go with it: kept, they would sit before the
+				# next character, and before the newline they would read as joining a line.
+				kept=${s:start:i-start}
+				while [ "${kept: -1}" = "\\" ]; do kept=${kept%?}; done
+				out+=$kept
+				start=$((i + 1))
 			fi
 			prev=$c
 			i=$((i + 1))
@@ -478,21 +549,19 @@ join_continuations() { # join_continuations <text> -> sets JOINED_COMMAND
 			"'" | '"') q=$c ;;
 			'$') [ "${wbuf:i-wbase+1:1}" = '{' ] && parameter_depth=$((parameter_depth + 1)) ;;
 			'}') [ "$parameter_depth" -gt 0 ] && parameter_depth=$((parameter_depth - 1)) ;;
-			# Only at the start of a word: `$#`, `${#x}` and `a#b` open no comment. Not
-			# `[[:space:]]`: a carriage return is no shell blank, so `\r#x` is a word.
-			'#')
-				if [ "$parameter_depth" -eq 0 ]; then
-					case $prev in ' ' | $'\t' | $'\n' | ';' | '&' | '|' | '(' | ')' | '<' | '>' | '`') q='#' ;; esac
-				fi
-				;;
+			'#') [ "$parameter_depth" -eq 0 ] && comment_starts_after "$prev" && q='#' ;;
 			esac
 		fi
 		prev=$c
 		i=$((i + 1))
 	done
 	JOINED_COMMAND=$out${s:start}
+	JOIN_MEMO_OUTPUT=$JOINED_COMMAND
 }
 JOINED_COMMAND=''
+JOIN_MEMO_READING=''
+JOIN_MEMO_INPUT=''
+JOIN_MEMO_OUTPUT=''
 
 # --- segment splitting ------------------------------------------------------
 # Emit one line per simple-command segment, splitting on UNQUOTED shell operators.
@@ -662,7 +731,7 @@ brace_word_start() { # brace_word_start <the character before the brace>
 HEREDOC_DELIM=''
 heredoc_delim() {
 	local s=$1
-	local i=0 n=${#s} c q='' rest delim
+	local i=0 n=${#s} c q='' rest delim prev=' ' parameter_depth=0
 	local wbase=0 wbuf='' wsafe=0
 	HEREDOC_DELIM=''
 	case $s in *'<<'*) ;; *) return 1 ;; esac # no operator at all: skip the scan
@@ -680,12 +749,24 @@ heredoc_delim() {
 				continue
 			fi
 			[ "$c" = "$q" ] && q=''
+			prev=$c
 			i=$((i + 1))
 			continue
 		fi
 		case $c in
 		"'" | '"') q=$c ;;
-		\\) i=$((i + 1)) ;;
+		\\)
+			i=$((i + 1))
+			c=x
+			;;
+		# Under the second reading a `<<` inside a comment opens nothing, so the scan stops at a
+		# `#` that starts one: `echo hi # see <<EOF⏎printenv` judges the `printenv`.
+		'$') [ "${wbuf:i-wbase+1:1}" = '{' ] && parameter_depth=$((parameter_depth + 1)) ;;
+		'}') [ "$parameter_depth" -gt 0 ] && parameter_depth=$((parameter_depth - 1)) ;;
+		'#')
+			[ "$COMMENT_READING" -eq 2 ] && [ "$parameter_depth" -eq 0 ] &&
+				comment_starts_after "$prev" && return 1
+			;;
 		'<')
 			# `<<<` is a here-STRING: it redirects one line of text and opens no body.
 			if [ "${wbuf:i-wbase+1:1}" = '<' ] && [ "${wbuf:i-wbase+2:1}" != '<' ]; then
@@ -719,6 +800,7 @@ heredoc_delim() {
 			i=$((i + 1))
 			;;
 		esac
+		prev=$c
 		i=$((i + 1))
 	done
 	return 1
@@ -5238,7 +5320,49 @@ warn_ladder_tail() {
 	done
 }
 
+# Judges a command under both comment readings (see COMMENT_READING): refused if either refuses.
+# The second reading runs only where it can differ from the first — the text holds a `#`, and
+# the two readers it changes hand the rails different text — so a command with no comment in
+# view, a `#` inside a heredoc body included, costs one strip and one join more, not a second
+# run of every rail. A warning from either reading is kept. The one-time tiers run under both:
+# their state is append-only, so each advisory clears on its own rerun and none can loop; a
+# second reading that records a different signature costs one more.
 check_command() {
+	local cmd=$1 warn rc
+	COMMENT_READING=1
+	check_command_reading "$cmd" || return 1
+	case $cmd in *'#'*) ;; *) return 0 ;; esac
+	comment_readings_differ "$cmd" || return 0
+	warn=$WARN_REASON
+	COMMENT_READING=2
+	check_command_reading "$cmd"
+	rc=$?
+	COMMENT_READING=1
+	[ -n "$WARN_REASON" ] || WARN_REASON=$warn
+	return "$rc"
+}
+
+# Whether the two comment readings hand the rails different text. They differ in
+# `strip_heredocs` and `join_continuations` and nowhere else, and every rail reads the command
+# through those two, so equal output here means equal verdicts. Leaves the first reading set.
+comment_readings_differ() { # comment_readings_differ <command>
+	local first second
+	COMMENT_READING=1
+	first=$(strip_heredocs "$1")
+	COMMENT_READING=2
+	second=$(strip_heredocs "$1")
+	if [ "$first" = "$second" ]; then
+		join_continuations "$second"
+		second=$JOINED_COMMAND
+		COMMENT_READING=1
+		join_continuations "$first"
+		first=$JOINED_COMMAND
+	fi
+	COMMENT_READING=1
+	[ "$first" != "$second" ]
+}
+
+check_command_reading() { # check_command_reading <command>, under the current COMMENT_READING
 	local cmd=$1
 	local seg
 	BLOCK_REASON=''
@@ -7465,6 +7589,132 @@ EOF'
 	# The pairs go AFTER the heredoc bodies: a quoted-delimiter body keeps its backslash, and
 	# joining its last line onto the delimiter would hide the delimiter and the push after it.
 	st_blocked $'cat <<\'EOF\'\nx \\\nEOF\ngit push --force origin main'
+	# COMMENTS ARE MADE INERT, under the second reading: a quote inside one opens nothing, so each
+	# of these hid its second line from every rail. A `#` starts a comment after a blank, a
+	# newline, an operator, a backtick, a `(` or a `)`; a `<<` inside one opens no heredoc body
+	# (AMH ledger row DD056).
+	st_blocked $'echo a # don\'t\nprintenv'
+	st_blocked $'echo a # don\'t\ngit push --force origin main'
+	st_blocked $'echo a # say "hi\nprintenv'
+	st_destructive_never_clears $'echo a # it\'s\nrm -rf /' 'the filesystem root'
+	st_blocked $'echo hi # see <<EOF\nprintenv'
+	st_blocked $'cat <(# see <<EOF\nprintenv)'
+	st_blocked $'echo a\t# don\'t\nprintenv'
+	st_blocked $'echo a;# don\'t\nprintenv'
+	st_blocked $'echo a&# don\'t\nprintenv'
+	st_blocked $'echo a|# don\'t\nprintenv'
+	st_blocked $'echo `# don\'t`\nprintenv'
+	# A region ends at the newline, inside backticks too: ended at a backtick the walker may have
+	# misplaced, it would put the `'` after it back into play.
+	st_blocked $'echo a # `don\'t\nprintenv'
+	st_blocked $'(echo a)# don\'t\nprintenv'
+	st_blocked $'( (echo a)# don\'t\nprintenv )'
+	st_blocked $'((1))# don\'t\nprintenv'
+	st_blocked $'case a in (a)# don\'t\nprintenv;; esac'
+	st_blocked $'case a in a)# don\'t\nprintenv;; esac'
+	st_blocked $'case a in a) case b in b)# don\'t\nprintenv;; esac;; esac'
+	st_blocked $'{\\\n( echo a # don\'t\n ); }; printenv'
+	st_blocked $'echo $(# don\'t\nprintenv)'
+	st_blocked $'cat <(# don\'t\nprintenv)'
+	st_blocked $'until\\\n(echo a # don\'t\n)\ndo break; done; printenv'
+	st_blocked $'if (echo a)# don\'t\nthen printenv; fi'
+	st_blocked $'x=case; case $x in case ) case a in (a)# don\'t\nprintenv;; esac;; esac'
+	st_blocked $'case a in b) :;; a) (echo a)# don\'t\nprintenv;; esac'
+	st_blocked $'case b in a) :;; b)# don\'t\nprintenv;; esac'
+	st_blocked $'echo ${x:-(} # don\'t\nprintenv'
+	st_blocked $'( (( 1 #x )) # don\'t\n ); printenv'
+	st_blocked $'a=(1 # don\'t\n2); printenv'
+	# The backslashes before a deleted quote go with it, so the newline after the comment still
+	# ends it and no walker reads the next line as joined on.
+	st_blocked $'echo a # say "a\\\'\nprintenv'
+	# The FIRST reading holds these: the walkers misplace the comment, since none nests the
+	# quotes inside `"$(…)"`, and the inert second reading alone would let each one through —
+	# the `"` that closes the string becomes an opener, or a heredoc whose `<<` the second reading
+	# took for a comment has its body judged, and the body's `'` hides the line after it.
+	st_blocked $'echo "$(printf "fix #1")\n"; printenv'
+	st_blocked $'echo "$(printf "fix #1")"; cat <<EOF\n\'\nEOF\nprintenv'
+	st_blocked $'x=$(\necho a\n)#y <<EOF\n\'\nEOF\nprintenv'
+	st_blocked $'x=`\necho a\n`#y <<EOF\n\'\nEOF\nprintenv'
+	# ...and these, which removing comments outright let through (AMH ledger row DD056), stay
+	# refused by both: a misplaced comment made inert keeps its commands in view.
+	st_blocked 'git commit -m "$(printf "fix #1")" && git push --force origin main'
+	st_blocked 'echo "$(printf "fix #1")"; "printenv"'
+	st_blocked 'echo "$(printf "fix #1")"; print"env"'
+	st_blocked '[[ x =~ a|(#x) ]]; printenv'
+	st_blocked $'shopt -s extglob\necho !(#x); printenv'
+	st_blocked '(( 1<(2 #x) )); printenv'
+	st_blocked 'echo $[1 #x]; printenv'
+	# Where bash starts NO comment the text stays judged, as it always was.
+	st_blocked 'echo <(echo a)#b; printenv'
+	st_blocked 'echo >(cat)#b; printenv'
+	st_blocked 'echo $((1+2))#b; printenv'
+	st_blocked 'echo $(echo a)#b; printenv'
+	st_blocked 'echo `echo a`#b; printenv'
+	st_blocked 'echo `#x`; printenv'
+	st_blocked $'echo $(echo a)#\'x\n\'; printenv'
+	st_blocked 'a=(1)#b; printenv'
+	st_blocked 'a=#x; printenv'
+	st_blocked 'echo ${x}#y; printenv'
+	st_blocked 'echo ${x:- #}; printenv'
+	st_blocked 'echo a\#b; printenv'
+	st_blocked '((1 #x)); printenv'
+	st_blocked 'echo a >#x; printenv'
+	st_blocked 'cat <<<#x; printenv'
+	st_blocked $'shopt -s extglob\necho @(a #b); printenv'
+	st_destructive_never_clears $'case a in a)# x \\\nrm -rf /;; esac' 'the filesystem root'
+	st_blocked $'((echo a)# x \\\nprintenv)'
+	# Comment text is still judged under the first reading, so a command it only mentions after
+	# an operator is refused, as it always was; its quotes, deleted, open nothing.
+	st_blocked 'echo a # ; printenv'
+	st_blocked 'echo a # see `env`'
+	st_blocked 'echo $x #$(printenv)'
+	# An accepted refusal, pinned so the choice stays visible: bash only echoes this, but the
+	# walkers misplace the comment, and with its quotes deleted the `;` is an operator.
+	st_blocked 'echo "$(printf "fix #1")" "; printenv "'
+	# ...and comment text is judged as it always was once no quote hides it, a redirection included.
+	st_blocked 'echo a # " < id_rsa'
+	# Ordinary text with a `#` in it stays allowed under both readings.
+	st_allowed 'echo a # rm -rf /'
+	st_allowed 'echo a # \; printenv'
+	st_allowed "# a note that says don't"
+	st_allowed $'echo a # note\ncat <<EOF\nprintenv\nEOF'
+	# A `#` that starts no comment leaves a heredoc's body data under both readings: inside
+	# `${…}`, inside quotes, and inside a word.
+	st_allowed $'cat ${x:- #} <<EOF\nprintenv\nEOF'
+	st_allowed $'cat "a #b" <<EOF\nprintenv\nEOF'
+	st_allowed $'cat a#b <<EOF\nprintenv\nEOF'
+	st_allowed "git commit -m \"it's # fine\""
+	st_allowed 'git commit -m "fix #12"'
+	st_allowed "echo a # it's fine"
+	st_allowed 'echo a # "quoted"'
+	st_allowed 'echo a#b'
+	st_allowed 'echo ${x:-#}'
+	st_allowed 'echo $#'
+	st_allowed 'echo ${#a}'
+	st_allowed 'echo $((16#ff))'
+	st_allowed 'echo ${x#*/} ${x##*.} "${x%#*}"'
+	st_allowed 'x=1 # set x'
+	st_allowed 'ls # list'
+	st_allowed 'echo "# heading" '"'# heading'"
+	st_allowed "grep -n '^#' f.md"
+	st_allowed 'grep -c "#include" a.c'
+	st_allowed "sed -n '/^#/p' f"
+	st_allowed "printf '%s\\n' '#!/bin/bash'"
+	st_allowed '#!/bin/bash'
+	st_allowed $'cat <<\'EOF\'\n# Title\n## Sub, don\'t\nEOF'
+	st_allowed $'git commit -m "$(cat <<\'EOF\'\nFix #12\n\nDon\'t # stop\nEOF\n)"'
+	st_allowed $'gh pr create --body "$(cat <<\'EOF\'\n## Summary\n- it\'s #1\nEOF\n)"'
+	st_allowed 'a=(1 2) # array'
+	st_allowed 'for i in 1 2; do echo $i; done # loop'
+	st_allowed 'echo a | grep b # pipe'
+	st_allowed 'curl https://example.com/#frag'
+	st_allowed "git log --format='%h #%s'"
+	st_allowed 'echo a\#b'
+	st_allowed 'echo `date` # when'
+	st_allowed 'echo $(date) # when'
+	st_allowed 'case $x in a) echo a;; esac # case'
+	st_allowed $'echo a # x\necho b # y'
+	st_allowed $'# one\n# two\necho ok'
 	# ONE FIXTURE PER WALKER, because six sites are six ways to break this and the first draft
 	# of this block demonstrated exactly one of them — every mutation but `split_segments`
 	# survived a green suite. Each command below dies with the walker it names; two of them die

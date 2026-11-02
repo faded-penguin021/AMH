@@ -1,12 +1,12 @@
 # PLAN — close the three open Owner-queue items inside 16.0.0
 
-> **Status: rev 3, 2026-11-02. Units 0 and 1 are done. Unit 2's first attempt failed its review
-> and was not shipped; rev 3 redesigns Unit 2 on the owner's decision, and executing it waits for
-> the owner's approval. Every unit starts only on the owner's explicit approval of that unit (§1,
-> decision 5).** Unit 3's safety net is split out as Unit 3s, and that decision is still open with
+> **Status: rev 4, 2026-11-02. Units 0 and 1 are done. Unit 2's first attempt failed its review
+> and was not shipped; rev 3 redesigned Unit 2 on the owner's decision, the owner approved
+> executing it after a spec review, and rev 4 folds that review in. Every unit starts only on the
+> owner's explicit approval of that unit (§1, decision 5).** Unit 3's safety net is split out as Unit 3s, and that decision is still open with
 > the owner. Rev 2 recorded the owner's first four decisions and folded in an external review
-> (verdict REVISE_PLAN, four findings, each re-measured, §2.2). Rev 3 changes only Unit 2, §3 and
-> §6–§7.
+> (verdict REVISE_PLAN, four findings, each re-measured, §2.2). Revs 3 and 4 change only Unit 2,
+> §2.3, §3 and §6–§7.
 > **Every claim is re-verified when the plan is EXECUTED.** Re-measure each shape at the start of
 > the unit that acts on it.
 
@@ -84,6 +84,10 @@ probe IDs (R…, C…, Q…, H…) are used throughout the plan.
 **Bash starts a comment** at a `#` that comes after any of these:
 
 - a space, tab or newline; `;`, `&`, `&&` or `|` (S1–S7);
+- `>` or `<` (C5 `echo a >#x`, C6 `cat <<<#x`). The redirection is then left without a target,
+  and bash refuses the whole line with a syntax error and runs nothing. Re-measured on
+  2026-11-02 (bash 5.2.21, exit 2, `syntax error near unexpected token `newline'`); rev 2 said
+  that C5 writes a file named `#x`, and that was wrong (**DD-055**);
 - any `(`, including the `(` of `$(` (S4, S5);
 - an **opening** backtick (R1m);
 - a `)` that closes a plain `(`: a subshell (R1d, C15), `((…))` (C4), or a case pattern, with
@@ -91,7 +95,6 @@ probe IDs (R…, C…, Q…, H…) are used throughout the plan.
 
 **Bash does not start a comment** at a `#` that comes after any of these:
 
-- `>` or `<`. C5 `echo a >#x` writes a file named `#x`; C6 is `cat <<<#x`.
 - `=` (C13), `]` (R1k) or `}` (C9).
 - a **closing** backtick (R1f).
 - a `)` that closes `$(` (R1g, nested R1e, C14), `<(` (R1a), `>(` (R1b), `$((` (R1c), `=(`
@@ -102,7 +105,7 @@ C1 is `` echo `#x`; printenv ``, and bash runs `printenv`.
 
 **What the guard does today.** `join_continuations`' comment rule (`command-guard.sh:483–486`)
 counts `<`, `>`, every `)` and every backtick as places a comment can follow. That is wrong for
-C1, C5, C6, C7, C8, C14, R1a–c, R1e–g and R1i. Today the rule only drops backslashes, so those
+C1, C7, C8, C14, R1a–c, R1e–g and R1i; it is right for C5 and C6. Today the rule only drops backslashes, so those
 errors fail closed. Once comment text is dropped, every one of them fails open.
 
 ### 2.4 Heredoc boundaries: shapes that get through the guard (guard 0, bash runs it)
@@ -171,10 +174,12 @@ the gap DC-028 already records: the guard does not look inside `"$(…)"` at all
    the walker cannot decide, such as a `)` whose `(` it never saw. In those cases each reader takes
    the reading that judges more text.
 3. **Where a reader may be wrong about what the shell drops, it makes that text inert instead of
-   removing it** (rev 3, from Unit 2's first attempt). The walkers' model of bash is not complete —
-   no walker nests the quotes inside `"$(…)"` — so a rule that is bash's on paper still misplaces
-   some comments. Removed, a misplaced comment hides the commands in it from every rail; kept with
-   its quotes made inert, it costs at most a refusal of something bash would run harmlessly.
+   removing it, and keeps the old reading beside the new one** (revs 3 and 4, from Unit 2's
+   first attempt and its spec review). The walkers' model of bash is not complete — no walker
+   nests the quotes inside `"$(…)"` — so a rule that is bash's on paper still misplaces some
+   comments. Removed, a misplaced comment hides the commands in it from every rail. Made inert,
+   it can still turn a later closing quote into an opener. Judged under both readings, with the
+   stricter verdict winning, it costs at most a refusal of something bash would run harmlessly.
 
 ## 4. The units, in order: 0 → 1 → 2 → 3 → 4, with Unit 3s parked, then Phase A
 
@@ -243,7 +248,7 @@ discipline** 10). The split into Units 2, 3 and 4 is decided now, before any rev
 - **Acceptance (binary):** every row of §2.5 has the verdict this unit sets, and the ladder is
   green. Then add a Changelog line recording that item 3's check now blocks.
 
-### Unit 2 — comments are made inert before any walker reads the text (item 2(a), a′; finding 1) — rev 3, not yet executed
+### Unit 2 — comments are made inert before any walker reads the text (item 2(a), a′; finding 1) — rev 4, attempt 2
 
 **Attempt 1, 2026-11-02: not shipped.** The owner approved the unit, and the attempt built rev 2's
 design: comments REMOVED by one shared yes/no/unknown predicate, which grew into a stack of open
@@ -270,52 +275,100 @@ through. Its rule-review pass did not hold it:
   applies to `be7a4df`. It retires with this plan.
 
 **The owner's decision, 2026-11-02:** redesign, and grant the unit a fresh rule-review pass — the
-protocol's one route to a second reviewer. Executing the redesign waits for the owner's approval.
+protocol's one route to a second reviewer. Rev 3 wrote the redesign. On 2026-11-02 the owner
+approved executing it, after a spec review by gpt-6-astra (`-e high`) whose findings were to be
+folded in first. Rev 4 is the result.
 
-**The redesign (rev 3):**
+**What the spec review found in rev 3** (verdict REDESIGN; the session replayed the decisive
+inputs against bash 5.2.21):
 
-- **Comment text stays.** `join_continuations` removes nothing. In a region the predicate calls
-  yes or unknown — from the `#` to the newline, or to the closing backtick inside backticks — it
-  replaces each `'` and `"` with an inert character, and drops the backslashes before the newline
-  as it does today. Backticks, `$(`, `;`, `|` and `&` stay: they separate commands the rails must
-  still see. A misplaced "yes" therefore keeps every command in view; F1 becomes
-  `#1_)_ && git push --force origin main`, which the push rail refuses. Yes and unknown now act
-  the same in this reader.
-- **The predicate is attempt 1's, made more exact** where it is cheap, since no verdict now hides
-  text: a glued `!(` is an extglob, not the reserved word; `<(` inside arithmetic is a less-than;
-  `$[` opens arithmetic; `esac` closes a case only in command position; `|` inside `[[ ]]` is no
-  pipe.
-- **`heredoc_delim` stops scanning only on a yes after a blank, `;`, `&`, `|`, `(` or `)`.** After
-  a backtick, and on unknown, it scans on as HEAD does (F2). a′ is still closed.
-- **Residual to measure, then name in the header:** a misplaced comment whose region opens a
-  quote that bash continues onto a later line. The walkers then read the closing quote as an
-  opening one. Fuzz for it before deciding whether it needs more than a header line.
+- **Inert quotes alone are not safe.** A misplaced comment region can hold a quote that bash
+  closes on a LATER line. Made inert, that quote's partner becomes an opener and hides what follows:
+  `echo "$(printf "fix #1")⏎"; printenv` is refused at HEAD and would pass. A false comment can
+  also suppress a real heredoc, whose body quote then hides the next lines (`echo "$(printf "fix
+  #1")"; cat <<EOF⏎'⏎EOF⏎printenv`). So rev 3's "every command in view" and §3 lesson 3's "at
+  most a refusal" do not hold for one reading on its own.
+- **Header prose cannot stand in for zero.** Rev 3's acceptance let a newly allowed input pass
+  by being named in the header. Rev 4 does not.
+- **Quoted prose can gain refusals:** `echo "$(printf "fix #1")" "; printenv "` (finding 7).
+- **§2.3 had C5 and C6 wrong**, as corrected above.
+
+**The design (rev 4): two readings, and the stricter verdict wins.**
+
+- **Reading 1 is HEAD's, byte for byte.** It goes through every rail exactly as `4d7d716` does.
+  Whatever HEAD refuses stays refused: no input can be newly ALLOWED by this unit. That holds
+  by construction, not by measurement, and the fuzz below confirms it.
+- **Reading 2 makes comments inert.** It differs from reading 1 in two readers, and only there:
+  - `join_continuations` walks any text that holds a `#`, not only text with a
+    backslash-newline. In each comment region it DELETES every `'` and `"`, escaped or not,
+    and keeps every other character. Deleting is bash's own quote removal, so a region that is
+    really code still reads as bash reads it: `"printenv"` and `print"env"` become `printenv`,
+    where an inert `_` would hide the word. Backslashes stay, with two exceptions. The run right
+    before a deleted quote goes with it: kept, it would escape the next character, or read as
+    joining the newline (`echo a # say "a\'⏎printenv`). The trailing run before the newline is
+    dropped, as HEAD already drops it (`echo a # \; printenv` stays allowed).
+  - `heredoc_delim` stops scanning a line at a `#` that starts a comment, so a′'s `<<` inside a
+    comment opens no body.
+- **One comment rule, HEAD's own,** for both readers: an unquoted `#` outside `${…}`, after a
+  blank, a newline, `;`, `&`, `|`, `(`, `)`, `<`, `>` or a backtick, or at the start of the text
+  or line. It covers every place in §2.3 where bash starts a comment, and its extra places
+  are exactly HEAD's known errors. With reading 1 underneath, a wrong "yes" costs at most a
+  refusal. Attempt 1's context stack and rev 3's narrower rule for `heredoc_delim` were there
+  to make a removed comment safe; with reading 1 underneath they buy only fewer false refusals,
+  and they are withdrawn.
+- **A region ends at the newline,** inside backticks too. Ending it at the closing backtick
+  would put a `'` back into play wherever the backtick state is wrong:
+  ``echo a # `don't⏎printenv``.
+- **When reading 2 runs.** Only when the text holds a `#`, and only when reading 2 would hand the
+  rails different text: `strip_heredocs` and `join_continuations` are compared under both
+  readings. Those are the only two readers that differ, so identical output means identical
+  verdicts, and the second pass is skipped. A heredoc body full of Markdown `#` lines costs
+  one extra strip and join, not a second run of every rail.
+- **Advisory state.** Both readings go through the one-time tiers. Their state is append-only,
+  so each advisory clears on its own rerun and none can loop. A command can take more reruns
+  than at HEAD: every tier whose target a comment's quote used to hide now fires in turn, and
+  a destructive signature recorded only by reading 2 adds one more. The rule review measured four
+  reruns for a deletion, a hook-file `chmod` and an inline `os.unlink` behind one `# don't`.
+- **Residual, named in the header:** whatever HEAD already lets through and reading 2 does not
+  catch. One example is a comment inside `"$(…)"`, which no walker sees (**DC-028**). Rev 3's
+  "residual to measure" is closed by reading 1.
 
 **Fixtures:**
 
-- **Must become 2:** attempt 1's whole "must become 2" set, including R1h, plus F1–F7's 11 inputs.
-- **Must stay 2:** attempt 1's "must stay 2" set. Rev 2's "become 0 by design" list is withdrawn.
-  With comment text judged, `echo a # ; printenv`, ``echo a # see `env` `` and
-  `echo $x #$(printenv)` stay refused, as at HEAD. `echo a # rm -rf /` stays allowed, as it
-  already was at HEAD.
-- **Must stay 0:** rev 2's list. Attempt 1's review tried 40 ordinary `#` shapes (`fix #12`,
-  `${#a}`, `16#ff` and others) and found none newly refused; repeat that check.
-- **Each rule pinned by a mutant:** every rule needs a mutant that fails a fixture. Attempt 1 ran 39
-  mutants, and two survived: a closing backtick that does not restore the outer contexts, and a `)`
-  that closes a `${`. Pin each with a fixture, or remove the rule.
+- **Must become 2:** attempt 1's whole "must become 2" set (queue 2(a), a′, R1d, R1h, every
+  context in §2.3 that starts a comment), plus the spec review's three probes.
+- **Must stay 2:** attempt 1's "must stay 2" set and F1–F7's 11 inputs. Reading 1 holds them, so
+  they pin it: dropping reading 1 must turn some of them to 0.
+- **Must stay 0:** rev 2's list; `echo a # \; printenv`; 40 ordinary `#` shapes (`fix #12`,
+  `${#a}`, `16#ff`, a Markdown heredoc body and others), the check attempt 1's review ran.
+- **Accepted refusals, pinned so the choice is visible:** `echo "$(printf "fix #1")" "; printenv "`
+  and any other prose whose nested quotes the walkers misread around a `#` (finding 7). It fails
+  closed, the direction §3 lesson 2 chooses.
+- **Each rule pinned by a mutant** that applies, still parses, and fails a fixture by a wrong
+  verdict, not by a crash: no reading 1; no reading 2; the walk gated on backslash-newline
+  only; quotes kept in a region; `heredoc_delim` with no comment stop; the skip test always
+  skipping.
 
-**Acceptance, beyond the ladder:** a differential fuzz against bash (structured commands, as in
-attempt 1, plus fragment strings) that counts every input the new guard allows, HEAD refuses and
-bash runs. The count must be zero, or each such input must be named in the header. The sentinel
-must be one that echo cannot forge (`printf 'RE%sED\n' ACH`): attempt 1's first sentinel counted
-an echoed argument as a run.
+**Acceptance, beyond the ladder:** a differential fuzz against bash, with baseline `4d7d716`, a
+fixed seed, structured commands as in attempt 1 plus fragment strings, and each case's
+generator, seed and count recorded in the ledger row. Bash runs each input under `bash -c` in a
+fresh `mktemp -d`, with `printenv` resolved on `PATH` to a stub that creates a file. Running
+the stub is the observation, so neither echoed text nor the exit status can forge or hide a
+run. The count must be zero for each of the following:
+1. inputs the new guard allows, HEAD refuses and bash runs;
+2. inputs the new guard allows, HEAD refuses, whatever bash does: zero by construction;
+3. "must stay 0" inputs the new guard refuses.
+
+Also report how many inputs HEAD allows, bash runs and the new guard refuses (closed), and how
+many HEAD allows, bash does not run and the new guard refuses (false refusals, each class
+named). A case that times out counts as allowed by the guard that timed out.
 
 **Review:** one fresh-context pass, under the owner's grant. If the gpt-6.1-sol content filter
 stops the run again, a fresh Claude subagent at the strongest tier serves, as it did for attempt 1.
 
-**Header:** delete the "A QUOTE INSIDE A `#` COMMENT" bullet. Name a quote inside backticks, which
-bash ignores and every walker honours (`` echo `echo 'x`; printenv `` passes at HEAD), and the
-residual above.
+**Header:** replace the "A QUOTE INSIDE A `#` COMMENT" bullet with one that says what the two
+readings do and what they leave. Name a quote inside backticks, which bash ignores and every
+walker honours (`` echo `echo 'x`; printenv `` passes at HEAD), and the residual above.
 
 ### Unit 3 — heredoc bodies END where bash ends them (part of item 2; finding 2)
 
@@ -395,6 +448,13 @@ below, waiting on the owner:
 
 ## 6. What changed since rev 1
 
+**Rev 4 (2026-11-02):** the owner approved executing Unit 2 after a gpt-6-astra (`-e high`) spec
+review, with its findings folded in first. That review's verdict was REDESIGN, on three inputs
+that rev 3's single inert reading would newly allow. Rev 4 keeps the owner's inert design as a
+second reading beside HEAD's, with the stricter verdict winning. It deletes quotes rather than
+replacing them, ends a region at the newline, uses HEAD's comment rule for both readers, and
+tightens the acceptance fuzz. §2.3's C5 and C6 are corrected, and lesson 3 is extended.
+
 **Rev 3 (2026-11-02):** Unit 2 is redesigned after its first attempt failed review. Comments are
 made inert instead of removed, and lesson 3 is added to §3. Both rest on the owner's decision of
 2026-11-02, which also granted the unit a fresh review pass. Units 3, 3s and 4 are unchanged.
@@ -425,8 +485,10 @@ made inert instead of removed, and lesson 3 is added to §3. Both rest on the ow
 
 ## 7. Not verified
 
-- **Rev 3's redesign is not built.** Its claims are design, not measurement. Two are reasoned, not
-  run: that inert quotes turn F1–F7 into refusals, and that the multi-line residual is rare.
+- **Rev 4's Unit 2 was built and measured on 2026-11-02 (DD-056):** none newly allowed over
+  42,569 generated commands, 599 closed, 66 still open as at HEAD, and 437 refusals added of text
+  bash parses. The fuzz harness and its corpus lived in the session's scratch space and are not
+  committed; the seed, the generator's shape and the counts are in the row.
 
 - **No implementation exists yet.** Every "must become" or "must stay" is a requirement, not a
   measurement of new code.
