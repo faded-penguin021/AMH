@@ -36,12 +36,14 @@ command-guard gaps the Owner queue named: a quote inside a `#` comment, heredoc 
 the wrong line, and abbreviated `git push` long options. It also closes the related shapes that
 measuring those gaps turned up. All of it rides the 16.0.0 draft, and each guard unit gets one
 fresh-context review pass. **Each unit starts only on the owner's explicit approval of that
-unit.** The owner approved Units 0 and 1, one at a time; the Owner queue names the unit waiting for
-approval.
+unit.** The owner approved Units 0, 1 and 2, one at a time. Unit 2's first attempt failed its
+review and was not shipped; plan rev 3 redesigns it, and executing that waits for approval
+(**DD-055**). That attempt is kept whole as `docs/plans/2026-11-02-unit2-attempt-1.patch`,
+which applies to `be7a4df` and retires with the plan. The Owner queue names the unit waiting.
 
 - [x] 0 — the plan committed, and the cc-safe-setup Changelog lines folded
 - [x] 1 — `git push` long options read by unique prefix
-- [ ] 2 — the comment rule becomes bash's, and comments are removed before any walker reads
+- [ ] 2 — comments made inert before any walker reads the text (rev 3; attempt 1 not shipped)
 - [ ] 3 — heredoc bodies end where bash ends them
 - [ ] 3s — an unclosed heredoc body blocks the command (parked: the owner's open decision)
 - [ ] 4 — heredoc bodies start where bash starts them
@@ -75,11 +77,20 @@ command that bash runs with a warning. Plan Unit 4 corrects the misreads known t
 would cover the ones not yet found. Recommendation: block. The decision is the owner's and still
 open; Units 3 and 4, if the owner approves them, run without it.
 
-**OPEN — approve, or not, the next unit of the owner-queue-closure plan: Unit 2, the comment
-rule becomes bash's, and comments are removed before any walker reads the text.** Each unit of
-the plan starts only on the owner's explicit approval of that unit, and approving one unit
-approves only that one. When a unit lands, this item moves to the next one. Units 1 to 4 each owe
-a rule-review pass, which the owner has already allowed.
+**OPEN — approve, or not, executing Unit 2 as plan rev 3 redesigns it: comments made inert, not
+removed.** The first attempt removed comment text and failed its review (**DD-055**); the owner
+chose the redesign on 2026-11-02, committed as a design only, and granted the unit a fresh review
+pass. Each unit of the plan starts only on the owner's explicit approval of that unit, and
+approving one unit approves only that one. When a unit lands, this item moves to the next one.
+Units 1 to 4 each owe a rule-review pass, which the owner has already allowed.
+
+**OPEN — decide whether to plan a fix for a quote inside backticks.** Found while building Unit 2:
+bash ends a backtick substitution at the first unescaped backtick, quotes or not, and every walker
+in the command guard reads a `'` inside one as opening a string that hides the rest, so
+`` echo `echo 'x`; printenv `` passes. No plan covers it, and the guard's header does not yet name
+it (plan rev 3's Unit 2 would).
+Check: `scripts/command-guard.sh --command "echo \`echo 'x\`; printenv"` — exit status 0 means
+it is still open.
 
 **OPEN — decide whether to adopt the harness-research-gaps plan,
 `docs/plans/2026-11-01-harness-research-gaps.md`, and each decision in its §1.** It is committed
@@ -117,6 +128,8 @@ rows — this section is a pointer index, not a narrative.
   inside 16.0.0, one fresh-context review per unit) and left the queue. Unit 1 made the push rail
   read a long option by unique prefix, as git does, and skip the value of an option that takes
   one, so item 3's check, `git push --del origin session/x`, now blocks (**DD-054**).
+  Unit 2's first attempt, which removed comments, failed its review on 11 inputs the guard then
+  passed and bash ran; it was reversed unshipped, and plan rev 3 redesigns the unit (**DD-055**).
 
 - 2026-10-04 through 2026-10-30 — **15.0.1, 15.1.0 and the 16.0.0 draft so far, folded.** The
   author-identity rung stopped judging the forge's test merge (**DD-036**). Windows drive roots,
