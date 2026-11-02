@@ -273,9 +273,13 @@
 #     unresolvable destinations (`HEAD` and `@`), and a second ref. Every one of those is a
 #     fact of the command standing in front of it. Force and deletion are read inside a
 #     short-flag cluster the way git reads one (`-uf`, `-qd`), with `-o` taking the rest of
-#     its cluster or the next word as its value. A long option shortened to a unique prefix,
-#     which git also accepts (`--del`, `--force-w`), is NOT read and passes; the `--pre-push`
-#     rail below still judges that force or deletion by its outcome where it is installed.
+#     its cluster or the next word as its value. A long option is read by unique prefix, as
+#     git reads it: `--del` is `--delete`, `--force-w` is `--force-with-lease`, `--mir`, `--al`
+#     and `--b` are `--mirror`, `--all` and `--branches`, and the value of `--repo`,
+#     `--recurse-submodules`, `--receive-pack`, `--exec` and `--push-option`, however
+#     shortened, is never read as the remote. A prefix git calls ambiguous and refuses
+#     (`--d`, `--forc`) is denied as the option it could name (AMH ledger row DD054). Every
+#     word after `--` or `--end-of-options` is read as a refspec, as git reads it.
 #     It does NOT check that the branch sits under `BRANCH_PREFIX`: the harness assigns
 #     session branch names the repository may not itself prefix, so a namespace rail rejects
 #     the very branches it exists to protect (AMH P13, AMH ledger row DA022) — and this one
@@ -303,9 +307,9 @@
 #     switches the rail off for every later push. Reading or unsetting the key passes. An
 #     agent once used `--no-verify` across six consecutive commits against explicit
 #     instructions, and retrying a refused push with its check off is the respelling AMH
-#     forbids (AMH ledger row DD048). Not read, and passing: `--no-verify` shortened to a
-#     prefix git accepts (`--no-veri`), as for the push rail's other long options; the
-#     `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_n` and `GIT_CONFIG_PARAMETERS` environment, an
+#     forbids (AMH ledger row DD048). `--no-verify` shortened to a prefix git accepts
+#     (`--no-veri`) is denied with it, as the push rail reads every long option. Not read,
+#     and passing: the `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_n` and `GIT_CONFIG_PARAMETERS` environment, an
 #     `include.path`, `git config --edit`, or a hand edit of a config file; a tool that sets
 #     the key itself (a hook manager's install step); and `git commit --no-verify`, which
 #     skips no AMH rail because AMH installs no pre-commit hook. Removing or disabling the
@@ -2161,8 +2165,18 @@ check_segment() {
 			return 1
 		fi
 		local ref_count=0 implicit_ref=0 positional=0 delete_push=0 skip_option_arg=0 cluster
+		local operands_only=0
 		for a in "${args[@]:$((j + 1))}"; do
 			if [ "$skip_option_arg" -eq 1 ]; then skip_option_arg=0; continue; fi
+			# Every word after `--` or `--end-of-options` is an operand to git, however it
+			# is spelled: `git push -- origin <branch> -o main` pushes a ref named `-o` and
+			# `main`, and so does `--repo main` there (git 2.43). Read as options, the `-o`
+			# swallowed `main` and the push passed; so after the terminator nothing below
+			# reads an option, and each word goes straight to the refspec arms.
+			if [ "$operands_only" -eq 0 ]; then
+			case $a in
+			-- | --end-of-options) operands_only=1; continue ;;
+			esac
 			# A cluster of short flags is read letter by letter, left to right, as git
 			# reads it: `-uf` is `-u -f` and `-qd` is `-q -d`, and both used to fall
 			# through to the `-*` arm unread. `-o` is the one short flag that takes a
@@ -2183,15 +2197,60 @@ check_segment() {
 				done
 				;;
 			esac
+			# A long option shortened to a unique prefix IS that option to git's
+			# parse-options: `--del` deletes, `--force-w` and `--force-if` force, `--no-veri`
+			# skips the pre-push rail, and `--mir`, `--al` and `--b` push refs nobody named
+			# (measured on git 2.43). Each passed this rail while it matched whole words. A
+			# long option is matched by prefix against every name the arms below deny and
+			# rewritten to that name, as an `f` in a cluster is rewritten to `-f`. A prefix
+			# git calls ambiguous (`--d`, `--forc`, `--a`) is denied with it, at no cost:
+			# git refuses it too. No harmless push option's name, or its `--no-` form, is a
+			# prefix of a denied one, so no harmless option is read as a denied one:
+			# `--no-force-with-lease` and `--atomic` stay allowed. A denied option that a
+			# later `--no-` form cancels (`--del --no-delete`) is still denied, as its full
+			# spelling always was: the walk does not model negation.
+			# The five long options that take a value are read by prefix too, and their
+			# value skipped unless `=` glues it on. Unread, the value was taken for the
+			# remote and the remote for the one named ref, so `--push-opt x origin`,
+			# `--recurse-submodules check origin` and `--repo origin <branch>` passed as
+			# naming a branch while git pushed with the ref left implicit (git 2.43). Every
+			# prefix shared with another option (`--re`, `--p`) is one git calls ambiguous.
 			case $a in
-			--force | -f | --force-with-lease | --force-with-lease=* | --force-if-includes)
+			--?*)
+				if is_long_opt "$a" force force-with-lease force-if-includes; then a=--force
+				elif is_long_opt "$a" delete; then a=--delete
+				elif is_long_opt "$a" no-verify; then a=--no-verify
+				elif is_long_opt "$a" mirror; then a=--mirror
+				elif is_long_opt "$a" all; then a=--all
+				elif is_long_opt "$a" branches; then a=--branches
+				elif is_long_opt "$a" push-option receive-pack exec repo recurse-submodules; then
+					case $a in *=*) ;; *) skip_option_arg=1 ;; esac
+					continue
+				fi
+				;;
+			esac
+			case $a in
+			--force | -f)
 				BLOCK_REASON="Force-push is denied (AMH P7): pushed checkpoints are immutable. If the branch diverged, merge the default branch in — never rewrite pushed history. A history rewrite is owner-executed and only for a leaked-credential incident."
 				return 1
 				;;
-			--mirror | --all)
+			# `--branches` is git's newer name for `--all`.
+			--mirror | --all | --branches)
 				BLOCK_REASON="\`git push $a\` pushes refs you did not name — including \`$DEFAULT_BRANCH\` (and, for \`--mirror\`, force-updating and deleting them). Both are denied (AMH P7, P13). Push one branch explicitly: \`git push -u origin $BRANCH_PREFIX/<codename>\`."
 				return 1
 				;;
+			# `--no-verify` is the documented off switch of the pre-push rail, and the
+			# standard way to retry a push that rail refused.
+			--no-verify)
+				BLOCK_REASON="\`git push --no-verify\` skips the git-native pre-push rail, the one check on this push that runs whatever drives the shell (AMH P13). If that rail refused the push, the refusal is the answer: read what it objected to and fix the push. Retrying a refused operation with its check switched off is the respelling AMH forbids (AMH ledger row DD038). If the hook itself is broken, report that to the owner. Drop \`--no-verify\`."
+				return 1
+				;;
+			--delete | -d) delete_push=1; continue ;;
+			-o) skip_option_arg=1; continue ;;
+			-*) continue ;;
+			esac
+			fi
+			case $a in
 			# A leading `+` on a refspec IS a force push — `git push origin +main` needs
 			# no flag to rewrite the default branch, and passed both rail layers.
 			+*)
@@ -2210,16 +2269,6 @@ check_segment() {
 				esac
 				return 1
 				;;
-			# `--no-verify` is the documented off switch of the pre-push rail, and the
-			# standard way to retry a push that rail refused.
-			--no-verify)
-				BLOCK_REASON="\`git push --no-verify\` skips the git-native pre-push rail, the one check on this push that runs whatever drives the shell (AMH P13). If that rail refused the push, the refusal is the answer: read what it objected to and fix the push. Retrying a refused operation with its check switched off is the respelling AMH forbids (AMH ledger row DD038). If the hook itself is broken, report that to the owner. Drop \`--no-verify\`."
-				return 1
-				;;
-			--delete | -d) delete_push=1 ;;
-			-o | --push-option | --receive-pack | --exec) skip_option_arg=1 ;;
-			--push-option=* | --receive-pack=* | --exec=*) ;;
-			-*) ;;
 			# Every spelling git resolves to the default branch, not just the two obvious
 			# ones. Git's DWIM for a bare name is `refs/<name>`, `refs/tags/<name>`,
 			# `refs/heads/<name>`, so `main`, `heads/main` and `refs/heads/main` are the
@@ -7610,6 +7659,74 @@ cat .env'
 	st_allowed "git push --dry-run origin $BRANCH_PREFIX/x"
 	st_allowed "git push --signed=no origin $BRANCH_PREFIX/x"
 	ST_CHECKER=check_powershell_command st_allowed "git push --dry-run origin $BRANCH_PREFIX/x"
+	# A long option shortened to a unique prefix is that option to git. Measured on git 2.43
+	# with `--dry-run --porcelain`: `--del` and `--delet` deleted the branch; `--force-w`,
+	# `--force-with=<ref>`, `--force-if` and `--no-veri` were accepted; `--mir`, `--al`,
+	# `--branc` and `--branches` were refused only for naming a refspec, which they make
+	# unnecessary. Each passed this rail. Every one names the branch, so what denies it is
+	# the option and not the implicit-ref rule. `--forc` is a prefix git calls ambiguous.
+	st_blocked "git push --del origin $BRANCH_PREFIX/x"
+	st_blocked "git push --delet origin $BRANCH_PREFIX/x"
+	st_blocked "git push -u origin $BRANCH_PREFIX/x --del"
+	st_blocked "git push --force-w origin $BRANCH_PREFIX/x"
+	st_blocked "git push --force-with=$BRANCH_PREFIX/x origin $BRANCH_PREFIX/x"
+	st_blocked "git push --force-if origin $BRANCH_PREFIX/x"
+	st_blocked "git push --forc origin $BRANCH_PREFIX/x"
+	st_blocked "git push --no-veri origin $BRANCH_PREFIX/x"
+	st_blocked "git push --mir origin $BRANCH_PREFIX/x"
+	st_blocked "git push --al origin $BRANCH_PREFIX/x"
+	st_blocked "git push --branc origin $BRANCH_PREFIX/x"
+	st_blocked "git push --branches origin $BRANCH_PREFIX/x"
+	# The full names, each with the branch named, so the arm and not the implicit-ref rule
+	# is what denies them.
+	st_blocked "git push --delete origin $BRANCH_PREFIX/x"
+	st_blocked "git push --force-with-lease origin $BRANCH_PREFIX/x"
+	st_blocked "git push --force-with-lease=$BRANCH_PREFIX/x origin $BRANCH_PREFIX/x"
+	st_blocked "git push --force-if-includes origin $BRANCH_PREFIX/x"
+	st_blocked "git push --mirror origin $BRANCH_PREFIX/x"
+	st_blocked "git push --all origin $BRANCH_PREFIX/x"
+	ST_CHECKER=check_powershell_command st_blocked "git push --del origin $BRANCH_PREFIX/x"
+	ST_CHECKER=check_powershell_command st_blocked "git push --force-w origin $BRANCH_PREFIX/x"
+	ST_CHECKER=check_powershell_command st_blocked "git push --no-veri origin $BRANCH_PREFIX/x"
+	ST_CHECKER=check_powershell_command st_blocked "git push --mir origin $BRANCH_PREFIX/x"
+	# A value-taking long option, whole or shortened, takes the next word. Read as the
+	# remote, it made `origin` the one named ref, and each of these passed while git pushed
+	# with the ref left implicit (git 2.43); `--repo`'s value leaves the branch to be read
+	# as the repository.
+	st_blocked 'git push --push-opt x origin'
+	st_blocked 'git push --push-option x origin'
+	st_blocked 'git push --ex git-receive-pack origin'
+	st_blocked 'git push --recurse-submodules check origin'
+	st_blocked "git push --repo origin $BRANCH_PREFIX/x"
+	st_blocked "git push --rep origin $BRANCH_PREFIX/x"
+	ST_CHECKER=check_powershell_command st_blocked 'git push --push-opt x origin'
+	# Harmless long options, whole and shortened, pass, and so does a value-taking option
+	# that names the branch after its value. `--push-opt x` was denied as naming two refs.
+	st_allowed "git push --no-force-with-lease origin $BRANCH_PREFIX/x"
+	st_allowed "git push --set-up origin $BRANCH_PREFIX/x"
+	st_allowed "git push --verify origin $BRANCH_PREFIX/x"
+	st_allowed "git push --at origin $BRANCH_PREFIX/x"
+	st_allowed "git push --follow-tags origin $BRANCH_PREFIX/x"
+	st_allowed "git push --push-opt x origin $BRANCH_PREFIX/x"
+	st_allowed "git push --push-option=x origin $BRANCH_PREFIX/x"
+	st_allowed "git push --recurse-submodules check origin $BRANCH_PREFIX/x"
+	st_allowed "git push --recurse-submodules=check origin $BRANCH_PREFIX/x"
+	st_allowed "git push --recurse=check origin $BRANCH_PREFIX/x"
+	st_allowed "git push --repo=origin origin $BRANCH_PREFIX/x"
+	st_allowed 'git commit -m "--del"'
+	ST_CHECKER=check_powershell_command st_allowed "git push --push-opt x origin $BRANCH_PREFIX/x"
+	# After `--` or `--end-of-options` every word is a refspec to git (git 2.43: `-o`,
+	# `--repo` and `--force` there were each refused as a src refspec). Read as options,
+	# `-o` and `--repo` swallowed the default branch behind them and the push passed.
+	st_blocked "git push -- origin $BRANCH_PREFIX/x -o $DEFAULT_BRANCH"
+	st_blocked "git push -- origin $BRANCH_PREFIX/x --repo $DEFAULT_BRANCH"
+	st_blocked "git push --end-of-options origin $BRANCH_PREFIX/x --repo $DEFAULT_BRANCH"
+	st_blocked "git push origin -- $BRANCH_PREFIX/x --push-option $DEFAULT_BRANCH"
+	st_blocked "git push -- origin $BRANCH_PREFIX/x --x:$DEFAULT_BRANCH"
+	ST_CHECKER=check_powershell_command st_blocked "git push -- origin $BRANCH_PREFIX/x -o $DEFAULT_BRANCH"
+	# A word after the terminator is one ref, not an option: this names one branch.
+	st_allowed "git push -u -- origin $BRANCH_PREFIX/x"
+	st_allowed "git push -u --end-of-options origin $BRANCH_PREFIX/x"
 	# The pre-push rail's off switches. Each of these passed every rail.
 	st_blocked "git push --no-verify -u origin $BRANCH_PREFIX/x"
 	st_blocked "git push -u origin $BRANCH_PREFIX/x --no-verify"

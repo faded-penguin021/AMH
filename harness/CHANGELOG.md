@@ -98,8 +98,20 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   read letter by letter, and an `f` or `d` in it is denied as `-f` or `-d` alone is. `-o` takes
   the rest of its cluster, or the next word when it ends the cluster, as its value: `-of` is a
   push option named `f`, and the legal `git push -uo f origin <branch>`, which was denied as
-  naming two refs, now passes. Still missed, and named in the guard's header: a long option
-  shortened to a prefix git accepts, such as `--del` or `--force-w`.
+  naming two refs, now passes.
+- **A long option on `git push` is read by unique prefix, as git reads it.** Git accepts any
+  unambiguous prefix of a long option, so `git push --del origin <branch>` deleted the branch,
+  `--force-w` and `--force-if` forced, `--no-veri` skipped the pre-push rail, and `--mir`, `--al`
+  and `--branches` pushed refs nobody named; every one passed the push rail. Each long option is
+  now matched by prefix against the names the rail denies. A prefix git calls ambiguous and
+  refuses, such as `--d` or `--forc`, is denied too. The options that take a value (`--repo`,
+  `--recurse-submodules`, `--receive-pack`, `--exec`, `--push-option`) are read the same way and
+  their value skipped. Unread, the value had been taken for the remote, so `git push --push-opt x
+  origin` and `git push --recurse-submodules check origin` passed as naming a branch called
+  `origin` while git pushed with the ref left implicit. Both are now denied as implicit pushes,
+  and `--push-opt x origin <branch>`, which had been denied as naming two refs, passes. Every
+  word after `--` or `--end-of-options` is now read as a refspec, as git reads it, so
+  `git push -- origin <branch> -o main` is denied for naming `main`; it used to pass.
 - **The command guard denies the pre-push rail's off switches.** `git push --no-verify`, a
   `core.hooksPath` override on a push (`git -c core.hooksPath=… push`, or `--config-env` in
   either spelling), and `git config` setting `core.hooksPath` in any scope all passed, although
@@ -110,7 +122,7 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   `--no-get` cancels `--get`. The global-option walk also read `--config-env` as a flag with no value, so
   `git --config-env k=V push --force origin main` passed every rail; it is now denied as a
   force push. Still missed, and named in the guard's header: the `GIT_CONFIG_*` environment, an
-  `include.path`, `git config --edit`, and a `--no-verify` shortened to a prefix git accepts.
+  `include.path` and `git config --edit`.
 - **Removing the pre-push hook file gets a one-time advisory, and the Claude adapter denies the
   editing tools that file.** `rm`, `mv` and `chmod` on `.git/hooks/pre-push` passed every rail,
   and each switches the git-native pre-push rail off as surely as `--no-verify`. The command

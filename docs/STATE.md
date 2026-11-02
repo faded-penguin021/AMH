@@ -22,25 +22,12 @@ Adopted harness version: **AMH 16.0.0** — see `harness/VERSION`, the copy that
 
 This tree declares **16.0.0**, MAJOR on the owner's call: a unit owes the review of what it
 was set to change, never only that of the diff it ends with, and a decision says whether its
-evidence was measured, estimated or reported (**DD-050**). It carries the 15.2.0 draft whole: every Claude
-adapter hook is anchored at the project root, both
-`PreToolUse` hooks refuse the call when the hook itself fails, and on Windows that makes Git for
-Windows a hard requirement, said in the refusal itself (**DD-040**), and the command guard judges
-`\rm` and `/usr/bin/env` as `rm` and `env` (**DD-041**), and a command after a reserved word
-(`then`, `do`, `!`) or spelled with `.exe` as the command it runs (**DD-042**), and it denies a
-glob matching every hidden entry of a listed directory while judging a brace expansion word by
-word (**DD-044**), and the shipped ladder checks the Claude adapter's shell pin wherever
-`.claude/settings.json` exists (**DD-045**), and it removes a backslash-newline before reading a
-command, as bash does (**DD-046**), and reads a short-flag cluster on `git push` as git does
-(**DD-047**), and denies the pre-push rail's off switches (**DD-048**), and the session banner
-says when newer working memory builds on this checkout (**DD-049**), and the pre-push hook file
-gets a one-time advisory and an adapter deny rail (**DD-051**), and it denies reading a tool's
-stored credentials or printing one with `gh auth token` or `git credential fill` (**DD-052**),
-and the constitution names Claude Code's `--safe-mode`, `--bare` and `--restricted` as modes that
-leave the adapter's hooks out (**DD-053**). What each older version
-added is in `harness/CHANGELOG.md` and the Changelog below. Whether this draft
-is tagged or released is not recorded here — `scripts/session-start.sh` probes it every session
-and reports present, absent or could-not-ask, which is the only answer that can be right twice.
+evidence was measured, estimated or reported (**DD-050**). It carries the 15.2.0 draft whole,
+and every command-guard, adapter and banner change since, each named by a bullet of the 16.0.0
+entry in `harness/CHANGELOG.md` and by its row (**DD-040** to **DD-042**, **DD-044** to
+**DD-049**, **DD-051** to **DD-054**). Whether this draft is tagged or released is not recorded
+here — `scripts/session-start.sh` probes it every session and reports present, absent or
+could-not-ask, which is the only answer that can be right twice.
 
 `docs/LEDGER_D.md` is the live ledger volume.
 
@@ -49,10 +36,11 @@ command-guard gaps the Owner queue named: a quote inside a `#` comment, heredoc 
 the wrong line, and abbreviated `git push` long options. It also closes the related shapes that
 measuring those gaps turned up. All of it rides the 16.0.0 draft, and each guard unit gets one
 fresh-context review pass. **Each unit starts only on the owner's explicit approval of that
-unit.** The owner approved Unit 0 only; the Owner queue names the unit waiting for approval.
+unit.** The owner approved Units 0 and 1, one at a time; the Owner queue names the unit waiting for
+approval.
 
 - [x] 0 — the plan committed, and the cc-safe-setup Changelog lines folded
-- [ ] 1 — `git push` long options read by unique prefix
+- [x] 1 — `git push` long options read by unique prefix
 - [ ] 2 — the comment rule becomes bash's, and comments are removed before any walker reads
 - [ ] 3 — heredoc bodies end where bash ends them
 - [ ] 3s — an unclosed heredoc body blocks the command (parked: the owner's open decision)
@@ -87,11 +75,11 @@ command that bash runs with a warning. Plan Unit 4 corrects the misreads known t
 would cover the ones not yet found. Recommendation: block. The decision is the owner's and still
 open; Units 3 and 4, if the owner approves them, run without it.
 
-**OPEN — approve, or not, the next unit of the owner-queue-closure plan: Unit 1, `git push` long
-options read by unique prefix.** Each unit of the plan starts only on the owner's explicit
-approval of that unit, and approving one unit approves only that one. When a unit lands, this
-item moves to the next one. Units 1 to 4 each owe a rule-review pass, which the owner has already
-allowed.
+**OPEN — approve, or not, the next unit of the owner-queue-closure plan: Unit 2, the comment
+rule becomes bash's, and comments are removed before any walker reads the text.** Each unit of
+the plan starts only on the owner's explicit approval of that unit, and approving one unit
+approves only that one. When a unit lands, this item moves to the next one. Units 1 to 4 each owe
+a rule-review pass, which the owner has already allowed.
 
 **OPEN — decide whether to adopt the harness-research-gaps plan,
 `docs/plans/2026-11-01-harness-research-gaps.md`, and each decision in its §1.** It is committed
@@ -123,84 +111,26 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-10-31 — **Owner-queue-closure plan, rev 2, committed by its Unit 0, the only unit the
-  owner approved.** The two queue items asking whether to plan fixes, for command-guard parse gaps
-  and for abbreviated `git push` long options, are answered: fix them inside 16.0.0, with one
-  fresh-context review per unit. Both items leave the queue. Each later unit waits for the
-  owner's approval of that unit, and the plan's safety-net unit stays the owner's open decision;
-  both are in the queue. This line was corrected the same day: it first called the whole plan
-  approved.
+- 2026-10-31 to 2026-11-02 — **Owner-queue-closure plan: Units 0 and 1, each approved by the
+  owner on its own, are done.** Unit 0 committed the plan; the two queue items asking whether to
+  fix the command-guard parse gaps and abbreviated `git push` options were answered (fix both
+  inside 16.0.0, one fresh-context review per unit) and left the queue. Unit 1 made the push rail
+  read a long option by unique prefix, as git does, and skip the value of an option that takes
+  one, so item 3's check, `git push --del origin session/x`, now blocks (**DD-054**).
 
-- 2026-10-22 through 2026-10-30 — **cc-safe-setup plan, folded: six command-guard units,
-  approved whole by the owner and done.** The guard removes a backslash-newline before it reads a
-  command (**DD-046**) and reads `git push` short-flag clusters as git does (**DD-047**). It
-  denies the pre-push rail's off switches (**DD-048**), and the pre-push hook file gets an
-  advisory and a deny rail (**DD-051**). Credential stores and the two commands that print a
-  stored credential are denied (**DD-052**), and Claude Code's hook-less modes are named
-  (**DD-053**). The plan is archived in `docs/history/`.
+- 2026-10-04 through 2026-10-30 — **15.0.1, 15.1.0 and the 16.0.0 draft so far, folded.** The
+  author-identity rung stopped judging the forge's test merge (**DD-036**). Windows drive roots,
+  `cmd /c` deletions and PowerShell reached the command guard (**DD-038**, **DD-039**). The
+  15.2.0 draft, which 16.0.0 carries whole, and the cc-safe-setup plan's six units hardened the
+  Claude hooks and the guard's reading of commands (**DD-040** to **DD-042**, **DD-044** to
+  **DD-049**, **DD-051** to **DD-053**); the owner made the draft MAJOR on 2026-10-26
+  (**DD-050**). The redaction hook was observed firing (**DD-037**), and the queue was triaged
+  to actionable items (**DD-043**). `amh-v15.0.0` and `amh-v15.1.0` were seen on origin on
+  2026-10-04 and 2026-10-14. The cc-safe-setup plan is archived in `docs/history/`.
 
-- 2026-10-26 — **16.0.0 (drafted, MAJOR, owner): a unit owes the review of what it was set to
-  change, and a decision says whether its evidence was measured, estimated or reported**
-  (Session discipline 10–11). The 15.2.0 draft rides it whole (**DD-050**).
-
-- 2026-10-26 — **15.2.0 (drafted): the session banner says when a branch or worktree that builds
-  on HEAD has a newer `docs/STATE.md`**, by ancestry and that file, never this branch's name; a
-  freshly cut HEAD is judged against the default branch only. Owner-directed, between
-  cc-safe-setup Units 3 and 4 (**DD-049**).
-
-- 2026-10-19 — **15.2.0 (drafted): adopters' ladders check the Claude shell pin**, gated on
-  `.claude/settings.json` existing; that closed the pin-check Owner-queue item (**DD-045**).
-
-- 2026-10-19 — **15.2.0 (drafted): the permanent denial covers `~/.?*`, `~/.[!.]*` and
-  `/[!.]*`, and a brace inside a word no longer splits the command**, so `rm -rf
-  ~/{.cache,.npm}` gets the advisory; that closed the DD-035 Owner-queue item (**DD-044**).
-
-- 2026-10-19 — **Owner queue triaged to actionable items only.** On the owner's call, five
-  observation gaps that no owner action can settle left the queue; what each still lacks and what
-  would reopen it is in **DD-043**.
-
-- 2026-10-15 — **15.2.0 (drafted): the command guard judges a command after a reserved word or
-  spelled with `.exe`**, which closed that Owner-queue item (**DD-042**).
-
-- 2026-10-14 — **15.2.0 (drafted): a failing or missing Claude hook refuses the call, and the
-  guard reads `\rm` and `/usr/bin/env` as `rm` and `env`.** Found by checking this tree against a
-  public report on silent hook guards (**DD-040**, **DD-041**). `amh-v15.1.0` was seen on origin,
-  so that tag item left the queue.
-
-- 2026-10-04 — **The Claude `PostToolUse` redaction hook was observed firing** on Bash, Read and
-  Grep results (**DD-037**). Both Claude adapter comments now say so; the Codex half stays queued.
-
-- 2026-10-07 — **15.1.0 (drafted): Windows drive roots and `cmd /c` deletions reach the command
-  guard.** A Claude Code session on Windows PowerShell 5.1 deleted its account's files on `C:`
-  through `cmd /c "rmdir /s /q \"...\""`, retrying a cleanup a safety check had blocked; the
-  bash half of the Windows arm and the no-respelling rule landed (**DD-038**); then the PowerShell
-  reader and the `Bash|PowerShell` matcher, which retired **DD-012**'s decided non-item (**DD-039**).
-
-- 2026-10-04 — **15.0.1: the author-identity rung no longer judges the forge's test merge.** A
-  downstream contributor re-authored every commit and force-pushed, and the rung kept failing on
-  the detached merge the forge composes for the PR, which no amend reaches (**DD-036**). The
-  queued 15.0.0 tag was found on origin this session, so that item left the queue.
-
-- 2026-09-09 through 2026-09-29 — **14.1.0, the untagged 14.2.0 draft and 15.0.0, folded;
-  `amh-v14.1.0` and `amh-v15.0.0` were seen on origin on 2026-10-04.** The Claude adapter pinned
-  its hooks' shell, both adapters wired output redaction, a deletion aimed at the filesystem root
-  or a home directory became the command guard's one permanent denial with an inline-interpreter
-  advisory beside it, and two external reviews' findings were validated and fixed; the whole
-  draft became MAJOR on the owner's call of 2026-09-18 (**DD-007**–**DD-035**).
-
-- 2026-09-01/02 — **14.0.0 and the 11.0.0 counter work, folded.** Working memory became
-  tree-relative and stopped caching world-controlled status; a ledger row was pinned to its text
-  rather than to the file it names; counter checks were separated from authoring judgement, with
-  compression keyed to content lifecycle and row limits restated as rejection boundaries
-  (**DD-001**–**DD-006**, **DC-044**).
-
-- 2026-09-01 — **10.4.0–10.5.0, folded.** The train shipped the Windows/CRLF portability
-  proof and remediation, fixed reachable fail-open `printf | grep -q` pipelines, prohibited
-  ledger citations to plan paths, and added structural forge/API mutation classification
-  (**DC-036**–**DC-043**).
-- 2026-07-25 through 2026-08-31 — **Everything before this session, folded.** Founding through
-  portable rails, the constitution rewrite, the 8.0.0–9.0.0 train, git-native pre-push
-  enforcement, the 9.2.0–10.2.0 trains tagged `amh-v10.0.0` and `amh-v10.2.0`, and the unreleased
-  10.3.0–10.4.0 train: a data-plane tier grown by reported incidents, an escaped quote that had
-  been voiding the rails behind it, a PR-time release-number check, an adoption-first README, and
-  a Windows tail in four parts (**DC-020**–**DC-035**, and the volumes for everything older).
+- 2026-07-25 through 2026-09-29 — **Everything before 15.0.1, folded.** Founding through the
+  15.0.0 train: portable rails, the constitution rewrite, git-native pre-push enforcement, a
+  tree-relative working memory with immutable ledger rows, destructive-deletion denial, and
+  output redaction in both adapters (**DD-001** to **DD-035**, **DC-020** to **DC-044**, and the
+  volumes for everything older). Seen on origin by 2026-10-04: `amh-v10.0.0`, `amh-v10.2.0`,
+  `amh-v14.1.0` and `amh-v15.0.0`; the 10.3.0–10.4.0 and 14.2.0 drafts rode later tags untagged.
