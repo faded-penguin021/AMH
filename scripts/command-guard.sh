@@ -139,10 +139,24 @@
 #     backslash rule beside it and belongs to whoever takes it (AMH ledger row DC028).
 #   * HEREDOCS AND LONG LINES. `cmd <<EOF` hides its body until the delimiter, and the
 #     window-based scanners give up past `CHAR_LOOKAHEAD` characters — a variable name or
-#     redirection target longer than the window is not classified. A backslash-newline is
-#     removed as bash removes it, but only after the bodies are cut, so one on the OPERATOR
-#     line opens the body a line early: `cat <<EOF \⏎&& git push --force origin main` hides
-#     the push (AMH ledger row DD046).
+#     redirection target longer than the window is not classified. A body ENDS where bash ends
+#     it: every operator on a line opens a body, read in order; the terminator matches the
+#     whole line, `<<-` stripping tabs only; and an unquoted body joins a backslash-newline
+#     before the comparison (AMH ledger row DD057). Where it STARTS, and how its delimiter word
+#     is read, are not bash's yet, and no error there is safe in either direction: a body
+#     closed early hands data to the walkers as commands, where a quote can hide the real
+#     command after the terminator, and a body that never closes hides everything after it.
+#     Five such misreads are known. A backslash-newline is removed as bash removes it, but
+#     only after the bodies are cut, so one on the OPERATOR line opens the body a line early:
+#     `cat <<EOF \⏎&& git push --force origin main` hides the push (AMH ledger row DD046). A
+#     delimiter with a quote inside the word, between words or `$'…'` (`<<E"O"F`,
+#     `<<"E O F"`) is stored as no line can match, so its body never closes — and since every
+#     operator counts, that now holds for a second operator too, behind a first that HEAD
+#     read correctly. A `<<` inside a multi-line string opens a body bash never opens. And a
+#     delimiter a `)` ends is read as a shift's operand, so `echo $(cat <<EOF)` opens no body
+#     and its text is judged as commands. And a lone `<` skips the character after it, so in
+#     `<<<"$v"` the `"` is lost: a later `"<<EOF"` opens a body, or a later real operator is
+#     read as quoted and opens none.
 #   * COMMENTS ARE READ TWICE, AND THE STRICTER VERDICT WINS. A command with a `#` in it is
 #     judged once with its comments as text, as before, and once with each comment inert, its
 #     quotes deleted, so `echo a # don't⏎printenv` is refused (see COMMENT_READING). Neither
@@ -727,13 +741,25 @@ brace_word_start() { # brace_word_start <the character before the brace>
 # rail, force-push and push-to-`main` included. So: this scan is fail-CLOSED. When the
 # operator is not unmistakably a here-document, do not open body mode.
 #
-# Sets HEREDOC_DELIM and returns 0 when $1 opens a here-document body.
-HEREDOC_DELIM=''
+# EVERY operator on the line counts, in order: bash reads `cat <<A <<B` as two bodies, one
+# after the other, once the line ends. Stopping at the first made `A` the terminator of
+# everything, so B's body was judged as commands and a `'` in it opened a string that hid the
+# command after `B` from every rail (AMH ledger row DD057).
+#
+# Sets HEREDOC_DELIMS, one entry per operator in the order bash reads the bodies, with
+# HEREDOC_DASH (1 for `<<-`) and HEREDOC_UNQUOTED (1 when the delimiter word holds no quote and
+# no backslash, which is when bash joins backslash-newlines inside the body) beside it, and
+# returns 0 when $1 opens at least one here-document body.
+HEREDOC_DELIMS=()
+HEREDOC_DASH=()
+HEREDOC_UNQUOTED=()
 heredoc_delim() {
 	local s=$1
-	local i=0 n=${#s} c q='' rest delim prev=' ' parameter_depth=0
+	local i=0 n=${#s} c q='' rest delim prev=' ' parameter_depth=0 frames='' dash unquoted
 	local wbase=0 wbuf='' wsafe=0
-	HEREDOC_DELIM=''
+	HEREDOC_DELIMS=()
+	HEREDOC_DASH=()
+	HEREDOC_UNQUOTED=()
 	case $s in *'<<'*) ;; *) return 1 ;; esac # no operator at all: skip the scan
 	while [ "$i" -lt "$n" ]; do
 		if [ "$i" -ge "$wsafe" ]; then # windowed scan — see CHAR_WINDOW
@@ -763,14 +789,36 @@ heredoc_delim() {
 		# `#` that starts one: `echo hi # see <<EOF⏎printenv` judges the `printenv`.
 		'$') [ "${wbuf:i-wbase+1:1}" = '{' ] && parameter_depth=$((parameter_depth + 1)) ;;
 		'}') [ "$parameter_depth" -gt 0 ] && parameter_depth=$((parameter_depth - 1)) ;;
+		# Inside arithmetic a `<<` is a SHIFT wherever it sits. The operand tests below caught
+		# only a shift whose operand the `)` ends, and `$(( 1 << n ))` — the spaced style — opened
+		# a body named `n` that hid every later line; once every operator on a line counts, it did
+		# so after a real heredoc too (AMH ledger row DD057). Each open paren pushes a frame: `a`
+		# for arithmetic, `c` for a command context, where a `<<` is a heredoc. A `((` or `$((`
+		# is arithmetic only when its matching close is `))` on this line, as bash decides it:
+		# `((true <<EOF ) )` is two subshells and its heredoc is real. A `$(` inside arithmetic
+		# is a command context again: `(( x = $(cat <<EOF` opens a body.
+		'(')
+			if [ "${frames: -1}" = a ] && [ "$prev" != '$' ]; then
+				frames+=a
+			elif [ "${wbuf:i-wbase+1:1}" = '(' ] && arith_closes_double "${wbuf:i-wbase+2:CHAR_LOOKAHEAD}"; then
+				frames+=aa
+				i=$((i + 1))
+			else
+				frames+=c
+			fi
+			;;
+		')') frames=${frames%?} ;;
 		'#')
+			# The operators before the comment still open their bodies.
 			[ "$COMMENT_READING" -eq 2 ] && [ "$parameter_depth" -eq 0 ] &&
-				comment_starts_after "$prev" && return 1
+				comment_starts_after "$prev" && break
 			;;
 		'<')
 			# `<<<` is a here-STRING: it redirects one line of text and opens no body.
-			if [ "${wbuf:i-wbase+1:1}" = '<' ] && [ "${wbuf:i-wbase+2:1}" != '<' ]; then
+			if [ "${frames: -1}" != a ] && [ "${wbuf:i-wbase+1:1}" = '<' ] && [ "${wbuf:i-wbase+2:1}" != '<' ]; then
 				rest=${wbuf:i-wbase+2}
+				dash=0
+				case $rest in -*) dash=1 ;; esac
 				rest=${rest#-}
 				rest=${rest#"${rest%%[![:space:]]*}"}
 				delim=${rest%%[[:space:];|&<>)(\`]*}
@@ -779,6 +827,10 @@ heredoc_delim() {
 				# test alone only catches the literal `$((1 << 8))` form. Checked
 				# before the quote and backslash strips below, which change the length.
 				case ${rest:${#delim}:1} in ')') delim='' ;; esac
+				# Read before the strips below remove the evidence: any quote or backslash in
+				# the word makes bash read the body literally, with no line joining.
+				unquoted=1
+				case $delim in *[\'\"\\]*) unquoted=0 ;; esac
 				delim=${delim#[\'\"]}
 				delim=${delim%[\'\"]}
 				# `cat <<\EOF` is a real here-document whose terminator is `EOF`: bash
@@ -791,8 +843,11 @@ heredoc_delim() {
 				# delimiter — no shell accepts `8` as a here-document terminator word.
 				'' | [0-9]*) ;;
 				*)
-					HEREDOC_DELIM=$delim
-					return 0
+					# The scan goes on past the word: its quotes and backslashes are read
+					# by the walk as any others are, and the next operator is found the same way.
+					HEREDOC_DELIMS+=("$delim")
+					HEREDOC_DASH+=("$dash")
+					HEREDOC_UNQUOTED+=("$unquoted")
 					;;
 				esac
 			fi
@@ -803,23 +858,84 @@ heredoc_delim() {
 		prev=$c
 		i=$((i + 1))
 	done
+	[ "${#HEREDOC_DELIMS[@]}" -gt 0 ]
+}
+
+# Whether the text after a `((` closes it with an adjacent `))`, which is what makes it arithmetic
+# to bash rather than two nested parens. Parens are counted from two and quoted text is skipped.
+# No close within CHAR_LOOKAHEAD characters on the line means no, so a `<<` there opens a body.
+arith_closes_double() { # arith_closes_double <the text after `((`>
+	local s=$1 i=0 n=${#1} c q='' depth=2 one=-2
+	while [ "$i" -lt "$n" ]; do
+		c=${s:i:1}
+		if [ -n "$q" ]; then
+			if [ "$c" = "\\" ] && [ "$q" = '"' ]; then
+				i=$((i + 2))
+				continue
+			fi
+			[ "$c" = "$q" ] && q=''
+		else
+			case $c in
+			"'" | '"') q=$c ;;
+			\\) i=$((i + 1)) ;;
+			'(') depth=$((depth + 1)) ;;
+			')')
+				depth=$((depth - 1))
+				[ "$depth" -eq 1 ] && one=$i
+				[ "$depth" -eq 0 ] && { [ "$i" -eq $((one + 1)) ]; return; }
+				;;
+			esac
+		fi
+		i=$((i + 1))
+	done
 	return 1
 }
 
+# Each body ends where bash ends it, because every way of ending one early hands body text to
+# the walkers as commands, and a quote in that text then hides the real command after the
+# terminator (AMH ledger row DD057):
+#   - the terminator matches the WHOLE line. `<<-` strips leading TABS only, so `  EOF` ends no
+#     body, under either operator;
+#   - under an unquoted delimiter, a line ending in an odd run of backslashes is joined to the
+#     next before the comparison, as bash joins it: `foo\⏎EOF` reads as `fooEOF` and ends
+#     nothing, and `\⏎EOF` reads as `EOF` and does. `<<-` strips tabs from the joined line.
+#     A quoted delimiter joins nothing. This is bash's rule INSIDE a body, not a join of body
+#     text before the delimiter is found (AMH ledger row DD046);
+#   - the bodies of a line's operators are read one after another, in order.
+# A body still open when the text ends discards the rest, as before.
 strip_heredocs() {
 	local s=$1
-	local line trimmed delim='' body=1
+	local line logical='' k=0 count=0 run
+	local delims=() dashes=() unquoted=()
 	local out=()
 	while IFS= read -r line; do
-		if [ "$body" -eq 0 ]; then
-			trimmed=${line#"${line%%[![:space:]]*}"} # <<- strips leading tabs
-			[ "$trimmed" = "$delim" ] && body=1
+		if [ "$k" -lt "$count" ]; then
+			if [ "${unquoted[k]}" -eq 1 ]; then
+				case $line in
+				*\\)
+					run=${line##*[!\\]}
+					if [ $((${#run} % 2)) -eq 1 ]; then
+						logical+=${line%?}
+						continue
+					fi
+					;;
+				esac
+			fi
+			line=$logical$line
+			logical=''
+			if [ "${dashes[k]}" -eq 1 ]; then
+				while [ "${line:0:1}" = $'\t' ]; do line=${line:1}; done
+			fi
+			[ "$line" = "${delims[k]}" ] && k=$((k + 1))
 			continue
 		fi
 		out+=("$line")
 		if heredoc_delim "$line"; then
-			delim=$HEREDOC_DELIM
-			body=0
+			delims=("${HEREDOC_DELIMS[@]}")
+			dashes=("${HEREDOC_DASH[@]}")
+			unquoted=("${HEREDOC_UNQUOTED[@]}")
+			count=${#delims[@]}
+			k=0
 		fi
 	done <<<"$s"
 	[ "${#out[@]}" -gt 0 ] && printf '%s\n' "${out[@]}"
@@ -6477,6 +6593,51 @@ hello
 EOF
 printenv'
 	st_blocked 'echo "write <<EOF into the doc"; cat .env'
+	# Each body ends where bash ends it (AMH ledger row DD057). Every operator on a line counts,
+	# and the bodies follow one another: closing everything at `A` judged B's `'` as a command,
+	# which hid the line after `B`. Both bodies are data, so `printenv` inside one is no command.
+	st_blocked $'cat <<A <<B\nA\n\'\nB\nprintenv'
+	st_blocked $'cat <<A<<B\nA\n\'\nB\nprintenv'
+	st_blocked $'cat <<A; cat <<-B\nA\n\'\n\tB\nprintenv'
+	st_allowed $'cat <<A <<B\nprintenv\nA\nenv\nB'
+	# Inside `((…))` a `<<` is a shift wherever it sits, the spaced style included, before a
+	# real operator or after one; a heredoc inside a subshell still opens its body.
+	st_blocked $'echo $(( 1 << n ))\nprintenv'
+	st_blocked $'echo $((1<<n ))\nprintenv'
+	st_blocked $'cat <<EOF $(( 1 << n ))\nbody\nEOF\nprintenv'
+	st_blocked $'cat <<EOF; echo $(( 1 << n ))\nbody\nEOF\nprintenv'
+	st_blocked $'(cat <<EOF )\nbody\nEOF\nprintenv'
+	st_allowed $'cat <<EOF $(( 1 << n ))\nprintenv\nEOF'
+	st_allowed $'(( x = 1 << n )); cat <<EOF\nprintenv\nEOF'
+	# ...but only where bash reads arithmetic: `((…) )` is two subshells, and a `$(` inside
+	# arithmetic is a command again, so the heredoc in each is real and its body is data.
+	st_blocked $'((true <<EOF ) )\n\'\nEOF\nprintenv'
+	st_blocked $'(( x = $(printf 1 <<EOF\n\'\nEOF\n) ))\nprintenv'
+	st_blocked $'(( x = $(printf 1 <<EOF # note\n\'\nEOF\n) ))\nprintenv'
+	st_blocked $'echo $(( $(cat <<EOF ) + 1 ))\n\'\nEOF\nprintenv'
+	st_allowed $'echo $(( $(cat <<EOF ) + 1 ))\nprintenv\nEOF'
+	# The terminator is the whole line; `<<-` strips TABS only, and from the joined line.
+	st_blocked $'cat <<EOF\n  EOF\n\'\nEOF\nprintenv'
+	st_blocked $'cat <<-EOF\n  EOF\n\'\nEOF\nprintenv'
+	st_blocked $'cat <<-EOF\n\tEOF\nprintenv'
+	st_allowed $'cat <<EOF\nEOF \nprintenv\nEOF'
+	st_allowed $'cat <<-EOF\n\t \tEOF\nprintenv\nEOF'
+	st_allowed $'cat <<-EOF\nE\\\n\tOF\nprintenv\nEOF'
+	# Under an unquoted delimiter an odd run of backslashes joins the next line first: `foo\⏎EOF`
+	# ends nothing, and `EO\⏎F`, `EOF\⏎` and `\⏎EOF` each end the body. A quoted delimiter and an
+	# even run join nothing.
+	st_blocked $'cat <<EOF\nfoo\\\nEOF\n\'\nEOF\nprintenv'
+	st_blocked $'cat <<EOF\nEO\\\nF\nprintenv\nEOF'
+	st_blocked $'cat <<EOF\nEOF\\\n\nprintenv\nEOF'
+	st_blocked $'cat <<-EOF\n\\\n\tEOF\nprintenv\nEOF'
+	st_blocked $'cat <<\'EOF\'\nfoo\\\nEOF\nprintenv'
+	st_blocked $'cat <<EOF\nfoo\\\\\nEOF\nprintenv'
+	st_allowed $'cat <<-EOF\n\tfoo\\\n\tEOF\nprintenv\nEOF'
+	st_allowed $'cat <<EOF\nfoo\\\\\\\nEOF\nprintenv\nEOF'
+	# An operator inside a comment opens nothing under the second reading, while the one before
+	# the comment still does.
+	st_blocked $'cat <<A # x <<B\nA\nprintenv'
+	st_allowed $'cat <<A # note\nprintenv\nA'
 	# Redirections the word-split scan never saw.
 	st_blocked 'tr "\0" "\n" 0</proc/self/environ'
 	st_blocked 'cat<.env'

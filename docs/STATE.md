@@ -36,7 +36,8 @@ command-guard gaps the Owner queue named: a quote inside a `#` comment, heredoc 
 the wrong line, and abbreviated `git push` long options. It also closes the related shapes that
 measuring those gaps turned up. All of it rides the 16.0.0 draft, and each guard unit gets one
 fresh-context review pass. **Each unit starts only on the owner's explicit approval of that
-unit.** The owner approved Units 0, 1 and 2, one at a time. Unit 2's first attempt failed its
+unit.** The owner approved Units 0, 1, 2 and 3, one at a time, and on 2026-11-02 approved Unit 3s
+to follow Unit 3. Unit 2's first attempt failed its
 review and was not shipped (**DD-055**). Its second attempt, plan rev 4, judges a command under two
 readings of its comments, and the stricter verdict wins (**DD-056**). The first attempt is kept
 whole as `docs/plans/2026-11-02-unit2-attempt-1.patch`, which applies to `be7a4df` and retires
@@ -45,8 +46,8 @@ with the plan. The Owner queue names the unit waiting.
 - [x] 0 — the plan committed, and the cc-safe-setup Changelog lines folded
 - [x] 1 — `git push` long options read by unique prefix
 - [x] 2 — comments made inert before any walker reads the text (rev 4, attempt 2)
-- [ ] 3 — heredoc bodies end where bash ends them
-- [ ] 3s — an unclosed heredoc body blocks the command (parked: the owner's open decision)
+- [x] 3 — heredoc bodies end where bash ends them
+- [ ] 3s — an unclosed heredoc body blocks the command (approved; next)
 - [ ] 4 — heredoc bodies start where bash starts them
 
 Operational gotchas:
@@ -70,18 +71,11 @@ the README Quick Start names the draft tag before it exists. Check: `git ls-remo
 --tags origin refs/tags/amh-v16.0.0` — a matching ref resolves this item; no output means the
 documented install command is not live yet.
 
-**OPEN — decide whether a heredoc body still open at the end of a command blocks the command
-(plan Unit 3s).** Today the guard silently skips everything after such a body. So a delimiter it
-misreads, such as `<<E"O"F`, `<<"E O F"` or a backslash-newline inside the delimiter, hides every
-later line from every rail. Blocking turns each misread into a refusal; the cost is refusing a
-command that bash runs with a warning. Plan Unit 4 corrects the misreads known today, and the net
-would cover the ones not yet found. Recommendation: block. The decision is the owner's and still
-open; Units 3 and 4, if the owner approves them, run without it.
-
-**OPEN — approve, or not, starting plan Unit 3: heredoc bodies end where bash ends them.** Each
-unit of the plan starts only on the owner's explicit approval of that unit, and approving one
-unit approves only that one. When a unit lands, this item moves to the next one. Units 3 and 4
-each owe a rule-review pass, which the owner has already allowed.
+**OPEN — approve, or not, starting plan Unit 4: heredoc bodies start where bash starts them.**
+Unit 3s, already approved, comes first. Each unit of the plan starts only on the owner's explicit
+approval of that unit, and approving one unit approves only that one. When a unit lands, this
+item moves to the next one. Units 3s and 4 each owe a rule-review pass, which the owner has
+already allowed.
 
 **OPEN — decide whether to plan a fix for a quote inside backticks.** Found while building Unit 2:
 bash ends a backtick substitution at the first unescaped backtick, quotes or not, and every walker
@@ -119,6 +113,12 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-02 — **Owner-queue-closure plan: Unit 3 done; Unit 3s decided.** Every heredoc operator
+  on a line now opens a body, terminators match exactly, an unquoted body joins its
+  backslash-newlines, and a `<<` inside arithmetic is a shift (**DD-057**). A fuzz against bash
+  found eleven inputs it newly allows, each ending in a body that never closes. The owner chose to ship
+  and to block an unclosed body next, which answers the Unit 3s queue item: block.
 
 - 2026-11-02 — **Owner-queue-closure plan: Unit 2 done, on its second attempt.** A gpt-6-astra
   spec review found inputs that rev 3's inert comments would newly allow, and plan rev 4 folded

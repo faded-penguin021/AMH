@@ -1,6 +1,7 @@
 # PLAN — close the three open Owner-queue items inside 16.0.0
 
-> **Status: rev 4, 2026-11-02. Units 0 and 1 are done. Unit 2's first attempt failed its review
+> **Status: rev 4, 2026-11-02. Units 0, 1, 2 and 3 are done, and the owner approved Unit 3s to
+> follow Unit 3 (see Unit 3's outcome). Units 0 and 1 were done first. Unit 2's first attempt failed its review
 > and was not shipped; rev 3 redesigned Unit 2 on the owner's decision, the owner approved
 > executing it after a spec review, and rev 4 folds that review in. Every unit starts only on the
 > owner's explicit approval of that unit (§1, decision 5).** Unit 3's safety net is split out as Unit 3s, and that decision is still open with
@@ -391,9 +392,20 @@ below, waiting on the owner:
 - **Header:** rewrite the HEREDOCS bullet (`:140–145`), with no "fails closed" wording.
 - **Ledger row:** lesson 1 from §3.
 
-### Unit 3s — PARKED: an unclosed heredoc body blocks the command (the owner's open decision)
+**Outcome, 2026-11-02 (DD-057).** Built as written, plus one rule the fuzz showed it needed: a
+`<<` inside arithmetic (a `((` bash closes with `))`) is a shift, since once every operator counts
+a spaced `$(( 1 << n ))` after a real heredoc opened a phantom body. A first fuzz found 4 inputs
+newly allowed that bash runs, each ending inside a body that never closes; the owner chose to
+ship Unit 3 with them named and to run Unit 3s next, which closes that class. The rule review
+(gpt-6.1-sol, one pass) then found the arithmetic rule too broad (`((true <<EOF ) )`, a `$(`
+inside arithmetic) and a missing fixture; both were fixed. The final fuzz, 38,342 commands
+against `35608d2`, closed 432 and newly allowed 11 that bash runs, every one ending in a body
+that never closes. For Unit 4, one more misread: a lone `<` skips the character after it, so
+`<<<"$v"` loses its `"`.
 
-**It runs only if the owner decides for it. It is not part of closing item 2.**
+### Unit 3s — an unclosed heredoc body blocks the command (approved by the owner, 2026-11-02)
+
+**The owner decided for it on 2026-11-02, to run after Unit 3. It is not part of closing item 2.**
 
 - **Change:** today, a body still open when the input ends silently discards everything after
   it. Instead, block the command, with a reason saying the guard could not find the heredoc's

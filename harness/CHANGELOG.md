@@ -123,6 +123,21 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   is prose whose nested quotes the walkers misread around a `#`. A command whose comments hide
   several one-time advisories now meets them one rerun at a time. A command whose comments outside heredoc bodies hold a quote pays for
   a second run of every rail. A heredoc body full of Markdown headings does not.
+- **A heredoc body ends where bash ends it.** The command guard read only the first heredoc
+  operator on a line, so in `cat <<A <<B` the body of `B` was judged as commands, and a `'` in
+  it hid the command after `B`. It also ended a body at a terminator with leading spaces, which
+  bash does not accept, and missed a backslash-newline that joins a body line to the terminator
+  line (`foo\⏎EOF` ends nothing). Every operator on a line now opens a body, read in order. The
+  terminator must match the whole line, with `<<-` stripping tabs only. Under an unquoted
+  delimiter, a body line ending in an odd run of backslashes is joined to the next before the
+  comparison. A `<<` inside arithmetic, a `((` or `$((` that bash closes with `))`, is read as a
+  shift, so `$(( 1 << n ))` no longer opens a body named `n` that hid every later line, while the
+  heredoc in `((true <<EOF ) )` or in a `$(` inside arithmetic still opens one. Bodies that bash reads as data, the second of two above
+  all, are no longer refused. Still open, and named in the guard's header: a delimiter with a
+  quote inside the word (`<<E"O"F`), whose body never closes, now hides the rest of the command
+  behind a second operator too; a `<<` inside a multi-line string opens a body bash never
+  opens; `echo $(cat <<EOF)`, whose delimiter a `)` ends, opens none; and after a here-string
+  such as `<<<"$v"` the next `"` is lost, so a later quoted `"<<EOF"` can open a body.
 - **The command guard denies the pre-push rail's off switches.** `git push --no-verify`, a
   `core.hooksPath` override on a push (`git -c core.hooksPath=… push`, or `--config-env` in
   either spelling), and `git config` setting `core.hooksPath` in any scope all passed, although
