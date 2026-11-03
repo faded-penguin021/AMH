@@ -421,6 +421,17 @@ that never closes. For Unit 4, one more misread: a lone `<` skips the character 
 - **Review:** it changes guard semantics, so it owes its own rule-review pass. That pass is
   decided now, as the plan permits.
 
+**Outcome, 2026-11-03 (DD-058).** Built as written: `strip_heredocs` reports a body still open
+at the end of the text, and the command is refused under either comment reading, before any
+one-time advisory, with a reason naming the delimiter the guard waited for. No existing
+self-test fixture left a heredoc open, so none flipped. Q1–Q3, Q5 and R3a are refused unless a line matches the misread word (the review found
+`cat <<"E O F"` ⏎ `E` closes Q3 early, as at HEAD); so is a
+`<<` inside a multi-line string or a comment that no later line matches, until Unit 4. The
+Unit 3 fuzz, replayed against `b6228b4`, newly allowed none and left 19 open, each a misread
+that closes a body where bash does not, or opens none. For Unit 4: once this ships, Q1–Q3, Q5
+and R3a already exit 2, so its fixtures must show the command after the body is judged, not
+only the exit status.
+
 ### Unit 4 — heredoc bodies START where bash starts them (the rest of item 2; finding 3)
 
 `strip_heredocs` reads command text as logical lines, using Unit 2's walker:
@@ -502,10 +513,6 @@ made inert instead of removed, and lesson 3 is added to §3. Both rest on the ow
   bash parses. The fuzz harness and its corpus lived in the session's scratch space and are not
   committed; the seed, the generator's shape and the counts are in the row.
 
-- **No implementation exists yet.** Every "must become" or "must stay" is a requirement, not a
-  measurement of new code.
-- **The ladder and the full self-test were not run,** because the tree is unchanged.
-- **Unit 3's safety net might flip an existing fixture.** I did not check whether any of the 614
-  `st_blocked`/`st_allowed` fixtures deliberately leaves a heredoc unterminated; Unit 3 will find
-  out.
+- **Unit 4 is not built.** Its "must become" and "must stay" lines are requirements, not
+  measurements of new code; Units 0–3s each record their own outcome above.
 - **A3's lockstep outcome is an estimate.** The line numbers are for `0e3c908`.

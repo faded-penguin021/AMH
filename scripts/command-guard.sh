@@ -142,21 +142,26 @@
 #     redirection target longer than the window is not classified. A body ENDS where bash ends
 #     it: every operator on a line opens a body, read in order; the terminator matches the
 #     whole line, `<<-` stripping tabs only; and an unquoted body joins a backslash-newline
-#     before the comparison (AMH ledger row DD057). Where it STARTS, and how its delimiter word
-#     is read, are not bash's yet, and no error there is safe in either direction: a body
-#     closed early hands data to the walkers as commands, where a quote can hide the real
-#     command after the terminator, and a body that never closes hides everything after it.
+#     before the comparison (AMH ledger row DD057). A body still open when the command ends is
+#     REFUSED, with its own reason, though bash runs it with a warning: the guard judged nothing
+#     after the line that opened it (AMH ledger row DD058). Where a body STARTS, and how its
+#     delimiter word is read, are not bash's yet. A misread that leaves a body open is refused
+#     by that rule, and only that one is: a body closed early hands data to the walkers as
+#     commands, where a quote can hide the real command after the terminator, and a body that
+#     starts early, or where bash opens none, hides every line up to a line that matches.
 #     Five such misreads are known. A backslash-newline is removed as bash removes it, but
 #     only after the bodies are cut, so one on the OPERATOR line opens the body a line early:
-#     `cat <<EOF \⏎&& git push --force origin main` hides the push (AMH ledger row DD046). A
-#     delimiter with a quote inside the word, between words or `$'…'` (`<<E"O"F`,
-#     `<<"E O F"`) is stored as no line can match, so its body never closes — and since every
-#     operator counts, that now holds for a second operator too, behind a first that HEAD
-#     read correctly. A `<<` inside a multi-line string opens a body bash never opens. And a
-#     delimiter a `)` ends is read as a shift's operand, so `echo $(cat <<EOF)` opens no body
-#     and its text is judged as commands. And a lone `<` skips the character after it, so in
-#     `<<<"$v"` the `"` is lost: a later `"<<EOF"` opens a body, or a later real operator is
-#     read as quoted and opens none.
+#     `cat <<EOF \⏎&& git push --force origin main` ⏎ `EOF` hides the push (AMH ledger row
+#     DD046). A delimiter with a quote inside the word, between words or `$'…'` (`<<E"O"F`,
+#     `<<"E O F"`), or a backslash-newline inside it, is stored as a word bash does not use
+#     (`E"O"F`, `E`, `EO`): refused when no line matches that word, which is the usual case,
+#     and closed early, as before, by a line that does — `cat <<"E O F"` ⏎ `E` ⏎ `'` ⏎ `E O F`
+#     ⏎ `printenv` passes. A `<<` inside a multi-line string, or
+#     inside a comment under the first comment reading, opens a body bash never opens: refused
+#     when nothing matches, hidden up to the line that does. And a delimiter a `)` ends is read
+#     as a shift's operand, so `echo $(cat <<EOF)` opens no body and its text is judged as
+#     commands. And a lone `<` skips the character after it, so in `<<<"$v"` the `"` is lost: a
+#     later `"<<EOF"` opens a body, or a later real operator is read as quoted and opens none.
 #   * COMMENTS ARE READ TWICE, AND THE STRICTER VERDICT WINS. A command with a `#` in it is
 #     judged once with its comments as text, as before, and once with each comment inert, its
 #     quotes deleted, so `echo a # don't⏎printenv` is refused (see COMMENT_READING). Neither
@@ -733,8 +738,10 @@ brace_word_start() { # brace_word_start <the character before the brace>
 # agent mistake this guard targets.
 #
 # Opening body mode is the most dangerous thing this file does: every line until the
-# delimiter goes UNJUDGED, so a delimiter no line can ever match discards the rest of
-# the command whole. A substring test for `<<` matched three things that open no body
+# delimiter goes UNJUDGED. A delimiter no line can ever match used to discard the rest of
+# the command whole; that body is now reported and the command refused (AMH ledger row
+# DD058), which turns such a misread into a refusal of text bash runs, and leaves a
+# delimiter that some LATER line matches hiding every line up to it. A substring test for `<<` matched three things that open no body
 # at all — `<<<` here-strings, `$((1<<8))` shifts, and `<<` inside quoted prose — and
 # each resolved to a delimiter (`<`, `8))`, a word) that never recurred, so
 # `grep -q x <<<"$v"; git push --force origin main` was ALLOWED. That voided every
@@ -902,7 +909,13 @@ arith_closes_double() { # arith_closes_double <the text after `((`>
 #     A quoted delimiter joins nothing. This is bash's rule INSIDE a body, not a join of body
 #     text before the delimiter is found (AMH ledger row DD046);
 #   - the bodies of a line's operators are read one after another, in order.
-# A body still open when the text ends discards the rest, as before.
+# A body still open when the text ends has swallowed every line after its operator, unjudged.
+# That is reported in HEREDOC_LEFT_OPEN (1, with the delimiter wanted in HEREDOC_OPEN_DELIM),
+# and `heredoc_left_open` blocks on it: bash would run such a command, with a warning, but the
+# guard has not read it, and a delimiter the guard misreads closes no body at all (AMH ledger
+# rows DC002, DD058). The output is unchanged, so a caller in a `$(…)` loses nothing.
+HEREDOC_LEFT_OPEN=0
+HEREDOC_OPEN_DELIM=''
 strip_heredocs() {
 	local s=$1
 	local line logical='' k=0 count=0 run
@@ -938,8 +951,23 @@ strip_heredocs() {
 			k=0
 		fi
 	done <<<"$s"
+	HEREDOC_LEFT_OPEN=0
+	HEREDOC_OPEN_DELIM=''
+	if [ "$k" -lt "$count" ]; then
+		HEREDOC_LEFT_OPEN=1
+		HEREDOC_OPEN_DELIM=${delims[k]}
+	fi
 	[ "${#out[@]}" -gt 0 ] && printf '%s\n' "${out[@]}"
 	return 0
+}
+
+# Whether a heredoc body in the command never reaches its terminator, under the current
+# COMMENT_READING. Run in this shell, not a `$(…)`, so strip_heredocs' report survives. Text
+# with no `<<` opens no body, and pays nothing.
+heredoc_left_open() { # heredoc_left_open <command>
+	case $1 in *'<<'*) ;; *) return 1 ;; esac
+	strip_heredocs "$1" >/dev/null
+	[ "$HEREDOC_LEFT_OPEN" -eq 1 ]
 }
 
 # --- rails ------------------------------------------------------------------
@@ -5486,6 +5514,13 @@ check_command_reading() { # check_command_reading <command>, under the current C
 	ADVISORY_REASON=''
 	DOTENV_ADVISORY_REASON=''
 	KEYMATERIAL_ADVISORY_REASON=''
+	# First, before any one-time advisory: every tier below reads the text strip_heredocs hands
+	# back, so a body that never closes has hidden the rest of the command from all of them, and
+	# an advisory cleared by a rerun would only lead to this refusal (AMH ledger row DD058).
+	if heredoc_left_open "$cmd"; then
+		BLOCK_REASON="The command guard could not find the end of a heredoc: the body opened for the delimiter \`${HEREDOC_OPEN_DELIM:0:40}\` runs to the end of the command, so no line after the one that opened it was checked, and nothing may be allowed on that basis. Bash would run it, with a warning; this guard will not. End the body with the delimiter alone on its own line — the whole line, with \`<<-\` stripping leading tabs only. If that delimiter is not the one you wrote, this guard misread it: spell it plainly, as \`<<'EOF'\` or \`<<EOF\`, with no quote or backslash inside the word and no line break inside the operator. If you wrote no heredoc there, this guard read one in text bash does not — a \`<<\` inside a string that spans lines, or inside a comment: move that text into a quoted heredoc's body or a file, or reword it. Re-running the same text will not help."
+		return 1
+	fi
 	if needs_one_time_advisory dotenv "$cmd"; then
 		BLOCK_REASON=$ADVISORY_REASON
 		return 1
@@ -5766,6 +5801,22 @@ st_allowed() {
 		printf 'SELF-TEST FAIL: should have been ALLOWED WITHOUT WARNING: %s\n   warning given: %s\n' "$1" "$WARN_REASON" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	fi
+}
+# Refused because a heredoc body never closes, and for that reason: a fixture that any other rail
+# could refuse would not show the body was ever judged unclosed.
+st_heredoc_open() { # st_heredoc_open <command>
+	if st_check "$1"; then
+		printf 'SELF-TEST FAIL: should have been BLOCKED as an unclosed heredoc: %s\n' "$1" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+		return
+	fi
+	case $BLOCK_REASON in
+	*'could not find the end of a heredoc'*) ;;
+	*)
+		printf 'SELF-TEST FAIL: blocked, but not as an unclosed heredoc: %s\n   reason given: %s\n' "$1" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+		;;
+	esac
 }
 st_prepush_blocked() { # <local-ref> <local-sha> <remote-ref> <remote-sha>
 	if prepush_verdict "$1" "$2" "$3" "$4"; then
@@ -6638,6 +6689,33 @@ printenv'
 	# the comment still does.
 	st_blocked $'cat <<A # x <<B\nA\nprintenv'
 	st_allowed $'cat <<A # note\nprintenv\nA'
+	# A body still open when the text ends is refused for that reason (AMH ledger row DD058).
+	# Bash runs it, with a warning; the guard had judged nothing after the operator's line. Each
+	# fixture's last lines are harmless, so only this rule can refuse it.
+	st_heredoc_open $'cat <<EOF\nhi'
+	st_heredoc_open $'cat <<EOF\nhi\nls'
+	st_heredoc_open $'cat <<EOF\n  EOF\nls'
+	st_heredoc_open $'cat <<EOF\nEOF \nls'
+	st_heredoc_open $'cat <<EOF\nfoo\\\nEOF\nls'
+	st_heredoc_open $'x=$(cat <<EOF\nhi\nEOF)\nls'
+	st_heredoc_open $'cat <<A <<B\nA\nls'
+	st_heredoc_open $'cat <<A; cat <<B\nA\nB\ncat <<C\nls'
+	# ...so a delimiter the guard misreads is refused, where it used to hide every later line:
+	# a quote inside the word, quotes around a blank, `$'…'`, a continuation inside the word.
+	st_heredoc_open $'cat <<E"O"F\nhi\nEOF\nls'
+	st_heredoc_open $'cat <<\'E\'OF\nhi\nEOF\nls'
+	st_heredoc_open $'cat <<"E O F"\nhi\nE O F\nls'
+	st_heredoc_open $'cat <<$\'EOF\'\nhi\nEOF\nls'
+	st_heredoc_open $'cat <<EO\\\nF\nhi\nEOF\nls'
+	# ...and so is a `<<` the guard reads where bash opens no body at all, in a string that spans
+	# lines or in a comment (the first reading keeps a comment's text): a refusal of text bash
+	# runs, where it used to hide the rest.
+	st_heredoc_open $'git commit -m "subject\n\nsee <<EOF in docs"\nls'
+	st_heredoc_open $'echo hi # see <<EOF\nls'
+	# A body that closes on the last line, or before a trailing newline, is not open.
+	st_allowed $'cat <<EOF\nhi\nEOF\n'
+	st_allowed $'cat <<A <<B\nA\nB'
+	st_allowed $'x=$(cat <<EOF\nhi\nEOF\n)'
 	# Redirections the word-split scan never saw.
 	st_blocked 'tr "\0" "\n" 0</proc/self/environ'
 	st_blocked 'cat<.env'

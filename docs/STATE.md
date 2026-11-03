@@ -47,8 +47,8 @@ with the plan. The Owner queue names the unit waiting.
 - [x] 1 — `git push` long options read by unique prefix
 - [x] 2 — comments made inert before any walker reads the text (rev 4, attempt 2)
 - [x] 3 — heredoc bodies end where bash ends them
-- [ ] 3s — an unclosed heredoc body blocks the command (approved; next)
-- [ ] 4 — heredoc bodies start where bash starts them
+- [x] 3s — an unclosed heredoc body blocks the command
+- [ ] 4 — heredoc bodies start where bash starts them (awaiting the owner's approval)
 
 Operational gotchas:
 
@@ -72,9 +72,9 @@ the README Quick Start names the draft tag before it exists. Check: `git ls-remo
 documented install command is not live yet.
 
 **OPEN — approve, or not, starting plan Unit 4: heredoc bodies start where bash starts them.**
-Unit 3s, already approved, comes first. Each unit of the plan starts only on the owner's explicit
+Unit 3s is done, so Unit 4 is the next unit. Each unit of the plan starts only on the owner's explicit
 approval of that unit, and approving one unit approves only that one. When a unit lands, this
-item moves to the next one. Units 3s and 4 each owe a rule-review pass, which the owner has
+item moves to the next one. Unit 4 owes a rule-review pass, which the owner has
 already allowed.
 
 **OPEN — decide whether to plan a fix for a quote inside backticks.** Found while building Unit 2:
@@ -113,6 +113,11 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-03 — **Owner-queue-closure plan: Unit 3s done.** A heredoc body the command guard
+  opens and never closes now refuses the command, naming the delimiter it waited for, so the
+  misread delimiters Unit 4 targets are refused, unless a line matches the misread word, and so is
+  a `<<` in a multi-line string or a comment that no later line matches (**DD-058**).
 
 - 2026-11-02 — **Owner-queue-closure plan: Unit 3 done; Unit 3s decided.** Every heredoc operator
   on a line now opens a body, terminators match exactly, an unquoted body joins its

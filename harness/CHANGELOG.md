@@ -134,10 +134,20 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   shift, so `$(( 1 << n ))` no longer opens a body named `n` that hid every later line, while the
   heredoc in `((true <<EOF ) )` or in a `$(` inside arithmetic still opens one. Bodies that bash reads as data, the second of two above
   all, are no longer refused. Still open, and named in the guard's header: a delimiter with a
-  quote inside the word (`<<E"O"F`), whose body never closes, now hides the rest of the command
-  behind a second operator too; a `<<` inside a multi-line string opens a body bash never
-  opens; `echo $(cat <<EOF)`, whose delimiter a `)` ends, opens none; and after a here-string
-  such as `<<<"$v"` the next `"` is lost, so a later quoted `"<<EOF"` can open a body.
+  quote inside the word (`<<E"O"F`) is read as one no line matches, behind a second operator
+  too, which the next bullet now refuses; a `<<` inside a multi-line string opens a body bash
+  never opens; `echo $(cat <<EOF)`, whose delimiter a `)` ends, opens none; and after a
+  here-string such as `<<<"$v"` the next `"` is lost, so a later quoted `"<<EOF"` can open a body.
+- **A heredoc body that never closes is refused.** The command guard skipped every line after an
+  operator whose body reached the end of the command, so a delimiter it misread, such as
+  `<<E"O"F`, `<<'E'OF`, `<<"E O F"`, `<<$'EOF'` or one a backslash-newline splits, let every
+  later line through unjudged. Such a command is now refused, with a reason that names the
+  delimiter the guard was waiting for. Bash runs it, with a warning, so this refuses text bash
+  accepts: a body never ended, a terminator written as `EOF)`, and, until the guard reads where a
+  body starts as bash does, a `<<` inside a string that spans lines or inside a comment when no
+  later line matches it, and a delimiter the guard misreads even when it is closed, such as
+  `<<"E O F"`. A heredoc whose delimiter the guard reads correctly, closed on its own line, the
+  commit-message heredoc included, is unaffected.
 - **The command guard denies the pre-push rail's off switches.** `git push --no-verify`, a
   `core.hooksPath` override on a push (`git -c core.hooksPath=… push`, or `--config-env` in
   either spelling), and `git config` setting `core.hooksPath` in any scope all passed, although
