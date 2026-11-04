@@ -89,6 +89,13 @@ it is still open.
 as a draft, and nothing in it is approved. No unit starts without the owner's approval of that
 unit.
 
+**OPEN — decide whether to adopt the spill-guard plan,
+`docs/plans/2026-11-04-spill-guard-borrowings.md`, and each decision in its §2.** It is committed
+as a draft (rev 2), and nothing in it is approved. It proposes S1, S2, S6a and S3, and defers S4,
+S5, S6b and S6c. No unit starts without the owner's approval of that unit. Check for its S6a gap:
+`scripts/command-guard.sh --command 'nice -n 5 rm -rf ~'` — exit status 0 means a wrapper option
+still takes a deletion of the home directory past the permanent denial.
+
 ## Decided non-items (don't re-litigate without new evidence)
 
 A pointer index, not an argument: **read the cited row before reopening any of these**, because
