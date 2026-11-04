@@ -1,8 +1,8 @@
 # PLAN — close the credential-handling gaps that measuring spill-guard exposed
 
-> **Status: rev 2, drafted 2026-11-04, NOT committed and NOT owner-approved. Every decision in §2
-> is open.** No unit starts without the owner's explicit approval of that unit; approving the
-> plan approves no unit.
+> **Status: rev 2, committed 2026-11-04 (S0). Adopted by the owner the same day: S1, S2, S6a and
+> S3 ride the 16.0.0 draft, and S4, S5, S6b and S6c stay deferred (§2).** No unit is approved yet.
+> Each starts only on the owner's explicit approval of that unit; adopting the plan approved none.
 > Rev 2 folds in an external review of rev 1 (verdict REVISE_BEFORE_IMPLEMENTATION, nine
 > findings). Each finding was re-checked against this tree, or against the host's documentation,
 > before it was accepted (§6). Re-checking F8 found a wider gap than the review named, and that
@@ -34,11 +34,16 @@ Its central mechanism is out of scope by decision, not by oversight. **DB-027** 
 owner's 2026-08-11 call that a guard never opens a file, and it stands in the STATE Decided
 non-items. Nothing in this plan opens a file to classify it.
 
-## 2. Owner decisions this plan needs (all open)
+## 2. Owner decisions
 
-1. **Whether to adopt it, and which units.** Selected: S1, S2, S6a and S3. Deferred, each with
-   prerequisites: S4, S5, S6b and S6c (§4.2).
-2. **Release placement**, recommended per unit:
+Answered by the owner on 2026-11-04: decisions 1–4. Decision 5 stays open until each unit's
+behaviour is final.
+
+1. **Whether to adopt it, and which units.** **Answered: the four selected units, S1, S2, S6a
+   and S3.** S4, S5, S6b and S6c stay deferred, each with its prerequisites (§4.2). Adopting the
+   plan approves no unit: each starts only on the owner's explicit approval of that unit.
+2. **Release placement.** **Answered: all four ride the 16.0.0 draft**, S3 included, which
+   overrides the recommendation below for S3. The recommendations as drafted, per unit:
    - **S1: the 16.0.0 draft.** One of its sites is the unclosed-heredoc refusal that draft adds
      (**DD-058**).
    - **S2: the 16.0.0 draft**, subject to its own approval and review. It has the highest
@@ -50,11 +55,10 @@ non-items. Nothing in this plan opens a file to classify it.
    - **S3: after the 16.0.0 tag.**
 
    Each unit is approved and reviewed separately, whichever release it rides.
-3. **S1: control-character escaping**, specified narrowly in S1. The review asks for it to be
-   included. Recommendation: include it.
+3. **S1: control-character escaping**, specified narrowly in S1. **Answered: include it.**
 4. **One fresh-context reviewer per unit.** All selected units are in **Rule-review protocol**
-   scope: each changes a shipped script or guard semantics. This lifts the standing
-   no-subagents instruction for exactly that pass.
+   scope: each changes a shipped script or guard semantics. **Answered: approved, one pass per
+   unit.** This lifts the standing no-subagents instruction for exactly that pass.
 5. **Version semantics** stay provisional until each unit's final behavioural change is known
    (**Session discipline** 7(c)).
 
@@ -196,8 +200,8 @@ Every code unit follows `docs/RUNBOOK.md` → **Change a shipped script**:
 
 Fixture tokens are built at runtime, as `redact.sh`'s self-test already builds them.
 
-Execution order: **S0 → S1 → S2 → S6a → S3.** Each is a separate unit with its own approval and
-review. Neither S4 nor S5 is a prerequisite for any of them.
+Execution order: **S0 → S1 → S2 → S6a → S3**, all in the 16.0.0 draft. Each is a separate unit
+with its own approval and review. Neither S4 nor S5 is a prerequisite for any of them.
 
 ### 4.1 Selected
 
@@ -333,7 +337,7 @@ table (`internal/readers/wrappers.go`) is a source of shapes to test, not of cod
 **Docs.** Correct the WRAPPERS bullet to say exactly what is peeled, and list the unsupported
 forms precisely.
 
-#### S3 — four token shapes (rule widening; after 16.0.0)
+#### S3 — four token shapes (rule widening)
 
 - **Vendor verification first (F5).** Check each family against primary vendor documentation
   before calling it a current credential format. AWS publishes its identifier prefixes and Slack

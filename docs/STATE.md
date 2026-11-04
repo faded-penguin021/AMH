@@ -50,6 +50,18 @@ with the plan. The Owner queue names the unit waiting.
 - [x] 3s — an unclosed heredoc body blocks the command
 - [ ] 4 — heredoc bodies start where bash starts them (awaiting the owner's approval)
 
+Multi-unit work, planned: `docs/plans/2026-11-04-spill-guard-borrowings.md`. It closes the
+credential-handling gaps that comparing AMH with spill-guard exposed. The owner adopted its four
+selected units on 2026-11-04 and put all four in the 16.0.0 draft; S4, S5, S6b and S6c stay
+deferred. Each unit gets one fresh-context review pass. **Each unit starts only on the owner's
+explicit approval of that unit**; none is approved yet. The Owner queue names the unit waiting.
+
+- [x] S0 — the plan committed (rev 2)
+- [ ] S1 — refusal text does not repeat a supported credential shape (awaiting approval)
+- [ ] S2 — private-key bodies under a line prefix
+- [ ] S6a — options on the wrappers the guard already peels
+- [ ] S3 — four token shapes
+
 Operational gotchas:
 
 - A poison token in a squash-merge message suppresses the release commit's CI run entirely. Edit
@@ -89,12 +101,12 @@ it is still open.
 as a draft, and nothing in it is approved. No unit starts without the owner's approval of that
 unit.
 
-**OPEN — decide whether to adopt the spill-guard plan,
-`docs/plans/2026-11-04-spill-guard-borrowings.md`, and each decision in its §2.** It is committed
-as a draft (rev 2), and nothing in it is approved. It proposes S1, S2, S6a and S3, and defers S4,
-S5, S6b and S6c. No unit starts without the owner's approval of that unit. Check for its S6a gap:
-`scripts/command-guard.sh --command 'nice -n 5 rm -rf ~'` — exit status 0 means a wrapper option
-still takes a deletion of the home directory past the permanent denial.
+**OPEN — approve, or not, starting spill-guard plan Unit S1: refusal text does not repeat a
+supported credential shape.** The plan is adopted for 16.0.0 (its §2), and S1 is its first unit.
+Each unit starts only on the owner's explicit approval of that unit, and approving one approves
+only that one. When a unit lands, this item moves to the next. Check for S6a's gap, which the
+plan raised: `scripts/command-guard.sh --command 'nice -n 5 rm -rf ~'` — exit status 0 means a
+wrapper option still takes a deletion of the home directory past the permanent denial.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -120,6 +132,11 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-04 — **Spill-guard plan: committed (S0) and adopted.** The owner took its four selected
+  units, S1, S2, S6a and S3, into the 16.0.0 draft, each still approved one at a time, with one
+  fresh-context review pass per unit and S1's control-character escaping included. S4, S5, S6b
+  and S6c stay deferred. No guard unit has started.
 
 - 2026-11-03 — **Owner-queue-closure plan: Unit 3s done.** A heredoc body the command guard
   opens and never closes now refuses the command, naming the delimiter it waited for, so the
