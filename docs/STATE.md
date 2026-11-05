@@ -85,10 +85,12 @@ the README Quick Start names the draft tag before it exists. Check: `git ls-remo
 --tags origin refs/tags/amh-v16.0.0` — a matching ref resolves this item; no output means the
 documented install command is not live yet.
 
-**OPEN — say "open the PR" for the 16.0.0 train, the owner-queue-closure plan's Phase A.** Every
-unit of that plan is done. The owner said on 2026-11-04 that they will merge once Unit 4 lands;
-Phase A starts when the owner asks for the PR (step A1), and the squash message needs its
-poison-token check before the merge (**DC-040**).
+**OPEN — edit the squash message of the 16.0.0 train's PR, then merge it (the
+owner-queue-closure plan's Phase A, steps A2 and A3).** GitHub's default squash message joins
+every commit body on the branch, and a poison token in it suppresses the release commit's CI run;
+the ladder checks the branch's commits, never the message the forge composes at merge time
+(**DC-040**). Check: `gh pr list --state merged --search 'AMH 16.0.0 in:title'` — a listed PR
+resolves this item; no output means it is still open.
 
 **OPEN — decide whether to plan a fix for a quote inside backticks.** Found while building Unit 2:
 bash ends a backtick substitution at the first unescaped backtick, quotes or not, and every walker
@@ -135,6 +137,11 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-05 — **Owner-queue-closure plan, Phase A: step A1.** The owner said "open the PR",
+  which answers that Owner-queue item, and the agent described the whole 16.0.0 train against
+  `main` from the pull-request template. Steps A2 to A4, the squash message, the merge and the
+  tag, are the owner's and wait in the queue; A5, retiring the plan, follows the tag.
 
 - 2026-11-04 — **Spill-guard plan: committed (S0) and adopted.** The owner took its four selected
   units, S1, S2, S6a and S3, into the 16.0.0 draft, each still approved one at a time, with one
