@@ -138,6 +138,13 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-05 — **The hook-file check's path fold drops the spelling that left the macOS CI leg
+  running until cancelled, and CI jobs end at 30 minutes.** On the owner's ask after the 16.0.0
+  PR's stock Bash 3.2 leg never returned from the command guard's self-test: a slash in that
+  substitution pattern is now `\/`, a fold that changes nothing answers yes rather than looping,
+  and both CI jobs carry `timeout-minutes: 30` (**DD-061**). Whether 3.2 now passes is the next
+  macOS run's to say.
+
 - 2026-11-05 — **Owner-queue-closure plan, Phase A: step A1.** The owner said "open the PR",
   which answers that Owner-queue item, and the agent described the whole 16.0.0 train against
   `main` from the pull-request template. Steps A2 to A4, the squash message, the merge and the

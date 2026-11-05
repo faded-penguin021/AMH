@@ -5116,15 +5116,23 @@ is_ps_destructive_command() {
 # component, `hooks/pre-push` from inside `.git`, a `core.hooksPath` directory,
 # `$(git rev-parse --git-path hooks)` — is not read here; the header says so.
 names_prepush_hook_path() { # names_prepush_hook_path <path>
-	local w rest
+	local w rest next
 	cmd_lower "$1"
 	w=$CMD_LOWER
+	# A slash in the pattern is written `\/`, never inside quotes. With `${w//"//"/"/"}` here, the
+	# self-test never returned on stock macOS Bash 3.2 in CI, most likely because 3.2 looks for
+	# the `/` that ends the pattern without honouring quotes; `\/` is the spelling this file's
+	# other folds already ran with there (AMH ledger row DD061). A fold that changes nothing is a
+	# path this function could not read, so it answers yes: the host gets the advisory rather than
+	# a spinning guard, and a silent fixture with `//` and `/./` in it fails.
 	while :; do
 		case $w in
-		*//*) w=${w//"//"/"/"} ;;
-		*/./*) w=${w//"/./"/"/"} ;;
+		*//*) next=${w//\/\//\/} ;;
+		*/./*) next=${w//\/.\//\/} ;;
 		*) break ;;
 		esac
+		[ "$next" != "$w" ] || return 0
+		w=$next
 	done
 	case $w in
 	.git/hooks* | */.git/hooks*) rest=${w#*.git/hooks} ;;
@@ -8961,6 +8969,9 @@ cat .env'
 	st_hookfile_advisory fires 'rm -f .git/hooks/./pre-push'
 	st_hookfile_advisory fires 'rm -f .git//hooks/pre-push'
 	st_hookfile_advisory fires 'chmod -x .git/./hooks/pre-push'
+	# The same folding on a path that names no hook. On a bash that misreads the fold, the
+	# function answers yes for any such path, and this is the fixture that says so.
+	st_hookfile_advisory silent 'rm -f src//build/./x'
 	st_hookfile_advisory fires 'mv .git/hooks/. /tmp/hooks'
 	st_hookfile_advisory fires 'rm -f .git/hooks/{pre-push,pre-commit}'
 	st_hookfile_advisory fires 'mv --target-directory=.git/hooks pre-push'
