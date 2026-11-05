@@ -36,24 +36,26 @@ command-guard gaps the Owner queue named: a quote inside a `#` comment, heredoc 
 the wrong line, and abbreviated `git push` long options. It also closes the related shapes that
 measuring those gaps turned up. All of it rides the 16.0.0 draft, and each guard unit gets one
 fresh-context review pass. **Each unit starts only on the owner's explicit approval of that
-unit.** The owner approved Units 0, 1, 2 and 3, one at a time, and on 2026-11-02 approved Unit 3s
-to follow Unit 3. Unit 2's first attempt failed its
+unit.** The owner approved Units 0, 1, 2 and 3, one at a time, on 2026-11-02 approved Unit 3s
+to follow Unit 3, and on 2026-11-04 approved Unit 4. Unit 2's first attempt failed its
 review and was not shipped (**DD-055**). Its second attempt, plan rev 4, judges a command under two
 readings of its comments, and the stricter verdict wins (**DD-056**). The first attempt is kept
 whole as `docs/plans/2026-11-02-unit2-attempt-1.patch`, which applies to `be7a4df` and retires
-with the plan. The Owner queue names the unit waiting.
+with the plan. Unit 4's first attempt failed its review too, and on 2026-11-05 the owner had it
+fixed in place and granted it a fresh pass (**DD-060**). Every unit is done; the plan's Phase A,
+shipping 16.0.0, is what remains.
 
 - [x] 0 — the plan committed, and the cc-safe-setup Changelog lines folded
 - [x] 1 — `git push` long options read by unique prefix
 - [x] 2 — comments made inert before any walker reads the text (rev 4, attempt 2)
 - [x] 3 — heredoc bodies end where bash ends them
 - [x] 3s — an unclosed heredoc body blocks the command
-- [ ] 4 — heredoc bodies start where bash starts them (awaiting the owner's approval)
+- [x] 4 — heredoc bodies start where bash starts them
 
 Multi-unit work, planned: `docs/plans/2026-11-04-spill-guard-borrowings.md`. It closes the
 credential-handling gaps that comparing AMH with spill-guard exposed. The owner adopted its four
-selected units on 2026-11-04 and put all four in the 16.0.0 draft; S4, S5, S6b and S6c stay
-deferred. Each unit gets one fresh-context review pass. **Each unit starts only on the owner's
+selected units on 2026-11-04, first for the 16.0.0 draft and then, the same day, for the release
+after it; S4, S5, S6b and S6c stay deferred. Each unit gets one fresh-context review pass. **Each unit starts only on the owner's
 explicit approval of that unit**; none is approved yet. The Owner queue names the unit waiting.
 
 - [x] S0 — the plan committed (rev 2)
@@ -83,18 +85,18 @@ the README Quick Start names the draft tag before it exists. Check: `git ls-remo
 --tags origin refs/tags/amh-v16.0.0` — a matching ref resolves this item; no output means the
 documented install command is not live yet.
 
-**OPEN — approve, or not, starting plan Unit 4: heredoc bodies start where bash starts them.**
-Unit 3s is done, so Unit 4 is the next unit. Each unit of the plan starts only on the owner's explicit
-approval of that unit, and approving one unit approves only that one. When a unit lands, this
-item moves to the next one. Unit 4 owes a rule-review pass, which the owner has
-already allowed.
+**OPEN — say "open the PR" for the 16.0.0 train, the owner-queue-closure plan's Phase A.** Every
+unit of that plan is done. The owner said on 2026-11-04 that they will merge once Unit 4 lands;
+Phase A starts when the owner asks for the PR (step A1), and the squash message needs its
+poison-token check before the merge (**DC-040**).
 
 **OPEN — decide whether to plan a fix for a quote inside backticks.** Found while building Unit 2:
 bash ends a backtick substitution at the first unescaped backtick, quotes or not, and every walker
 in the command guard reads a `'` inside one as opening a string that hides the rest, so
 `` echo `echo 'x`; printenv `` passes. No plan covers it; the guard's header names it.
 Check: `scripts/command-guard.sh --command "echo \`echo 'x\`; printenv"` — exit status 0 means
-it is still open.
+it is still open. Unit 4 now reads heredoc bodies as bash does, so this gap also reaches a
+command whose body the guard used to misread and refuse (**DD-059**).
 
 **OPEN — decide whether to adopt the harness-research-gaps plan,
 `docs/plans/2026-11-01-harness-research-gaps.md`, and each decision in its §1.** It is committed
@@ -102,7 +104,8 @@ as a draft, and nothing in it is approved. No unit starts without the owner's ap
 unit.
 
 **OPEN — approve, or not, starting spill-guard plan Unit S1: refusal text does not repeat a
-supported credential shape.** The plan is adopted for 16.0.0 (its §2), and S1 is its first unit.
+supported credential shape.** The plan is adopted for the release after 16.0.0 (its §2), and S1
+is its first unit.
 Each unit starts only on the owner's explicit approval of that unit, and approving one approves
 only that one. When a unit lands, this item moves to the next. Check for S6a's gap, which the
 plan raised: `scripts/command-guard.sh --command 'nice -n 5 rm -rf ~'` — exit status 0 means a
@@ -137,6 +140,13 @@ rows — this section is a pointer index, not a narrative.
   units, S1, S2, S6a and S3, into the 16.0.0 draft, each still approved one at a time, with one
   fresh-context review pass per unit and S1's control-character escaping included. S4, S5, S6b
   and S6c stay deferred. No guard unit has started.
+
+- 2026-11-05 — **Owner-queue-closure plan: Unit 4 done, and with it every unit.** A heredoc body
+  starts where bash starts it, read in one pass with one stack of open contexts, and the
+  delimiter gets bash's quote removal, so item 2's checks now block (**DD-059**). Its first
+  attempt failed its review; the owner had it fixed in place with a fresh pass (**DD-060**,
+  `docs/history/2026-11-05-unit4-review-and-fix.md`). On 2026-11-04 the owner moved the
+  spill-guard plan to the release after 16.0.0.
 
 - 2026-11-03 — **Owner-queue-closure plan: Unit 3s done.** A heredoc body the command guard
   opens and never closes now refuses the command, naming the delimiter it waited for, so the

@@ -1,7 +1,8 @@
 # PLAN — close the credential-handling gaps that measuring spill-guard exposed
 
 > **Status: rev 2, committed 2026-11-04 (S0). Adopted by the owner the same day: S1, S2, S6a and
-> S3 ride the 16.0.0 draft, and S4, S5, S6b and S6c stay deferred (§2).** No unit is approved yet.
+> S3 ride the release after 16.0.0 (moved there by the owner later that day), and S4, S5, S6b and
+> S6c stay deferred (§2).** No unit is approved yet.
 > Each starts only on the owner's explicit approval of that unit; adopting the plan approved none.
 > Rev 2 folds in an external review of rev 1 (verdict REVISE_BEFORE_IMPLEMENTATION, nine
 > findings). Each finding was re-checked against this tree, or against the host's documentation,
@@ -42,8 +43,10 @@ behaviour is final.
 1. **Whether to adopt it, and which units.** **Answered: the four selected units, S1, S2, S6a
    and S3.** S4, S5, S6b and S6c stay deferred, each with its prerequisites (§4.2). Adopting the
    plan approves no unit: each starts only on the owner's explicit approval of that unit.
-2. **Release placement.** **Answered: all four ride the 16.0.0 draft**, S3 included, which
-   overrides the recommendation below for S3. The recommendations as drafted, per unit:
+2. **Release placement.** **Answered: all four ride the release after 16.0.0.** The owner first
+   put all four in the 16.0.0 draft, S3 included, and later on 2026-11-04 moved them out of it:
+   16.0.0 merges once the owner-queue-closure plan's Unit 4 lands, and this plan enters the next
+   release. That overrides the recommendations below for S1, S2 and S6a. As drafted, per unit:
    - **S1: the 16.0.0 draft.** One of its sites is the unclosed-heredoc refusal that draft adds
      (**DD-058**).
    - **S2: the 16.0.0 draft**, subject to its own approval and review. It has the highest
@@ -200,7 +203,7 @@ Every code unit follows `docs/RUNBOOK.md` → **Change a shipped script**:
 
 Fixture tokens are built at runtime, as `redact.sh`'s self-test already builds them.
 
-Execution order: **S0 → S1 → S2 → S6a → S3**, all in the 16.0.0 draft. Each is a separate unit
+Execution order: **S0 → S1 → S2 → S6a → S3**, all in the release after 16.0.0. Each is a separate unit
 with its own approval and review. Neither S4 nor S5 is a prerequisite for any of them.
 
 ### 4.1 Selected

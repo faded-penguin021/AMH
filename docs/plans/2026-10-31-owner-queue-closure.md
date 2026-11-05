@@ -1,7 +1,8 @@
 # PLAN — close the three open Owner-queue items inside 16.0.0
 
-> **Status: rev 4, 2026-11-02. Units 0, 1, 2 and 3 are done, and the owner approved Unit 3s to
-> follow Unit 3 (see Unit 3's outcome). Units 0 and 1 were done first. Unit 2's first attempt failed its review
+> **Status: rev 4, 2026-11-02. Every unit is done: 0, 1, 2, 3, 3s (approved 2026-11-02) and 4
+> (approved 2026-11-04; its first attempt failed its review, and on 2026-11-05 the owner had it
+> fixed in place and granted a fresh pass, DD-060); Phase A (§5) remains. Units 0 and 1 were done first. Unit 2's first attempt failed its review
 > and was not shipped; rev 3 redesigned Unit 2 on the owner's decision, the owner approved
 > executing it after a spec review, and rev 4 folds that review in. Every unit starts only on the
 > owner's explicit approval of that unit (§1, decision 5).** Unit 3's safety net is split out as Unit 3s, and that decision is still open with
@@ -459,6 +460,26 @@ only the exit status.
   review pass. Units 2–4 reach the same reading in three reviewable steps.
 - **Acceptance (binary):** the fixtures above, and the ladder is green. Then add a Changelog line recording that item 2's checks now block.
 
+**Outcome, 2026-11-05 (DD-059, DD-060; narrative in
+`docs/history/2026-11-05-unit4-review-and-fix.md`).** Attempt 1 cut logical lines
+(`logical_line`) and read each one's operators with a fresh quote state (`heredoc_delim`). Its
+rule-review pass returned REQUEST_CHANGES with four regressions, all replayed: a body started
+inside a `$(` opened after the operator (F1) or on an earlier line (F2), an empty quoted
+delimiter was dropped (F3), and a `<<` in an H1 commit message was refused as an unclosed body
+(F4). The owner chose to fix it in place and granted a fresh pass. The fix reads the whole
+command once, `heredoc_walk`, with one stack of open contexts and the waiting operators of each
+parser level, as bash 5.2.21 was measured to: a body starts at the next newline that is a token
+at its operator's level, quotes nest inside `"$(…)"`, a `$(…)` that closes with a body waiting
+hands it to the next newline, `EOF)` ends a body inside `$(…)` and hands its other bodies on,
+and a closing backtick ends the bodies its substitution left open. Against `95c52a0` the
+differential fuzz closed 401 that were allowed and that bash runs, and dropped 904 refusals of
+commands bash does not run. Nearly all the refusals it added are bodies bash itself ends at
+end-of-file, the cost DD-058 accepted. It newly allows 21 that bash runs, each one already allowed without its heredoc: a
+quote inside `"$(…)"` or inside backticks, which the old misread body had turned into a
+refusal.
+The fresh pass found two more fail-opens, each a closing backtick the walk did not see. Both
+were fixed, with fixtures, a third case of the same kind beside them, and checked by the ladder
+and the fuzz, with no third review.
 ## 5. Phase A — ship 16.0.0, after Unit 4
 
 | Step | Who | What |
