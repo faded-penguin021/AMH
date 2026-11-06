@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 15.1.0.** Repos that adopt it record the version they took
+**Harness version 16.0.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -243,6 +243,15 @@ by typing, and the work it stood for is now optional. Never let a disclosure gra
 gate. Where you write such a sentence, say what it is worth — prose that overstates its own
 enforcement is the failure P20's companion rule names.
 
+The same disclosure says what its evidence was. A sentence that rests a decision on a number or
+an outcome — a size, a count, "it came out longer", "it does not reproduce" — says whether that
+was measured, naming the command and keeping its input where a reviewer can reach it, estimated
+by reading, or reported by someone else, naming who. A past tense claims an attempt was built,
+a reader cannot tell an estimate from a measurement unless the sentence says which, and a
+measurement nobody can replay reads as an estimate. No field may require it — a required
+"measured:" is filled either way — so it stays a disclosure. Where P12's pass is owed its
+reviewer replays what it can; elsewhere the reader is the only check.
+
 **P4. One verification entrypoint, shared by CI and local *by construction*.** A single
 `scripts/ladder.sh` — guards, then the full test/build/lint set — that CI invokes directly. No
 hand-maintained lockstep between "what the agent runs" and "what CI runs": divergence there is
@@ -390,6 +399,20 @@ arbitrates. Nobody reviews the reviewer.
 Separately from the three: the pass is the harness's default, not a permission to request. Do
 not ask whether to review a legislation diff; spawn the reviewer, and escalate the *diff's
 substance* if anything needs the human. Asking every time trains the human to rubber-stamp.
+
+**Which pass a unit owes is fixed by what it was set to change, never only by the diff it ends
+with.** A unit planned or asked to touch glue or legislation owes that pass even when it ends
+smaller, and above all when it concludes the change is not needed. Then the reviewer gets what
+the unit was set to change, the conclusion and the evidence it rests on — never the author's
+argument for it, the same exclusion as for a diff — works at the tier the planned change would
+have earned, and replays the evidence first. "Not needed" is the cheapest outcome a unit can
+reach, and if reaching it also removed the review that would test it, every unit would have a
+route past its gate that consists of doing less — bound (b)'s laundering, reached by shrinking
+instead of re-running. A unit framed as evaluating a change owes that change's pass, and
+redefining what a unit of an owner-approved plan was set to change is the owner's call (P16),
+never a way to shed its pass. The acceptance check still follows the tree, because it verifies
+what was committed, while the pass verifies a judgement. Prose-only: which pass a unit owes is
+decided from intent, which no guard can read.
 
 While the pass is in flight the diff stays green, uncommitted and unpushed. A harness that
 prompts for a commit on every idle turn is not an argument against the gate: hold, and say so
@@ -976,6 +999,13 @@ shortlist below is what a session is expected to carry without looking.
   distinguishing a hook invocation from a manual one needs vendor-specific environment
   variables the harness will not assume, which is why this is written here rather than warned
   about at boot.
+- **A hook that fails refuses the call, where the adapter says so.** An adapter that anchors its
+  hooks at the project root and makes the pre-execution guard refuse the call when the guard
+  itself fails (Claude Code: `"onFailure": "block"`) turns a crashed, timed-out or missing guard
+  into a stop instead of a silent pass. Under such an adapter on Windows, Git for Windows is a
+  hard requirement: without Git Bash every shell call is refused, and AMH is not usable. A refusal
+  that names a failed hook or Git Bash is reported to the owner, never worked around — never
+  remove a hook, its failure mode or its shell pin to get past it.
 ``````
 
 ### `CLAUDE.md` — the pointer stub
@@ -1438,7 +1468,8 @@ ladder verifies the tree that is committed (**Session discipline** 3).
 - **Read first:** {{reference docs + related ledger rows}}
 - **Steps / code:** {{where the change goes — e.g. reproduce → failing test first → fix so it
   conforms to the fixtures (never edit a fixture to pass) → ladder → adversarial review if the
-  diff touches {{UNTESTED_GLUE_AREAS}}}}
+  unit was set to touch {{UNTESTED_GLUE_AREAS}}, whatever its diff ends as — Session
+  discipline 10}}
 - **Acceptance:** {{the binary gate — which ladder rungs}}
 - **Record:** {{STATE changelog line; ledger row if durable; which reference doc to update}}
 
@@ -1526,6 +1557,40 @@ cut (version invariants; the owner does the tagging), etc.}}
    prose-only and must stay so: the defect is the generalisation drawn from a
    command's output, and no pre-execution rail can see a belief formed after the command
    returned.
+10. **A unit owes the review of what it was set to change, never only that of the diff it
+   ends with.** Decide which pass the unit owes — the adversarial pass, the rule-review pass,
+   or a review its plan names — from the change it was planned or asked to make, before the
+   work starts. A unit framed as evaluating whether to make a change owes that change's pass,
+   because its outcome is that decision, and an asked unit's change is the ask as the owner
+   wrote it, not the session's paraphrase of it. Keep the pass when the unit ends smaller, and
+   above all when it concludes the change is not needed: the reviewer then gets what the unit
+   was set to change, the conclusion and the evidence it rests on — the attempt, the
+   measurement — but, as with a diff, not the author's argument for it; it works at the tier
+   the planned change would have earned and replays that evidence first (item 11). "No code
+   changed, so no review" is the shape to watch for. "Not needed" is the cheapest outcome a
+   unit can reach, and if it also removed the review that would test it, doing less would be a
+   route past every gate — the laundering of re-reviewing until a pass comes back clean,
+   reached by shrinking instead. Concluding "not needed" is an outcome the pass tests;
+   redefining what a unit of an owner-approved plan was set to change is the owner's call
+   (item 5). A unit that stops at a blocker (item 6) or a fork (item 7) has concluded nothing:
+   it parks, and its pass waits with it. The commit body says what the unit was set to change
+   and which pass that owed (item 8) — a disclosure nothing consumes. "A unit is what one
+   reviewer saw" counts passes; this item says which pass is owed. The acceptance ladder still
+   follows the tree — a docs-only result runs the docs-only gate — because the ladder checks what was
+   committed, while the pass checks a judgement. Prose-only: which pass a unit owes is decided
+   from intent, which no guard can read.
+11. **A decision says whether its evidence was measured, estimated or reported.** A ledger row,
+   commit message or report that rests a decision on a number or an outcome — a diff size, a
+   line count, "it came out longer", "it does not reproduce" — says how it got it: measured,
+   naming the command, with its input kept where the reviewer can reach it until the pass
+   reports; estimated by reading; or reported by someone else, naming who. A past tense is a
+   measurement claim: "it came out longer" asserts that an attempt was built. A measurement
+   nobody can replay reads as an estimate. A ledger row outlives every session branch, so it
+   carries the number and the command themselves and names no branch, as item 5 rules for a
+   plan's path. Where a pass is owed its reviewer replays what it can (item 10); elsewhere the
+   reader is the only check. Prose-only, and it must stay so — nothing in the artifacts tells
+   an estimate from a measurement, and a required "measured:" field would be filled either
+   way; the sentence stays a disclosure because nothing consumes it.
 
 ## Adversarial review protocol (MANDATORY for {{UNTESTED_GLUE_AREAS}} diffs)
 
@@ -1534,7 +1599,8 @@ Test suites cannot see all code. After the ladder is green, hand the FULL diff t
 tree access, but NOT the authoring context, which is anchored on its own rationale and
 predisposed to accept it. Scale the reviewer's model tier to the diff: small mechanical change
 → light tier; large or glue-heavy → the strongest available. Self-review is the fallback only
-where no fresh context can be spawned.
+where no fresh context can be spawned. A unit set to make such a change owes this pass even
+when it ends without one; the reviewer then reviews its conclusion (Session discipline 10).
 
 Hunt these proven bug classes — each one a real shipped bug from this repo's ledger; append
 new classes as the ledger grows:
@@ -1557,7 +1623,8 @@ semantics AND their fixture suite, the mechanical rail scripts (a silently weake
 weakened rail), the session bootstrap, ledger preambles, adapter permission rails — get the
 same fresh-context pass at the **strongest tier regardless of diff size**: a three-line rule
 edit can carry a semantic bomb, and a bad rule manufactures defects in every future session
-that obeys it. **No self-review fallback:** a harness that cannot spawn a fresh context parks
+that obeys it. A unit set to change legislation owes the pass even when it ends without a
+diff (Session discipline 10). **No self-review fallback:** a harness that cannot spawn a fresh context parks
 the rule change for the human rather than reviewing its own legislation. Routine state-file
 edits are exempt, EXCEPT the state file's rule-bearing sections (its Owner-queue preamble, its
 length-guard pointer, its decided non-items). The compression rules themselves live in
@@ -1968,6 +2035,19 @@ The guards it ships with:
   script, visible only as a lower count, and nothing inside a script can notice that the script
   was deleted from the ladder. The manifest is `sha256sum -c`-compatible so that a reader who
   wants none of this can check it by hand.
+- **Claude adapter shell pin** — where `.claude/settings.json` exists, every entry whose command
+  names one of the harness's three hook scripts must carry exactly `"shell": "bash"`; where it does not, the rung
+  prints a `skip` and nothing else, so a repository on another agent pays nothing for it. The pin
+  is a hand step in the one file an agent may be refused permission to edit, and an unpinned hook
+  on Windows can be handed to the file association, which runs it detached and reports success,
+  so a guard's deny becomes an allow with nothing saying so. Judge only the harness's own hooks —
+  what shell an adopter's own hooks need is theirs to say — and find them by script file name, so
+  a respelled path is still one; an adopter's entry that merely mentions such a name is judged
+  too, which is the safe direction. Read the file without a JSON parser and without regard to
+  layout: a hook entry is a flat object, a key follows a `{` or a `,`, JSON keeps the LAST of two
+  equal keys, and the population of harness commands is counted separately and reconciled, so an
+  entry the reader cannot reach is reported unverified rather than passed, and a file naming no
+  harness hook at all warns that it checked nothing.
 - **Repo-local guards** — `scripts/guards/*.sh`, the extension point that keeps this script
   repo-agnostic. Domain rules live there: a store changelog length cap (mind the unit — a
   "500 character" limit is codepoints, and `wc -c` overcounts multibyte text), a
@@ -2069,6 +2149,20 @@ pre-execution warning on the command itself is the wrong layer: the rail is bina
 is correct nearly every time (two ladder rungs run it), and the mistake is the generalisation
 rather than the command.
 
+It also says when the state file the session is about to read is not the newest one. A unit
+finished in another worktree and pushed with a `<local>:<remote>` refspec moves the remote branch
+and leaves this checkout's branch behind, so the next session acts on a plan that has already
+moved on. For a HEAD with commits of its own the banner lists each branch, remote-tracking ref or
+detached worktree that builds on it and changes the state file since: ancestry plus that one
+file, and never this branch's name, because that push spells the same branch two ways. The state
+file is the discriminator because a dependency bot never edits it and every unit does. A HEAD with
+no commits of its own is an ancestor of every branch cut since, and a sibling unit edits the
+state file exactly as a continuation does; which one carries a train is the owner's to say, so
+there the banner judges the default branch alone and says the rest was not judged. It reads refs
+as last fetched without fetching anything, hedges a shallow clone's empty answer, and reports
+"could not look" as its own outcome rather than as "nothing". It misses a continuation that was
+rebased, or cut from a newer commit than HEAD.
+
 ### 3.8 Permission rails — the adapter layer
 
 - **Allow:** the ladder, the setup, warm-up and bootstrap scripts, the build tool.
@@ -2098,7 +2192,16 @@ rather than the command.
   deny list stays beneath it as the second net. Follow the P13 pattern rules: leading-command
   matching, mistake-not-evasion threat model, fail open on malformed input — but never on the
   guard's own failure to parse, which is not an odd command and must not be reported as a clean
-  one — and a self-test run by the ladder. Two honesty obligations come with it. The guard's header carries a consolidated
+  one — and a self-test run by the ladder. Wire it so the guard's OWN failure cannot pass
+  silently either: anchor every hook path at the project root and run the script through its
+  interpreter rather than by path, because an agent may run hooks
+  in the session's current directory and a relative path then goes missing after the first
+  `cd`, and where the agent can refuse the call when a hook fails, declare it (Claude Code:
+  `"onFailure": "block"` on both PreToolUse hooks) — by default a crash, a timeout or a missing
+  script is a non-blocking error and the command runs unjudged. On Windows that refusal is what
+  a host without Git Bash meets on every call, so the adapter must say AMH needs Git for
+  Windows where the refusal shows it (the Claude adapter's trailing command comment). Two
+  honesty obligations come with it. The guard's header carries a consolidated
   **what this guard does NOT catch** block — interpreters outside its enumerated reader list,
   wrappers, constructed commands, heredocs, window limits — because a rail whose limits are
   only discoverable by reading its scanners will be mistaken for a vault. And an agent with no
@@ -2149,7 +2252,7 @@ A worked adapter, for Claude Code:
 
 ``````
 {
-  "$comment": "AMH adapter for Claude Code — wiring only, no logic. All behaviour lives in AGENTS.md and scripts/. Layers this adapter provides: an instructive pre-execution command guard, a per-spawn speed bump on the Task tool, static deny rails, pre-allowed verification commands, and post-execution output redaction. Output redaction IS wired: a PostToolUse hook runs scripts/redact-tool-output.sh, which filters the STRING LEAVES of the tool_response through scripts/redact.sh — one filter, one class list, one place to fix — and rebuilds the response with those leaves replaced in place, so numbers, booleans, object keys and array lengths survive by construction. ONE invocation PER LEAF, which is correctness rather than tidiness: redact.sh's private-key stage is a sed line RANGE, and batching the leaves let an unterminated BEGIN marker in one leaf rewrite every later leaf, replacing a Read response's filePath with a redaction marker under a message asserting a redaction. A changed leaf is accepted only if it GAINED a marker, counted rather than merely present, because redact.sh's own stages are not byte-transparent on every platform and a leaf that already carried that literal was otherwise accepted on any byte change (AMH ledger row DD016). Read that script's header before treating this as containment, because four bounds say it is not. (1) The value was already produced: it exists in the tool's own execution, in the session transcript on disk and in any telemetry the host keeps, and this layer changes only what the MODEL reads. (2) The host contract is fail-OPEN: a replacement that does not match the tool's own response schema is a non-blocking error and the ORIGINAL output is used, as is any non-zero exit from the hook — so every uncertain path in that script prints nothing, which lands in the same place. (3) PostToolUse fires on a tool call that SUCCEEDED, so a credential printed by a command that failed may never reach it; prevention stays with the pre-execution command guard. (4) It catches the shapes redact.sh enumerates and no more — a private token with no recognisable prefix, a random password, a database credential: it sees none of them, and the prose rule is what covers those. It also reads the payload with python3, which is not in the bash/git/coreutils floor; where python3 is absent the hook stands down and this adapter is back to the prose-plus-deny-rails state it was in before, which is a documented state rather than a regression. That stand-down is reported only by the session banner's tool line, and only because REQUIRED_TOOLS in amh.conf now names python3 — the shipped amh.conf.example ships that key EMPTY, so an adopter who wants the report adds the name; a hook's stderr on a zero exit reaches the host's debug log and nowhere a reader looks. scripts/guards/adapter-set.sh fails if this group goes missing, is rewired, loses its shell pin, or narrows its matcher below every tool — DD013's lesson applies verbatim, because a deleted redaction hook looks exactly like output that held no credential. OBSERVED FIRING IN THE AMH REFERENCE REPOSITORY, NOT IN YOURS, as of 2026-10-04: a Claude Code cloud session on Linux, started with this wiring loaded, got runtime-generated key-shaped strings back redacted under class names only redact.sh emits, in Bash, Read and Grep results, while a shape redact.sh has no class for came back untouched (AMH ledger row DD037). That is evidence Claude Code honours updatedToolOutput for those tools on that host, not an observation of your host or of Windows; check yours the same way, generating the string at runtime rather than typing one. `scripts/redact-tool-output.sh --self-test` proves this repository's payload handling and result-shape preservation, and proves nothing about the host. scripts/redact.sh remains available for manual piping and is what the ladder's secret scan uses. Be honest about this per adapter. The owner mirrors the hardest rails server-side (branch protection, secret-scanning push protection) — these rules bind only agents that load them. Every hook pins its shell with the `shell` field set to bash. Shell form otherwise resolves per host and falls back to PowerShell on Windows when Git Bash is not found; a bare `.sh` path then goes to the Git for Windows file association, and the trigger is that association, not `PATH`. What that costs was established on a reporting host: the script DOES run, detached under the association's windowed launcher, with the new terminal's tty on stdin where the hook payload should be, and the caller has already moved on before it exits — so a guard that reads stdin waits forever in a window nobody is watching, and no exit code is ever consulted. An extension with NO association is not the loud case either: it raises the desktop's what-should-open-this picker, still rc=0 and zero bytes to the harness. The pin is inert wherever this adapter already works — each command here is a path plus a literal argument, and each script names its own interpreter in its shebang. What it does NOT resolve through is `PATH`: the agent locates Git's bash from Git's own install (a default-location probe, then `git` on `PATH`, then bash beside it) or from an override variable, so a host with WSL but no Git bash on `PATH` is not misrouted to WSL. When discovery finds nothing the failure is loud but version-dependent — an instructive error and a nonzero exit in one shipped bundle, a per-hook throw naming Git for Windows and CLAUDE_CODE_GIT_BASH_PATH in a later binary — and nobody has yet run a pinned hook on such a host. The hazard the pin adds is a typo in its VALUE: that fails the enum and drops the whole hook entry, where a misspelled KEY is merely stripped with the entry left standing, which is also why the pin is inert rather than fatal on a build predating the field. Read what the pin does NOT reach, and what the matcher now does: on Windows, wherever Claude Code's PowerShell tool is enabled, shell commands are routed through it, so a guard matching `Bash` alone never fired there. That widening reaches a host that HAS Git Bash: on one without it the pin above leaves no shell to run any hook in, whatever the matcher says. The command guard's matcher is therefore `Bash|PowerShell`, and the guard reads each tool with its own reader: a PowerShell payload goes to a PowerShell arm that reads PowerShell's quoting, judges `Remove-Item` and its aliases and `cmd /c` deletions itself — including the command inside a parenthesised sub-expression and one behind an assignment — and hands every other command to the bash rails re-quoted word for word — never PowerShell text through the bash parser, which is why the widening waited for that arm. Nothing has yet been observed firing on a Windows host: `scripts/command-guard.sh --powershell '<command>'` proves the reader on any host and nothing about the host (AMH ledger rows DD007 through DD012, and DD039).",
+  "$comment": "AMH adapter for Claude Code — wiring only, no logic. All behaviour lives in AGENTS.md and scripts/. Layers this adapter provides: an instructive pre-execution command guard, a per-spawn speed bump on the Task tool, static deny rails, pre-allowed verification commands, and post-execution output redaction. None of its hooks runs in a session started with `--safe-mode` or `--bare`, which skip the hooks settings files define, and nothing in this file loads under `--restricted`, which ignores it unless it is passed again with `--settings` or as managed settings: such a session has no command rail, no output redaction and no session bootstrap, and no AMH script checks for that (Claude Code 2.1.314's own --help; AMH ledger row DD053). Output redaction IS wired: a PostToolUse hook runs scripts/redact-tool-output.sh, which filters the STRING LEAVES of the tool_response through scripts/redact.sh — one filter, one class list, one place to fix — and rebuilds the response with those leaves replaced in place, so numbers, booleans, object keys and array lengths survive by construction. ONE invocation PER LEAF, which is correctness rather than tidiness: redact.sh's private-key stage is a sed line RANGE, and batching the leaves let an unterminated BEGIN marker in one leaf rewrite every later leaf, replacing a Read response's filePath with a redaction marker under a message asserting a redaction. A changed leaf is accepted only if it GAINED a marker, counted rather than merely present, because redact.sh's own stages are not byte-transparent on every platform and a leaf that already carried that literal was otherwise accepted on any byte change (AMH ledger row DD016). Read that script's header before treating this as containment, because four bounds say it is not. (1) The value was already produced: it exists in the tool's own execution, in the session transcript on disk and in any telemetry the host keeps, and this layer changes only what the MODEL reads. (2) The host contract is fail-OPEN: a replacement that does not match the tool's own response schema is a non-blocking error and the ORIGINAL output is used, as is any non-zero exit from the hook — so every uncertain path in that script prints nothing, which lands in the same place. (3) PostToolUse fires on a tool call that SUCCEEDED, so a credential printed by a command that failed may never reach it; prevention stays with the pre-execution command guard. (4) It catches the shapes redact.sh enumerates and no more — a private token with no recognisable prefix, a random password, a database credential: it sees none of them, and the prose rule is what covers those. It also reads the payload with python3, which is not in the bash/git/coreutils floor; where python3 is absent the hook stands down and this adapter is back to the prose-plus-deny-rails state it was in before, which is a documented state rather than a regression. That stand-down is reported only by the session banner's tool line, and only because REQUIRED_TOOLS in amh.conf now names python3 — the shipped amh.conf.example ships that key EMPTY, so an adopter who wants the report adds the name; a hook's stderr on a zero exit reaches the host's debug log and nowhere a reader looks. scripts/guards/adapter-set.sh fails if this group goes missing, is rewired, loses its shell pin, or narrows its matcher below every tool — DD013's lesson applies verbatim, because a deleted redaction hook looks exactly like output that held no credential. OBSERVED FIRING IN THE AMH REFERENCE REPOSITORY, NOT IN YOURS, as of 2026-10-04: a Claude Code cloud session on Linux, started with this wiring loaded, got runtime-generated key-shaped strings back redacted under class names only redact.sh emits, in Bash, Read and Grep results, while a shape redact.sh has no class for came back untouched (AMH ledger row DD037). That is evidence Claude Code honours updatedToolOutput for those tools on that host, not an observation of your host or of Windows; check yours the same way, generating the string at runtime rather than typing one. `scripts/redact-tool-output.sh --self-test` proves this repository's payload handling and result-shape preservation, and proves nothing about the host. scripts/redact.sh remains available for manual piping and is what the ladder's secret scan uses. Be honest about this per adapter. The owner mirrors the hardest rails server-side (branch protection, secret-scanning push protection) — these rules bind only agents that load them. Every hook pins its shell with the `shell` field set to bash. Shell form otherwise resolves per host and falls back to PowerShell on Windows when Git Bash is not found; a bare `.sh` path then goes to the Git for Windows file association, and the trigger is that association, not `PATH`. What that costs was established on a reporting host: the script DOES run, detached under the association's windowed launcher, with the new terminal's tty on stdin where the hook payload should be, and the caller has already moved on before it exits — so a guard that reads stdin waits forever in a window nobody is watching, and no exit code is ever consulted. An extension with NO association is not the loud case either: it raises the desktop's what-should-open-this picker, still rc=0 and zero bytes to the harness. The pin is inert wherever this adapter already works — each command runs `bash` on a script under the quoted project root, with at most a literal argument and a trailing comment. What it does NOT resolve through is `PATH`: the agent locates Git's bash from Git's own install (a default-location probe, then `git` on `PATH`, then bash beside it) or from an override variable, so a host with WSL but no Git bash on `PATH` is not misrouted to WSL. When discovery finds nothing the failure is loud but version-dependent — an instructive error and a nonzero exit in one shipped bundle, a per-hook throw naming Git for Windows and CLAUDE_CODE_GIT_BASH_PATH in a later binary — and nobody has yet run a pinned hook on such a host. Every hook path is anchored at the project root as a quoted `${CLAUDE_PROJECT_DIR}`, because Claude Code's hooks documentation says a handler runs in the session's CURRENT directory: a bare `scripts/...` path stopped resolving the moment the agent ran `cd` into a subdirectory, the host counted the missing script as a non-blocking error, and the call the guard should have judged ran unjudged. Each script is run through `bash` rather than by path, so a lost executable bit (exit 126) cannot refuse every call. The two PreToolUse hooks — the command guard and the spawn speed bump — set `onFailure` to `block` (Claude Code 2.1.295 or later, per its documentation; an older build strips the unknown key and fails open as before), so a guard that cannot start, crashes, exits with anything but 0 or 2, or times out refuses the call instead of letting it through. That includes Windows with no Git Bash: there every shell call and every spawn is refused, and the trailing `#` comment on those two commands — bash ignores it — is there so the refusal Claude Code prints, which quotes the hook's command, says why. AMH on Windows REQUIRES Git for Windows; without it AMH is not usable, and the fix is installing it (or pointing CLAUDE_CODE_GIT_BASH_PATH at its bash.exe), never deleting the hook or its `onFailure`. The other two hooks keep the default, because a PostToolUse failure cannot un-run the tool and the session bootstrap blocks nothing. Nobody has yet observed the anchored path or the refusal on a Windows host, and scripts/guards/adapter-set.sh fails a relative path, and either PreToolUse entry that is not exactly its type, shell, command, comment and `onFailure` (AMH ledger row DD040). The hazard the pin adds is a typo in its VALUE: that fails the enum and drops the whole hook entry, where a misspelled KEY is merely stripped with the entry left standing, which is also why the pin is inert rather than fatal on a build predating the field. Read what the pin does NOT reach, and what the matcher now does: on Windows, wherever Claude Code's PowerShell tool is enabled, shell commands are routed through it, so a guard matching `Bash` alone never fired there. That widening reaches a host that HAS Git Bash: on one without it the pin above leaves no shell to run any hook in, whatever the matcher says. The command guard's matcher is therefore `Bash|PowerShell`, and the guard reads each tool with its own reader: a PowerShell payload goes to a PowerShell arm that reads PowerShell's quoting, judges `Remove-Item` and its aliases and `cmd /c` deletions itself — including the command inside a parenthesised sub-expression and one behind an assignment — and hands every other command to the bash rails re-quoted word for word — never PowerShell text through the bash parser, which is why the widening waited for that arm. Nothing has yet been observed firing on a Windows host: `scripts/command-guard.sh --powershell '<command>'` proves the reader on any host and nothing about the host (AMH ledger rows DD007 through DD012, and DD039). One deny rail is for the file-editing tools, `Edit(//**/.git/hooks/**)`: the git pre-push hook is the rail that still binds a session the command guard cannot see, the command guard never judges an editing tool, and an agent has been reported rewriting the hook that guarded it. `--restricted` takes Bash away unless `--tools` names it and leaves the editing tools, but it ignores this file unless it is passed again with `--settings`, so this entry does not load there; that mode's own rule, that only a person or the configured permission handler approves a write to git files, is what stands in for it. Claude Code matches every built-in editing tool, and the targets of a shell redirect or `tee` it recognises, against `Edit` rules only (a `Write(...)` path rule never matches), and `//` anchors at the filesystem root, so the rule reaches a linked worktree's hooks in the main checkout's `.git` and every other repository's hooks as well. It does not reach a hook directory named by `core.hooksPath`, or a program that writes the file itself; the command guard gives `rm`, `mv` and `chmod` on the hook a one-time advisory. scripts/guards/adapter-set.sh fails if the entry is missing; nobody has yet observed the host refuse an edit under it (AMH ledger row DD051). The credential stores tools keep at a fixed path have `Read(...)` deny rails beside `.env` and the OpenSSH key names — `~/.git-credentials`, `~/.config/git/credentials`, `.netrc` and `_netrc` at home and in the project, `~/.npmrc` (home only: a project `.npmrc` is commonly committed and tokenless), `~/.aws/credentials`, `~/.config/gh/hosts.yml`, `~/.docker/config.json`, `~/.kube/config`, gcloud's `application_default_credentials.json` and `~/.cargo/credentials[.toml]` — and `gh auth token` and `git credential fill`, which print a stored credential by design, have `Bash(...)` prefix denials; the command guard judges the same list, and more spellings of both commands, at its block tier. A prefix denial matches the leading words only, the `~/` rules reach the home directory the host resolves and not a store an environment variable moved, and nobody has yet observed the host refuse a read under them (AMH ledger row DD052).",
   "permissions": {
     "allow": [
       "Bash(scripts/ladder.sh)",
@@ -2193,6 +2296,8 @@ A worked adapter, for Claude Code:
       "Bash(declare -x)",
       "Bash(typeset -p)",
       "Bash(typeset -x)",
+      "Bash(gh auth token:*)",
+      "Bash(git credential fill:*)",
       "Read(/proc/*/environ)",
       "Read(/proc/**/environ)",
       "Read(.env)",
@@ -2210,7 +2315,23 @@ A worked adapter, for Claude Code:
       "Read(id_ed25519)",
       "Read(**/id_ed25519)",
       "Read(id_ed25519_sk)",
-      "Read(**/id_ed25519_sk)"
+      "Read(**/id_ed25519_sk)",
+      "Read(~/.git-credentials)",
+      "Read(**/.git-credentials)",
+      "Read(~/.config/git/credentials)",
+      "Read(~/.netrc)",
+      "Read(**/.netrc)",
+      "Read(~/_netrc)",
+      "Read(**/_netrc)",
+      "Read(~/.npmrc)",
+      "Read(~/.aws/credentials)",
+      "Read(~/.config/gh/hosts.yml)",
+      "Read(~/.docker/config.json)",
+      "Read(~/.kube/config)",
+      "Read(~/.config/gcloud/application_default_credentials.json)",
+      "Read(~/.cargo/credentials)",
+      "Read(~/.cargo/credentials.toml)",
+      "Edit(//**/.git/hooks/**)"
     ]
   },
   "hooks": {
@@ -2221,7 +2342,7 @@ A worked adapter, for Claude Code:
           {
             "type": "command",
             "shell": "bash",
-            "command": "scripts/redact-tool-output.sh"
+            "command": "bash \"${CLAUDE_PROJECT_DIR}\"/scripts/redact-tool-output.sh"
           }
         ]
       }
@@ -2232,7 +2353,7 @@ A worked adapter, for Claude Code:
           {
             "type": "command",
             "shell": "bash",
-            "command": "scripts/session-start.sh"
+            "command": "bash \"${CLAUDE_PROJECT_DIR}\"/scripts/session-start.sh"
           }
         ]
       }
@@ -2244,7 +2365,8 @@ A worked adapter, for Claude Code:
           {
             "type": "command",
             "shell": "bash",
-            "command": "scripts/command-guard.sh"
+            "command": "bash \"${CLAUDE_PROJECT_DIR}\"/scripts/command-guard.sh # On Windows AMH requires Git Bash: install Git for Windows, or AMH is not usable",
+            "onFailure": "block"
           }
         ]
       },
@@ -2254,7 +2376,8 @@ A worked adapter, for Claude Code:
           {
             "type": "command",
             "shell": "bash",
-            "command": "scripts/command-guard.sh --pre-task"
+            "command": "bash \"${CLAUDE_PROJECT_DIR}\"/scripts/command-guard.sh --pre-task # On Windows AMH requires Git Bash: install Git for Windows, or AMH is not usable",
+            "onFailure": "block"
           }
         ]
       }
@@ -2327,6 +2450,14 @@ prefix_rule(pattern = [["cat", "head", "tail", "less", "more", "strings", "grep"
 # the public key is meant to be read.
 prefix_rule(pattern = [["cat", "head", "tail", "less", "more", "strings", "grep", "wc", "base64", "sha256sum", "md5sum"], ["id_rsa", "./id_rsa", "id_dsa", "./id_dsa", "id_ecdsa", "./id_ecdsa", "id_ecdsa_sk", "./id_ecdsa_sk", "id_ed25519", "./id_ed25519", "id_ed25519_sk", "./id_ed25519_sk"]], decision = "forbidden", justification = "AMH forbids reading private key material; check the file's presence or read the .pub half.")
 
+# Two commands print a stored credential by design, and their leading words are fixed, so a prefix
+# rule can name them. The stores themselves (`~/.netrc`, `~/.aws/credentials` and the rest of the
+# list in scripts/command-guard.sh) sit under a home directory, which is the spelling the comment
+# below says this policy cannot express; the command guard judges them. A respelling the guard
+# also reads (`gh auth status -t`, a helper's own `get`) is not a prefix of these and passes here.
+prefix_rule(pattern = ["gh", "auth", "token"], decision = "forbidden", justification = "AMH forbids printing a stored credential; `gh auth status` says whether gh is logged in.")
+prefix_rule(pattern = ["git", "credential", "fill"], decision = "forbidden", justification = "AMH forbids printing a stored credential; run the command that needs it to see whether git can authenticate.")
+
 # `.pem` and `.key` are NOT denied here, and that is a decision rather than an omission: both
 # are container extensions rather than secret markers, and a certificate or CA bundle bearing
 # one is public. scripts/command-guard.sh gives them a one-time advisory instead.
@@ -2336,6 +2467,14 @@ prefix_rule(pattern = [["cat", "head", "tail", "less", "more", "strings", "grep"
 # actually live — cannot be expressed here. The rule above reaches the bare and `./` spellings
 # only, and that is most of what it can promise. scripts/command-guard.sh covers
 # its enumerated reader forms; AGENTS.md remains binding beyond both mechanical rails.
+
+# The git pre-push hook FILE has no rule here, and none can be written: a prefix rule matches a
+# command's leading words literally, so it cannot say "any `rm`, `mv` or `chmod` whose operand
+# names `.git/hooks/pre-push`", it has no one-time-advisory decision, and it governs commands,
+# not the file-editing path. Where the host fires the PreToolUse command guard that config.toml
+# wires, those three commands get its one-time advisory; a host that fires no such hook has no
+# command rail at all (AGENTS.md -> Working guidance). What Codex's own editing does to the file
+# is covered by AGENTS.md alone. Read from the rule semantics, not observed on a live Codex host.
 
 # Git publication rails. The instructive command guard covers more spellings
 # when run directly; these rules express the forms Codex's prefix policy can.

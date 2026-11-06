@@ -209,6 +209,15 @@ by typing, and the work it stood for is now optional. Never let a disclosure gra
 gate. Where you write such a sentence, say what it is worth — prose that overstates its own
 enforcement is the failure P20's companion rule names.
 
+The same disclosure says what its evidence was. A sentence that rests a decision on a number or
+an outcome — a size, a count, "it came out longer", "it does not reproduce" — says whether that
+was measured, naming the command and keeping its input where a reviewer can reach it, estimated
+by reading, or reported by someone else, naming who. A past tense claims an attempt was built,
+a reader cannot tell an estimate from a measurement unless the sentence says which, and a
+measurement nobody can replay reads as an estimate. No field may require it — a required
+"measured:" is filled either way — so it stays a disclosure. Where P12's pass is owed its
+reviewer replays what it can; elsewhere the reader is the only check.
+
 **P4. One verification entrypoint, shared by CI and local *by construction*.** A single
 `scripts/ladder.sh` — guards, then the full test/build/lint set — that CI invokes directly. No
 hand-maintained lockstep between "what the agent runs" and "what CI runs": divergence there is
@@ -356,6 +365,20 @@ arbitrates. Nobody reviews the reviewer.
 Separately from the three: the pass is the harness's default, not a permission to request. Do
 not ask whether to review a legislation diff; spawn the reviewer, and escalate the *diff's
 substance* if anything needs the human. Asking every time trains the human to rubber-stamp.
+
+**Which pass a unit owes is fixed by what it was set to change, never only by the diff it ends
+with.** A unit planned or asked to touch glue or legislation owes that pass even when it ends
+smaller, and above all when it concludes the change is not needed. Then the reviewer gets what
+the unit was set to change, the conclusion and the evidence it rests on — never the author's
+argument for it, the same exclusion as for a diff — works at the tier the planned change would
+have earned, and replays the evidence first. "Not needed" is the cheapest outcome a unit can
+reach, and if reaching it also removed the review that would test it, every unit would have a
+route past its gate that consists of doing less — bound (b)'s laundering, reached by shrinking
+instead of re-running. A unit framed as evaluating a change owes that change's pass, and
+redefining what a unit of an owner-approved plan was set to change is the owner's call (P16),
+never a way to shed its pass. The acceptance check still follows the tree, because it verifies
+what was committed, while the pass verifies a judgement. Prose-only: which pass a unit owes is
+decided from intent, which no guard can read.
 
 While the pass is in flight the diff stays green, uncommitted and unpushed. A harness that
 prompts for a commit on every idle turn is not an argument against the gate: hold, and say so

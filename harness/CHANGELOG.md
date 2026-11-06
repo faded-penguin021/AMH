@@ -11,6 +11,283 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 16.0.0 — 2026-10-26
+
+- **A unit owes the reviews of what it was set to change, not only those of the diff it ends
+  with.** In an adopting repository, a planned unit recorded in a commit and a ledger row that a
+  shared helper "came out longer", and skipped the reviews its plan required because no code
+  changed. Asked, the session said the helper had never been written and the length was an
+  estimate. Both review protocols name the diff as what triggers them, so that skip was arguably
+  within the rules. Session discipline item 10 now fixes a unit's review from the change it was
+  planned or asked to make, before the work starts; a unit framed as evaluating a change owes
+  that change's review. A unit that concludes the change is not needed still owes it: the
+  reviewer gets the conclusion and its evidence, not the author's argument, at the tier the
+  change would have earned, and replays the evidence. The acceptance ladder still follows the
+  tree, and both protocols, the constitution and the seed's playbook template now point here.
+- **A decision says whether its evidence was measured, estimated or reported.** Session
+  discipline item 11: a ledger row, commit message or report that rests a decision on a number
+  or an outcome names the command and keeps its input where the reviewer can reach it, or says
+  it was estimated by reading, or names who reported it. "It came out longer" claims an attempt
+  was built, and a measurement nobody can replay reads as an estimate. A ledger row names no
+  branch, which would not outlive it. Prose-only by design: no field requires it, because a
+  required field would be filled either way.
+- **The Claude adapter's hooks no longer go missing after a `cd`.** Claude Code's hooks
+  documentation says a hook runs in the session's current directory, and the relative
+  `scripts/command-guard.sh` did stop resolving
+  the moment the agent changed into a subdirectory. The host counted the missing script as a
+  non-blocking error and ran the command, so the guard was off for the rest of the session and
+  nothing said so. Every hook command is now `bash "${CLAUDE_PROJECT_DIR}"/scripts/...`: the
+  quoted project root, run through `bash` so a lost executable bit cannot refuse every call.
+- **A command guard that fails now refuses the call.** Both `PreToolUse` hooks, the shell guard
+  and the subagent speed bump, set `"onFailure": "block"`. A guard that crashes, exits with
+  anything but 0 or 2, times out or cannot start used to let the call through; now it blocks it.
+  This needs Claude Code 2.1.295 or later; an older build ignores the key and behaves as before.
+  A crash in this repository's own guard copy now refuses every Bash call too; the runbook's
+  editor-path recovery for an unparseable copy covers it.
+- **On Windows, Git Bash is now a hard requirement for the Claude adapter.** Every hook runs under
+  bash, so with the refusal above a Windows machine without Git Bash refuses every shell command
+  and subagent spawn. Claude Code's refusal quotes the hook's command, and both commands end with
+  a bash comment, `# On Windows AMH requires Git Bash: install Git for Windows, or AMH is not
+  usable`, so that is what the owner reads. The constitution tells the agent to report such a
+  refusal and never to remove a hook, its `onFailure` or its shell pin to get past it. Nobody has
+  yet seen the anchored path or the refusal on a Windows host.
+- **The command guard reads the name bash looks up.** A leading backslash, the usual way to
+  bypass an alias, hid the command from the rails: `\rm -rf /` and `\git push --force` got no
+  verdict at all, and `\cat .env` met only the one-time `.env` advisory. A path on a prefix did
+  the same: `/usr/bin/env` alone printed the environment unjudged while `/usr/bin/printenv` was
+  blocked. The command word and every transparent prefix (`sudo`, `env`, `command` and the rest)
+  now have a path and a leading backslash removed before they are judged, at every site that
+  picks the command, package runners included. A backslash elsewhere in the word (`r\m`) is
+  still not read, and a quoted `'\rm'`, which bash cannot run, is now judged as `rm`.
+- **A command after a reserved word, or spelled with `.exe`, is judged.** `if true; then git
+  push --force origin main; fi`, `while true; do printenv; done` and `! printenv` used to reach
+  no rail, because the segment's first word was `then`, `do` or `!`. `if`, `then`, `else`,
+  `elif`, `while`, `until`, `do` and `!` leading a segment are now skipped like `sudo`, at
+  every site that picks the command. A Windows suffix, which Git Bash runs as the bare name, is
+  folded in any case and lowers the name with it, so `rm.exe -rf /` and `RM.EXE -rf /` reach the
+  permanent denial and `git.exe push --force` the push rail; a backslashed Windows path such as
+  `C:\...\powershell.exe` is left as written for the arms that match it. Still missed, and listed in the
+  guard's header: a bare `RM` with no suffix, the `.com`, `.bat` and `.cmd` suffixes, and
+  `coproc`.
+- **A glob that matches every hidden entry of a directory on the denial list is that directory,
+  and a brace expansion is judged word by word.** `rm -rf ~/.?*`, `~/.??*`, `~/.[!.]*` and
+  `/[!.]*` — and git's `-- '.?*'` under a home `-C` — got the one-time advisory while `~/.*` was
+  denied. They are now denied too: a last component made of `?` and `*` behind one dot is every
+  hidden entry, and in a bash operand `[!.]` or `[^.]` reads as the `?` it equals. A glob that
+  matches only some entries keeps the advisory (`~/.c*`, `/[a-m]*`, `~/[!.a]*`, `~/.?`). In the
+  other direction, a `{` or `}` inside a word no longer splits the command: `rm -rf
+  ~/{.cache,.npm}` was read as `rm -rf ~/` and denied for good, and so was `rm -rf ~/}x`. A brace
+  is a command group only as a word of its own, and a brace list is expanded, so `~/{.cache,.npm}`
+  gets the advisory and `~/{,.cache}` or `~/{*,.*}` the denial. Unlike bash, a quoted brace is
+  expanded too, as a quoted glob already was; the expansion reads at most 256 words of an operand
+  of at most 64 braces and 1024 characters, and leaves `cmd.exe` and PowerShell operands alone.
+- **A backslash-newline is read as bash reads it.** Bash removes an unquoted backslash and the
+  newline after it before it splits a line into words; the guard kept both characters in the
+  word. So `rm -rf \⏎/` got the one-time advisory instead of the permanent denial, `rm \⏎-rf /`,
+  `git \⏎-C /repo push --force` and `git push -u origin \⏎main` passed, and the legal
+  `git push \⏎-u origin session/x` was denied as naming two refs (`⏎` is a real newline). The
+  pairs are now removed before the guard splits the command into commands and words, outside
+  quotes and inside double quotes as bash does, and kept inside single quotes, after an escaped
+  backslash (`\\⏎`) and in a here-document body. A `#` comment ends at its newline whatever
+  precedes it, so the line after `# note \⏎` is judged as its own command. Still missed, and
+  listed in the guard's header: a continuation on a here-document's operator line
+  (`cat <<EOF \⏎&& git push --force origin main` hides the push), a quote inside a comment, and
+  PowerShell's backtick continuation.
+- **A cluster of short flags on `git push` is read as git reads it.** The push rail knew `-f` and
+  `-d` only as whole words, so `git push -uf`, `-qf`, `-ud` and `-qd` passed. A cluster is now
+  read letter by letter, and an `f` or `d` in it is denied as `-f` or `-d` alone is. `-o` takes
+  the rest of its cluster, or the next word when it ends the cluster, as its value: `-of` is a
+  push option named `f`, and the legal `git push -uo f origin <branch>`, which was denied as
+  naming two refs, now passes.
+- **A long option on `git push` is read by unique prefix, as git reads it.** Git accepts any
+  unambiguous prefix of a long option, so `git push --del origin <branch>` deleted the branch,
+  `--force-w` and `--force-if` forced, `--no-veri` skipped the pre-push rail, and `--mir`, `--al`
+  and `--branches` pushed refs nobody named; every one passed the push rail. Each long option is
+  now matched by prefix against the names the rail denies. A prefix git calls ambiguous and
+  refuses, such as `--d` or `--forc`, is denied too. The options that take a value (`--repo`,
+  `--recurse-submodules`, `--receive-pack`, `--exec`, `--push-option`) are read the same way and
+  their value skipped. Unread, the value had been taken for the remote, so `git push --push-opt x
+  origin` and `git push --recurse-submodules check origin` passed as naming a branch called
+  `origin` while git pushed with the ref left implicit. Both are now denied as implicit pushes,
+  and `--push-opt x origin <branch>`, which had been denied as naming two refs, passes. Every
+  word after `--` or `--end-of-options` is now read as a refspec, as git reads it, so
+  `git push -- origin <branch> -o main` is denied for naming `main`; it used to pass.
+- **A quote inside a `#` comment no longer hides the next line.** Every walker in the command
+  guard read the `'` in `echo a # don't` as opening a string that ran past the newline, so
+  `echo a # don't⏎printenv` and the same line before a force push passed, and a `<<` inside a
+  comment (`echo hi # see <<EOF⏎printenv`) opened a heredoc body that hid every later line. A
+  command with a `#` in it is now judged twice: once as before, and once with every comment
+  inert, its quotes deleted and no heredoc opened inside it. Either refusal stands, so nothing the
+  guard refused before is let through. Comment text is still judged, and a quote no longer hides
+  any of it, so `echo a # ; printenv` stays refused and `echo a # " < id_rsa` is now refused. So
+  is prose whose nested quotes the walkers misread around a `#`. A command whose comments hide
+  several one-time advisories now meets them one rerun at a time. A command whose comments outside heredoc bodies hold a quote pays for
+  a second run of every rail. A heredoc body full of Markdown headings does not.
+- **A heredoc body ends where bash ends it.** The command guard read only the first heredoc
+  operator on a line, so in `cat <<A <<B` the body of `B` was judged as commands, and a `'` in
+  it hid the command after `B`. It also ended a body at a terminator with leading spaces, which
+  bash does not accept, and missed a backslash-newline that joins a body line to the terminator
+  line (`foo\⏎EOF` ends nothing). Every operator on a line now opens a body, read in order. The
+  terminator must match the whole line, with `<<-` stripping tabs only. Under an unquoted
+  delimiter, a body line ending in an odd run of backslashes is joined to the next before the
+  comparison. A `<<` inside arithmetic, a `((` or `$((` that bash closes with `))`, is read as a
+  shift, so `$(( 1 << n ))` no longer opens a body named `n` that hid every later line, while the
+  heredoc in `((true <<EOF ) )` or in a `$(` inside arithmetic still opens one. Bodies that bash reads as data, the second of two above
+  all, are no longer refused. Still open, and named in the guard's header: a delimiter with a
+  quote inside the word (`<<E"O"F`) is read as one no line matches, behind a second operator
+  too, which the next bullet now refuses; a `<<` inside a multi-line string opens a body bash
+  never opens; `echo $(cat <<EOF)`, whose delimiter a `)` ends, opens none; and after a
+  here-string such as `<<<"$v"` the next `"` is lost, so a later quoted `"<<EOF"` can open a body.
+- **A heredoc body that never closes is refused.** The command guard skipped every line after an
+  operator whose body reached the end of the command, so a delimiter it misread, such as
+  `<<E"O"F`, `<<'E'OF`, `<<"E O F"`, `<<$'EOF'` or one a backslash-newline splits, let every
+  later line through unjudged. Such a command is now refused, with a reason that names the
+  delimiter the guard was waiting for. Bash runs it, with a warning, so this refuses text bash
+  accepts: a body never ended, a terminator written as `EOF)` outside a `$(…)`, and, until the guard reads where a
+  body starts as bash does, a `<<` inside a string that spans lines or inside a comment when no
+  later line matches it, and a delimiter the guard misreads even when it is closed, such as
+  `<<"E O F"`. A heredoc whose delimiter the guard reads correctly, closed on its own line, the
+  commit-message heredoc included, is unaffected.
+- **A heredoc body starts where bash starts it.** The command guard started every body on the
+  line after its operator and read the delimiter by stripping one quote from each end, so
+  `cat <<EOF \⏎&& printenv` and `cat <<EOF "x⏎y"; printenv` hid the `printenv`, and a delimiter
+  with a quote inside the word, a blank inside quotes, `$'…'` or a backslash-newline was refused
+  as a body that never closes, or closed early by a line that matched the misread word. The
+  guard now reads the command in one pass with one stack of open contexts, as bash does: a body
+  starts at the next newline that is a token at its operator's level, so a continuation, a
+  newline inside a quote, `${…}`, arithmetic, `$[…]`, a backtick word or a `$(…)` opened after
+  the operator does not start it (`echo <<EOF $(printf x⏎); printenv` is judged), and inside
+  `$(…)` a body starts at that substitution's own next newline. Quotes nest inside `"$(…)"`, so
+  the commit-message heredoc opens its body, and a `<<` in the message opens none. The
+  delimiter gets bash's quote removal wherever its quotes sit (`<<E"O"F`, `<<'E'OF`,
+  `<<"E O F"`, `<<$'EOF'`, `<<$"EOF"`, and `<<''`, which ends at an empty line). Inside `$(…)`
+  a body also ends at `EOF)`, and only the rest of that line, from the `)`, is read again; a
+  `$(…)` that closes with a body waiting, `echo $(cat <<EOF)`, hands it to the next newline; and
+  a backtick substitution's closing backtick ends every body read inside it, a comment inside
+  it ending there too, so the lines after `` echo `cat <<EOF; date` `` are judged. A delimiter the guard cannot spell, with an
+  escape inside `$'…'` or a backtick or `$(` inside the word, is refused as a body that never
+  closes. Still open, and named in the guard's header: a `<<` inside a comment under the first
+  comment reading, an unquoted digit-led delimiter (`cat <<8`), and a `case` pattern's `)`
+  inside `$(…)`. A body now read correctly also hands the walkers text they misread with or
+  without a heredoc, a quote inside `"$(…)"` or inside backticks, so a few commands that were
+  refused only because the old reading cut them wrongly now pass.
+- **The command guard denies the pre-push rail's off switches.** `git push --no-verify`, a
+  `core.hooksPath` override on a push (`git -c core.hooksPath=… push`, or `--config-env` in
+  either spelling), and `git config` setting `core.hooksPath` in any scope all passed, although
+  each one switches the git-native pre-push rail off. Reading or unsetting the key still passes,
+  and so does `git commit --no-verify`, because AMH installs no pre-commit hook. `git config` is
+  read as git reads it: in the classic form, `git config core.hooksPath --get` sets the key to
+  `--get`; options count when shortened to a prefix (`--typ`) or clustered (`-zf FILE`); and
+  `--no-get` cancels `--get`. The global-option walk also read `--config-env` as a flag with no value, so
+  `git --config-env k=V push --force origin main` passed every rail; it is now denied as a
+  force push. Still missed, and named in the guard's header: the `GIT_CONFIG_*` environment, an
+  `include.path` and `git config --edit`.
+- **Removing the pre-push hook file gets a one-time advisory, and the Claude adapter denies the
+  editing tools that file.** `rm`, `mv` and `chmod` on `.git/hooks/pre-push` passed every rail,
+  and each switches the git-native pre-push rail off as surely as `--no-verify`. The command
+  guard now stops them once per command text, as it does `.git/hooks` itself, a glob that
+  matches the hook, and PowerShell's `Remove-Item`, `Move-Item` and `Rename-Item` with their
+  aliases. Its text says what comes back: a removed or moved hook is written again at the next
+  session start, but a hook whose execute bit was taken stays off, and a file moved into its
+  place is never overwritten. It is an advisory, not a denial, because an owner may replace or
+  chain the hook. The Claude adapter adds `Edit(//**/.git/hooks/**)` to `permissions.deny`, which
+  Claude Code applies to every built-in editing tool, which the command guard never judges. It
+  does not load under `--restricted`, which ignores the project's settings file unless
+  `--settings` names it; there Claude Code lets only a person or the configured permission
+  handler approve a write to git files. Still missed, and named in the guard's
+  header: `cp`, `ln`, `tee`, a redirect, an interpreter, a path built at run time, and a `core.hooksPath` directory.
+- **Reading a tool's stored credentials is denied, and so are the two commands that print one.**
+  An agent checking for a publish token ran `cat ~/.netrc | grep -E "machine|login"` with
+  `cat ~/.npmrc` and `cat ~/.cargo/credentials.toml`, and printed every token it held into the
+  conversation; the `grep` kept the passwords, which share lines with what it matched. Each of
+  those passed every rail. The command guard's block tier, which already covered the `.env`
+  family and the OpenSSH key names, now covers the stores tools keep at a fixed path, through its
+  reader list, a `<` redirect and a copy: `.netrc`, `_netrc` and `.git-credentials` by name
+  wherever they sit; `~/.aws/credentials`, `~/.config/gh/hosts.yml`, `~/.config/git/credentials`,
+  `~/.docker/config.json`, `~/.kube/config`,
+  `~/.config/gcloud/application_default_credentials.json` and `~/.cargo/credentials[.toml]`, as
+  that directory and file under any parent, so a relative spelling from the home directory
+  counts too; and `~/.npmrc` in a home directory only, because a project's `.npmrc` is commonly
+  committed and holds no token. It also denies `gh auth token`, `gh auth status -t` and
+  `git credential fill`, with a credential helper's own `get`. The Claude adapter adds matching
+  `Read(...)` and `Bash(...)` denials, and the Codex rules name the two commands. Still missed,
+  and named in the guard's header: a store moved by its tool's environment variable,
+  `cat .npmrc` run from the home directory, and a tool that prints its own secret by another
+  verb. Two fixes reach past the stores. A `<>` redirect and a quoted redirect target with a
+  space in it are now read, for `.env` and the key names too. Git's `--git-dir`, `--work-tree`,
+  `--namespace` and `--super-prefix` given their value as the next word no longer hide the
+  command behind them: `git --git-dir <dir> push --force origin x` passed the push rail, and
+  is now denied.
+- **The Claude adapter says which host modes load none of it.** Claude Code's own `--help`
+  (2.1.314) says `--safe-mode` and `--bare` skip the hooks that settings files define, and
+  `--restricted` ignores the project's settings file unless `--settings` names it. A session
+  started in any of them has no command rail, no output redaction and no session bootstrap, and
+  no AMH script checks for that. The
+  adapter's comment now says so. Nothing to apply: it is a comment, and the reason to know it is
+  the session you start, not the file you copy.
+- **Your ladder now checks the Claude adapter's shell pin.** 14.1.0 shipped `"shell": "bash"` on
+  the adapter's hooks as a hand step with nothing behind it, so an upgrade that skipped it stayed
+  green. A new rung, run only when `.claude/settings.json` exists, fails when an entry whose
+  command names `command-guard.sh`, `session-start.sh` or `redact-tool-output.sh` lacks exactly
+  `"shell": "bash"`, or when a later duplicate `"shell"` key overrides it. Your own hooks are not
+  judged unless their command names one of those scripts.
+  It reads any layout, minified included; an AMH hook inside an entry it cannot read as a flat
+  object, and a settings file naming no AMH hook at all, are warnings that say what went unchecked.
+  A repository without that file gets a `skip` line.
+- **The session banner says when the state file you are about to read is not the newest.** A
+  unit finished in a second worktree and pushed with `git push origin <local>:<remote>` moves
+  the remote branch and leaves the main checkout's branch behind. The next session there read the
+  old state file and reported the finished unit as not started. When HEAD has commits of its
+  own, the banner now lists every branch, remote-tracking ref or detached worktree that builds on
+  it and changes the state file since, one line per commit; it never uses this branch's name or
+  its upstream's, so the two spellings of that push do not matter. When HEAD has none, as in a
+  freshly cut session, a sibling unit's branch cannot be told from a continuation, so the banner
+  judges only `DEFAULT_BRANCH` and says the rest was not judged. A dependency bot's branch is
+  never listed: it never edits the state file. The banner reads refs as last fetched and fetches
+  nothing, not even the trees a partial clone lacks, and bounds each git call with `timeout`
+  where one exists. A shallow clone's empty answer is hedged, and every way git can fail to answer
+  says it did not check. A continuation that was rebased, or cut from a newer commit than HEAD,
+  is missed.
+
+### Upgrading
+
+Copy Session discipline items 10 and 11 from `harness/templates/seed/docs/RUNBOOK.md` into your
+`docs/RUNBOOK.md`. If your Session discipline list does not end at item 9, number them after your
+last item and renumber the cross-references inside them — items 5, 6, 7, 8, 10 and 11 — to your
+list. Copy the one-sentence additions to the openings of both review protocols from the same
+file. These two items are what make the release MAJOR: a session that skipped a review because
+its unit ended without code, or recorded an estimate in the past tense, was within the rules
+before and is not now. If your plans name per-unit reviews, they need no edit; those reviews now
+bind whatever a unit ends with.
+
+If you use the Claude adapter, update the `hooks` block of your `.claude/settings.json` from
+`harness/templates/configs/claude-settings.json`. Prefix each AMH hook's `"command"` — the four
+that run `scripts/...`, not hooks of your own — with `bash \"${CLAUDE_PROJECT_DIR}\"/` (the
+JSON spelling of a quoted placeholder), and on the two `PreToolUse` entries add the trailing
+Windows comment and a following `"onFailure": "block"` line, as the last key of the entry. Add
+`"Edit(//**/.git/hooks/**)"` to its `permissions.deny`, spelled exactly so: a `Write(...)` path
+rule is accepted and never matches, and a single leading `/` misses a linked worktree's hooks. Add the credential-store entries — the `Read(...)` lines after `Read(**/id_ed25519_sk)` and the two `Bash(...)` lines after `Bash(typeset -x)` — to the same `permissions.deny`; if you use the Codex adapter, copy the two new `prefix_rule` lines and their comment from `harness/templates/configs/codex-amh.rules`. Copy the new bullet **A hook that fails refuses the call, where the adapter says so** from
+`harness/templates/seed/AGENTS.md` into your `AGENTS.md`.
+
+Copy the 16.0.0 shipped scripts and manifest through the normal upgrade procedure for the
+command-guard changes and the new banner line; they need nothing else. If your repository keeps its hooks under
+`core.hooksPath`, an agent can no longer set that key itself; a hook manager's own install
+step, which runs git without passing through the guard, is unaffected. The new ladder rung needs nothing either, but if
+you use the Claude adapter it fails your ladder until every AMH hook in `.claude/settings.json`
+carries `"shell": "bash"` — the 14.1.0 hand step, which the adapter update above includes. A
+`.claude/settings.json` that holds no AMH hook — permissions only, say, in a repository that runs
+AMH through another agent — gets a standing warning that the rung checked nothing; there is no
+switch for it, because a hooks block that went missing must not read as a pass.
+
+Check what the adapter change costs you before applying it. On a Windows machine without Git for Windows, every
+shell command is refused afterwards, so install Git for Windows first or AMH stops working there.
+A command guard that was quietly crashing will start blocking too. That is the point, but it
+surfaces at once.
+
+Everything else here was drafted as MINOR 15.2.0: nothing that was correct became wrong, the
+owner's call on 2026-10-14, asked because the Windows requirement made it arguable. The two
+session-discipline rules made the release MAJOR, the owner's call on 2026-10-26.
+
 ## 15.1.0 — 2026-10-07
 
 - **A Windows drive's root is on the command guard's permanent-denial list.** A deletion aimed at

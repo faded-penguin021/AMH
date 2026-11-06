@@ -23,6 +23,14 @@ on:
 jobs:
   ladder:
     runs-on: ubuntu-latest
+    # A hang ends the job instead of holding a runner for GitHub's 6-hour default, and a job ended
+    # that way is not a pass. Not hypothetical: the command guard's self-test never returned on
+    # stock macOS Bash 3.2, and the portability job sat in it for 2h37m until it was cancelled by
+    # hand (DD-061). 30 minutes is about 2.5 times the slowest job seen on the PR that hit it
+    # (Windows 12 min; this job 9 min; macOS about 1 min on 15.1.0). If a slower runner or a
+    # larger suite makes a healthy job brush against it, raise the number in both places; never
+    # remove it.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
         with:
@@ -66,6 +74,8 @@ jobs:
       matrix:
         os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    # The same ceiling as the ladder job, for the reason given there.
+    timeout-minutes: 30
     defaults:
       run:
         # macOS exercises its stock /bin/bash; Windows exercises Git for Windows' Bash.

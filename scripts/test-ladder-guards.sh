@@ -1529,6 +1529,142 @@ tok=$(akia_token)
 printf 'key = %s\n' "$tok" >"$d/scripts/deploy notes.sh"
 expect_fail "a secret in a file name with a space is still caught" "$d" "credential-shaped"
 
+# --- Claude adapter: AMH hooks pin their shell
+# The fixture adapter is written here, in the shipped layout, rather than copied: an adopter
+# running this suite has no harness checkout to copy from. It carries one hook of the adopter's
+# OWN, unpinned, which the rung must not judge.
+write_claude_settings() { # <fixture-dir>
+	mkdir -p "$1/.claude"
+	cat >"$1/.claude/settings.json" <<-'JSON'
+		{
+		  "$comment": "fixture adapter; scripts/command-guard.sh is named here and is not a hook",
+		  "permissions": { "allow": ["Bash(scripts/command-guard.sh:*)"] },
+		  "hooks": {
+		    "PostToolUse": [
+		      { "matcher": "*", "hooks": [
+		        {
+		          "type": "command",
+		          "shell": "bash",
+		          "command": "bash \"${CLAUDE_PROJECT_DIR}\"/scripts/redact-tool-output.sh"
+		        }
+		      ] }
+		    ],
+		    "SessionStart": [
+		      { "hooks": [
+		        {
+		          "type": "command",
+		          "shell": "bash",
+		          "command": "bash \"${CLAUDE_PROJECT_DIR}\"/scripts/session-start.sh"
+		        },
+		        {
+		          "type": "command",
+		          "command": "echo my own hook"
+		        }
+		      ] }
+		    ],
+		    "PreToolUse": [
+		      { "matcher": "Bash|PowerShell", "hooks": [
+		        {
+		          "type": "command",
+		          "shell": "bash",
+		          "command": "bash \"${CLAUDE_PROJECT_DIR}\"/scripts/command-guard.sh",
+		          "onFailure": "block"
+		        }
+		      ] },
+		      { "matcher": "Task", "hooks": [
+		        {
+		          "type": "command",
+		          "shell": "bash",
+		          "command": "bash \"${CLAUDE_PROJECT_DIR}\"/scripts/command-guard.sh --pre-task",
+		          "onFailure": "block"
+		        }
+		      ] }
+		    ]
+		  }
+		}
+	JSON
+}
+
+# No adapter file is the common case for a repository on another agent, and it costs nothing.
+d=$(mk claude_absent)
+expect_pass_saying "no Claude settings file skips the hook-shell rung" "$d" \
+	"   skip  .claude/settings.json is absent"
+
+# The pinned baseline: four AMH hooks counted, the adopter's own unpinned hook not judged, and
+# a script named in a comment and a permission rule not mistaken for a hook.
+d=$(mk claude_pinned)
+write_claude_settings "$d"
+expect_pass_saying "four pinned AMH hooks pass and the adopter's own hook is not judged" "$d" \
+	'   ok    4 AMH hook(s) in .claude/settings.json carry "shell": "bash"'
+
+# The hand step undone on one entry — the state an upgrade that skipped it leaves behind.
+d=$(mk claude_unpinned)
+write_claude_settings "$d"
+awk '/"shell": "bash"/ && !done { done = 1; next } { print }' "$d/.claude/settings.json" >"$d/s" &&
+	mv "$d/s" "$d/.claude/settings.json"
+expect_fail "an AMH hook without the shell pin fails" "$d" "1 of 4 AMH hook(s) do not carry"
+# ...and a failing rung prints no `ok` beside its failure.
+out=$(run "$d")
+if grep -qF '   ok    4 AMH hook(s)' <<<"$out"; then
+	report no "a failing hook-shell rung prints no ok line" "the ok line printed beside the failure" "$out"
+else
+	report ok "a failing hook-shell rung prints no ok line"
+fi
+
+# The script is found by its file name, so a path spelled another way is still an AMH hook.
+d=$(mk claude_respelled)
+write_claude_settings "$d"
+awk '/"shell": "bash"/ && !done { done = 1; next } { print }' "$d/.claude/settings.json" |
+	sed 's#/scripts/redact-tool-output#/scripts//redact-tool-output#' >"$d/s" &&
+	mv "$d/s" "$d/.claude/settings.json"
+expect_fail "an unpinned AMH hook with a respelled path still fails" "$d" "1 of 4 AMH hook(s) do not carry"
+
+# A value that is not exactly `bash` is not the pin; to the host it drops the entry outright.
+d=$(mk claude_near_value)
+write_claude_settings "$d"
+sed_in_place 's/"shell": "bash",/"shell": "bash ",/' "$d/.claude/settings.json"
+expect_fail "a shell value that is only nearly bash fails" "$d" "4 of 4 AMH hook(s) do not carry"
+
+# A key is a key only after `{` or `,`: a string ending in an escaped `"shell` is not one.
+d=$(mk claude_spoofed_key)
+write_claude_settings "$d"
+sed_in_place 's/"shell": "bash",/"x \\"shell": "bash",/' "$d/.claude/settings.json"
+expect_fail "a key spelled inside another key's string is not the pin" "$d" "4 of 4 AMH hook(s) do not carry"
+
+# A misspelled key leaves the entry unpinned, which is what Claude Code does with it too.
+d=$(mk claude_misspelled)
+write_claude_settings "$d"
+sed_in_place 's/"shell": "bash"/"shel": "bash"/' "$d/.claude/settings.json"
+expect_fail "a misspelled shell key is read as no pin" "$d" "4 of 4 AMH hook(s) do not carry"
+
+# JSON keeps the LAST of two equal keys, so a later non-bash value is the one in force.
+d=$(mk claude_duplicate)
+write_claude_settings "$d"
+sed_in_place 's/"shell": "bash",/"shell": "bash", "shell": "powershell",/' "$d/.claude/settings.json"
+expect_fail "a later duplicate shell key overrides the pin" "$d" "4 of 4 AMH hook(s) do not carry"
+
+# The same file minified: layout is not what the rung reads.
+d=$(mk claude_minified)
+write_claude_settings "$d"
+tr -d '\n\t' <"$d/.claude/settings.json" | sed 's/  */ /g; s/": /":/g; s/, /,/g; s/{ /{/g' >"$d/s" &&
+	mv "$d/s" "$d/.claude/settings.json"
+expect_pass_saying "a minified adapter is read the same as the shipped layout" "$d" \
+	'   ok    4 AMH hook(s) in .claude/settings.json carry "shell": "bash"'
+
+# An AMH command the entry reader cannot reach is UNVERIFIED, never passed.
+d=$(mk claude_unreadable)
+write_claude_settings "$d"
+sed_in_place 's/"onFailure": "block"/"onFailure": "block", "extra": {}/' "$d/.claude/settings.json"
+expect_warn "an AMH hook in an entry the rung cannot read flat is reported unverified" "$d" \
+	"2 of 4 AMH hook command(s) are not in a flat"
+
+# A settings file that holds no AMH hook at all checked nothing, and says so.
+d=$(mk claude_no_hooks)
+mkdir -p "$d/.claude"
+printf '{ "permissions": { "allow": [] } }\n' >"$d/.claude/settings.json"
+expect_warn "a settings file with no AMH hook warns that it checked nothing" "$d" \
+	"names no AMH hook script"
+
 # --- repo-local guard extension point
 d=$(mk guard_ok)
 printf '#!/usr/bin/env bash\nexit 0\n' >"$d/scripts/guards/fine.sh"
@@ -1807,6 +1943,193 @@ if [ "$rc" -eq 2 ] && grep -qF "This destructive filesystem command" <<<"$out"; 
 	report ok "the rearm survives a noglob amh.conf"
 else
 	report no "the rearm survives a noglob amh.conf" "rc=$rc" "$out"
+fi
+
+# --- the working-memory line: newer state on top of this checkout, judged by no branch name
+# The incident (AMH ledger row DD049): a unit finished in a second worktree was pushed with a
+# `<local>:<remote>` refspec, so the remote branch moved and the main checkout's branch did not,
+# and the next session read the old state file and reported the finished unit as not started.
+#
+# Each direction is separately silent, so each has its own case. With commits of its own, HEAD
+# is judged against everything built on it: (a) that shape is reported — the remote ref the push
+# moved WITHOUT a fetch, one line per commit with every name for it, origin/HEAD not listed as a
+# second name, no detached worktree that does not build on HEAD or whose directory is gone, and
+# no path; (b) a branch on top that changes no state file is not, which pins the state file
+# against an ancestry-only test. With none, siblings cannot be told from a continuation: (c)
+# sibling unit branches are not reported and the line says they were not judged; (d) a default
+# branch with a newer state file is, and a bot branch on top of it is not. (e) A shallow clone's
+# "nothing" is hedged. (f) Every way git can fail to answer is "NOT checked", never "nothing".
+# (g) A repository with no commit yet prints no line and still boots.
+ss_git() { git -C "$1" -c user.email=f@example.invalid -c user.name=fixture "${@:2}"; }
+ss_state_commit() { # <dir> <line>
+	printf '%s\n' "$2" >>"$1/docs/STATE.md"
+	ss_git "$1" commit -qam "$2" 2>/dev/null
+}
+ss_code_commit() { # <dir> <line>
+	mkdir -p "$1/e2e" && printf '%s\n' "$2" >>"$1/e2e/requirements.txt" &&
+		ss_git "$1" add e2e/requirements.txt 2>/dev/null && ss_git "$1" commit -qm "$2" 2>/dev/null
+}
+ss_banner() { (cd "$1" && env -u AMH_REMOTE bash scripts/session-start.sh 2>&1); }
+# A git that fails exactly the calls matching a `case` pattern over its arguments and runs the
+# real git for everything else, so the rest of the banner still boots.
+ss_shim() { # <dir to create> <case pattern>
+	mkdir -p "$1" || return 1
+	# The shim's `$*`/`$@` are literal text for the shim, so they must NOT expand here.
+	# shellcheck disable=SC2016
+	printf '#!/usr/bin/env bash\ncase "$*" in %s) exit 128 ;; esac\nexec %q "$@"\n' \
+		"$2" "$(type -P git)" >"$1/git" && chmod +x "$1/git"
+}
+
+d=$(mk ss_newer_state_worktree)
+bare="$WORK/ss_newer_state_origin.git"
+wt="$WORK/ss_newer_state_wt"
+det="$WORK/ss_newer_state_detached"
+off="$WORK/ss_newer_state_offpath"
+gone="$WORK/ss_newer_state_gone"
+if ! git clone -q --bare "$d" "$bare" 2>/dev/null ||
+	! ss_git "$d" remote add origin "$bare" 2>/dev/null ||
+	! ss_git "$d" checkout -q -b session/x 2>/dev/null ||
+	! ss_state_commit "$d" "- unit 1" ||
+	! ss_git "$d" push -q origin session/x 2>/dev/null ||
+	! ss_git "$d" symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/session/x 2>/dev/null ||
+	! ss_git "$d" worktree add -q -b wt-unit2 "$wt" session/x 2>/dev/null ||
+	! ss_state_commit "$wt" "- unit 2" ||
+	! ss_git "$wt" push -q origin wt-unit2:session/x 2>/dev/null ||
+	! ss_git "$d" worktree add -q --detach "$det" wt-unit2 2>/dev/null ||
+	! ss_state_commit "$det" "- unit 3" ||
+	! ss_git "$d" worktree add -q --detach "$off" "origin/$DEFAULT_BRANCH_FIXTURE" 2>/dev/null ||
+	! ss_state_commit "$off" "- a sibling" ||
+	! ss_git "$d" worktree add -q --detach "$gone" wt-unit2 2>/dev/null ||
+	! ss_state_commit "$gone" "- unit 3b" || ! mv "$gone" "$gone.moved"; then
+	printf '  SKIP 2 working-memory cases: could not build the worktree fixture (clone, worktree or push failed)\n' >&2
+else
+	out=$(ss_banner "$d")
+	rc=$?
+	if [ "$rc" -eq 0 ] &&
+		grep -qF "· ⚠ working memory: docs/STATE.md here is OLDER than on work that builds on this checkout:" <<<"$out" &&
+		grep -qE ' \(origin/session/x, wt-unit2\): 1 newer commit\(s\) change it$' <<<"$out" &&
+		[ "$(grep -c 'a detached worktree' <<<"$out")" -eq 1 ] &&
+		grep -qE ' \(a detached worktree\): 2 newer commit\(s\) change it$' <<<"$out"; then
+		report ok "a stale checkout under a worktree's refspec push is reported, with no fetch"
+	else
+		report no "a stale checkout under a worktree's refspec push is reported, with no fetch" "rc=$rc" "$out"
+	fi
+	# Only the worktree paths: the pre-push rail's install line names the repository itself.
+	if grep -qF -e "$wt" -e "$det" -e "$off" -e "$gone" <<<"$out"; then
+		report no "the working-memory line names no worktree path" "a path was printed" "$out"
+	else
+		report ok "the working-memory line names no worktree path"
+	fi
+fi
+
+d=$(mk ss_newer_state_code_only)
+if ! ss_git "$d" checkout -q -b session/x 2>/dev/null || ! ss_state_commit "$d" "- unit 1" ||
+	! ss_git "$d" checkout -q -b wip 2>/dev/null || ! ss_code_commit "$d" "pillow==13.0.0" ||
+	! ss_git "$d" checkout -q session/x 2>/dev/null; then
+	printf '  SKIP 1 working-memory case: could not build the code-only fixture\n' >&2
+else
+	out=$(ss_banner "$d")
+	if grep -qF "· working memory: nothing that builds on this checkout changes docs/STATE.md (refs as last fetched)." <<<"$out" &&
+		! grep -qF "OLDER" <<<"$out"; then
+		report ok "a branch on top that changes no state file is not reported"
+	else
+		report no "a branch on top that changes no state file is not reported" "it was, or no verdict" "$out"
+	fi
+fi
+
+d=$(mk ss_newer_state_siblings)
+ss_ok=1
+for w in alice bob; do
+	ss_git "$d" checkout -q -b "session/$w" 2>/dev/null && ss_state_commit "$d" "- $w" &&
+		ss_git "$d" update-ref "refs/remotes/origin/session/$w" HEAD 2>/dev/null &&
+		ss_git "$d" checkout -q - 2>/dev/null && ss_git "$d" branch -q -D "session/$w" 2>/dev/null || ss_ok=0
+done
+if [ "$ss_ok" = 0 ]; then
+	printf '  SKIP 1 working-memory case: could not build the sibling fixture\n' >&2
+else
+	out=$(ss_banner "$d")
+	if grep -qF "· working memory: origin/main has no newer docs/STATE.md (refs as last fetched). This checkout" <<<"$out" &&
+		grep -qF "a sibling unit" <<<"$out" && ! grep -qF "OLDER" <<<"$out"; then
+		report ok "sibling unit branches off a HEAD with no commits of its own are not reported, and the line says so"
+	else
+		report no "sibling unit branches off a HEAD with no commits of its own are not reported, and the line says so" "they were, or no verdict" "$out"
+	fi
+fi
+
+d=$(mk ss_newer_state_behind_default)
+if ! ss_git "$d" checkout -q -b tmp 2>/dev/null || ! ss_state_commit "$d" "- merged unit" ||
+	! ss_git "$d" update-ref "refs/remotes/origin/$DEFAULT_BRANCH_FIXTURE" HEAD 2>/dev/null ||
+	! ss_code_commit "$d" "pillow==13.0.0" ||
+	! ss_git "$d" update-ref refs/remotes/origin/dependabot/pip/bump HEAD 2>/dev/null ||
+	! ss_git "$d" checkout -q - 2>/dev/null || ! ss_git "$d" branch -q -D tmp 2>/dev/null; then
+	printf '  SKIP 1 working-memory case: could not build the behind-the-default-branch fixture\n' >&2
+else
+	out=$(ss_banner "$d")
+	if grep -qF "· ⚠ working memory: docs/STATE.md here is OLDER than on origin/main, and this checkout has no" <<<"$out" &&
+		grep -qF "1 newer commit(s) there change it" <<<"$out" && ! grep -qF "dependabot" <<<"$out"; then
+		report ok "a newer state file on the default branch is reported, and a bot branch on top of it is not"
+	else
+		report no "a newer state file on the default branch is reported, and a bot branch on top of it is not" "it was not" "$out"
+	fi
+fi
+
+src=$(mk ss_newer_state_shallow_src)
+sh="$WORK/ss_newer_state_shallow"
+if ! ss_git "$src" checkout -q -b session/x 2>/dev/null || ! ss_state_commit "$src" "- unit 1" ||
+	! ss_git "$src" checkout -q -b session/y 2>/dev/null || ! ss_state_commit "$src" "- unit 2" ||
+	! ss_state_commit "$src" "- unit 3" || ! ss_state_commit "$src" "- unit 4" ||
+	! ss_git "$src" checkout -q session/x 2>/dev/null ||
+	! git clone -q --depth 2 --no-single-branch --branch session/x "file://$src" "$sh" 2>/dev/null; then
+	printf '  SKIP 1 working-memory case: could not build the shallow-clone fixture\n' >&2
+else
+	out=$(ss_banner "$sh")
+	if grep -qF "· working memory: nothing found, but this clone is shallow and cannot see a branch whose history was cut off — NOT checked" <<<"$out" &&
+		! grep -qF "nothing that builds on this checkout" <<<"$out"; then
+		report ok "a shallow clone's empty answer is hedged, never an affirmative nothing"
+	else
+		report no "a shallow clone's empty answer is hedged, never an affirmative nothing" "it was not" "$out"
+	fi
+fi
+
+# (f) One shim per call the step depends on. The listing and counting calls need a HEAD with
+# commits of its own, or the step never makes them; the count needs something built on it.
+ss_unanswered() { # <name> <case pattern> <expected fixed text> <setup: own|built-on|none>
+	local d shim out
+	d=$(mk "ss_newer_state_$1")
+	shim="$WORK/ss_newer_state_$1_shim"
+	if { [ "$4" = none ] || { ss_git "$d" checkout -q -b session/x 2>/dev/null && ss_state_commit "$d" "- unit 1"; }; } &&
+		{ [ "$4" != built-on ] || { ss_git "$d" branch -q next 2>/dev/null && ss_git "$d" checkout -q next 2>/dev/null &&
+			ss_state_commit "$d" "- unit 2" && ss_git "$d" checkout -q session/x 2>/dev/null; }; } &&
+		ss_shim "$shim" "$2"; then
+		out=$(cd "$d" && PATH="$shim:$PATH" env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+		if grep -qF "$3" <<<"$out" && ! grep -qE 'nothing that builds|has no newer|OLDER' <<<"$out"; then
+			report ok "$1: reported as NOT checked, never as an answer"
+		else
+			report no "$1: reported as NOT checked, never as an answer" "it was not" "$out"
+		fi
+	else
+		printf '  SKIP 1 working-memory case: could not build the %s fixture\n' "$1" >&2
+	fi
+}
+ss_unanswered unreadable_repo 'rev-parse --git-dir' \
+	"· working memory: git could not read this repository — NOT checked" none
+ss_unanswered refs_unlistable 'for-each-ref*' \
+	"· working memory: could not list what builds on this checkout — NOT checked" own
+ss_unanswered worktrees_unlistable 'worktree*' \
+	"· working memory: could not list what builds on this checkout — NOT checked" own
+ss_unanswered continuation_uncountable 'rev-list*' \
+	"· working memory: could not count the commits that build on this checkout — NOT checked" built-on
+ss_unanswered default_uncountable 'rev-list*' \
+	"· working memory: could not count what origin/main adds to docs/STATE.md — NOT checked" none
+
+d=$(mk ss_newer_state_unborn)
+ss_git "$d" checkout -q --orphan unborn 2>/dev/null
+out=$(ss_banner "$d")
+rc=$?
+if [ "$rc" -eq 0 ] && ! grep -qF "working memory:" <<<"$out"; then
+	report ok "a repository with no commit yet prints no working-memory line and still boots"
+else
+	report no "a repository with no commit yet prints no working-memory line and still boots" "rc=$rc" "$out"
 fi
 
 # --- the protocol pointer names only documents that exist

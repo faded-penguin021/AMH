@@ -230,6 +230,19 @@ The guards it ships with:
   script, visible only as a lower count, and nothing inside a script can notice that the script
   was deleted from the ladder. The manifest is `sha256sum -c`-compatible so that a reader who
   wants none of this can check it by hand.
+- **Claude adapter shell pin** — where `.claude/settings.json` exists, every entry whose command
+  names one of the harness's three hook scripts must carry exactly `"shell": "bash"`; where it does not, the rung
+  prints a `skip` and nothing else, so a repository on another agent pays nothing for it. The pin
+  is a hand step in the one file an agent may be refused permission to edit, and an unpinned hook
+  on Windows can be handed to the file association, which runs it detached and reports success,
+  so a guard's deny becomes an allow with nothing saying so. Judge only the harness's own hooks —
+  what shell an adopter's own hooks need is theirs to say — and find them by script file name, so
+  a respelled path is still one; an adopter's entry that merely mentions such a name is judged
+  too, which is the safe direction. Read the file without a JSON parser and without regard to
+  layout: a hook entry is a flat object, a key follows a `{` or a `,`, JSON keeps the LAST of two
+  equal keys, and the population of harness commands is counted separately and reconciled, so an
+  entry the reader cannot reach is reported unverified rather than passed, and a file naming no
+  harness hook at all warns that it checked nothing.
 - **Repo-local guards** — `scripts/guards/*.sh`, the extension point that keeps this script
   repo-agnostic. Domain rules live there: a store changelog length cap (mind the unit — a
   "500 character" limit is codepoints, and `wc -c` overcounts multibyte text), a
@@ -285,6 +298,20 @@ pre-execution warning on the command itself is the wrong layer: the rail is bina
 is correct nearly every time (two ladder rungs run it), and the mistake is the generalisation
 rather than the command.
 
+It also says when the state file the session is about to read is not the newest one. A unit
+finished in another worktree and pushed with a `<local>:<remote>` refspec moves the remote branch
+and leaves this checkout's branch behind, so the next session acts on a plan that has already
+moved on. For a HEAD with commits of its own the banner lists each branch, remote-tracking ref or
+detached worktree that builds on it and changes the state file since: ancestry plus that one
+file, and never this branch's name, because that push spells the same branch two ways. The state
+file is the discriminator because a dependency bot never edits it and every unit does. A HEAD with
+no commits of its own is an ancestor of every branch cut since, and a sibling unit edits the
+state file exactly as a continuation does; which one carries a train is the owner's to say, so
+there the banner judges the default branch alone and says the rest was not judged. It reads refs
+as last fetched without fetching anything, hedges a shallow clone's empty answer, and reports
+"could not look" as its own outcome rather than as "nothing". It misses a continuation that was
+rebased, or cut from a newer commit than HEAD.
+
 ### 3.8 Permission rails — the adapter layer
 
 - **Allow:** the ladder, the setup, warm-up and bootstrap scripts, the build tool.
@@ -314,7 +341,16 @@ rather than the command.
   deny list stays beneath it as the second net. Follow the P13 pattern rules: leading-command
   matching, mistake-not-evasion threat model, fail open on malformed input — but never on the
   guard's own failure to parse, which is not an odd command and must not be reported as a clean
-  one — and a self-test run by the ladder. Two honesty obligations come with it. The guard's header carries a consolidated
+  one — and a self-test run by the ladder. Wire it so the guard's OWN failure cannot pass
+  silently either: anchor every hook path at the project root and run the script through its
+  interpreter rather than by path, because an agent may run hooks
+  in the session's current directory and a relative path then goes missing after the first
+  `cd`, and where the agent can refuse the call when a hook fails, declare it (Claude Code:
+  `"onFailure": "block"` on both PreToolUse hooks) — by default a crash, a timeout or a missing
+  script is a non-blocking error and the command runs unjudged. On Windows that refusal is what
+  a host without Git Bash meets on every call, so the adapter must say AMH needs Git for
+  Windows where the refusal shows it (the Claude adapter's trailing command comment). Two
+  honesty obligations come with it. The guard's header carries a consolidated
   **what this guard does NOT catch** block — interpreters outside its enumerated reader list,
   wrappers, constructed commands, heredocs, window limits — because a rail whose limits are
   only discoverable by reading its scanners will be mistaken for a vault. And an agent with no

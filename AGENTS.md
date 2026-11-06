@@ -1,7 +1,7 @@
 # AMH meta-repository — maintenance guide
 
 This repository is the source of truth for the **Agentic Maintenance Harness** (AMH) and its
-reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 15.1.0**
+reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 16.0.0**
 (`harness/VERSION`).
 
 This file states the harness and this repository as they are now. Rules are rewritten in place
@@ -61,7 +61,8 @@ the rule-review protocol.
 
 The procedures named in `docs/RUNBOOK.md` are binding. Follow **Session discipline** every
 session; use **Change-type playbooks** for the task; apply **Rule-review protocol** when the
-diff changes binding rules or guard semantics. `RULE_FILES` is a tripwire, not a complete
+diff changes binding rules or guard semantics, or the unit was set to (**Session
+discipline** 10). `RULE_FILES` is a tripwire, not a complete
 definition of that scope.
 
 ## Hard boundaries
@@ -152,11 +153,25 @@ definition of that scope.
   script runs. It judges refs, never a commit message or an identity. No script can detect the
   hook-less state for you: telling a hook invocation from a
   manual one requires one vendor's environment variables, which the harness may not assume, so
-  this stays prose on purpose (**DA-022**). Where a host routes shell commands through a
-  PowerShell tool, the command rail exists only if the adapter's matcher names that tool and the
+  this stays prose on purpose (**DA-022**). A host mode can take the hooks away for one session,
+  and no AMH script checks for that either: Claude Code's `--safe-mode` and `--bare` skip the
+  hooks its settings files define, and the CLAUDE.md that points here, and `--restricted`
+  ignores the project's settings file unless it is passed again with `--settings`, so a session
+  started in any of them has no command rail, no output redaction and no session bootstrap,
+  whatever `.claude/settings.json` says (**DD-053**). Where a host routes shell commands through
+  a PowerShell tool, the command rail exists only if the adapter's matcher names that tool and the
   hook's own shell (bash) is present; the Claude adapter's matcher does, and PowerShell text then
   goes to the guard's PowerShell reader, a shorter list than the bash one, whose misses the
-  guard's header names (**DD-039**).
+  guard's header names (**DD-039**). The Claude adapter anchors every hook at the project root
+  and, on Claude Code 2.1.295 or later (an older build fails open as before), sets both
+  PreToolUse hooks to refuse the call when the hook itself fails, so a guard that crashes, times
+  out or cannot start blocks the call instead of letting it run (**DD-040**). On Windows that
+  makes Git for Windows a hard requirement: without Git Bash every shell call and spawn is
+  refused, and AMH is not usable. A refusal that names a failed hook or Git Bash is a stop, not
+  an obstacle: report it to the owner — on Windows, that Git for Windows must be installed —
+  and never remove a hook, its `onFailure` or its shell pin to get past it. The one case you
+  repair yourself is a defect in this repository's own guard copy, by the editor path in
+  `docs/RUNBOOK.md` → **Change a shipped script**.
 - New guard behavior ships with a fixture that demonstrably fails without the behavior. Keep
   repo-local fixtures separate from the shipped fixture suite.
 - Add no dependency without owner approval; the distributed harness targets `bash`, `git`,

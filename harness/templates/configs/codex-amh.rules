@@ -27,6 +27,14 @@ prefix_rule(pattern = [["cat", "head", "tail", "less", "more", "strings", "grep"
 # the public key is meant to be read.
 prefix_rule(pattern = [["cat", "head", "tail", "less", "more", "strings", "grep", "wc", "base64", "sha256sum", "md5sum"], ["id_rsa", "./id_rsa", "id_dsa", "./id_dsa", "id_ecdsa", "./id_ecdsa", "id_ecdsa_sk", "./id_ecdsa_sk", "id_ed25519", "./id_ed25519", "id_ed25519_sk", "./id_ed25519_sk"]], decision = "forbidden", justification = "AMH forbids reading private key material; check the file's presence or read the .pub half.")
 
+# Two commands print a stored credential by design, and their leading words are fixed, so a prefix
+# rule can name them. The stores themselves (`~/.netrc`, `~/.aws/credentials` and the rest of the
+# list in scripts/command-guard.sh) sit under a home directory, which is the spelling the comment
+# below says this policy cannot express; the command guard judges them. A respelling the guard
+# also reads (`gh auth status -t`, a helper's own `get`) is not a prefix of these and passes here.
+prefix_rule(pattern = ["gh", "auth", "token"], decision = "forbidden", justification = "AMH forbids printing a stored credential; `gh auth status` says whether gh is logged in.")
+prefix_rule(pattern = ["git", "credential", "fill"], decision = "forbidden", justification = "AMH forbids printing a stored credential; run the command that needs it to see whether git can authenticate.")
+
 # `.pem` and `.key` are NOT denied here, and that is a decision rather than an omission: both
 # are container extensions rather than secret markers, and a certificate or CA bundle bearing
 # one is public. scripts/command-guard.sh gives them a one-time advisory instead.
@@ -36,6 +44,14 @@ prefix_rule(pattern = [["cat", "head", "tail", "less", "more", "strings", "grep"
 # actually live — cannot be expressed here. The rule above reaches the bare and `./` spellings
 # only, and that is most of what it can promise. scripts/command-guard.sh covers
 # its enumerated reader forms; AGENTS.md remains binding beyond both mechanical rails.
+
+# The git pre-push hook FILE has no rule here, and none can be written: a prefix rule matches a
+# command's leading words literally, so it cannot say "any `rm`, `mv` or `chmod` whose operand
+# names `.git/hooks/pre-push`", it has no one-time-advisory decision, and it governs commands,
+# not the file-editing path. Where the host fires the PreToolUse command guard that config.toml
+# wires, those three commands get its one-time advisory; a host that fires no such hook has no
+# command rail at all (AGENTS.md -> Working guidance). What Codex's own editing does to the file
+# is covered by AGENTS.md alone. Read from the rule semantics, not observed on a live Codex host.
 
 # Git publication rails. The instructive command guard covers more spellings
 # when run directly; these rules express the forms Codex's prefix policy can.

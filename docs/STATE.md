@@ -16,24 +16,53 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 15.1.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 16.0.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-This tree declares **15.1.0**: the command guard's permanent denial covers a Windows drive's
-root, `Users` and `Users\<name>` in every spelling it folds, a `cmd /c` recursive `rd`/`del` is
-judged, one spelled with `\"` nested quotes is denied whatever its path, the constitution
-forbids retrying a refused deletion in another spelling (**DD-038**), and the Claude adapter's
-command guard matches `Bash|PowerShell`, with PowerShell read by its own reader (**DD-039**).
-Under it is 15.0.1, whose
-author-identity rung sets aside the forge's test merge a pull-request CI checks out and judges
-`origin/<default>..HEAD^2` instead (**DD-036**), over 15.0.0 — a deletion aimed at the filesystem root or a home directory is permanently denied, an
-inline interpreter deletion buys one advisory, and both adapters wire output redaction
-(**DD-015**–**DD-035**) — over 14.1.0's shell pin (**DD-007**–**DD-014**). Whether this draft
-is tagged or released is not recorded here — `scripts/session-start.sh` probes it every session
-and reports present, absent or could-not-ask, which is the only answer that can be right twice.
+This tree declares **16.0.0**, MAJOR on the owner's call: a unit owes the review of what it
+was set to change, never only that of the diff it ends with, and a decision says whether its
+evidence was measured, estimated or reported (**DD-050**). It carries the 15.2.0 draft whole,
+and every command-guard, adapter and banner change since, each named by a bullet of the 16.0.0
+entry in `harness/CHANGELOG.md` and by its row (**DD-040** to **DD-042**, **DD-044** to
+**DD-049**, **DD-051** to **DD-054**). Whether this draft is tagged or released is not recorded
+here — `scripts/session-start.sh` probes it every session and reports present, absent or
+could-not-ask, which is the only answer that can be right twice.
 
-`docs/LEDGER_D.md` is the live ledger volume. No active multi-unit work.
+`docs/LEDGER_D.md` is the live ledger volume.
+
+Multi-unit work, planned: `docs/plans/2026-10-31-owner-queue-closure.md`. It closes the
+command-guard gaps the Owner queue named: a quote inside a `#` comment, heredoc bodies cut at
+the wrong line, and abbreviated `git push` long options. It also closes the related shapes that
+measuring those gaps turned up. All of it rides the 16.0.0 draft, and each guard unit gets one
+fresh-context review pass. **Each unit starts only on the owner's explicit approval of that
+unit.** The owner approved Units 0, 1, 2 and 3, one at a time, on 2026-11-02 approved Unit 3s
+to follow Unit 3, and on 2026-11-04 approved Unit 4. Unit 2's first attempt failed its
+review and was not shipped (**DD-055**). Its second attempt, plan rev 4, judges a command under two
+readings of its comments, and the stricter verdict wins (**DD-056**). The first attempt is kept
+whole as `docs/plans/2026-11-02-unit2-attempt-1.patch`, which applies to `be7a4df` and retires
+with the plan. Unit 4's first attempt failed its review too, and on 2026-11-05 the owner had it
+fixed in place and granted it a fresh pass (**DD-060**). Every unit is done; the plan's Phase A,
+shipping 16.0.0, is what remains.
+
+- [x] 0 — the plan committed, and the cc-safe-setup Changelog lines folded
+- [x] 1 — `git push` long options read by unique prefix
+- [x] 2 — comments made inert before any walker reads the text (rev 4, attempt 2)
+- [x] 3 — heredoc bodies end where bash ends them
+- [x] 3s — an unclosed heredoc body blocks the command
+- [x] 4 — heredoc bodies start where bash starts them
+
+Multi-unit work, planned: `docs/plans/2026-11-04-spill-guard-borrowings.md`. It closes the
+credential-handling gaps that comparing AMH with spill-guard exposed. The owner adopted its four
+selected units on 2026-11-04, first for the 16.0.0 draft and then, the same day, for the release
+after it; S4, S5, S6b and S6c stay deferred. Each unit gets one fresh-context review pass. **Each unit starts only on the owner's
+explicit approval of that unit**; none is approved yet. The Owner queue names the unit waiting.
+
+- [x] S0 — the plan committed (rev 2)
+- [ ] S1 — refusal text does not repeat a supported credential shape (awaiting approval)
+- [ ] S2 — private-key bodies under a line prefix
+- [ ] S6a — options on the wrappers the guard already peels
+- [ ] S3 — four token shapes
 
 Operational gotchas:
 
@@ -51,71 +80,38 @@ Operational gotchas:
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**OPEN — tag the drafted 15.1.0 release after its PR merges.** Tagging is an owner action, and
-the README Quick Start follows the release playbook by naming the draft tag before it exists.
-15.0.1 merged and was not tagged when this was written; whether it gets its own tag is yours, and
-15.1.0 is a MINOR successor of `amh-v15.0.0` either way. Check: `git ls-remote --exit-code --tags
-origin refs/tags/amh-v15.1.0` — a matching ref resolves this item; no output means the documented
-install command is not live yet.
+**OPEN — tag the drafted 16.0.0 release after its PR merges.** Tagging is an owner action, and
+the README Quick Start names the draft tag before it exists. Check: `git ls-remote --exit-code
+--tags origin refs/tags/amh-v16.0.0` — a matching ref resolves this item; no output means the
+documented install command is not live yet.
 
-**OPEN — nothing has observed the Codex `PostToolUse` redaction hook actually firing.** The
-Claude half is settled: on 2026-10-04 a Claude Code cloud session on Linux got runtime-generated
-key-shaped strings back redacted in Bash, Read and Grep results (**DD-037**). `scripts/redact-tool-output.sh --self-test` settles this repository's half and
-nothing about whether Codex honours block-and-feedback, which fails open on hook failure, as does a
-missing `python3`, so a hook that never fires looks exactly like output with no credential in it
-(**DD-015**, **DD-017**). Only a Codex session that starts in this repository and gets a redaction
-marker or a block for a runtime-generated `AKIA` string settles it — the owner's, if Codex is used
-here at all. No command settles it, and `--self-test` passing is NOT evidence either way.
+**OPEN — edit the squash message of the 16.0.0 train's PR, then merge it (the
+owner-queue-closure plan's Phase A, steps A2 and A3).** GitHub's default squash message joins
+every commit body on the branch, and a poison token in it suppresses the release commit's CI run;
+the ladder checks the branch's commits, never the message the forge composes at merge time
+(**DC-040**). Check: `gh pr list --state merged --search 'AMH 16.0.0 in:title'` — a listed PR
+resolves this item; no output means it is still open.
 
-**OPEN — nobody has run a pinned hook on a host where Git bash cannot be found at all.** Two
-hosts have now run the pinned arm where discovery SUCCEEDS — the second, reported 2026-09-10, saw
-a pinned guard pass its self-test and actually fire mid-session, so pinned hooks demonstrably deny
-on Windows (**DD-014**); bash being off `PATH` is not the failing case, which is why the WSL hazard
-was withdrawn (**DD-010**). Still unobserved is discovery finding NOTHING: that path is read from
-the shipped code, and how it fails differs between the bundles read (**DD-011** for the method).
-Low stakes — both readings are loud — and no check settles it short of that host.
+**OPEN — decide whether to plan a fix for a quote inside backticks.** Found while building Unit 2:
+bash ends a backtick substitution at the first unescaped backtick, quotes or not, and every walker
+in the command guard reads a `'` inside one as opening a string that hides the rest, so
+`` echo `echo 'x`; printenv `` passes. No plan covers it; the guard's header names it.
+Check: `scripts/command-guard.sh --command "echo \`echo 'x\`; printenv"` — exit status 0 means
+it is still open. Unit 4 now reads heredoc bodies as bash does, so this gap also reaches a
+command whose body the guard used to misread and refuse (**DD-059**).
 
-**OPEN — the `printf | grep -q` class survives at 81 non-comment sites.** Unit 3 fixed the two
-with reachable unbounded input; the residue was safe on bounded, mostly single-line input rather
-than on a loud direction when last classified, but the fixture/non-fixture split has not been
-recounted since the output-redaction rail landed. The 2026-09-29 installer fixtures added seven,
-all asserting on short installer output in the loud direction; the redaction self-test's python3
-fix then added four on one hook response each (two in the quiet direction, bounded far below a
-pipe buffer), the Claude matcher check one on a JSON group, loud, and the 15.1.0 PowerShell
-payload fixtures eight on one guard verdict each, loud. Not queued as work; reopen
-if any starts matching something unbounded. Check: `grep -rn "printf.*| *grep -q" --include=*.sh
-scripts/ harness/templates/` prints 87 lines, 6 of them comments — resolved only if that stops
-matching the description, which it deliberately does not (**DC-038**).
+**OPEN — decide whether to adopt the harness-research-gaps plan,
+`docs/plans/2026-11-01-harness-research-gaps.md`, and each decision in its §1.** It is committed
+as a draft, and nothing in it is approved. No unit starts without the owner's approval of that
+unit.
 
-**OPEN — the 2026-08-29 `path-refs.sh` false failure on `` `session-start.sh` `` still has no
-reproducer.** Closed once as the EPIPE defect, then restored when the pass falsified that
-(**DC-035**, **DC-029** for the residue): a listing git completed, reported success for, and cut
-short anyway. No check; only a recurrence settles it.
-
-**OPEN — nobody has observed the command guard firing on a PowerShell payload on Windows.** The
-matcher and the reader shipped in 15.1.0 (**DD-039**); `scripts/command-guard.sh --powershell`
-and the fixtures prove the reader on Linux and nothing about the host. Only a Claude Code
-session on Windows that gets a block for a PowerShell `Remove-Item -Recurse` aimed at a drive
-root settles it — the owner's, on the host that lost `C:`. No check.
-
-**OPEN — two permanent-denial edges the fold unit found and left (DD-035).** Misses, and
-widening is yours: `~/.?*`, `~/.??*`, `~/.[!.]*`, git's `-- '.?*'` under a home `-C`, and bracket
-globs such as `/[!.]*` keep the advisory while `~/.*` is denied. A false positive, a defect: the
-segment splitter reads a brace expansion's `{` as a separator, so `rm -rf ~/{.cache,.npm}` is
-judged as `rm -rf ~/` and denied for good. Check: each twice through `scripts/command-guard.sh
---command` under one `DESTRUCTIVE_ADVISORY_STATE` — `2 0` on a miss or `2 2` on the brace form
-means still open.
-
-**OPEN — the pin check is repo-local, and whether adopters get one is yours.**
-`scripts/guards/adapter-set.sh` now fails on a Claude hook missing `"shell": "bash"`, but it is
-this repository's own guard: an adopter's ladder still checks nothing, exactly as 14.1.0's
-Upgrading note says. Shipping it means a rung in the shipped `ladder.sh` keyed to one vendor's
-adapter file — an agent-agnosticism question as much as a version-semantics one (additive, so
-MINOR), and adjacent to the shipped config-schema guard already declined pre-3.0.0 (**DA-022**),
-which is why it is yours rather than a unit's. Recommendation: ship it gated on the file
-existing, so a repo with no Claude adapter is unaffected (**DD-013**).
-Check: `grep -c '"shell": "bash"' harness/templates/scripts/ladder.sh` — a non-zero count means
-it shipped; `0` means adopters still have only the hand step.
+**OPEN — approve, or not, starting spill-guard plan Unit S1: refusal text does not repeat a
+supported credential shape.** The plan is adopted for the release after 16.0.0 (its §2), and S1
+is its first unit.
+Each unit starts only on the owner's explicit approval of that unit, and approving one approves
+only that one. When a unit lands, this item moves to the next. Check for S6a's gap, which the
+plan raised: `scripts/command-guard.sh --command 'nice -n 5 rm -rf ~'` — exit status 0 means a
+wrapper option still takes a deletion of the home directory past the permanent denial.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -142,40 +138,69 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-10-04 — **The Claude `PostToolUse` redaction hook was observed firing** on Bash, Read and
-  Grep results (**DD-037**). Both Claude adapter comments now say so; the Codex half stays queued.
+- 2026-11-05 — **The hook-file check's path fold drops the spelling that left the macOS CI leg
+  running until cancelled, and CI jobs end at 30 minutes.** On the owner's ask after the 16.0.0
+  PR's stock Bash 3.2 leg never returned from the command guard's self-test: a slash in that
+  substitution pattern is now `\/`, a fold that changes nothing answers yes rather than looping,
+  and both CI jobs carry `timeout-minutes: 30` (**DD-061**). Whether 3.2 now passes is the next
+  macOS run's to say.
 
-- 2026-10-07 — **15.1.0 (drafted): Windows drive roots and `cmd /c` deletions reach the command
-  guard.** A Claude Code session on Windows PowerShell 5.1 deleted its account's files on `C:`
-  through `cmd /c "rmdir /s /q \"...\""`, retrying a cleanup a safety check had blocked; the
-  bash half of the Windows arm and the no-respelling rule landed (**DD-038**); then the PowerShell
-  reader and the `Bash|PowerShell` matcher, which retired **DD-012**'s decided non-item (**DD-039**).
+- 2026-11-05 — **Owner-queue-closure plan, Phase A: step A1.** The owner said "open the PR",
+  which answers that Owner-queue item, and the agent described the whole 16.0.0 train against
+  `main` from the pull-request template. Steps A2 to A4, the squash message, the merge and the
+  tag, are the owner's and wait in the queue; A5, retiring the plan, follows the tag.
 
-- 2026-10-04 — **15.0.1: the author-identity rung no longer judges the forge's test merge.** A
-  downstream contributor re-authored every commit and force-pushed, and the rung kept failing on
-  the detached merge the forge composes for the PR, which no amend reaches (**DD-036**). The
-  queued 15.0.0 tag was found on origin this session, so that item left the queue.
+- 2026-11-04 — **Spill-guard plan: committed (S0) and adopted.** The owner took its four selected
+  units, S1, S2, S6a and S3, into the 16.0.0 draft, each still approved one at a time, with one
+  fresh-context review pass per unit and S1's control-character escaping included. S4, S5, S6b
+  and S6c stay deferred. No guard unit has started.
 
-- 2026-09-09 through 2026-09-29 — **14.1.0, the untagged 14.2.0 draft and 15.0.0, folded;
-  `amh-v14.1.0` and `amh-v15.0.0` were seen on origin on 2026-10-04.** The Claude adapter pinned
-  its hooks' shell, both adapters wired output redaction, a deletion aimed at the filesystem root
-  or a home directory became the command guard's one permanent denial with an inline-interpreter
-  advisory beside it, and two external reviews' findings were validated and fixed; the whole
-  draft became MAJOR on the owner's call of 2026-09-18 (**DD-007**–**DD-035**).
+- 2026-11-05 — **Owner-queue-closure plan: Unit 4 done, and with it every unit.** A heredoc body
+  starts where bash starts it, read in one pass with one stack of open contexts, and the
+  delimiter gets bash's quote removal, so item 2's checks now block (**DD-059**). Its first
+  attempt failed its review; the owner had it fixed in place with a fresh pass (**DD-060**,
+  `docs/history/2026-11-05-unit4-review-and-fix.md`). On 2026-11-04 the owner moved the
+  spill-guard plan to the release after 16.0.0.
 
-- 2026-09-01/02 — **14.0.0 and the 11.0.0 counter work, folded.** Working memory became
-  tree-relative and stopped caching world-controlled status; a ledger row was pinned to its text
-  rather than to the file it names; counter checks were separated from authoring judgement, with
-  compression keyed to content lifecycle and row limits restated as rejection boundaries
-  (**DD-001**–**DD-006**, **DC-044**).
+- 2026-11-03 — **Owner-queue-closure plan: Unit 3s done.** A heredoc body the command guard
+  opens and never closes now refuses the command, naming the delimiter it waited for, so the
+  misread delimiters Unit 4 targets are refused, unless a line matches the misread word, and so is
+  a `<<` in a multi-line string or a comment that no later line matches (**DD-058**).
 
-- 2026-09-01 — **10.4.0–10.5.0, folded.** The train shipped the Windows/CRLF portability
-  proof and remediation, fixed reachable fail-open `printf | grep -q` pipelines, prohibited
-  ledger citations to plan paths, and added structural forge/API mutation classification
-  (**DC-036**–**DC-043**).
-- 2026-07-25 through 2026-08-31 — **Everything before this session, folded.** Founding through
-  portable rails, the constitution rewrite, the 8.0.0–9.0.0 train, git-native pre-push
-  enforcement, the 9.2.0–10.2.0 trains tagged `amh-v10.0.0` and `amh-v10.2.0`, and the unreleased
-  10.3.0–10.4.0 train: a data-plane tier grown by reported incidents, an escaped quote that had
-  been voiding the rails behind it, a PR-time release-number check, an adoption-first README, and
-  a Windows tail in four parts (**DC-020**–**DC-035**, and the volumes for everything older).
+- 2026-11-02 — **Owner-queue-closure plan: Unit 3 done; Unit 3s decided.** Every heredoc operator
+  on a line now opens a body, terminators match exactly, an unquoted body joins its
+  backslash-newlines, and a `<<` inside arithmetic is a shift (**DD-057**). A fuzz against bash
+  found eleven inputs it newly allows, each ending in a body that never closes. The owner chose to ship
+  and to block an unclosed body next, which answers the Unit 3s queue item: block.
+
+- 2026-11-02 — **Owner-queue-closure plan: Unit 2 done, on its second attempt.** A gpt-6-astra
+  spec review found inputs that rev 3's inert comments would newly allow, and plan rev 4 folded
+  it in. The command guard now judges a command with a `#` twice, comments as text and comments
+  inert, and either refusal stands, so `echo a # don't⏎printenv` and a `<<` inside a comment
+  are refused (**DD-056**). The backtick queue item's header gap is now named.
+
+- 2026-10-31 to 2026-11-02 — **Owner-queue-closure plan: Units 0 and 1, each approved by the
+  owner on its own, are done.** Unit 0 committed the plan; the two queue items asking whether to
+  fix the command-guard parse gaps and abbreviated `git push` options were answered (fix both
+  inside 16.0.0, one fresh-context review per unit) and left the queue. Unit 1 made the push rail
+  read a long option by unique prefix, as git does, and skip the value of an option that takes
+  one, so item 3's check, `git push --del origin session/x`, now blocks (**DD-054**).
+  Unit 2's first attempt, which removed comments, failed its review on 11 inputs the guard then
+  passed and bash ran; it was reversed unshipped, and plan rev 3 redesigns the unit (**DD-055**).
+
+- 2026-10-04 through 2026-10-30 — **15.0.1, 15.1.0 and the 16.0.0 draft so far, folded.** The
+  author-identity rung stopped judging the forge's test merge (**DD-036**). Windows drive roots,
+  `cmd /c` deletions and PowerShell reached the command guard (**DD-038**, **DD-039**). The
+  15.2.0 draft, which 16.0.0 carries whole, and the cc-safe-setup plan's six units hardened the
+  Claude hooks and the guard's reading of commands (**DD-040** to **DD-042**, **DD-044** to
+  **DD-049**, **DD-051** to **DD-053**); the owner made the draft MAJOR on 2026-10-26
+  (**DD-050**). The redaction hook was observed firing (**DD-037**), and the queue was triaged
+  to actionable items (**DD-043**). `amh-v15.0.0` and `amh-v15.1.0` were seen on origin on
+  2026-10-04 and 2026-10-14. The cc-safe-setup plan is archived in `docs/history/`.
+
+- 2026-07-25 through 2026-09-29 — **Everything before 15.0.1, folded.** Founding through the
+  15.0.0 train: portable rails, the constitution rewrite, git-native pre-push enforcement, a
+  tree-relative working memory with immutable ledger rows, destructive-deletion denial, and
+  output redaction in both adapters (**DD-001** to **DD-035**, **DC-020** to **DC-044**, and the
+  volumes for everything older). Seen on origin by 2026-10-04: `amh-v10.0.0`, `amh-v10.2.0`,
+  `amh-v14.1.0` and `amh-v15.0.0`; the 10.3.0–10.4.0 and 14.2.0 drafts rode later tags untagged.

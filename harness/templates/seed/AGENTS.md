@@ -265,3 +265,10 @@ shortlist below is what a session is expected to carry without looking.
   distinguishing a hook invocation from a manual one needs vendor-specific environment
   variables the harness will not assume, which is why this is written here rather than warned
   about at boot.
+- **A hook that fails refuses the call, where the adapter says so.** An adapter that anchors its
+  hooks at the project root and makes the pre-execution guard refuse the call when the guard
+  itself fails (Claude Code: `"onFailure": "block"`) turns a crashed, timed-out or missing guard
+  into a stop instead of a silent pass. Under such an adapter on Windows, Git for Windows is a
+  hard requirement: without Git Bash every shell call is refused, and AMH is not usable. A refusal
+  that names a failed hook or Git Bash is reported to the owner, never worked around — never
+  remove a hook, its failure mode or its shell pin to get past it.
