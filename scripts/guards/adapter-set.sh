@@ -427,5 +427,94 @@ for declaration in "${ADAPTERS[@]}"; do
 	done
 done
 
+# The machine-mode template (DD-063). It is a user-level fragment that no installer writes and that
+# no ladder in any repository can see once it is installed, so this is the one place its wiring is
+# checked. Its single hook must be EXACTLY the shipped entry. `--machine` matters most: without it
+# the owner installs the full project guard for every session on the machine, AMH's push rails and
+# the one-time state shared across projects included. Its deny array must carry every `Read(...)`
+# credential rail the Claude adapter template carries, read from that template rather than written
+# out a second time here, plus the Edit rail on the installed guard. The layout rules are the pin
+# check's: an entry this guard cannot read is reported, never passed.
+MACHINE_TEMPLATE=harness/templates/configs/claude-machine-settings.json
+# shellcheck disable=SC2016 # `$HOME` is a literal in the file; the hook's own bash expands it
+MACHINE_HOOK='"command": "bash \"$HOME/.claude/hooks/amh-command-guard.sh\" --machine # AMH machine mode. On Windows it requires Git Bash: install Git for Windows",'
+MACHINE_SELF_DENY='"Edit(~/.claude/hooks/amh-command-guard.sh)"'
+# The adapter template's two denials of a command that prints a stored credential by design.
+MACHINE_BASH_RAILS='"Bash(gh auth token:*)"
+"Bash(git credential fill:*)"'
+if [ ! -f "$MACHINE_TEMPLATE" ]; then
+	note "machine-mode template missing: $MACHINE_TEMPLATE"
+else
+	machine_hooks=$(grep -o '"type"[[:space:]]*:[[:space:]]*"command"' "$MACHINE_TEMPLATE" | wc -l | tr -d ' ')
+	if [ "$machine_hooks" -ne 1 ]; then
+		note "$MACHINE_TEMPLATE: $machine_hooks command hook(s) found at any layout, where the machine-mode fragment ships exactly one — a hook added there runs in every session on the machine, beside no project for a project-relative path to resolve against (DD-063)"
+	fi
+	# The EVENT the hook sits under is read too: the same exact entry under `"PostToolUse"` runs
+	# after the command it was meant to stop. The last capitalised key opening an array before
+	# the command line is the event; `"hooks"` and `"deny"` are lower-case and never match.
+	verdict=$(EXPECT="$MACHINE_HOOK" awk '
+		{ n++; line = $0; sub(/^[[:space:]]*/, "", line); L[n] = line }
+		/^[[:space:]]*"matcher":/ { m = line }
+		/^[[:space:]]*"[A-Z][A-Za-z]*": \[$/ { ev = line }
+		line == ENVIRON["EXPECT"] { hits++; k = n; km = m; kev = ev }
+		END {
+			if (hits != 1) { print "MISSING " hits + 0; exit }
+			if (kev != "\"PreToolUse\": [") { print "EVENT"; exit }
+			if (km != "\"matcher\": \"Bash|PowerShell\",") { print "MATCHER"; exit }
+			if (L[k - 3] != "{" || L[k - 2] != "\"type\": \"command\"," ||
+				L[k - 1] != "\"shell\": \"bash\"," || L[k + 1] != "\"onFailure\": \"block\"" ||
+				L[k + 2] !~ /^}/) { print "SHAPE"; exit }
+			print "OK"
+		}
+	' "$MACHINE_TEMPLATE")
+	case $verdict in
+	OK) ;;
+	MISSING*)
+		note "$MACHINE_TEMPLATE: the machine-mode hook was not found exactly once (found ${verdict#MISSING }) as its exact shipped command line. A command without --machine installs the full project guard machine-wide, AMH's push rails and cross-project one-time state included (DD-063)"
+		;;
+	EVENT)
+		note "$MACHINE_TEMPLATE: the machine-mode hook does not sit under \"PreToolUse\" — under any other event it runs after the command or never, and blocks nothing (DD-063)"
+		;;
+	MATCHER)
+		note "$MACHINE_TEMPLATE: the machine-mode hook does not sit under \"matcher\": \"Bash|PowerShell\" — on Windows the PowerShell tool is the primary shell wherever it is enabled (DD-039)"
+		;;
+	*)
+		note "$MACHINE_TEMPLATE: the machine-mode hook is not exactly {\"type\": \"command\", \"shell\": \"bash\", its command, \"onFailure\": \"block\"} — an unpinned or fail-open entry lets a guard that cannot run pass every call unjudged (DD-040)"
+		;;
+	esac
+	# One "deny" key, for the reason the pre-push hook check above counts them: JSON keeps the LAST
+	# of two, so the range below would read an array that does not govern.
+	machine_deny_keys=$(grep -o '"deny"[[:space:]]*:' "$MACHINE_TEMPLATE" | wc -l | tr -d ' ')
+	machine_deny=$(sed -n '/^[[:space:]]*"deny": \[$/,/^[[:space:]]*\]/p' "$MACHINE_TEMPLATE" | sed 's/^[[:space:]]*//; s/,$//')
+	# And the key the array sits under: a deny list outside `"permissions"` denies nothing.
+	machine_deny_parent=$(awk '
+		{ line = $0; sub(/^[[:space:]]*/, "", line) }
+		line == "\"deny\": [" { print prev; exit }
+		line != "" { prev = line }
+	' "$MACHINE_TEMPLATE")
+	if [ "$machine_deny_parent" != '"permissions": {' ]; then
+		note "$MACHINE_TEMPLATE: the \"deny\" array does not open directly inside \"permissions\" at the layout this guard reads, so the machine-mode deny rails are UNVERIFIED, not present"
+	fi
+	while IFS= read -r rule; do
+		printf '%s\n' "$machine_deny" | grep -qxF -- "$rule" && continue
+		note "$MACHINE_TEMPLATE: permissions.deny lacks $rule, one of the adapter's two denials of a command that prints a stored credential by design"
+	done <<<"$MACHINE_BASH_RAILS"
+	adapter_reads=$(sed -n '/^[[:space:]]*"deny": \[$/,/^[[:space:]]*\]/p' harness/templates/configs/claude-settings.json |
+		sed 's/^[[:space:]]*//; s/,$//' | grep '^"Read(')
+	if [ "$machine_deny_keys" -ne 1 ] || [ -z "$machine_deny" ]; then
+		note "$MACHINE_TEMPLATE: $machine_deny_keys \"deny\" key(s), and the array read at the one-entry-per-line layout is ${machine_deny:+not }empty, so the machine-mode deny rails are UNVERIFIED, not present"
+	elif [ -z "$adapter_reads" ]; then
+		note "checked NOTHING for the machine-mode credential rails — no \"Read(...)\" entry found in the Claude adapter template's deny array at the layout this guard reads"
+	else
+		while IFS= read -r rule; do
+			printf '%s\n' "$machine_deny" | grep -qxF -- "$rule" && continue
+			note "$MACHINE_TEMPLATE: permissions.deny lacks $rule, which the Claude adapter template carries — the file-reading tool is a path the command guard never sees, in every session the fragment covers"
+		done <<<"$adapter_reads"
+	fi
+	if ! printf '%s\n' "$machine_deny" | grep -qxF -- "$MACHINE_SELF_DENY"; then
+		note "$MACHINE_TEMPLATE: permissions.deny lacks $MACHINE_SELF_DENY — the file-editing tools could rewrite the guard every session runs under, which the guard never sees them touch (DD-051)"
+	fi
+fi
+
 [ "$fails" -eq 0 ] || exit 1
-printf 'first-class adapter set is complete across sources, reference paths, installation and legislation; %s Claude command hook(s) across %s file(s) pin shell=bash, %s file(s) anchor every Claude hook at the project root and refuse calls when a command guard fails, %s Claude command guard(s) match Bash|PowerShell, %s Claude and %s Codex adapter(s) wire the PostToolUse redaction rail for every tool, %s Claude file(s) deny the editing tools the git pre-push hook\n' "$claude_hooks" "$claude_files" "$claude_anchor_files" "$claude_pre" "$claude_post" "$codex_post" "$claude_hookfile"
+printf 'first-class adapter set is complete across sources, reference paths, installation and legislation; %s Claude command hook(s) across %s file(s) pin shell=bash, %s file(s) anchor every Claude hook at the project root and refuse calls when a command guard fails, %s Claude command guard(s) match Bash|PowerShell, %s Claude and %s Codex adapter(s) wire the PostToolUse redaction rail for every tool, %s Claude file(s) deny the editing tools the git pre-push hook, and the machine-mode template carries its exact hook and every adapter credential Read rail\n' "$claude_hooks" "$claude_files" "$claude_anchor_files" "$claude_pre" "$claude_post" "$codex_post" "$claude_hookfile"

@@ -21,7 +21,10 @@ Adopted harness version: **AMH 16.1.0** — see `harness/VERSION`, the copy that
 ## Current state
 
 This tree declares **16.1.0**, MINOR: the command guard's deletion rail reads through `xargs`
-(**DD-062**); each `harness/CHANGELOG.md` entry names what its version carries. Whether this
+(**DD-062**); the guard has an optional user-level machine mode (**DD-063**); and a `git -C`
+statement in PowerShell text no longer downgrades a deletion after it (**DD-064**); and a
+`json.py` in the session's folder no longer stands the guard down (**DD-065**). Each
+`harness/CHANGELOG.md` entry names what its version carries. Whether this
 draft is tagged or released is not recorded here — `scripts/session-start.sh` probes it every
 session and reports present, absent or could-not-ask, which is the only answer that can be
 right twice.
@@ -60,9 +63,10 @@ Operational gotchas:
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**OPEN — decide when the 16.1.0 draft is complete, then merge and tag it.** It holds only the
-`xargs` unit (**DD-062**), and the spill-guard units below are slated for the release after
-16.0.0, so whether they join this draft first is the owner's call. Then: open its PR (or ask for
+**OPEN — decide when the 16.1.0 draft is complete, then merge and tag it.** It holds the
+`xargs` unit (**DD-062**) and the machine-mode unit with the two fixes it surfaced
+(**DD-063** to **DD-065**). The spill-guard units below are slated for the release after 16.0.0,
+so whether they join this draft first is the owner's call. Then: open its PR (or ask for
 it), edit its squash message — a poison token in GitHub's default one suppresses the release
 commit's CI run (**DC-040**) — merge, and tag; the README Quick Start names the draft tag before
 it exists. Check: `git ls-remote --exit-code --tags origin refs/tags/amh-v16.1.0` — a matching
@@ -81,6 +85,17 @@ in the command guard reads a `'` inside one as opening a string that hides the r
 Check: `scripts/command-guard.sh --command "echo \`echo 'x\`; printenv"` — exit status 0 means
 it is still open. Unit 4 now reads heredoc bodies as bash does, so this gap also reaches a
 command whose body the guard used to misread and refuse (**DD-059**).
+
+**OPEN — decide whether to fix three gaps the machine-mode review found outside its unit.** (1)
+`scripts/redact-tool-output.sh` starts its Python with `-c` and no `-I`, so a `json.py` in the
+session's folder replaces the JSON module there too (the class **DD-065** fixed in the command
+guard); redaction then stands down, fail-open by design. (2) `scripts/guards/adapter-set.sh`'s pins
+on the project Claude adapter read each hook's lines but not the event key above them: the reviewer
+renamed `PreToolUse` to `Stop` in both copies and the guard passed. The machine template's pin now
+reads it. (3) The adapter's `Read(/proc/*/environ)` rails start with one slash, which in a settings
+file names a path beside that file, so they may never reach `/proc`; the machine template adds
+`//proc` spellings, and nobody has checked either against the host. Check for (1):
+`grep -c '"$PY" -c ' scripts/redact-tool-output.sh` — a count above 0 means it is still open.
 
 **OPEN — decide whether to adopt the harness-research-gaps plan,
 `docs/plans/2026-11-01-harness-research-gaps.md`, and each decision in its §1.** It is committed
@@ -119,6 +134,15 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-08 — **The command guard gets a user-level machine mode, inside the 16.1.0 draft.** On
+  the owner's ask after a reported drive wipe from a scratch project: `--machine` keeps only the
+  permanent deletion denials, the credential rails and the unread-command refusals, writes no
+  state and reads no `amh.conf`, with a Claude Code fragment the owner merges by hand (**DD-063**).
+  Its fixtures surfaced, and the unit fixes, a PowerShell `git -C` statement downgrading a
+  drive-root or home deletion after it (**DD-064**); its review surfaced a `json.py` in the
+  session's folder standing the guard down (**DD-065**). The harness-research-gaps plan's H4a and
+  §3 row 9 note what this settles and what it does not.
 
 - 2026-11-08 — **The command guard's deletion rail reads through `xargs`, drafted as 16.1.0.**
   On the owner's ask after a reported `xargs rm -rf` that deleted `~/Library` on macOS: every

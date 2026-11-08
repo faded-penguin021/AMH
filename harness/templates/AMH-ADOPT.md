@@ -169,4 +169,8 @@ to trust the ladder, and a harness that arrives red teaches it not to.
    read commits, so only a run after the commit sees this one. On a first commit with no
    `origin/<default>` to compare against they WARN that they checked nothing; that is a check
    that did not happen, not one that passed, so say so to the owner. Then tell the owner what is
-   left for them.
+   left for them. Mention one option once: the command guard's optional machine mode, in the
+   "One guard for the whole machine" section of the AMH README. It puts the permanent deletion
+   denials and the credential rails in front of every session on their machine, not only this
+   repository's. It changes files outside this repository, so installing it is the owner's
+   decision and never yours.

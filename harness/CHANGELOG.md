@@ -29,12 +29,48 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   every attempt. A literal operand after the verb is still judged, so
   `xargs rm -rf ~` is denied permanently, like `rm -rf ~`. The secret and push rails still stop
   at `xargs`. `find -exec rm -rf {} +`, `xargs sh -c '…'` and `parallel` are still not read.
+- **Machine mode: the guard's drive-wipe and credential rails for every session on the
+  machine, optional and installed by hand.** The command guard only ran for sessions started
+  inside an AMH repository. The deletions it exists to stop are not confined to a project: the
+  reported Windows drive wipes ran in scratch folders and took whole drives, including every
+  other project on them. `scripts/command-guard.sh --machine` is the same script in a narrower
+  mode. It keeps only the permanent deletion denials (the filesystem root, a home directory, a
+  Windows drive root, a `cmd /c` recursive deletion with `\"` nested quotes), the credential
+  rails, and the guard's refusals to pass a command it could not read. It drops AMH's push,
+  forge and hook-file rails, every one-time advisory, and `amh.conf`, which are a project's
+  process rather than a machine's. It writes no state file, so one copy cannot let a rerun in one
+  project clear the same command in another, and its refusal names it in the first line.
+  `harness/templates/configs/claude-machine-settings.json` is the Claude Code fragment: copy
+  the script to `~/.claude/hooks/amh-command-guard.sh` and merge the fragment into
+  `~/.claude/settings.json`. The installer never writes it. Nothing inside a repository can see
+  the installed copy, so refreshing it after an upgrade is yours to do; Claude Code's
+  `--safe-mode` and `--bare` skip it as they skip any settings hook, and `--restricted` skips it
+  unless it sits in managed settings; and it is a speed bump, not containment.
+- **Fixed: a `git -C` statement in PowerShell text no longer downgrades a drive-root or
+  home-directory deletion after it.** In one PowerShell command such as
+  `git -C build clean -fdx; Remove-Item -Recurse -Force C:\`, the git statement's directory
+  option was still recorded when the guard judged `Remove-Item`, which then read `C:\` as git's
+  directory rather than its target. The permanent denial became a one-time advisory that a rerun
+  cleared. Any git verb with `-C`, `--git-dir` or `--work-tree` did it, `status` included, ahead
+  of `Remove-Item` or one of its aliases, or of an unquoted `cmd /c` `rd` or `del`. It applied to
+  the PowerShell tool and to PowerShell text run from bash through `pwsh -c` or
+  `powershell -Command`. A plain bash deletion was not affected. The same path also told a
+  deletion after an `npm run` statement that it had matched a package script; it no longer does.
+- **Fixed: a file named `json.py` in the session's folder no longer switches the command guard
+  off.** The hook runs in the session's current folder, and the guard read its payload with
+  `python3 -c`, which looks there first for modules. An empty `json.py` made the parser fail
+  quietly, and every command was allowed without being judged; one with code in it ran that
+  code inside the hook. The parser now runs as `python3 -I`, which ignores the current folder,
+  the `PYTHON*` variables and the user site directory. Machine mode would otherwise have carried
+  this into every folder on the machine.
 
 ### Upgrading
 
 Copy the 16.1.0 shipped scripts and manifest through the normal upgrade procedure. Nothing else
-changes: a command that pipes paths into `xargs rm -rf` now costs one extra turn per distinct
-command text.
+changes in your repository: a command that pipes paths into `xargs rm -rf` now costs one extra
+turn per distinct command text. Machine mode is opt-in and per machine; to take it, follow the
+"One guard for the whole machine" section of the README, and repeat its copy step after every
+later upgrade, since no ladder can see that copy.
 
 ## 16.0.0 — 2026-10-26
 

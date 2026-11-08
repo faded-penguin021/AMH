@@ -264,7 +264,11 @@ shortlist below is what a session is expected to carry without looking.
   you whether your session has a pre-execution hook:
   distinguishing a hook invocation from a manual one needs vendor-specific environment
   variables the harness will not assume, which is why this is written here rather than warned
-  about at boot.
+  about at boot. A machine-mode copy of the guard (`command-guard.sh --machine`, wired from a
+  user-level settings file the owner installs by hand) may also judge your commands. It keeps
+  only the permanent deletion denials, the credential rails and its refusals of a command it could
+  not read, names itself in the first line of its refusal, and stands in for none of this
+  repository's rails; nothing in the repository can see whether one is installed.
 - **A hook that fails refuses the call, where the adapter says so.** An adapter that anchors its
   hooks at the project root and makes the pre-execution guard refuse the call when the guard
   itself fails (Claude Code: `"onFailure": "block"`) turns a crashed, timed-out or missing guard

@@ -158,7 +158,12 @@ definition of that scope.
   hooks its settings files define, and the CLAUDE.md that points here, and `--restricted`
   ignores the project's settings file unless it is passed again with `--settings`, so a session
   started in any of them has no command rail, no output redaction and no session bootstrap,
-  whatever `.claude/settings.json` says (**DD-053**). Where a host routes shell commands through
+  whatever `.claude/settings.json` says (**DD-053**). A machine-mode copy of the guard
+  (`command-guard.sh --machine`, wired from a user-level settings file the owner installs by hand)
+  may also judge your commands. It keeps only the permanent deletion denials, the credential
+  rails and its refusals of a command it could not read, names itself in the first line of its
+  refusal, and stands in for none of this repository's rails. Nothing here can see whether one is installed, and the host modes above
+  skip it too (**DD-063**). Where a host routes shell commands through
   a PowerShell tool, the command rail exists only if the adapter's matcher names that tool and the
   hook's own shell (bash) is present; the Claude adapter's matcher does, and PowerShell text then
   goes to the guard's PowerShell reader, a shorter list than the bash one, whose misses the

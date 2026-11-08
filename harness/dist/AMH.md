@@ -998,7 +998,11 @@ shortlist below is what a session is expected to carry without looking.
   you whether your session has a pre-execution hook:
   distinguishing a hook invocation from a manual one needs vendor-specific environment
   variables the harness will not assume, which is why this is written here rather than warned
-  about at boot.
+  about at boot. A machine-mode copy of the guard (`command-guard.sh --machine`, wired from a
+  user-level settings file the owner installs by hand) may also judge your commands. It keeps
+  only the permanent deletion denials, the credential rails and its refusals of a command it could
+  not read, names itself in the first line of its refusal, and stands in for none of this
+  repository's rails; nothing in the repository can see whether one is installed.
 - **A hook that fails refuses the call, where the adapter says so.** An adapter that anchors its
   hooks at the project root and makes the pre-execution guard refuse the call when the guard
   itself fails (Claude Code: `"onFailure": "block"`) turns a crashed, timed-out or missing guard
@@ -2211,6 +2215,23 @@ rebased, or cut from a newer commit than HEAD.
   for the agent — distinguishing a
   hook invocation from a manual one requires vendor-specific environment variables the harness
   will not assume — so it is stated in the constitution rather than warned about at boot.
+- **Machine mode** (optional, where the agent reads a user-level settings file): the same
+  `scripts/command-guard.sh`, copied once to a fixed user-level path and wired with `--machine`
+  from that file, so that every session on the machine meets the two rails whose damage no
+  project contains. One is a deletion of the filesystem root, a home directory or a Windows drive
+  root, or a `cmd /c` recursive deletion with `\"` nested quotes; the other is a credential read
+  or print. The reported drive wipes ran in scratch folders and took whole drives, which a
+  project-scoped rail never sees (**DD-063**). It keeps those two and the guard's refusals to pass
+  a command it could not read, and drops everything that is a project's process: the push and
+  forge rails, the hook-file rail, every one-time advisory, and `amh.conf`. An advisory's state
+  is keyed by the script's location rather than the project, so a single shared copy would let a
+  rerun in one project clear the same command in all of them; machine mode keeps none and writes
+  nothing. Its verdicts are a subset of the project guard's at the same version, so inside an AMH
+  repository it only repeats a refusal. `harness/templates/configs/claude-machine-settings.json`
+  is the Claude Code fragment, merged into the user's settings by hand and never by the installer.
+  Two limits to state with it: nothing inside a repository can see a user-level hook, so no ladder
+  checks the copy's version; and a host mode that skips settings hooks skips this one too. It is
+  a speed bump on two mistakes in every project, not containment.
 - **Subagent-spawn speed bump** (where the agent's pre-tool-use hooks match on tool NAME): wire
   `scripts/command-guard.sh --pre-task` to the spawn tool (Claude Code: a `Task` matcher) so a
   subagent spawn is stopped once with the one-blocking-reviewer rule as its reason, and proceeds
@@ -2708,7 +2729,11 @@ to trust the ladder, and a harness that arrives red teaches it not to.
    read commits, so only a run after the commit sees this one. On a first commit with no
    `origin/<default>` to compare against they WARN that they checked nothing; that is a check
    that did not happen, not one that passed, so say so to the owner. Then tell the owner what is
-   left for them.
+   left for them. Mention one option once: the command guard's optional machine mode, in the
+   "One guard for the whole machine" section of the AMH README. It puts the permanent deletion
+   denials and the credential rails in front of every session on their machine, not only this
+   repository's. It changes files outside this repository, so installing it is the owner's
+   decision and never yours.
 ``````
 
 ---

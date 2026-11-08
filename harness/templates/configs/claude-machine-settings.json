@@ -1,0 +1,60 @@
+{
+  "$comment": "AMH machine mode for Claude Code: a USER-LEVEL settings fragment. It is never a project file and amh-init.sh never installs it. To install it, copy scripts/command-guard.sh byte for byte to ~/.claude/hooks/amh-command-guard.sh, then merge the deny entries and the PreToolUse group below into ~/.claude/settings.json by hand, keeping whatever that file already holds; do not replace it. Managed settings are the stronger place for the same fragment where you administer them: a project cannot override them, and --restricted still loads them. The hook runs the guard's --machine mode on every Bash and PowerShell call in every session on this machine. That mode keeps only the permanent deletion denials (the filesystem root, a home directory, a Windows drive root, and a cmd /c recursive deletion carrying nested escaped quotes), the credential rails, and the guard's refusals to pass a command it could not read. It drops AMH's push, forge, hook-file and one-time rails and reads no amh.conf, because those are a project's process; inside an AMH repository the project guard still applies them. onFailure block makes a guard that cannot run refuse the call, as the project adapter does, so remove this hook entry BEFORE deleting the script or every shell call in every session is refused; on Windows that also means Git for Windows is required, and $HOME is the Git Bash home, normally your user profile. The deny rails are the project adapter's credential Read rails (with the /proc rails also spelled from the filesystem root, //proc, since a single leading slash in a settings file names a path beside that file), its two commands that print a stored credential, and an Edit rail on the installed guard, which reaches the file-editing tools but not a cp or mv. What this is not: containment (a container, a VM or an account that cannot write the disk is), or a rail any repository can see, so no ladder checks the installed copy's version and you refresh it by hand after an upgrade. Claude Code's --safe-mode and --bare skip a user-level hook like any settings hook, and --restricted ignores the user settings file, though not managed settings (AMH ledger row DD063).",
+  "permissions": {
+    "deny": [
+      "Bash(gh auth token:*)",
+      "Bash(git credential fill:*)",
+      "Read(/proc/*/environ)",
+      "Read(/proc/**/environ)",
+      "Read(//proc/*/environ)",
+      "Read(//proc/**/environ)",
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(id_rsa)",
+      "Read(**/id_rsa)",
+      "Read(id_dsa)",
+      "Read(**/id_dsa)",
+      "Read(id_ecdsa)",
+      "Read(**/id_ecdsa)",
+      "Read(id_ecdsa_sk)",
+      "Read(**/id_ecdsa_sk)",
+      "Read(id_ed25519)",
+      "Read(**/id_ed25519)",
+      "Read(id_ed25519_sk)",
+      "Read(**/id_ed25519_sk)",
+      "Read(~/.git-credentials)",
+      "Read(**/.git-credentials)",
+      "Read(~/.config/git/credentials)",
+      "Read(~/.netrc)",
+      "Read(**/.netrc)",
+      "Read(~/_netrc)",
+      "Read(**/_netrc)",
+      "Read(~/.npmrc)",
+      "Read(~/.aws/credentials)",
+      "Read(~/.config/gh/hosts.yml)",
+      "Read(~/.docker/config.json)",
+      "Read(~/.kube/config)",
+      "Read(~/.config/gcloud/application_default_credentials.json)",
+      "Read(~/.cargo/credentials)",
+      "Read(~/.cargo/credentials.toml)",
+      "Edit(~/.claude/hooks/amh-command-guard.sh)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "bash \"$HOME/.claude/hooks/amh-command-guard.sh\" --machine # AMH machine mode. On Windows it requires Git Bash: install Git for Windows",
+            "onFailure": "block"
+          }
+        ]
+      }
+    ]
+  }
+}
