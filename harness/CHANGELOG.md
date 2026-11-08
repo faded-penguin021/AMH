@@ -30,7 +30,7 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   `xargs rm -rf ~` is denied permanently, like `rm -rf ~`. The secret and push rails still stop
   at `xargs`. `find -exec rm -rf {} +`, `xargs sh -c '…'` and `parallel` are still not read.
 - **Machine mode: the guard's drive-wipe and credential rails for every session on the
-  machine, optional and installed by hand.** The command guard only ran for sessions started
+  machine, optional and installed only on your yes.** The command guard only ran for sessions started
   inside an AMH repository. The deletions it exists to stop are not confined to a project: the
   reported Windows drive wipes ran in scratch folders and took whole drives, including every
   other project on them. `scripts/command-guard.sh --machine` is the same script in a narrower
@@ -42,8 +42,11 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   project clear the same command in another, and its refusal names it in the first line.
   `harness/templates/configs/claude-machine-settings.json` is the Claude Code fragment: copy
   the script to `~/.claude/hooks/amh-command-guard.sh` and merge the fragment into
-  `~/.claude/settings.json`. The installer never writes it. Nothing inside a repository can see
-  the installed copy, so refreshing it after an upgrade is yours to do; Claude Code's
+  `~/.claude/settings.json`. The installer never writes it. The adoption brief's last step asks
+  whether you want it, and an agent installs it only on your explicit yes, checking a staged
+  copy before it replaces anything. Nothing inside a repository can see the installed copy,
+  so the upgrade prompt in `docs/UPGRADING.md` compares it with the release's on every upgrade
+  and refreshes it only on your yes, or offers it once where none is installed; Claude Code's
   `--safe-mode` and `--bare` skip it as they skip any settings hook, and `--restricted` skips it
   unless it sits in managed settings; and it is a speed bump, not containment.
 - **Fixed: a `git -C` statement in PowerShell text no longer downgrades a drive-root or
@@ -68,9 +71,14 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
 
 Copy the 16.1.0 shipped scripts and manifest through the normal upgrade procedure. Nothing else
 changes in your repository: a command that pipes paths into `xargs rm -rf` now costs one extra
-turn per distinct command text. Machine mode is opt-in and per machine; to take it, follow the
-"One guard for the whole machine" section of the README, and repeat its copy step after every
-later upgrade, since no ladder can see that copy.
+turn per distinct command text. Machine mode is opt-in and per machine. The upgrade prompt in
+`docs/UPGRADING.md` now asks about it every time: it offers it where no copy is installed, and
+where one is, it compares that copy with the release's and refreshes it only on your yes. To
+install it yourself, follow the "One guard for the whole machine" section of the README. If you
+want your constitution to say that such a copy may judge your agent's commands, and that
+installing or refreshing one takes your explicit yes, copy the last three sentences of the
+"An agent with no pre-execution hook has no command rail at all" bullet in
+`harness/templates/seed/AGENTS.md`.
 
 ## 16.0.0 — 2026-10-26
 

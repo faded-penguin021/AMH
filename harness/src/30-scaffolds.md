@@ -373,7 +373,7 @@ rebased, or cut from a newer commit than HEAD.
   rerun in one project clear the same command in all of them; machine mode keeps none and writes
   nothing. Its verdicts are a subset of the project guard's at the same version, so inside an AMH
   repository it only repeats a refusal. `harness/templates/configs/claude-machine-settings.json`
-  is the Claude Code fragment, merged into the user's settings by hand and never by the installer.
+  is the Claude Code fragment, merged into the user's settings only on their yes and never by the installer.
   Two limits to state with it: nothing inside a repository can see a user-level hook, so no ladder
   checks the copy's version; and a host mode that skips settings hooks skips this one too. It is
   a speed bump on two mistakes in every project, not containment.

@@ -159,7 +159,8 @@ to trust the ladder, and a harness that arrives red teaches it not to.
    check, working-memory headroom, the protocol pointer — and your agent harness should invoke
    it at session start, or the constitution tells the next agent to run it by hand.
 2. Fill in `docs/STATE.md` — what this repo is, what state it is in, and anything the owner
-   should action under **Owner queue**.
+   should action under **Owner queue**. If this run has no way to ask the owner anything, record
+   item 6's machine-mode question there too, now, so the commit carries it.
 3. **Delete this file** (`rm AMH-ADOPT.md`). It has no further job, and a stale brief is one more
    document a future session must weigh.
 4. Run `scripts/ladder.sh` once more, now that every file change is made, so the tree it verifies
@@ -169,8 +170,58 @@ to trust the ladder, and a harness that arrives red teaches it not to.
    read commits, so only a run after the commit sees this one. On a first commit with no
    `origin/<default>` to compare against they WARN that they checked nothing; that is a check
    that did not happen, not one that passed, so say so to the owner. Then tell the owner what is
-   left for them. Mention one option once: the command guard's optional machine mode, in the
-   "One guard for the whole machine" section of the AMH README. It puts the permanent deletion
-   denials and the credential rails in front of every session on their machine, not only this
-   repository's. It changes files outside this repository, so installing it is the owner's
-   decision and never yours.
+   left for them.
+6. **Ask the owner whether they want the command guard's machine mode.** Ask it as a question
+   and wait for the answer: a line at the end of a report is easy to miss. Say what it is: this
+   repository's `scripts/command-guard.sh`, copied once to a user-level path and run with
+   `--machine`, so that every Claude Code session on this machine, in any folder, meets the
+   permanent deletion denials (the filesystem root, a home directory, a Windows drive root, and a
+   `cmd /c` recursive deletion written with `\"` nested quotes), the credential rails, and the
+   guard's refusal to pass a command it could not read. It leaves out AMH's push, forge and
+   hook-file rules, the one-time warnings and `amh.conf`. Say what it costs and where it stops:
+   it changes files outside this repository; it fails closed, so a script deleted while its hook
+   entry stays makes every shell call in every Claude Code session refused; no repository can see
+   it, so it is refreshed after each upgrade, which the AMH upgrade prompt checks; Claude Code's
+   `--safe-mode` and `--bare` skip it, and so does `--restricted` outside managed settings; and
+   it is a speed bump, not containment. Only Claude Code has a settings fragment; for another
+   agent, say so and wire nothing.
+
+   Look before you ask, and print nothing from the settings file. The script is installed if
+   `~/.claude/hooks/amh-command-guard.sh` exists, and wired if
+   `grep -q 'amh-command-guard\.sh.*--machine' ~/.claude/settings.json` succeeds. If it is not
+   installed, ask the question above. If it is, most likely for another repository, run
+   `cmp scripts/command-guard.sh ~/.claude/hooks/amh-command-guard.sh` and tell the owner the
+   result instead of asking. A copy that differs is from another release, older or newer, or was
+   edited; replace it only on an explicit yes, by sub-steps 1 to 3 below. A copy that is not
+   wired does nothing: say so, and offer sub-step 3.
+
+   Change nothing outside this repository without an explicit yes. On a no, install nothing.
+   With no way to ask, install nothing; item 2 has recorded the question. If you are not running
+   on the owner's own machine — a cloud session, a CI job, a container — a user-level install
+   there protects nothing that lasts: say so instead.
+
+   On an explicit yes:
+
+   1. Stage the guard the ladder has just checked against its manifest beside the installed
+      path, never over it: `mkdir -p ~/.claude/hooks`, then
+      `cp scripts/command-guard.sh ~/.claude/hooks/amh-command-guard.sh.new`.
+   2. Run `bash ~/.claude/hooks/amh-command-guard.sh.new --machine --command 'rm -rf ~'` and show
+      the owner its output. It should print `BLOCKED by the AMH command guard in machine mode`
+      and exit 2; it judges the command and never runs it, and it proves the copy, not that
+      Claude Code loads the hook. Only then run
+      `mv ~/.claude/hooks/amh-command-guard.sh.new ~/.claude/hooks/amh-command-guard.sh`. On
+      anything else, stop and report, with the installed path untouched: behind a live hook, a
+      broken copy can refuse every shell call on the machine or pass them all unjudged, and the
+      rename swaps the file whole, so a hook running meanwhile never reads half of one.
+   3. Merge `harness/templates/configs/claude-machine-settings.json` into
+      `~/.claude/settings.json`. It is in the harness checkout you ran the installer from, or, if
+      that is gone, the AMH repository at tag `amh-v{{AMH_VERSION}}`. Add its `PreToolUse` group
+      under `hooks` and its entries under `permissions.deny`, skipping any already there; if the
+      file already has a hook naming `amh-command-guard.sh` that differs from the fragment's,
+      tell the owner rather than keep both. Leave out its `$comment` and keep everything else.
+      Never replace the file; if there is none, create it with just those two keys. It can hold
+      credentials, in an `env` block for one, so never print it or read it into the
+      conversation: merge it with a program that loads, merges and writes it without showing it,
+      check that the result still parses as JSON, and report only what you added. With no way to
+      do that, hand this sub-step to the owner with the fragment's path.
+   4. Tell the owner how to take it out again: remove the hook entry first, then the script.

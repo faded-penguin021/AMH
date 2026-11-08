@@ -64,6 +64,33 @@ tree you commit; commit; and run scripts/ladder.sh --guards-only before pushing,
 commit-message and author-identity rungs can only see a commit that exists. A WARN there that
 the rung checked nothing is a check that did not happen, not one that passed.
 
+Then check the command guard's optional machine mode, which exists only for Claude Code: a copy
+outside this repository that no ladder can see. Print nothing from ~/.claude/settings.json; it
+can hold credentials. The copy is installed if ~/.claude/hooks/amh-command-guard.sh exists, and
+wired if this succeeds:
+
+    grep -q 'amh-command-guard\.sh.*--machine' ~/.claude/settings.json
+
+If it is installed, compare it with this release's:
+
+    cmp ~/.claude/hooks/amh-command-guard.sh /tmp/amh/harness/templates/scripts/command-guard.sh
+
+If they differ, or it is not wired, tell me. A copy that differs is usually from an older
+release, but it may be from a newer one installed for another repository, and refreshing would
+then downgrade it. If it is not installed and I use Claude Code, ask me once whether I want
+machine mode, saying what it is and what it costs from the "One guard for the whole machine"
+section of /tmp/amh/README.md. Install or refresh it only on my explicit yes, and the same way
+both times. Copy the release's file to ~/.claude/hooks/amh-command-guard.sh.new, run
+
+    bash ~/.claude/hooks/amh-command-guard.sh.new --machine --command 'rm -rf ~'
+
+and show me its output, which should say BLOCKED and exit 2. Only then mv it over
+~/.claude/hooks/amh-command-guard.sh, so a hook never runs a copy nobody checked. Then merge
+/tmp/amh/harness/templates/configs/claude-machine-settings.json into ~/.claude/settings.json
+with a program that never shows the file: add what is missing, keep everything else, and tell me
+about any hook there naming amh-command-guard.sh that differs from the fragment's. With no way to
+ask me, change nothing outside this repository and say so in your final report.
+
 Finally, delete /tmp/amh and tell me which version we moved from and to, what you changed by
 hand, and anything that needs my attention. Do not invent repository information — derive it
 from this repository and from the changelog.
@@ -214,6 +241,21 @@ you not to look.
 add a ledger row for anything the upgrade taught you, and add the changelog line. Then close it
 the way every unit closes: the ladder once more on that final tree, the commit, and
 `scripts/ladder.sh --guards-only` after the commit and before the push.
+
+**8. Check the machine copy.** The command guard's optional machine mode (the README's "One
+guard for the whole machine") is a copy at `~/.claude/hooks/amh-command-guard.sh`, outside your
+repository: no ladder sees it and step 4's `cp` never reaches it. So refreshing it is a step of
+every upgrade, not a note in the version that introduced it. If the copy exists, `cmp` it against
+the release's `harness/templates/scripts/command-guard.sh`, and check that `~/.claude/settings.json`
+still wires it, without printing that file, which can hold credentials. A copy that differs is
+usually from an older release, but it may be from a newer one installed for another repository
+on the same machine, where refreshing would downgrade it. So the agent tells you, and refreshes
+it only on your yes, the same way a first install goes: the release's file staged beside the
+installed one, the README's check run on it and shown to you, a `mv` into place only after that
+check, and the release's `claude-machine-settings.json` merged in again, adding only what is
+missing. If no copy exists, the agent asks you once whether you want one. Either way, nothing
+outside your repository changes without your yes. None of this touches the repository, so it can
+follow the commit.
 
 ## Skipping versions
 

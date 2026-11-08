@@ -21,7 +21,9 @@ Adopted harness version: **AMH 16.1.0** — see `harness/VERSION`, the copy that
 ## Current state
 
 This tree declares **16.1.0**, MINOR: the command guard's deletion rail reads through `xargs`
-(**DD-062**); the guard has an optional user-level machine mode (**DD-063**); and a `git -C`
+(**DD-062**); the guard has an optional user-level machine mode (**DD-063**),
+which the adoption brief and the upgrade prompt offer and refresh only on the owner's yes
+(**DD-066**); and a `git -C`
 statement in PowerShell text no longer downgrades a deletion after it (**DD-064**); and a
 `json.py` in the session's folder no longer stands the guard down (**DD-065**). Each
 `harness/CHANGELOG.md` entry names what its version carries. Whether this
@@ -65,7 +67,8 @@ Operational gotchas:
 
 **OPEN — decide when the 16.1.0 draft is complete, then merge and tag it.** It holds the
 `xargs` unit (**DD-062**) and the machine-mode unit with the two fixes it surfaced
-(**DD-063** to **DD-065**). The spill-guard units below are slated for the release after 16.0.0,
+(**DD-063** to **DD-065**), and the unit that has adoption and every upgrade ask about it
+(**DD-066**). The spill-guard units below are slated for the release after 16.0.0,
 so whether they join this draft first is the owner's call. Then: open its PR (or ask for
 it), edit its squash message — a poison token in GitHub's default one suppresses the release
 commit's CI run (**DC-040**) — merge, and tag; the README Quick Start names the draft tag before
@@ -134,6 +137,12 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-08 — **Adoption and every upgrade ask about machine mode, inside the 16.1.0 draft.**
+  On the owner's report that the brief only mentioned it and the upgrade procedure never named
+  it: the brief's last step asks and, on an explicit yes, stages, checks, moves and merges; the
+  upgrade prompt compares an installed copy on every upgrade and refreshes it only on a yes; the
+  constitution and seed say installing one takes that yes (**DD-066**).
 
 - 2026-11-08 — **The command guard gets a user-level machine mode, inside the 16.1.0 draft.** On
   the owner's ask after a reported drive wipe from a scratch project: `--machine` keeps only the

@@ -188,28 +188,40 @@ doesn't get AMH's git policy. Inside an AMH repository the project guard still a
 When both copies are the same version, machine mode only repeats a block the project guard has
 already given; a newer machine copy beside an older project guard can add one.
 
-To install it for Claude Code, from the release checkout the Quick Start clones:
+Your agent asks whether you want it at the end of adoption, and the upgrade prompt in
+`docs/UPGRADING.md` checks the copy on every upgrade; neither changes anything outside the
+repository without your yes. To install it yourself for Claude Code, from the release checkout
+the Quick Start clones:
 
 ```bash
 mkdir -p ~/.claude/hooks
 ```
 
 ```bash
-cp /tmp/amh/scripts/command-guard.sh ~/.claude/hooks/amh-command-guard.sh
+cp /tmp/amh/scripts/command-guard.sh ~/.claude/hooks/amh-command-guard.sh.new
 ```
+
+Check the staged copy before it replaces anything:
+
+```bash
+bash ~/.claude/hooks/amh-command-guard.sh.new --machine --command 'rm -rf ~'
+```
+
+It should print `BLOCKED by the AMH command guard in machine mode` and exit 2. The guard only
+judges that command; it never runs it. Only then move it into place:
+
+```bash
+mv ~/.claude/hooks/amh-command-guard.sh.new ~/.claude/hooks/amh-command-guard.sh
+```
+
+Behind a live hook, a broken copy can refuse every shell call on the machine or pass them all
+unjudged, so a copy goes in place only after it passes, and the rename swaps the file whole.
 
 Then merge `harness/templates/configs/claude-machine-settings.json` into
 `~/.claude/settings.json`: add its `PreToolUse` group under `hooks` and its entries under
 `permissions.deny`, keeping everything the file already holds. If you administer Claude Code's
 managed settings, the same fragment is stronger there: a project cannot override managed
-settings, and `--restricted` still loads them. Then check it:
-
-```bash
-bash ~/.claude/hooks/amh-command-guard.sh --machine --command 'rm -rf ~'
-```
-
-It should print `BLOCKED by the AMH command guard in machine mode` and exit 2. The guard only
-judges that command; it never runs it.
+settings, and `--restricted` still loads them.
 
 Know its limits before you rely on it:
 
@@ -218,8 +230,9 @@ Know its limits before you rely on it:
   more. In PowerShell, `Get-Content .env` and PowerShell's other file readers pass too: the guard
   does not read them, and machine mode drops the one-time `.env` warning that stops them once in
   an AMH project. A container, a VM, or a user account that cannot write the disk is containment.
-- **Nothing inside a repository can see it**, so no ladder checks it. Repeat the `cp` step after
-  every AMH upgrade, or the machine copy falls behind.
+- **Nothing inside a repository can see it**, so no ladder checks it. Repeat the copy, check and
+  move after every AMH upgrade, or the machine copy falls behind; the upgrade prompt compares the
+  two and asks before it refreshes yours.
 - **Claude Code's `--safe-mode` and `--bare` skip it**, as they skip any settings hook, and
   **`--restricted` skips it** unless you installed it in managed settings.
 - **It fails closed.** If the script goes missing while the hook entry stays, every shell command
@@ -321,7 +334,7 @@ harness/             THE PRODUCT — what an adopter copies
     scripts/         the shipped scripts, plus their generated integrity manifest
     configs/         CI workflow plus Claude Code and Codex adapters; substituted at init.
                      claude-machine-settings.json is the exception: the optional user-level
-                     machine mode, which you merge into ~/.claude/settings.json by hand
+                     machine mode, merged into ~/.claude/settings.json only on your yes
     seed/            prose scaffolds: copied once, then yours forever
     amh.conf.example
 scripts/             THE INSTANCE — this repo living under what it ships

@@ -15,7 +15,7 @@ Syncing a row's ` [cited]` marker is the one in-place edit that rule does not co
 | `harness/src/*.md` | the harness's prose, in ordered parts | hand-edited; the only source for `dist/` |
 | `harness/templates/scripts/*.sh` | the shipped scripts | repo-agnostic; parameter-free (D-002, D-003) |
 | `harness/templates/seed/**` | prose scaffolds for adopters | copied once, then owned by the adopter; never drift-checked |
-| `harness/templates/configs/**` | JSON/YAML for adopters | carries `{{PLACEHOLDER}}`s; substituted at init — except `claude-machine-settings.json`, the user-level machine-mode fragment, which carries none, is merged by hand and never installed; `scripts/guards/adapter-set.sh` pins its hook and its credential rails |
+| `harness/templates/configs/**` | JSON/YAML for adopters | carries `{{PLACEHOLDER}}`s; substituted at init — except `claude-machine-settings.json`, the user-level machine-mode fragment, which carries none, is merged only on the owner's yes and never by the installer; `scripts/guards/adapter-set.sh` pins its hook and its credential rails |
 | `harness/templates/scripts/MANIFEST.sha256` | hashes of the shipped scripts, installed beside them | **generated** — rebuilt and diffed by a guard |
 | `harness/dist/AMH.md` | the single-file bundle | **generated** — rebuilt and diffed by a guard |
 | `harness/VERSION` | the harness version | single source; lockstep-checked |
