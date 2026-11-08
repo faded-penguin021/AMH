@@ -208,7 +208,14 @@ bash ~/.claude/hooks/amh-command-guard.sh.new --machine --command 'rm -rf ~'
 ```
 
 It should print `BLOCKED by the AMH command guard in machine mode` and exit 2. The guard only
-judges that command; it never runs it. Only then move it into place:
+judges that command; it never runs it. A copy that refuses everything would pass that, so check
+the other direction too:
+
+```bash
+bash ~/.claude/hooks/amh-command-guard.sh.new --machine --command 'ls'
+```
+
+It should print nothing and exit 0. Only then move it into place:
 
 ```bash
 mv ~/.claude/hooks/amh-command-guard.sh.new ~/.claude/hooks/amh-command-guard.sh

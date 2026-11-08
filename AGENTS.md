@@ -99,7 +99,7 @@ definition of that scope.
   `del /s`, or a PowerShell `Remove-Item -Recurse` (any alias), naming the filesystem root, a
   Windows drive root or a home directory, is blocked and does not clear on a rerun; a `cmd /c` recursive deletion whose text carries `\"` nested quotes
   is blocked the same way, whatever its path — and the git verbs armed only on an unknown target
-  are silent on a literal path. A deletion the guard denied PERMANENTLY, or the host refused, is a
+  are silent on a literal path, except behind `xargs`, which adds operands of its own. A deletion the guard denied PERMANENTLY, or the host refused, is a
   stop, not a spelling problem: never retry it through another shell, a `cmd /c` or
   `powershell -Command` wrapper, an interpreter or a script file to get it past the refusal. Read
   what the refusal objected to; if the deletion is still needed, use a spelling the refusal

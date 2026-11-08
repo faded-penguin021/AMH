@@ -160,7 +160,9 @@ to trust the ladder, and a harness that arrives red teaches it not to.
    it at session start, or the constitution tells the next agent to run it by hand.
 2. Fill in `docs/STATE.md` — what this repo is, what state it is in, and anything the owner
    should action under **Owner queue**. If this run has no way to ask the owner anything, record
-   item 6's machine-mode question there too, now, so the commit carries it.
+   item 6's machine-mode question there too, now, so the commit carries it, and say where its
+   steps live once item 3 has deleted this file: Finish item 6 of `harness/templates/AMH-ADOPT.md`
+   in the AMH repository at tag `amh-v{{AMH_VERSION}}`.
 3. **Delete this file** (`rm AMH-ADOPT.md`). It has no further job, and a stale brief is one more
    document a future session must weigh.
 4. Run `scripts/ladder.sh` once more, now that every file change is made, so the tree it verifies
@@ -193,7 +195,11 @@ to trust the ladder, and a harness that arrives red teaches it not to.
    `cmp scripts/command-guard.sh ~/.claude/hooks/amh-command-guard.sh` and tell the owner the
    result instead of asking. A copy that differs is from another release, older or newer, or was
    edited; replace it only on an explicit yes, by sub-steps 1 to 3 below. A copy that is not
-   wired does nothing: say so, and offer sub-step 3.
+   wired does nothing: say so, and offer sub-step 3. The `grep` reads lines, not the JSON, so it
+   cannot tell a hook under the wrong event or without its `onFailure`; and a release can change
+   the fragment without changing the script. So, with the same kind of program sub-step 3 uses,
+   one that never shows the file, also report whether merging this release's fragment would add
+   or change anything, and offer sub-step 3 if it would.
 
    Change nothing outside this repository without an explicit yes. On a no, install nothing.
    With no way to ask, install nothing; item 2 has recorded the question. If you are not running
@@ -208,7 +214,9 @@ to trust the ladder, and a harness that arrives red teaches it not to.
    2. Run `bash ~/.claude/hooks/amh-command-guard.sh.new --machine --command 'rm -rf ~'` and show
       the owner its output. It should print `BLOCKED by the AMH command guard in machine mode`
       and exit 2; it judges the command and never runs it, and it proves the copy, not that
-      Claude Code loads the hook. Only then run
+      Claude Code loads the hook. Then run the same with `--command 'ls'`, which should print
+      nothing and exit 0: a copy that refuses everything passes the first check alone. Only then
+      run
       `mv ~/.claude/hooks/amh-command-guard.sh.new ~/.claude/hooks/amh-command-guard.sh`. On
       anything else, stop and report, with the installed path untouched: behind a live hook, a
       broken copy can refuse every shell call on the machine or pass them all unjudged, and the

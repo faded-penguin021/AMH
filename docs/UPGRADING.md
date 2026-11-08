@@ -75,7 +75,11 @@ If it is installed, compare it with this release's:
 
     cmp ~/.claude/hooks/amh-command-guard.sh /tmp/amh/harness/templates/scripts/command-guard.sh
 
-If they differ, or it is not wired, tell me. A copy that differs is usually from an older
+Also check, with a program that never shows the file, whether merging this release's
+/tmp/amh/harness/templates/configs/claude-machine-settings.json into ~/.claude/settings.json
+would add or change anything: the grep reads lines, not the JSON, and a release can change the
+fragment without changing the script. If they differ, it is not wired, or the merge would add
+or change something, tell me. A copy that differs is usually from an older
 release, but it may be from a newer one installed for another repository, and refreshing would
 then downgrade it. If it is not installed and I use Claude Code, ask me once whether I want
 machine mode, saying what it is and what it costs from the "One guard for the whole machine"
@@ -84,7 +88,8 @@ both times. Copy the release's file to ~/.claude/hooks/amh-command-guard.sh.new,
 
     bash ~/.claude/hooks/amh-command-guard.sh.new --machine --command 'rm -rf ~'
 
-and show me its output, which should say BLOCKED and exit 2. Only then mv it over
+and show me its output, which should say BLOCKED and exit 2, then the same with --command 'ls',
+which should print nothing and exit 0. Only then mv it over
 ~/.claude/hooks/amh-command-guard.sh, so a hook never runs a copy nobody checked. Then merge
 /tmp/amh/harness/templates/configs/claude-machine-settings.json into ~/.claude/settings.json
 with a program that never shows the file: add what is missing, keep everything else, and tell me
@@ -247,7 +252,9 @@ guard for the whole machine") is a copy at `~/.claude/hooks/amh-command-guard.sh
 repository: no ladder sees it and step 4's `cp` never reaches it. So refreshing it is a step of
 every upgrade, not a note in the version that introduced it. If the copy exists, `cmp` it against
 the release's `harness/templates/scripts/command-guard.sh`, and check that `~/.claude/settings.json`
-still wires it, without printing that file, which can hold credentials. A copy that differs is
+still wires it as the release's `claude-machine-settings.json` does — a program that would merge
+that fragment reports whether it would add or change anything, which also catches a release that
+changed the fragment and not the script — without printing that file, which can hold credentials. A copy that differs is
 usually from an older release, but it may be from a newer one installed for another repository
 on the same machine, where refreshing would downgrade it. So the agent tells you, and refreshes
 it only on your yes, the same way a first install goes: the release's file staged beside the

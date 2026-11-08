@@ -66,6 +66,14 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   code inside the hook. The parser now runs as `python3 -I`, which ignores the current folder,
   the `PYTHON*` variables and the user site directory. Machine mode would otherwise have carried
   this into every folder on the machine.
+- **Fixed: a redirection before the command no longer hides a deletion.** `< list.txt rm -rf ~`,
+  `2>/dev/null rm -rf /` and the like passed the permanent root and home-directory denials, in
+  project mode and machine mode alike, because the deletion rail read the redirection as the
+  command word; every other rail already skipped it. A redirection between `xargs` and its
+  command hid the verb the same way. The rail now drops redirections first, wherever they stand.
+  The machine-mode install check also runs `--command 'ls'`, which should exit 0, and adoption
+  and the upgrade prompt check whether merging the release's settings fragment would add or
+  change anything, so a release that changes only the fragment still reaches an installed copy.
 
 ### Upgrading
 

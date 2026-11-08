@@ -25,7 +25,8 @@ This tree declares **16.1.0**, MINOR: the command guard's deletion rail reads th
 which the adoption brief and the upgrade prompt offer and refresh only on the owner's yes
 (**DD-066**); and a `git -C`
 statement in PowerShell text no longer downgrades a deletion after it (**DD-064**); and a
-`json.py` in the session's folder no longer stands the guard down (**DD-065**). Each
+`json.py` in the session's folder no longer stands the guard down (**DD-065**); and a
+redirection before the command no longer hides a deletion from that rail (**DD-067**). Each
 `harness/CHANGELOG.md` entry names what its version carries. Whether this
 draft is tagged or released is not recorded here — `scripts/session-start.sh` probes it every
 session and reports present, absent or could-not-ask, which is the only answer that can be
@@ -67,8 +68,8 @@ Operational gotchas:
 
 **OPEN — decide when the 16.1.0 draft is complete, then merge and tag it.** It holds the
 `xargs` unit (**DD-062**) and the machine-mode unit with the two fixes it surfaced
-(**DD-063** to **DD-065**), and the unit that has adoption and every upgrade ask about it
-(**DD-066**). The spill-guard units below are slated for the release after 16.0.0,
+(**DD-063** to **DD-065**), the unit that has adoption and every upgrade ask about it
+(**DD-066**), and the fixes from the owner-requested whole-train review (**DD-067**). The spill-guard units below are slated for the release after 16.0.0,
 so whether they join this draft first is the owner's call. Then: open its PR (or ask for
 it), edit its squash message — a poison token in GitHub's default one suppresses the release
 commit's CI run (**DC-040**) — merge, and tag; the README Quick Start names the draft tag before
@@ -99,6 +100,16 @@ reads it. (3) The adapter's `Read(/proc/*/environ)` rails start with one slash, 
 file names a path beside that file, so they may never reach `/proc`; the machine template adds
 `//proc` spellings, and nobody has checked either against the host. Check for (1):
 `grep -c '"$PY" -c ' scripts/redact-tool-output.sh` — a count above 0 means it is still open.
+
+**OPEN — decide whether to fix the command guard's payload parser on a non-UTF-8 code page.**
+Found by the whole-train review of the 16.1.0 draft (**DD-067**), pre-existing: the parser reads
+and prints through text stdio and `except Exception: pass` swallows an encode or decode error, so
+the command passes unjudged. Measured only as the mechanism, on Linux, by that reviewer: an
+`rm -rf ~ # 清理` payload through the parser under `PYTHONIOENCODING=cp1252` printed nothing and
+exited 0. On Windows with Python older than 3.15 and a non-UTF-8 ANSI code page it is estimated to
+happen for real, and `-I` (**DD-065**) now ignores `PYTHONUTF8` and `PYTHONIOENCODING` too. The
+proposed fix reads `sys.stdin.buffer` and writes UTF-8 bytes; no Windows host here can test it,
+and no one-line check here settles it.
 
 **OPEN — decide whether to adopt the harness-research-gaps plan,
 `docs/plans/2026-11-01-harness-research-gaps.md`, and each decision in its §1.** It is committed
@@ -137,6 +148,15 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-08 — **The 16.1.0 train reviewed whole, on the owner's ask, and its PR opened.** One
+  fresh-context reviewer read the diff against `main`: APPROVE-WITH-FIXES, no blocker. A
+  redirection before the command hid a deletion from the destructive rail, permanent denials
+  included, and now does not; the machine-mode procedures check the allow direction and the
+  fragment's merge; the constitution's xargs exception was added; the parser's code-page gap went
+  to the Owner queue (**DD-067**). Not taken: an `xargs:` digest in the ladder's report (the
+  interpreter tier's accepted design), and `git worktree add` behind `xargs` (a documented false
+  positive).
 
 - 2026-11-08 — **Adoption and every upgrade ask about machine mode, inside the 16.1.0 draft.**
   On the owner's report that the brief only mentioned it and the upgrade procedure never named

@@ -219,9 +219,8 @@
 #     DD062). Its options are skipped by a LIST, GNU's and BSD's together (see the `xargs` arm
 #     in `is_destructive_segment`); `gxargs` is read as `xargs`. Not read: a prefix that arm
 #     does not peel on EITHER side of `xargs` — `timeout`, `bash -c`, a prefix carrying
-#     options (`env -i`, `nice -n 5`, `xargs sudo -u root rm -rf`) — a redirection between
-#     `xargs` and its command (`xargs 2>/dev/null rm -rf`), `xargs sh -c 'rm -rf "$@"'`, which
-#     is `sh -c` again, the interpreter tier's inline-program advisory, which does not look
+#     options (`env -i`, `nice -n 5`, `xargs sudo -u root rm -rf`) — `xargs sh -c 'rm -rf "$@"'`,
+#     which is `sh -c` again, the interpreter tier's inline-program advisory, which does not look
 #     behind `xargs`, and `parallel`, which is not `xargs`.
 #     ONE TARGET LIST INSIDE IT IS NOT A SPEED BUMP. An `rm -r -f`, a `git clean -f -d` or a
 #     `cmd /c` recursive deletion whose operand names the filesystem root, a home directory, or
@@ -5541,7 +5540,13 @@ is_destructive_segment() {
 	# one, and nothing outside a segment — the next PowerShell statement, judged by arms that
 	# never enter here — inherits it.
 	local DESTRUCTIVE_VIA_XARGS=0
-	split_words "$raw"
+	# Judge the words bash would pass, not the redirections around them, as `check_segment`
+	# does: a redirection before the command word (`< list.txt rm -rf ~`), or between `xargs`
+	# and its command, used to hide the deletion from this rail, its permanent denials
+	# included (AMH ledger row DD067). The wrapper arms below still read `raw`, because each
+	# parses its own inner text.
+	strip_redirections "$raw"
+	split_words "$STRIPPED"
 	words=(${SPLIT_WORDS[@]+"${SPLIT_WORDS[@]}"})
 	# Find the same leading command that leading_command reports, without treating
 	# later quoted prose or operands as commands — and, for this rail alone, read through
@@ -8665,6 +8670,17 @@ EOF'
 	st_destructive_advisory_once 'xargs -0 git rm -r -f'
 	# A literal operand written after the verb is still judged against the target list.
 	st_destructive_never_clears 'xargs rm -rf ~' 'your home directory'
+	# A redirection is not a word bash passes, wherever it sits: before the command word it hid
+	# the deletion from this rail, permanent denials included, and between `xargs` and its
+	# command it hid the verb (AMH ledger row DD067).
+	st_destructive_never_clears '< list.txt rm -rf ~' 'your home directory'
+	st_destructive_never_clears '2>/dev/null rm -rf /' 'the filesystem root'
+	st_destructive_never_clears '0<x xargs rm -rf ~' 'your home directory'
+	st_destructive_advisory_once '< list.txt xargs rm -rf'
+	st_destructive_advisory_once 'xargs 2>/dev/null rm -rf'
+	st_destructive_advisory_once '>log git clean -fdx'
+	st_allowed '< list.txt xargs rm -f'
+	st_allowed '2>/dev/null rm -f build >log'
 	st_destructive_reason_names 'This runs behind `xargs`' 'find a | xargs rm -rf'
 	st_destructive_reason_lacks 'This runs behind `xargs`' 'rm -rf a'
 	# Keyed on the command text: clearing one pipeline does not clear another, which a key
@@ -9651,6 +9667,7 @@ git push --force origin main
 	st_machine blocked bash 'rm -rf /' 'the filesystem root'
 	st_machine blocked bash 'rm -rf ~' 'your home directory'
 	st_machine blocked bash 'xargs rm -rf ~' 'your home directory'
+	st_machine blocked bash '< list.txt rm -rf ~' 'your home directory'
 	st_machine blocked bash 'git --git-dir="$HOME/.cfg" --work-tree="$HOME" clean -fd' 'your home directory'
 	st_machine blocked powershell 'cmd /c "rmdir /s /q \"D:\My Documents\Projects\_scratch_sitevideo\profile\""' 'nested quotes'
 	st_machine blocked powershell "Remove-Item -Recurse -Force C:\\" 'the root of a Windows drive'
