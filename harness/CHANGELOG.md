@@ -11,6 +11,31 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 16.1.0 — 2026-11-08
+
+- **The command guard's deletion rail reads through `xargs`.** A reported incident on macOS: an
+  agent cleaning up test files under `~/Library/Application Support` piped their paths through
+  `xargs -n1 dirname` into `xargs rm -rf`. `xargs` split each path at the space, `dirname` of the
+  first half was `~/Library`, and `~/Library` was deleted. The guard never saw it, because it
+  stopped at `xargs`, which it filed as deliberate evasion rather than a mistake. Now every verb
+  the deletion rail knows — `rm -r -f`, the git verbs, `cmd /c` deletions, the data-plane
+  commands — is judged when it runs behind `xargs` (or Homebrew's `gxargs`), after `xargs`'s own
+  options (GNU's and BSD's together, a GNU long option by unique prefix). The target is always treated as unknown, because
+  `xargs` adds operands from its input at run time: the command gets the one-time advisory, and
+  a new paragraph in it asks for the pipeline to be run with `printf '[%s]\n'` first. It warns
+  that `xargs` splits at blanks, and points at `find -print0 | xargs -0`. The advisory is keyed on
+  a digest of the whole command text, so a different pipeline gets its own, while the `${VAR:?}`
+  rewrite the advisory asks for counts as the same command; with no digest tool it fires on
+  every attempt. A literal operand after the verb is still judged, so
+  `xargs rm -rf ~` is denied permanently, like `rm -rf ~`. The secret and push rails still stop
+  at `xargs`. `find -exec rm -rf {} +`, `xargs sh -c '…'` and `parallel` are still not read.
+
+### Upgrading
+
+Copy the 16.1.0 shipped scripts and manifest through the normal upgrade procedure. Nothing else
+changes: a command that pipes paths into `xargs rm -rf` now costs one extra turn per distinct
+command text.
+
 ## 16.0.0 — 2026-10-26
 
 - **A unit owes the reviews of what it was set to change, not only those of the diff it ends

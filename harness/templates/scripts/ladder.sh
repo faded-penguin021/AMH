@@ -1625,7 +1625,9 @@ advisories() {
 			# leaves the first one listed even though it ran.
 			note "destructive advisories fired and never re-attempted under this exact text (a bundled or reworded rerun still counts as never):"
 			# The signature is the rail's identity for a target set: a command kind,
-			# then each operand `%q`-quoted and joined. Printed with the joiner
+			# then each operand `%q`-quoted and joined — or, for a command behind
+			# `xargs`, `xargs:` and a digest of the command text, then the kind, which
+			# names no pipeline because the text is not stored. Printed with the joiner
 			# trimmed, because this line is read by a person and the trailing `|`
 			# says nothing to one. Nothing parses it back.
 			printf '%s\n' "$unresolved" | sed -e 's/ *|$//' -e 's/^/         /'

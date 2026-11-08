@@ -108,7 +108,9 @@
 #     model would have `env -X VALUE cat .env` judge `VALUE` and miss the read. What gets
 #     past is otherwise every wrapper outside that set: `xargs cat .env`, `timeout 5 cat .env`,
 #     `ssh host cat .env`, `bash -c 'cat .env'`, and any shell function or alias standing in
-#     for the command. Do not read this bullet as "wrappers defeat the guard" — several do
+#     for the command. `xargs` is that kind of miss for these rails only: the destructive rail
+#     reads through it (the destructive bullet below says how far). Do not read this bullet as
+#     "wrappers defeat the guard" — several do
 #     not, and deleting the strip loop because a comment said it was useless would remove
 #     real coverage the self-test asserts. The command word and each of those prefixes are
 #     judged by the name bash looks up: a path (`/usr/bin/env`, `/usr/bin/sudo`), one leading
@@ -200,15 +202,27 @@
 #     `del|erase /s` behind `cmd /c` or `/k` (see `cmd_inner_deletion` for that arm's misses,
 #     a `.bat` file first among them). Anything else that empties a
 #     path reaches the filesystem unadvised — `mv` over a target, `truncate`, `dd`, `find
-#     -delete`, `shred`, a `>` redirection, and every one of these run through an
-#     interpreter — though an interpreter handed a deletion INLINE now gets its own one-time
-#     advisory, the tier described two bullets down; it is a word in a command line, not a
+#     -delete`, `find -exec rm -rf {} +`, `shred`, a `>` redirection, and every one of these
+#     run through an interpreter — though an interpreter handed a deletion INLINE now gets its
+#     own one-time advisory, the tier described two bullets down; it is a word in a command line, not a
 #     reading of the program. Two further limits INSIDE the list: the git verbs added after
 #     `git clean` are armed only when the target is unknown at scan time (see
 #     `operands_unknown_target`), so a fully literal `git reset --hard origin/main` is
 #     deliberately silent; and `git checkout -- "$f"` carries no force flag and is not
 #     recognised at all. The rail is a speed bump on the shapes an agent actually
 #     mistypes, never an inventory of ways to lose a file.
+#     BEHIND `xargs` EVERY VERB ABOVE IS JUDGED, and always as a target unknown at scan time,
+#     because `xargs` adds operands from its input when it runs: `… | xargs rm -rf` and
+#     `xargs -0 git rm -r -f` get the one-time advisory, keyed on a digest of the whole
+#     command text so a different pipeline rearms it, and a literal operand written after
+#     the verb is still judged, so `xargs rm -rf ~` is denied like `rm -rf ~` (AMH ledger row
+#     DD062). Its options are skipped by a LIST, GNU's and BSD's together (see the `xargs` arm
+#     in `is_destructive_segment`); `gxargs` is read as `xargs`. Not read: a prefix that arm
+#     does not peel on EITHER side of `xargs` — `timeout`, `bash -c`, a prefix carrying
+#     options (`env -i`, `nice -n 5`, `xargs sudo -u root rm -rf`) — a redirection between
+#     `xargs` and its command (`xargs 2>/dev/null rm -rf`), `xargs sh -c 'rm -rf "$@"'`, which
+#     is `sh -c` again, the interpreter tier's inline-program advisory, which does not look
+#     behind `xargs`, and `parallel`, which is not `xargs`.
 #     ONE TARGET LIST INSIDE IT IS NOT A SPEED BUMP. An `rm -r -f`, a `git clean -f -d` or a
 #     `cmd /c` recursive deletion whose operand names the filesystem root, a home directory, or
 #     a directory holding home directories is blocked every time and never clears on a rerun —
@@ -1746,7 +1760,9 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# If `grep` is unavailable the test above fails and the advisory re-fires — the
 		# right direction — at the cost of a duplicate line per attempt. Bounded by the
 		# session, and the bootstrap deletes the file; not worth a second mechanism.
-		printf '%s\n' "$sig" >>"$state" 2>/dev/null || return 1
+		# An `xargs` deletion with no digest to key it on is never recorded, so it never matches
+		# and re-fires on every attempt (see `record_destructive_targets`).
+		[ "${DESTRUCTIVE_UNKEYABLE:-0}" -eq 1 ] || printf '%s\n' "$sig" >>"$state" 2>/dev/null || return 1
 	elif [ "$name" = interpreter ] || [ "$name" = hookfile ]; then
 		# The hook-file tier rearms the same way, per command text: removing the hook at minute
 		# two must not buy silence for moving it aside at minute forty.
@@ -1897,6 +1913,18 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		if [ "${DESTRUCTIVE_WORKTREE:-0}" -eq 1 ]; then
 			# shellcheck disable=SC2016 # the backticked commands must print literally.
 			ADVISORY_REASON="$ADVISORY_REASON"' A path here names a `worktrees` directory. If it is a git worktree, `git worktree remove --force <path>` removes it and its metadata together, and `git worktree prune` clears entries whose directory is already gone — neither needs a path nested inside another shell'"'"'s quotes, which is where the reported drive-root deletion of a leftover worktree went wrong.'
+		fi
+		# ADDITIVE as well: an `xargs` deletion can also carry a literal operand or a variable,
+		# and those paragraphs still describe it. This one says what none of them can — that
+		# the targets are not in the command at all — and names the splitting that turned the
+		# reported incident's paths into a parent nobody wrote (AMH ledger row DD062).
+		if [ "${DESTRUCTIVE_XARGS:-0}" -eq 1 ]; then
+			# shellcheck disable=SC2016 # the examples must print literally, unexpanded.
+			ADVISORY_REASON="$ADVISORY_REASON"' This runs behind `xargs`, so what it acts on is not in the command: `xargs` adds operands it reads from its input at run time, and neither this guard nor a reader of your transcript can see them. Before you rerun, run the same pipeline with `printf '"'"'[%s]\n'"'"'` in place of the destructive command and read every line it prints. Read them for SPLITTING above all: by default `xargs` splits its input at blanks as well as newlines and gives quotes and backslashes meaning, so a path containing a space arrives as two operands, and the first half names a directory you never wrote. Prefer input no file name can split — `find … -print0 | xargs -0 …` — or GNU `xargs -d '"'"'\n'"'"'`, which splits at newlines only; that rewrite is a new command text, so it is stopped once more, and that turn is cheaper than a split path. The reported incident behind this paragraph was exactly that: paths under `~/Library/Application Support` went through `xargs -n1 dirname` into `xargs rm -rf`, `dirname` of `~/Library/Application` was `~/Library`, and `~/Library` was deleted. Rerunning clears this for this exact command text, and the same text run later acts on whatever its input produces by then.'
+			if [ "${DESTRUCTIVE_UNKEYABLE:-0}" -eq 1 ]; then
+				# shellcheck disable=SC2016 # the backticked tool names must print literally.
+				ADVISORY_REASON="$ADVISORY_REASON"' No digest tool (`sha256sum`, `shasum` or `cksum`) was found to key this command on, so this advisory fires on every attempt and a rerun will not clear it: install one, or ask the owner.'
+			fi
 		fi
 		if [ "${DESTRUCTIVE_POWERSHELL:-0}" -eq 1 ] &&
 			{ [ "$DESTRUCTIVE_ROOTISH" -eq 1 ] || [ "$DESTRUCTIVE_UNEXPANDED" -eq 1 ]; }; then
@@ -3832,6 +3860,44 @@ JOINED=''
 #
 # All three still set DESTRUCTIVE_UNEXPANDED, so they get the weaker "print the expansion"
 # text. The exclusion narrows which paragraph fires, never whether the advisory fires.
+# Fold `${NAME}` and `${NAME:?…}` to `$NAME` throughout <text>, under `normalize_operand`'s rule
+# for an operand: only when the character after the closing brace cannot continue a name, and
+# never the substituting forms (`${NAME:-…}`, `${NAME:+…}`). It steps from one `${` to the
+# next rather than one character at a time, because the text is a whole command line and can
+# carry a heredoc of many kilobytes. Sets FOLDED_TEXT.
+# shellcheck disable=SC2016 # the `${` patterns are literal command text, not expansions.
+fold_guarded_vars() { # fold_guarded_vars <text>
+	local left=$1 folded='' inner name rest after
+	while :; do
+		case $left in *'${'*) ;; *) break ;; esac
+		folded=$folded${left%%'${'*}
+		left=${left#*'${'}
+		case $left in
+		*'}'*) ;;
+		*)
+			folded=$folded'${'
+			continue
+			;;
+		esac
+		inner=${left%%\}*}
+		after=${left#*\}}
+		name=${inner%%[!A-Za-z0-9_]*}
+		rest=${inner#"$name"}
+		case ${after:0:1} in
+		[A-Za-z0-9_]) folded=$folded\$\{$inner\} ;;
+		*)
+			if [ -n "$name" ] && { [ -z "$rest" ] || [ "${rest#':?'}" != "$rest" ]; }; then
+				folded=$folded\$$name
+			else
+				folded=$folded\$\{$inner\}
+			fi
+			;;
+		esac
+		left=$after
+	done
+	FOLDED_TEXT=$folded$left
+}
+
 record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 	local kind=$1 w bare name entry braces=1
 	shift
@@ -3998,6 +4064,33 @@ record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 		done
 		entry="$kind $(printf '%q\n' "${norm[@]}" | LC_ALL=C sort | tr '\n' ' ')"
 	fi
+	# Behind `xargs` the operands above are not the target set: the targets are whatever its
+	# input produces at run time, so an entry keyed on them alone would be one signature for
+	# every `… | xargs rm -rf` in the session, and the first rerun would clear them all — the
+	# category one-shot this rail's rearm rule exists to refuse (AMH ledger row DB030). The
+	# input's producer is in the COMMAND TEXT, so the entry is keyed on that too, rearming per
+	# command text as the interpreter tier does, and by a digest for that tier's reason: a
+	# command line can carry a literal credential, and the state file is world-readable. The
+	# text digested is the command as the host handed it over, before either comment reading,
+	# and the entry carries the kind and NOT the operands, which the digest already covers: the
+	# two readings can hand this function different operands for one command, and keying on
+	# them made such a command prompt twice. The text is digested with `${VAR:?}` and `${VAR}`
+	# folded to `$VAR`, as `normalize_operand` folds an operand, because the advisory promises
+	# that the guarded rewrite it asks for is the rerun and not a second prompt (AMH ledger row
+	# DC004). No digest tool means no key, and this advisory then re-fires on every attempt
+	# (`DESTRUCTIVE_UNKEYABLE`): loud, the direction an advisory may fail — where the
+	# interpreter tier, with no digest, falls silent instead.
+	if [ "${DESTRUCTIVE_VIA_XARGS:-0}" -eq 1 ]; then
+		DESTRUCTIVE_XARGS=1
+		local digest
+		fold_guarded_vars "${DESTRUCTIVE_COMMAND_TEXT:-}"
+		if digest=$(interpreter_signature "$FOLDED_TEXT") && [ -n "$digest" ]; then
+			entry="xargs:$digest $kind"
+		else
+			DESTRUCTIVE_UNKEYABLE=1
+			entry="xargs:no-digest $kind"
+		fi
+	fi
 	DESTRUCTIVE_TARGETS+=("$entry")
 }
 
@@ -4030,9 +4123,13 @@ record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 # test and cannot tell a path operand from a revision one, so `git worktree add wt "$REF"`
 # arms on a commit-ish whose destination is literal and safe. Separating them needs a git
 # query, which no rail here may make.
+#
+# A THIRD way, which needs no operand at all: behind `xargs` the operands written here are only
+# the first ones, and the rest arrive from its input at run time (AMH ledger row DD062).
 operands_unknown_target() { # operands_unknown_target <whole-tree-when-empty> <operand>...
 	local empty_is_whole_tree=$1
 	shift
+	[ "${DESTRUCTIVE_VIA_XARGS:-0}" -eq 1 ] && return 0
 	[ "$#" -eq 0 ] && return "$empty_is_whole_tree"
 	local w
 	for w in "$@"; do
@@ -5102,6 +5199,7 @@ powershell_wrapper_deletion() { # powershell_wrapper_deletion <raw segment>
 
 is_ps_destructive_command() {
 	reset_destructive_state
+	DESTRUCTIVE_COMMAND_TEXT=$1
 	ps_destructive_scan "$1"
 }
 
@@ -5309,6 +5407,40 @@ check_powershell_command() {
 }
 GUARD_SHELL=bash
 
+# True when <cluster> — a short-option word after `xargs`, its leading `-` removed — ends in an
+# option whose value is the NEXT word. Every letter before the first value-taking one is a flag;
+# that one takes the rest of the cluster as its value, or the next word when nothing follows.
+# GNU's `-e`, `-i` and `-l` take an attached value only, so they never take the next word.
+xargs_short_takes_next() { # xargs_short_takes_next <cluster>
+	local opts=$1 c
+	while [ -n "$opts" ]; do
+		c=${opts:0:1}
+		opts=${opts:1}
+		case $c in
+		[adEIJLnPRSs])
+			[ -z "$opts" ]
+			return
+			;;
+		[eil]) return 1 ;;
+		esac
+	done
+	return 1
+}
+
+# True when <word> is a GNU `xargs` long option, read by unique prefix as getopt reads it, whose
+# value may be the next word. Each pair is the full name and its shortest unique prefix; an
+# ambiguous prefix such as `--max-` is refused by xargs, which then runs nothing.
+xargs_long_takes_value() { # xargs_long_takes_value <word>
+	local w=$1 pair full min
+	for pair in --arg-file:--a --delimiter:--d --max-args:--max-a --max-procs:--max-p \
+		--max-chars:--max-c --process-slot-var:--p; do
+		full=${pair%%:*}
+		min=${pair#*:}
+		case $w in "$min"*) case $full in "$w"*) return 0 ;; esac ;; esac
+	done
+	return 1
+}
+
 is_destructive_segment() {
 	local raw=$1 w cmd recursive=1 force=1 descend=1 i=0
 	local sub kind='' hard=1 staged=1 worktree_target=1
@@ -5320,10 +5452,17 @@ is_destructive_segment() {
 	DESTRUCTIVE_FROM_SCRIPT_NAME=0
 	# Per segment for the same reason: its letters describe THIS segment's leading operands.
 	DESTRUCTIVE_PLACE_KINDS=''
+	# Whether THIS segment's command runs behind `xargs` (see the arm below). A `local`, not a
+	# global reset: bash scopes it dynamically, so the functions this segment calls read it,
+	# a nested scan (a `pwsh -c` statement's own segment) gets its own and cannot clear this
+	# one, and nothing outside a segment — the next PowerShell statement, judged by arms that
+	# never enter here — inherits it.
+	local DESTRUCTIVE_VIA_XARGS=0
 	split_words "$raw"
 	words=(${SPLIT_WORDS[@]+"${SPLIT_WORDS[@]}"})
 	# Find the same leading command that leading_command reports, without treating
-	# later quoted prose or operands as commands.
+	# later quoted prose or operands as commands — and, for this rail alone, read through
+	# `xargs`, which leading_command does not.
 	while [ "$i" -lt "${#words[@]}" ]; do
 		w=${words[$i]}
 		case $w in *=*)
@@ -5334,6 +5473,48 @@ is_destructive_segment() {
 		command_word "$w"
 		case $COMMAND_WORD in
 		sudo | nohup | nice | time | command | builtin | exec | if | then | else | elif | while | until | do | '!') i=$((i + 1)) ;;
+		xargs | gxargs)
+			# `xargs` runs the command after its options with operands it reads from its input
+			# at run time, so the deletion behind it is a deletion whose targets this guard
+			# never sees. It was a named wrapper miss, filed as evasion, until a reported
+			# incident showed it as an honest mistake: an agent piped paths under
+			# `~/Library/Application Support` through `xargs -n1 dirname` into `xargs rm -rf`,
+			# xargs split each path at the space, `dirname` of the first half was `~/Library`,
+			# and that was what got deleted (AMH ledger row DD062). So this rail now reads
+			# through it, and only this rail: the secret and push rails still stop at `xargs`,
+			# because nothing here has measured what widening them would cost.
+			#
+			# Options are skipped with the union of the GNU and BSD grammars, both of which
+			# take an option's value attached or as the next word. Value-taking short
+			# options: GNU `-a -d -E -I -L -n -P -s`, BSD `-E -I -J -L -n -P -R -S -s`; GNU's
+			# `-e -i -l` take a value only when it is attached. No letter is a flag in one
+			# grammar and value-taking in the other. A GNU long option is read by unique
+			# prefix, and those whose value may be the next word are `--arg-file`,
+			# `--delimiter`, `--max-args`, `--max-procs`, `--max-chars` and
+			# `--process-slot-var`. An option outside these lists is read as a flag, so its
+			# value would be judged as the command — the usual failure direction of every list
+			# here. `gxargs` is GNU xargs as Homebrew installs it on macOS, the reported
+			# incident's platform.
+			DESTRUCTIVE_VIA_XARGS=1
+			i=$((i + 1))
+			while [ "$i" -lt "${#words[@]}" ]; do
+				w=${words[$i]}
+				case $w in
+				--)
+					i=$((i + 1))
+					break
+					;;
+				--*=*) i=$((i + 1)) ;;
+				--*)
+					if xargs_long_takes_value "$w"; then i=$((i + 2)); else i=$((i + 1)); fi
+					;;
+				-?*)
+					if xargs_short_takes_next "${w#-}"; then i=$((i + 2)); else i=$((i + 1)); fi
+					;;
+				*) break ;;
+				esac
+			done
+			;;
 		env)
 			if [ $((i + 1)) -lt "${#words[@]}" ]; then
 				case ${words[$((i + 1))]} in -*) break ;; *) i=$((i + 1)) ;; esac
@@ -5930,11 +6111,15 @@ reset_destructive_state() {
 	DESTRUCTIVE_CMD_QUOTING=0
 	DESTRUCTIVE_WORKTREE=0
 	DESTRUCTIVE_POWERSHELL=0
+	DESTRUCTIVE_XARGS=0
+	DESTRUCTIVE_UNKEYABLE=0
+	DESTRUCTIVE_COMMAND_TEXT=''
 }
 
 is_destructive_command() {
 	local cmd=$1 seg found=1
 	reset_destructive_state
+	DESTRUCTIVE_COMMAND_TEXT=$cmd
 	cmd=$(strip_heredocs "$cmd")
 	# Every destructive segment is scanned, not just the first. A command that deletes two
 	# path sets is two decisions, and the advisory should be able to name both — stopping
@@ -6761,6 +6946,37 @@ st_destructive_reason_names() { # st_destructive_reason_names <substring> <comma
 		esac
 	fi
 	rm -f -- "$state"
+	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
+}
+
+# With no digest tool an `xargs` deletion has no key, so it must be advised on EVERY attempt and
+# say why. The digest function is replaced for the duration, not the PATH, because a self-test
+# cannot assume which tools a host's PATH holds or where.
+st_destructive_xargs_unkeyable() { # st_destructive_xargs_unkeyable <command>
+	local cmd=$1 state old_set old_state saved n
+	saved=$(declare -f interpreter_signature)
+	interpreter_signature() { return 1; }
+	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
+	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-unkeyable-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	DESTRUCTIVE_ADVISORY_STATE=$state
+	for n in 1 2; do
+		if st_check "$cmd"; then
+			printf 'SELF-TEST FAIL: an xargs deletion with no digest must be advised on every attempt (attempt %s): %s\n' "$n" "$cmd" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+		else
+			case $ADVISORY_REASON in
+			*'No digest tool'*) ;;
+			*)
+				printf 'SELF-TEST FAIL: an unkeyable xargs advisory did not say why it re-fires: %s\n' "$cmd" >&2
+				ST_FAILS=$((ST_FAILS + 1))
+				;;
+			esac
+		fi
+	done
+	rm -f -- "$state"
+	eval "$saved"
 	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
 }
 
@@ -8283,6 +8499,65 @@ EOF'
 	st_destructive_advisory_once 'pnpm exec git clean -fdx'
 	# A runner option that takes a value names a package, not a command.
 	st_destructive_advisory_once 'npx -p prisma@5 prisma migrate reset'
+
+	# --- `xargs`, read through by this rail alone (AMH ledger row DD062). The reported
+	# incident's own pipeline first: its targets came from input xargs split at a space.
+	st_destructive_advisory_once 'find ~/Library/Application\ Support/AgentThreads/channels -name "test-*" -type f | xargs -n1 dirname | sort -u | xargs rm -rf'
+	st_destructive_advisory_once 'xargs -0 rm -rf < list.txt'
+	# The option grammar: a value attached inside a cluster, a value as the next word, a GNU
+	# long option shortened to a unique prefix with its value as the next word, a replacement
+	# string, the end of options, and a prefix on either side of xargs.
+	st_destructive_advisory_once 'find . -print0 | xargs -0n1 rm -rf'
+	st_destructive_advisory_once 'xargs -n 1 -P 4 rm -rf'
+	st_destructive_advisory_once 'xargs --max-a 1 rm -rf'
+	st_destructive_advisory_once 'xargs -I {} rm -rf {}'
+	st_destructive_advisory_once 'xargs --max-args=1 rm -rf'
+	st_destructive_advisory_once 'xargs --delimiter '"'"'\n'"'"' rm -rf'
+	# The two spellings the advisory itself recommends must reach the verb.
+	st_destructive_advisory_once 'xargs -d '"'"'\n'"'"' rm -rf'
+	st_destructive_advisory_once 'find . -print0 | xargs -0 rm -rf'
+	# BSD's value-taking `-J`, and GNU's `-i`, whose value is attached only.
+	st_destructive_advisory_once 'xargs -J % rm -rf % dest'
+	st_destructive_advisory_once 'xargs -i rm -rf {}'
+	st_destructive_advisory_once 'gxargs rm -rf'
+	# `--` and the long-option fallback agree on this spelling; the arm matters only for a
+	# command whose name starts with `-`.
+	st_destructive_advisory_once 'xargs -- rm -rf'
+	st_destructive_advisory_once 'sudo xargs rm -rf'
+	st_destructive_advisory_once 'xargs sudo rm -rf'
+	# The git verbs armed only on an unknown target are armed behind xargs, which adds operands —
+	# including after a literal one, which alone would leave them silent.
+	st_destructive_advisory_once 'xargs -I{} git checkout -f {}'
+	st_destructive_advisory_once 'xargs -0 git rm -r -f'
+	# A literal operand written after the verb is still judged against the target list.
+	st_destructive_never_clears 'xargs rm -rf ~' 'your home directory'
+	st_destructive_reason_names 'This runs behind `xargs`' 'find a | xargs rm -rf'
+	st_destructive_reason_lacks 'This runs behind `xargs`' 'rm -rf a'
+	# Keyed on the command text: clearing one pipeline does not clear another, which a key
+	# built from the operands alone — none here — would have.
+	st_destructive_rearms_per_target 'find a -type d | xargs rm -rf' 'find b -type d | xargs rm -rf'
+	ST_CHECKER=check_powershell_command st_destructive_rearms_per_target \
+		'Get-ChildItem a | xargs rm -rf' 'Get-ChildItem b | xargs rm -rf'
+	# A nested scan must not clear the outer segment's xargs reading: the `git status` here is
+	# judged as its own segment before the deletion beside it.
+	st_destructive_rearms_per_target 'find a | xargs pwsh -c "git status; Remove-Item -Recurse -Force x"' \
+		'find b | xargs pwsh -c "git status; Remove-Item -Recurse -Force x"'
+	# Nor may one segment's xargs reach a later segment or statement that has none.
+	st_destructive_reason_lacks 'This runs behind `xargs`' 'ls | xargs echo && rm -rf build'
+	ST_CHECKER=check_powershell_command st_destructive_reason_lacks 'This runs behind `xargs`' \
+		'echo a | xargs echo; Remove-Item -Recurse -Force x'
+	# The guarded rewrite the advisory asks for is the rerun, not a second prompt.
+	st_destructive_same_target_set 'find a | xargs rm -rf "$D/x"' 'find a | xargs rm -rf "${D:?}/x"'
+	# The two comment readings hand over different operands for this command; one rerun must
+	# still clear it.
+	st_destructive_advisory_once "find c | xargs rm -rf # don't keep these"
+	st_destructive_xargs_unkeyable 'find a | xargs rm -rf'
+	# Not a deletion: the verb lacks a flag, or xargs runs something else.
+	st_allowed 'xargs rm -f'
+	st_allowed 'xargs -n1 dirname'
+	st_allowed 'xargs echo rm -rf'
+	st_allowed 'find . -name "*.o" | xargs grep foo'
+	st_allowed 'git commit -m "guard: read through xargs rm -rf"'
 	# Global options come before the subcommand, the way the git arm has always read them.
 	st_destructive_advisory_once 'supabase --workdir . db reset'
 	st_destructive_advisory_once 'prisma db push --accept-data-loss=true'
