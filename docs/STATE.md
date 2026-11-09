@@ -26,8 +26,15 @@ session.
 
 `docs/LEDGER_D.md` is the live ledger volume.
 
-`docs/plans/2026-10-31-owner-queue-closure.md` has every unit done. A5, retiring it together with
-`docs/plans/2026-11-02-unit2-attempt-1.patch`, is what remains.
+Multi-unit work, planned: `docs/plans/2026-11-01-harness-research-gaps.md` closes the gaps a
+harness-engineering survey found. The owner adopted it on 2026-11-09. **Each unit starts only on
+the owner's explicit approval of that unit, and when the owner says to start one, the session
+first says which decisions it needs and does not start until they are answered.** A fresh-context
+review is pre-allowed for every unit.
+
+- [x] H0 — the plan committed (rev 2)
+- [ ] H0.5 — review by gpt-6-astra at `-e high` (started by the owner; waits on its mandate)
+- [ ] H1, H4a, H4b, H2, H3, H5, H6a, H6b (optional), H7, H8 — none approved yet
 
 Multi-unit work, planned: `docs/plans/2026-11-04-spill-guard-borrowings.md` closes the
 credential-handling gaps found by comparing AMH with spill-guard. The owner adopted its four
@@ -57,9 +64,6 @@ Operational gotchas:
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**OPEN — tag `amh-v16.1.1` once this tree is merged.** Tagging is an owner step. Check:
-`git ls-remote --tags origin amh-v16.1.1` — no output means it is still open.
-
 **OPEN — decide whether to plan a fix for a quote inside backticks.** Found while building Unit 2:
 bash ends a backtick substitution at the first unescaped backtick, quotes or not, and every walker
 in the command guard reads a `'` inside one as opening a string that hides the rest, so
@@ -73,10 +77,10 @@ command whose body the guard used to misread and refuse (**DD-059**).
 unjudged; measured only as the mechanism, on Linux. No Windows host here can test the proposed fix,
 and no one-line check here settles it.
 
-**OPEN — decide whether to adopt the harness-research-gaps plan,
-`docs/plans/2026-11-01-harness-research-gaps.md`, and each decision in its §1.** It is committed
-as a draft, and nothing in it is approved. No unit starts without the owner's approval of that
-unit.
+**OPEN — decide H0.5's reviewer mandate (research-gaps plan).** May gpt-6-astra overturn that
+plan's decisions and add, rewrite or reorder units, as N1 could for the cc-safety-net plan, or only
+report findings for the owner to rule on? H0.5 does not run until this is answered. The plan's other
+§1 decisions are asked when the unit each one belongs to is started.
 
 **OPEN — decide whether to adopt rev 2 of the cc-safety-net plan,
 `docs/plans/2026-11-09-cc-safety-net-borrowings.md`, and which units.** Its N1 review is folded, and
@@ -120,6 +124,12 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-09 — **Research-gaps plan adopted by the owner, with H0.5 added;** fresh-context review
+  pre-allowed for every unit. `amh-v16.1.1` found on origin, at the merged 16.1.1, so that queue
+  item is done. Owner-queue-closure plan's A5 done: the plan is in `docs/history/`, and its
+  attempt-1 patch is deleted (it applied only to a commit `main` does not contain; recoverable from
+  that tag).
 
 - 2026-11-09 — **16.1.1 drafted as PATCH, on the owner's choice,** for the fixes below; the version
   queue item is answered and the tag is queued.

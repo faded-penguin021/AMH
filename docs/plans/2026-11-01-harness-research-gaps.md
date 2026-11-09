@@ -1,8 +1,10 @@
 # PLAN — close the gaps a harness-engineering survey found in AMH
 
-> **Status: rev 2, committed 2026-11-01 at the owner's request as an open draft. It is NOT
-> owner-approved, and every decision in §1 remains open.** No unit starts without the owner's
-> explicit approval of that unit; approving the plan approves no unit.
+> **Status: rev 2, committed 2026-11-01 as an open draft; adopted by the owner on 2026-11-09, with
+> an added unit, H0.5, to run first. §1 says which decisions are answered.** No unit starts without
+> the owner's explicit approval of that unit; adopting the plan approves no unit. When the owner
+> says to start a unit, the session first tells the owner which decisions that unit needs, if any,
+> and does not start it until they are answered.
 > Rev 2 folds in an external review of rev 1 (verdict REVISE_PLAN, nine findings). Each finding
 > was re-checked against this tree before it was accepted (§7).
 > **Every measurement in §2 is re-taken when the unit that acts on it starts.**
@@ -16,14 +18,13 @@ rows. Code cites ledger rows and never this file, and no ledger row may cite thi
 When the work is done, archive this file to `docs/history/` or delete it (`docs/RUNBOOK.md` →
 **Session discipline** 5).
 
-Unit names carry an `H` prefix so they cannot be confused with the open owner-queue-closure
-plan's Units 0–4.
+Unit names carry an `H` prefix so they cannot be confused with the owner-queue-closure plan's
+Units 0–4.
 
-## 1. Owner decisions this plan needs (all open)
+## 1. Owner decisions this plan needs
 
-1. **Whether to adopt it, and when.** Recommendation: start only after that plan's Phase A ships
-   and tags 16.0.0. Then nothing here rides the 16.0.0 draft, and H2's edits to `AGENTS.md` cannot
-   collide with that plan's guard units.
+1. **Whether to adopt it, and when.** **Answered by the owner on 2026-11-09: adopted**, after that
+   plan's Phase A shipped and tagged 16.0.0, so nothing here rides that draft.
 2. **Version semantics for each unit** (**Session discipline** 7(c)). H3 changes the adopter
    file layout and H4b changes what an adopter's agent can do, so each is at least MINOR and
    possibly MAJOR.
@@ -40,7 +41,10 @@ plan's Units 0–4.
 7. **H6a, H6b and H7: the owner launches subject runs** (**DB-024**), picks the models, and
    decides whether H6b is worth building at all.
 8. **One fresh-context reviewer, at the strongest available tier, for each legislation unit:
-   H2, H3, H4b, H5, H6b, H7 and H8.** Everything under `harness/templates/`, every guard and
+   H2, H3, H4b, H5, H6b, H7 and H8.** **Answered by the owner on 2026-11-09, and widened: a
+   fresh-context review is pre-allowed for every unit**, so a unit whose "Pass owed" line says none
+   may still take one. It stays one reviewer at a time, and it blocks (`docs/RUNBOOK.md` →
+   **Session discipline** 1). Everything under `harness/templates/`, every guard and
    every adapter permission rail is legislation, whatever the diff's size (`docs/RUNBOOK.md` →
    **Rule-review protocol**). This lifts the standing no-subagents instruction for exactly that
    pass. H4b's rule-review and adversarial checklists go to **one** combined blocking pass, so
@@ -121,9 +125,9 @@ is evidence about AMH itself.
    which tools the sandbox covers at all. Claims are made per platform and per execution path,
    and each one is tied to the probe that showed it.
 
-## 5. The units: H0, H1, H4a, H4b, H2, H3, H5, H6a, H6b, H7, H8
+## 5. The units: H0, H0.5, H1, H4a, H4b, H2, H3, H5, H6a, H6b, H7, H8
 
-The order runs: measurement first, then the safety design and its build, then the context work
+The order runs: H0.5's review, then measurement, then the safety design and its build, then the context work
 that H1 informs, then the lab. H8 is independent, and the owner may approve it at any point.
 H6b is optional.
 
@@ -134,6 +138,15 @@ H6b is optional.
   owner approves the plan (**Session discipline** 5).
 - **Pass owed:** none beyond the ladder. The plan is not legislation.
 - **Acceptance:** `scripts/ladder.sh --guards-only` green.
+
+### H0.5 — review this plan with gpt-6-astra at `-e high` (docs-only; added by the owner, 2026-11-09)
+
+- **Why:** the owner's ask when adopting the plan. Rev 2 predates 16.1.x and the two later plans
+  that touch the same files.
+- **Status:** the owner has said to start it. **It waits on one owner decision: the reviewer's
+  mandate**, recorded in the Owner queue. Nothing runs until that is answered.
+- **Pass owed:** this unit is the pass. One fresh-context reviewer, read-only.
+- **Acceptance:** set when the mandate is answered.
 
 ### H1 — inventory what each session must read, item by item (docs-only, measurement)
 
