@@ -6,6 +6,10 @@
 > it authority to overturn this plan's decisions and to add or rewrite its units (§2, decision 2).
 > Each later unit starts only on the owner's explicit approval of that unit, and N1 approves none.
 > **Every measurement in §3 is re-taken when the unit that acts on it starts.**
+> Amended 2026-11-09 without a new revision, on the owner's ask: the plan was cross-checked
+> against the harness-research-gaps plan so that neither plan duplicates the other. §1.1 lists
+> what that plan owns. As a result N6 moved to deferred, and four §5 entries now point at that
+> plan or at the decisions it cites instead of arguing afresh (§7).
 
 The plan is provisional while it is live. Its durable outcomes go to Changelog lines and ledger
 rows. Code cites ledger rows and never this file, and no ledger row may cite this file's path.
@@ -54,6 +58,25 @@ command it denies and AMH allows is a question for this plan, not a defect on it
   5,502 are allowed, 1,476 are denied and 5 fail closed. These counts were taken with
   `python3 -I` over each row's `work/standard` field.
 
+### 1.1 What the research-gaps plan already owns
+
+The harness-research-gaps plan, `docs/plans/2026-11-01-harness-research-gaps.md`, is an open
+draft. Several cc-safety-net themes fall under it. This plan does not restate them; it points at
+them. Nothing below changes that plan, and moving an item between the two plans is the owner's
+call.
+
+| cc-safety-net theme | Owned by | What this plan does |
+|---|---|---|
+| Containment: its own README says it "is not a sandbox", and its residual-risk records name OS-level enforcement as the complete mitigation | Research-gaps §3 row 9, lesson 4, H4a and H4b: the filesystem write boundary, the network allowlist and credential isolation, per platform | Every unit here is an in-agent rail. None claims containment, and each unit's refusal says so. Each unit matters most on the cells that H4a's matrix leaves unsandboxed. |
+| Metadata endpoints and uploads to a remote host are network questions | H4b's network allowlist, where a sandbox runs | N6 is deferred behind H4a (§4.2). N3 keeps only the slice an in-agent rail can see: a file the rail already lists. |
+| Deleting outside the working tree (`rm.recursive-force-outside-cwd`) | H4a's "legitimate access outside the working tree" item | Not taken (§5). |
+| How an agent behaves after a refusal (cc-safety-net's `evals/` test something else; §5) | H7 (refused deletions leave no prohibited effect) and H6a (replication across models) | Nothing. |
+| Checking that a hook is installed or fired; an audit log | Decided non-items **DA-022**, **DA-024** and **DA-025**, which H7 also cites | Not taken (§5). |
+| Outside evidence and the incident bar | Research-gaps lesson 1 | Applied, not restated. N2 measures and sends what it finds to the owner. N9 waits for incidents. |
+
+**One file-level overlap.** H4b and N4 both edit the Claude adapter, its template and
+`scripts/guards/adapter-set.sh`. Whichever lands second rebases onto the other (§2, decision 3).
+
 ## 2. Owner decisions
 
 1. **Whether to adopt the plan, and which units.** Open. N1 comes first and may change the
@@ -71,6 +94,9 @@ command it denies and AMH allows is a question for this plan, not a defect on it
      (**DB-027**, **DC-007**, **DC-027**, **DA-022** and the STATE Decided non-items) and the
      `AGENTS.md` hard boundaries. N1 may recommend reopening one. That recommendation becomes an
      Owner-queue item, not a change in rev 2.
+   - **Also outside it:** the research-gaps plan, which has its own open decisions. N1 may
+     recommend moving an item between the two plans. That recommendation also goes to the Owner
+     queue.
    - **Not granted:** approval to execute any unit. The per-unit approval rule stands.
 3. **Release placement.** Open.
    - Recommendation: not the open 16.1.0 draft, whose units are done and whose merge is queued.
@@ -78,9 +104,11 @@ command it denies and AMH allows is a question for this plan, not a defect on it
    - How these units interleave with the spill-guard units is the owner's call. Those are S1, S2,
      S6a and S3, which the owner adopted for the release after 16.0.0. N7 shares the
      wrapper-peeling code with S6a (§4.1).
-4. **One fresh-context reviewer per code unit.** Open. N3 to N7 each change a shipped script and
-   guard semantics, so each is in **Rule-review protocol** scope. Recommendation: one pass each,
-   as the spill-guard plan's decision 4 granted.
+   - The same goes for the research-gaps plan, if it is adopted. N4 and H4b edit the same
+     adapter files (§1.1).
+4. **One fresh-context reviewer per code unit.** Open. N3, N4, N5 and N7 each change a shipped
+   script and guard semantics, so each is in **Rule-review protocol** scope. So would N6, if it
+   is promoted. Recommendation: one pass each, as the spill-guard plan's decision 4 granted.
 5. **Version semantics** stay provisional until each unit's final behavioural change is known
    (**Session discipline** 7(c)). Every proposed unit adds refusals and removes none.
 
@@ -310,25 +338,25 @@ Every row is ALLOW in AMH.
 
 ## 4. The units
 
-**Common rules for every code unit (N3–N7).** Each follows `docs/RUNBOOK.md` → **Change a shipped
-script**:
+**Common rules for every code unit (N3, N4, N5, N7, and N6 if promoted).** Each follows
+`docs/RUNBOOK.md` → **Change a shipped script**:
 - the template first, then `bash -n`, the copy down and `scripts/build-manifest.sh`;
 - a `--self-test` fixture shown to FAIL against the old script;
 - the **Rule-review protocol** and the full `scripts/ladder.sh`;
 - a STATE Changelog line, and a ledger row for the rail change.
 
-Each new refusal says what it does not cover, as the guard's existing refusals do.
+Each new refusal says what it does not cover, as the guard's existing refusals do. None of them
+claims containment, which is the research-gaps plan's H4a and H4b (§1.1).
 
 **Machine mode.** Each unit also states its effect on machine mode (**DD-063**). Machine mode
-keeps the credential block tier whole, so N3, N4 and N6 widen it too. It keeps only the permanent
+keeps the credential block tier whole, so N3 and N4 widen it too. It keeps only the permanent
 denials of the destructive rail, so N5 does not reach it. N7's reading reaches whatever machine
 mode keeps.
 
-**Order: N0 → N1 → N2 → N3 → N4 → N5 → N6 → N7.**
+**Order: N0 → N1 → N2 → N3 → N4 → N5 → N7.** N6 is deferred (§4.2).
 - N2 is cheap and may change the selection.
 - N3 and N4 widen the same block tier and carry the highest confidentiality value.
 - N5 repairs a gate against its own stated rule.
-- N6 is a new class.
 - N7 is the largest and touches the wrapper code that S6a also changes.
 
 N1 may reorder any of this.
@@ -356,6 +384,8 @@ reviewer, and it blocks (**Session discipline** 1). Its authority is §2, decisi
 - In `scripts/command-guard.sh`: the header, from the top through **MACHINE MODE**, and the
   comment above `operands_unknown_target`.
 - The ledger rows this plan cites.
+- From the research-gaps plan: §3 row 9, §4, H4a, H4b and H7. These are what §1.1 says that plan
+  owns.
 - cc-safety-net at `aaee001`. Reading it is enough; the reviewer may run it.
 
 **What the reviewer does first.** It replays §3 with the script above, and the
@@ -366,12 +396,15 @@ scratch-repository checkout measurement. A row that does not replay is a finding
    particular:
    - Is N7's shape a mistake, which is the guard's target? Or is it an evasion, which the guard's
      second design rule accepts as a miss?
-   - Do N4 and N6 need public incidents?
+   - Does N4 need public incidents?
    - What tier does N3 need?
    - Is N4's precision enough for stores that are mixed config files?
-2. For each deferred or not-taken shape: should it be promoted, and on what evidence?
+2. For each deferred or not-taken shape: should it be promoted, and on what evidence? N6 above
+   all.
 3. What cc-safety-net has that this plan missed.
-4. The unit order, and how these units interleave with the spill-guard units.
+4. Whether any unit here duplicates the research-gaps plan, or belongs there instead.
+5. The unit order, and how these units interleave with the spill-guard units and the
+   research-gaps units.
 
 **What the reviewer delivers.** Findings, each with a severity, the section or unit it changes,
 the decision (overturn, add, rewrite or keep) and its evidence. Then a one-line verdict.
@@ -461,6 +494,10 @@ judged only when the operand they send names a file the rail already recognises:
 **Evidence.** A coverage defect in an existing class: a secret copied by `cp` is refused, and the
 same secret sent by `curl` is not. Rev 1 reads that as needing no new incident.
 
+**Not containment.** Where a sandbox runs, H4b's network allowlist bounds where any file can be
+sent. N3 sees only a listed file named in the command text. It covers every cell, including the
+cells H4a leaves unsandboxed, and its refusal claims nothing more.
+
 #### N4 — credential stores that coding agents keep at a fixed path (rule widening; block tier; DD-052's class)
 
 **Vendor verification first.** Each path comes from the tool's own documentation or source, at a
@@ -520,32 +557,6 @@ recognised at all".
 - The scratch-repository measurement in §3 shows the discard.
 - cc-safety-net's table has a matching deny for `git checkout -- .` and for `git checkout -f`.
 
-#### N6 — cloud instance-metadata credential endpoints (new rail; credential tier)
-
-**Scope.** A `curl` or `wget` URL that names one of the §3.5 hosts, including bracketed IPv6
-spellings.
-
-**Tier (rev 1's recommendation).**
-- **Block** when the path names a credential endpoint:
-  - AWS `/latest/meta-data/iam/security-credentials`;
-  - ECS `169.254.170.2/v2/credentials`;
-  - GCP `…/service-accounts/…/token` and `…/identity`;
-  - Azure `/metadata/identity/oauth2/token`.
-
-  Every one of these paths is verified against vendor documentation first.
-- **One-time advisory** for any other path on those hosts. Instance-id and region lookups are
-  ordinary infrastructure debugging.
-
-cc-safety-net refuses the host outright.
-
-**Not covered, and the refusal says so.**
-- An SDK or interpreter that fetches the endpoint.
-- `nc`, a DNS alias, or a URL built from a variable.
-
-**Evidence.** This session searched for no incident. **DD-052** rested on a reported incident, so
-"the hard boundary forbids it" is a weaker basis than that row had. N1 decides whether this unit
-waits for one.
-
 #### N7 — read the command string after `bash -c` (rail change; the largest unit)
 
 **The licence to look comes from the command,** as **DD-019** requires of the interpreter tier.
@@ -594,11 +605,46 @@ measured its own.
 - Rev 1's reading: agents write `bash -c` for ordinary reasons, such as a login shell, `set -e`,
   or a tool that takes one command string. So the text inside it is a surface for mistakes, not a
   trick. That is an estimate, not a measurement. N1 decides.
+- **Where it matters most.** Once H4b lands, a `bash -c` deletion outside the working tree would
+  be contained wherever its sandbox runs, whatever this rail reads. N7 matters most on the cells
+  H4a leaves unsandboxed, and for what a sandbox allows inside the tree, such as `rm -rf build`
+  or a force push.
 
 **Interplay with S6a.** S6a peels options on `sudo`, `nice` and `time`. With both units in place,
 `sudo -u x bash -c '…'` reaches the inner check. Neither depends on the other.
 
 ### 4.2 Deferred
+
+#### N6 — cloud instance-metadata credential endpoints (deferred behind H4a)
+
+**Why it is deferred.** The fetch in §3.5 is a network request. Where a sandbox runs, the
+research-gaps plan's H4b network allowlist contains it better than a command-text rail can, and
+it covers the SDKs and interpreters a rail never sees. N6 also has no AMH incident; this session
+searched for none. Under that plan's lesson 1, a unit backed only by outside evidence measures
+first. **DD-052** added its stores on a reported incident, so "the hard boundary forbids it" is a
+weaker basis than that row had.
+
+**What would reopen it.** Either of these:
+- H4a's matrix shows a cell where no network allowlist runs: native Windows, or a host whose
+  sandbox is unverified (H4a says Codex's platform support has not been verified).
+- An incident is reported.
+
+**The design kept for that case.**
+- **Scope:** a `curl` or `wget` URL that names one of the §3.5 hosts, including bracketed IPv6
+  spellings.
+- **Block** when the path names a credential endpoint:
+  - AWS `/latest/meta-data/iam/security-credentials`;
+  - ECS `169.254.170.2/v2/credentials`;
+  - GCP `…/service-accounts/…/token` and `…/identity`;
+  - Azure `/metadata/identity/oauth2/token`.
+
+  Every one of these paths is verified against vendor documentation first.
+- **One-time advisory** for any other path on those hosts. Instance-id and region lookups are
+  ordinary infrastructure debugging.
+- **Stated as not covered:** an SDK or interpreter fetching the endpoint, `nc`, a DNS alias, and a
+  URL built from a variable.
+
+cc-safety-net refuses the host outright.
 
 #### N8 — a narrow `find` arm for the permanent targets (deferred; DD-018 measured it)
 
@@ -661,6 +707,9 @@ until N2's report, or another corpus, can give the cost a number.
   - `AGENTS.md` requires destructive tests to run in a `mktemp -d`, which is outside the working
     directory by construction. So that rule would refuse the practice the constitution mandates.
   - The one-time advisory already stops such a deletion once: `rm -rf ../outside` is ADV.
+  - The boundary itself belongs to the research-gaps plan. Its H4a, not yet built, specifies it
+    as containment rather than as a command-text rule, with temporary directories, caches and git
+    worktrees as legitimate access outside the tree.
 - **Allowing `--force-with-lease`.** An `AGENTS.md` hard boundary says never force-push.
 - **Treating the coding CLIs' config files as secrets.** These are `.claude/settings.json`,
   `~/.claude.json`, `.mcp.json`, `~/.codex/config.toml` and the rest.
@@ -699,6 +748,9 @@ until N2's report, or another corpus, can give the cost a number.
   AMH ships scripts and adapters in each repository. Machine mode (**DD-063**) is its user-level
   counterpart.
 - **An audit log of every decision, and replaying it.**
+  - The research-gaps plan's H7 records that hook markers and run receipts were refused
+    (**DA-024**, **DA-025**). A log of the guard's decisions is the same kind of record.
+    Reopening it is the owner's call (§2, decision 2).
   - Command text can hold a literal credential. Comments in `scripts/command-guard.sh` note that
     its advisory state file is world-readable, sits at a predictable path and outlives the
     session. That is why the interpreter tier's rearm key is a digest; a self-test keeps it
@@ -707,14 +759,17 @@ until N2's report, or another corpus, can give the cost a number.
   - N10 needs a corpus for the same reason. A corpus has to come from somewhere other than
     logging live sessions, unless the owner decides otherwise.
 - **Its LLM evals (`evals/`).** They test its own `/cc-safety-net` skill explaining a block, not
-  how an agent behaves after a refusal. Nothing there carries over. A behavioural test of AMH's
-  refusals belongs with the research-gaps plan's H6a, not here.
+  how an agent behaves after a refusal. Nothing there carries over. How an agent behaves after a
+  refused deletion is the research-gaps plan's H7, replicated across models by its H6a.
 - **Its residual-risk JSON registry, adjudicated by an independent classifier.** The ledger and
   the guard header's index already hold that record. A classifier's agreement consumed as a
   gate's input is the **D-014** shape that an `AGENTS.md` hard boundary forbids.
-- **`doctor`-style verification that the hook is installed.** `scripts/guards/adapter-set.sh` and
-  the session banner already cover what can be checked. Observing a hook fire needs one vendor's
-  signals (**DA-022**).
+- **`doctor`-style verification that the hook is installed.**
+  - **DA-024** refused a `runtime-doctor.sh`, and **DA-022** refused hook-invocation detection,
+    because observing a hook fire needs one vendor's signals.
+  - `scripts/guards/adapter-set.sh` and the session banner already cover what can be checked.
+  - The research-gaps plan's lesson 4 says the rest: a check of the configuration is not a check
+    of the runtime.
 
 ## 6. Not verified
 
@@ -724,7 +779,7 @@ until N2's report, or another corpus, can give the cost a number.
   with vendor verification. The "drafting session" rows are from memory.
 - Each §3.5 host and each credential path N6 names.
 - Whether any metadata endpoint is reachable from this cloud session. Checking would mean making
-  the very fetch N6 refuses.
+  the very fetch N6 would refuse.
 - Public incidents for any §3.6 shape. None was searched for.
 - How Codex's hook payload presents a command, and whether it arrives wrapped in `bash -lc`. Not
   checked; it bears on how much N7 is worth for the Codex adapter.
@@ -734,3 +789,15 @@ until N2's report, or another corpus, can give the cost a number.
 
 - **Rev 1 (2026-11-09):** drafted and committed (N0) on the owner's ask, after the chat comparison.
   It corrects that report's `git switch --discard-changes` claim (§3.2).
+- **Rev 1, amended (2026-11-09):** on the owner's ask, cross-checked against the
+  harness-research-gaps plan so that neither plan duplicates the other. The amendment:
+  - adds §1.1, which lists what that plan owns;
+  - moves N6 to deferred, behind H4a, since a network allowlist contains that fetch where a sandbox
+    runs and N6 has no AMH incident;
+  - adds one line each to N3 and N7 saying neither is containment;
+  - points four §5 entries at that plan or at **DA-022**, **DA-024** and **DA-025**: deleting
+    outside the tree, the evals, the audit log and `doctor`. The evals entry now names H7, not
+    H6a.
+
+  It also adds that plan to N1's reading and its questions, and puts it outside N1's mandate.
+  No measurement changed.
