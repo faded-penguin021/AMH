@@ -356,9 +356,11 @@ for declaration in "${ADAPTERS[@]}"; do
 				MATCHER="\"matcher\": \"$matcher\"," awk '
 				{ n++; line = $0; sub(/^[[:space:]]*/, "", line); L[n] = line }
 				/^[[:space:]]*"matcher":/ { m = line }
-				line == ENVIRON["EXPECT"] { hits++; k = n; km = m }
+				/^[[:space:]]*"[A-Z][A-Za-z]*": \[$/ { ev = line }
+				line == ENVIRON["EXPECT"] { hits++; k = n; km = m; kev = ev }
 				END {
 					if (hits != 1) { print "MISSING " hits + 0; exit }
+					if (kev != "\"PreToolUse\": [") { print "EVENT"; exit }
 					if (km != ENVIRON["MATCHER"]) { print "MATCHER"; exit }
 					if (L[k - 3] != "{" || L[k - 2] != "\"type\": \"command\"," ||
 						L[k - 1] != "\"shell\": \"bash\"," || L[k + 1] != "\"onFailure\": \"block\"" ||
@@ -372,6 +374,10 @@ for declaration in "${ADAPTERS[@]}"; do
 				note "$settings: the PreToolUse $label entry was not found exactly once (found ${verdict#MISSING }) as its exact shipped command line, Windows comment included. A missing entry, a changed or appended command such as \`|| true\`, and a dropped comment all land here; the comment is what a Windows host without Git Bash shows the owner when every call is refused (DD-040)"
 				entry_fails=1
 				;;
+			EVENT)
+				note "$settings: the $label entry does not sit under \"PreToolUse\" — under any other event it runs after the command or never, and blocks nothing (DD-070)"
+				entry_fails=1
+				;;
 			MATCHER)
 				note "$settings: the PreToolUse $label entry does not sit under \"matcher\": \"$matcher\" — under any other matcher it never fires (DD-040)"
 				entry_fails=1
@@ -381,6 +387,35 @@ for declaration in "${ADAPTERS[@]}"; do
 				entry_fails=1
 				;;
 			esac
+		done
+		# The PostToolUse check above reads its group from the key, so it has the event already.
+		# The bootstrap is the one hook nothing else ties to an event: under another event it
+		# runs at the wrong moment or never, and the session starts with no pre-push rail.
+		session_event=$(EXPECT="\"command\": ${CLAUDE_ROOT}scripts/session-start.sh\"" awk '
+			{ line = $0; sub(/^[[:space:]]*/, "", line) }
+			/^[[:space:]]*"[A-Z][A-Za-z]*": \[$/ { ev = line }
+			line == ENVIRON["EXPECT"] { hits++; kev = ev }
+			END { if (hits != 1) print "MISSING " hits + 0; else print kev }
+		' "$settings")
+		case $session_event in
+		'"SessionStart": [') ;;
+		MISSING*)
+			note "$settings: the session bootstrap hook was not found exactly once (found ${session_event#MISSING }) as its exact shipped command line (DD-070)"
+			entry_fails=1
+			;;
+		*)
+			note "$settings: the session bootstrap hook does not sit under \"SessionStart\" — under any other event it runs at the wrong moment or never (DD-070)"
+			entry_fails=1
+			;;
+		esac
+		# Each event key once, counted at any layout: JSON keeps the LAST of two keys, so a second,
+		# empty array under the same event governs while every line-based read above still vouches.
+		for event in PreToolUse PostToolUse SessionStart; do
+			event_keys=$(grep -o "\"$event\"[[:space:]]*:" "$settings" | wc -l | tr -d ' ')
+			if [ "$event_keys" -ne 1 ]; then
+				note "$settings: $event_keys \"$event\" key(s) found, so which array governs is UNVERIFIED — JSON keeps the last of two, and an empty one leaves every hook under this event wired and never run (DD-070)"
+				entry_fails=1
+			fi
 		done
 		[ "$entry_fails" -eq 1 ] || [ "$anchored" -ne "$keys" ] || claude_anchor_files=$((claude_anchor_files + 1))
 	done
@@ -423,6 +458,14 @@ for declaration in "${ADAPTERS[@]}"; do
 			note "$settings: permissions.deny does not carry $HOOK_FILE_DENY — without it the file-editing tools can rewrite or empty the git pre-push hook, which the command guard never sees them touch. A \`Write(...)\` path rule never matches, and a single leading \`/\` misses a linked worktree's hooks (DD-051)"
 		else
 			claude_hookfile=$((claude_hookfile + 1))
+		fi
+		# The root-anchored spellings of the /proc rails: a single leading slash in a settings file
+		# does not name the filesystem root, so without these the rail may reach nothing (DD-070).
+		if [ "$deny_keys" -eq 1 ] && [ -n "$deny" ]; then
+			for rule in '"Read(//proc/*/environ)"' '"Read(//proc/**/environ)"'; do
+				printf '%s\n' "$deny" | sed 's/^[[:space:]]*//; s/,$//' | grep -qxF -- "$rule" && continue
+				note "$settings: permissions.deny does not carry $rule — a single leading slash does not name the filesystem root, so the /proc rail may never reach /proc (DD-070)"
+			done
 		fi
 	done
 done
@@ -482,6 +525,10 @@ else
 		note "$MACHINE_TEMPLATE: the machine-mode hook is not exactly {\"type\": \"command\", \"shell\": \"bash\", its command, \"onFailure\": \"block\"} — an unpinned or fail-open entry lets a guard that cannot run pass every call unjudged (DD-040)"
 		;;
 	esac
+	machine_event_keys=$(grep -o '"PreToolUse"[[:space:]]*:' "$MACHINE_TEMPLATE" | wc -l | tr -d ' ')
+	if [ "$machine_event_keys" -ne 1 ]; then
+		note "$MACHINE_TEMPLATE: $machine_event_keys \"PreToolUse\" key(s) found, so which array governs is UNVERIFIED — JSON keeps the last of two, and an empty one leaves the machine-mode hook wired and never run (DD-070)"
+	fi
 	# One "deny" key, for the reason the pre-push hook check above counts them: JSON keeps the LAST
 	# of two, so the range below would read an array that does not govern.
 	machine_deny_keys=$(grep -o '"deny"[[:space:]]*:' "$MACHINE_TEMPLATE" | wc -l | tr -d ' ')

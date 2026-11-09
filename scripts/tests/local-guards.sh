@@ -744,6 +744,59 @@ sed_in_place 's|/scripts/command-guard.sh # On|/scripts/command-guard.sh --pre-t
 expect fail "adapter-set: the command guard hook is not found exactly once" "$d" adapter-set.sh \
 	"PreToolUse command-guard hook was not found exactly once"
 
+# The event key each project-adapter hook sits under (DD-070): the exact entry under the wrong event
+# runs after the command it was meant to stop, or never. The first two are the review's mutation.
+d=$(snapshot adapter_claude_pre_wrong_event_template)
+sed_in_place 's/"PreToolUse": \[/"Stop": [/' "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: the template's PreToolUse hooks moved to another event" "$d" adapter-set.sh \
+	"does not sit under \"PreToolUse\""
+
+d=$(snapshot adapter_claude_pre_wrong_event_reference)
+sed_in_place 's/"PreToolUse": \[/"Stop": [/' "$d/.claude/settings.json"
+expect fail "adapter-set: the reference copy's PreToolUse hooks moved to another event" "$d" adapter-set.sh \
+	"does not sit under \"PreToolUse\""
+
+d=$(snapshot adapter_claude_session_wrong_event)
+sed_in_place 's/"SessionStart": \[/"Stop": [/' "$d/.claude/settings.json"
+expect fail "adapter-set: the session bootstrap hook moved to another event" "$d" adapter-set.sh \
+	"does not sit under \"SessionStart\""
+
+d=$(snapshot adapter_claude_session_hook_gone)
+sed_in_place 's|/scripts/session-start.sh"|/scripts/session-start.sh --x"|' "$d/.claude/settings.json"
+expect fail "adapter-set: the session bootstrap hook is not found exactly once" "$d" adapter-set.sh \
+	"session bootstrap hook was not found exactly once"
+
+# A second array under one event key: JSON keeps the last, so an empty one disables every hook under
+# that event while each line-based read still finds them. Found by the rule review of DD-070.
+d=$(snapshot adapter_claude_duplicate_pretooluse)
+sed_in_place 's|^    "PostToolUse": \[$|    "PreToolUse": [],\
+    "PostToolUse": [|' "$d/.claude/settings.json"
+expect fail "adapter-set: a second PreToolUse array" "$d" adapter-set.sh \
+	'2 "PreToolUse" key(s) found'
+
+d=$(snapshot adapter_claude_duplicate_sessionstart)
+sed_in_place 's|^    "PostToolUse": \[$|    "SessionStart": [],\
+    "PostToolUse": [|' "$d/.claude/settings.json"
+expect fail "adapter-set: a second SessionStart array" "$d" adapter-set.sh \
+	'2 "SessionStart" key(s) found'
+
+d=$(snapshot adapter_machine_duplicate_pretooluse)
+sed_in_place 's|^  "hooks": {$|  "hooks": {\
+    "PreToolUse": [],|' "$d/harness/templates/configs/claude-machine-settings.json"
+expect fail "adapter-set: a second PreToolUse array in the machine template" "$d" adapter-set.sh \
+	'2 "PreToolUse" key(s) found'
+
+# The root-anchored /proc rails (DD-070), in either copy.
+d=$(snapshot adapter_claude_proc_rail_gone_template)
+sed_in_place '/"Read(\/\/proc\/\*\/environ)",/d' "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: the template dropped a root-anchored /proc rail" "$d" adapter-set.sh \
+	'does not carry "Read(//proc/*/environ)"'
+
+d=$(snapshot adapter_claude_proc_rail_gone_reference)
+sed_in_place '/"Read(\/\/proc\/\*\*\/environ)",/d' "$d/.claude/settings.json"
+expect fail "adapter-set: the reference copy dropped a root-anchored /proc rail" "$d" adapter-set.sh \
+	'does not carry "Read(//proc/**/environ)"'
+
 # The machine-mode template (DD-063): a user-level fragment no ladder can see once it is installed,
 # so each way of shipping it wrong fails here. A hook without `--machine` would install the full
 # project guard for every session on the machine.

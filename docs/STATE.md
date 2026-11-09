@@ -57,11 +57,11 @@ Operational gotchas:
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**OPEN — decide whether to fix the interpreter and hook-file advisories going silent with no
-digest tool.** Found by the `xargs` unit's review: their comment in `scripts/command-guard.sh`
-says such an advisory re-fires, but `interpreter_signature` failing returns before it fires, and
-the same comment cites DC-004 for the one-shot rule DB-030 states. Reported by that reviewer,
-measured with a `PATH` holding no `sha256sum`, `shasum` or `cksum`; no one-line check here.
+**OPEN — choose the version number before this tree goes to a pull request.** It carries guard and
+adapter fixes (**DD-070**, **DD-071**) while `harness/VERSION` still equals the newest tag, so CI's
+lockstep rung fails on a PR until you pick one. Recommended: PATCH, 16.1.1; adopters may hand-apply
+the `//proc` rails and need do nothing else. Check: `scripts/guards/version-lockstep.sh
+--against-latest-tag` — a non-zero exit means the number is still unset.
 
 **OPEN — decide whether to plan a fix for a quote inside backticks.** Found while building Unit 2:
 bash ends a backtick substitution at the first unescaped backtick, quotes or not, and every walker
@@ -70,13 +70,6 @@ in the command guard reads a `'` inside one as opening a string that hides the r
 Check: `scripts/command-guard.sh --command "echo \`echo 'x\`; printenv"` — exit status 0 means
 it is still open. Unit 4 now reads heredoc bodies as bash does, so this gap also reaches a
 command whose body the guard used to misread and refuse (**DD-059**).
-
-**OPEN — decide whether to fix three gaps the machine-mode review found outside its unit
-(evidence: **DD-068**).** (1) `scripts/redact-tool-output.sh` starts Python with `-c` and no `-I`,
-so a `json.py` in the session's folder stands redaction down. (2) `scripts/guards/adapter-set.sh`'s
-pins on the project adapter do not read each hook's event key. (3) The adapter's one-slash
-`Read(/proc/*/environ)` rails may never reach `/proc`. Check for (1):
-`grep -c '"$PY" -c ' scripts/redact-tool-output.sh` — a count above 0 means it is still open.
 
 **OPEN — decide whether to fix the command guard's payload parser on a non-UTF-8 code page
 (evidence: **DD-069**).** Its text stdio swallows an encode or decode error, so the command passes
@@ -130,6 +123,10 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-09 — **Two Owner-queue items closed on the owner's ask.** The interpreter and hook-file
+  advisories re-fire with no digest tool (**DD-071**), and the machine-mode review's three gaps are
+  fixed (**DD-070**). A runbook recipe now covers a branch that outlives its squash merge.
 
 - 2026-11-09 — **N1 of the cc-safety-net plan done: gpt-6-astra's review folded into rev 2.** It
   rewrote most units and approved none; the plan's §8 has a row for each finding.

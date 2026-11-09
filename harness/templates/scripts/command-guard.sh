@@ -1829,7 +1829,7 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 	elif [ "$name" = interpreter ] || [ "$name" = hookfile ]; then
 		# The hook-file tier rearms the same way, per command text: removing the hook at minute
 		# two must not buy silence for moving it aside at minute forty.
-		# Rearmed per COMMAND TEXT, for the reason AMH ledger row DC004 forced on the
+		# Rearmed per COMMAND TEXT, for the reason AMH ledger row DB030 forced on the
 		# destructive rail: a per-session one-shot is spent by the first harmless match and
 		# silent for every deletion after it. Two different one-liners are two decisions.
 		# A DIGEST, and never the command text, for two reasons the other tiers do not have.
@@ -1842,11 +1842,18 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# and turn "rerun to proceed" into a command that can never run. Flattening newlines
 		# first closes that; hashing closes both. No digest tool means no signature, and the
 		# advisory then re-fires on every attempt: loud, and the direction an advisory may fail.
-		sig=$(interpreter_signature "$cmd") || return 1
-		if [ -e "$state" ] && LC_ALL=C grep -qxF -- "$sig" "$state" 2>/dev/null; then
-			return 1
+		# An EMPTY digest is the same case: the function's pipeline ends in `cut` or `tr`, which
+		# exit 0 when the tool before them failed, and one blank line recorded as a signature
+		# would match every later command's empty digest and clear them all.
+		ADVISORY_UNKEYABLE=0
+		if sig=$(interpreter_signature "$cmd") && [ -n "$sig" ]; then
+			if [ -e "$state" ] && LC_ALL=C grep -qxF -- "$sig" "$state" 2>/dev/null; then
+				return 1
+			fi
+			printf '%s\n' "$sig" >>"$state" 2>/dev/null || return 1
+		else
+			ADVISORY_UNKEYABLE=1
 		fi
-		printf '%s\n' "$sig" >>"$state" 2>/dev/null || return 1
 	elif [ "$name" = subagent ]; then
 		# Rearm per SPAWN, not per session — the same correction AMH ledger row DC004 forced on the
 		# destructive rail, for the same reason. A per-session one-shot is spent at exactly
@@ -2038,6 +2045,11 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		fi
 		;;
 	esac
+	# Last, because it overrides the "rerun to proceed" each of these two tiers has just said.
+	if { [ "$name" = interpreter ] || [ "$name" = hookfile ]; } && [ "${ADVISORY_UNKEYABLE:-0}" -eq 1 ]; then
+		# shellcheck disable=SC2016 # the backticked tool names must print literally.
+		ADVISORY_REASON="$ADVISORY_REASON"' No digest tool (`sha256sum`, `shasum` or `cksum`) was found to key this command on, so this advisory fires on every attempt and a rerun will not clear it: install one, or ask the owner.'
+	fi
 	return 0
 }
 
@@ -4152,8 +4164,8 @@ record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 	# folded to `$VAR`, as `normalize_operand` folds an operand, because the advisory promises
 	# that the guarded rewrite it asks for is the rerun and not a second prompt (AMH ledger row
 	# DC004). No digest tool means no key, and this advisory then re-fires on every attempt
-	# (`DESTRUCTIVE_UNKEYABLE`): loud, the direction an advisory may fail — where the
-	# interpreter tier, with no digest, falls silent instead.
+	# (`DESTRUCTIVE_UNKEYABLE`): loud, the direction an advisory may fail, and what the
+	# interpreter and hook-file tiers do too (`ADVISORY_UNKEYABLE`).
 	if [ "${DESTRUCTIVE_VIA_XARGS:-0}" -eq 1 ]; then
 		DESTRUCTIVE_XARGS=1
 		local digest
@@ -6779,7 +6791,7 @@ st_interpreter_advisory_once() { # st_interpreter_advisory_once <cmd> [<call nam
 }
 
 # ONE state file across two different one-liners: the rail must rearm per command text, or the
-# first harmless match in a session silences every deletion after it (AMH ledger row DC004's
+# first harmless match in a session silences every deletion after it (AMH ledger row DB030's
 # lesson, applied to this tier before it can repeat).
 # The rearm key is a DIGEST, and this is the fixture that keeps it one. A `python3 -c` program
 # is where a literal credential turns up, and the state file is world-readable, at a predictable
@@ -7072,6 +7084,51 @@ st_destructive_reason_names() { # st_destructive_reason_names <substring> <comma
 	fi
 	rm -f -- "$state"
 	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
+}
+
+# With no digest the interpreter and hook-file tiers have no key either, and went silent instead of
+# re-firing. <how> is `fail` for no digest tool, `empty` for one whose pipeline printed nothing and
+# exited 0. The same state file serves both tiers because a command only ever reaches one of them.
+st_tier_unkeyable() { # st_tier_unkeyable <fail|empty> <command>
+	local how=$1 cmd=$2 state saved n old_i_set old_i old_h_set old_h
+	saved=$(declare -f interpreter_signature)
+	if [ "$how" = empty ]; then
+		# shellcheck disable=SC2317 # reached through the name, by the code under test.
+		interpreter_signature() { :; }
+	else
+		# shellcheck disable=SC2317 # reached through the name, by the code under test.
+		interpreter_signature() { return 1; }
+	fi
+	old_i_set=${INTERPRETER_ADVISORY_STATE+x}
+	old_i=${INTERPRETER_ADVISORY_STATE:-}
+	old_h_set=${HOOKFILE_ADVISORY_STATE+x}
+	old_h=${HOOKFILE_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-tier-unkeyable-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	INTERPRETER_ADVISORY_STATE=$state
+	HOOKFILE_ADVISORY_STATE=$state
+	for n in 1 2; do
+		if st_check "$cmd"; then
+			printf 'SELF-TEST FAIL: with no digest (%s) this advisory must fire on every attempt (attempt %s): %s\n' "$how" "$n" "$cmd" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+		else
+			case $BLOCK_REASON in
+			*'No digest tool'*) ;;
+			*)
+				printf 'SELF-TEST FAIL: an unkeyable advisory did not say why it re-fires: %s\n   reason given: %s\n' "$cmd" "$BLOCK_REASON" >&2
+				ST_FAILS=$((ST_FAILS + 1))
+				;;
+			esac
+		fi
+	done
+	if [ -s "$state" ]; then
+		printf 'SELF-TEST FAIL: with no digest (%s) a signature was recorded anyway: %s\n' "$how" "$cmd" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	eval "$saved"
+	if [ -n "$old_i_set" ]; then INTERPRETER_ADVISORY_STATE=$old_i; else unset INTERPRETER_ADVISORY_STATE; fi
+	if [ -n "$old_h_set" ]; then HOOKFILE_ADVISORY_STATE=$old_h; else unset HOOKFILE_ADVISORY_STATE; fi
 }
 
 # With no digest tool an `xargs` deletion has no key, so it must be advised on EVERY attempt and
@@ -7901,6 +7958,10 @@ printenv'
 	st_interpreter_advisory_once 'python3 -c "shutil.rmtree(d)"' 'It did not read your program'
 	st_interpreter_advisory_once 'python3 -c "shutil.rmtree(d)"' 'os.system'
 	st_interpreter_rearms 'python3 -c "shutil.rmtree(a)"' 'python3 -c "shutil.rmtree(b)"'
+	st_tier_unkeyable fail 'python3 -c "shutil.rmtree(d)"'
+	st_tier_unkeyable empty 'python3 -c "shutil.rmtree(d)"'
+	st_tier_unkeyable fail 'rm .git/hooks/pre-push'
+	st_tier_unkeyable empty 'rm .git/hooks/pre-push'
 	st_interpreter_signature_is_opaque 'python3 -c "T=\"sk-live-FIXTURE\"; shutil.rmtree(d)"' 'sk-live-FIXTURE'
 	# A multi-line program: one signature line, or the rerun can never clear it — `printf %q`
 	# renders an embedded newline as a backslash-newline on bash before 4.4, which this file
