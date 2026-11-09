@@ -116,6 +116,11 @@ and no one-line check here settles it.
 as a draft, and nothing in it is approved. No unit starts without the owner's approval of that
 unit.
 
+**OPEN — run N1 of the cc-safety-net plan, `docs/plans/2026-11-09-cc-safety-net-borrowings.md`:
+its gpt-6-astra (`-e high`) review.** The owner granted that pass authority to overturn the plan's
+own decisions and to add or rewrite its units (its §2). Nothing in the plan is adopted or
+approved, and each later unit starts only on the owner's approval of that unit.
+
 **OPEN — approve, or not, starting spill-guard plan Unit S1: refusal text does not repeat a
 supported credential shape.** The plan is adopted for the release after 16.0.0 (its §2), and S1
 is its first unit.
@@ -148,6 +153,9 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-09 — **The cc-safety-net borrowings plan committed as a draft (N0).** On the owner's
+  ask, after comparing that project with the command guard; its N1 review is in the Owner queue.
 
 - 2026-11-08 — **The 16.1.0 train reviewed whole, on the owner's ask, and its PR opened.** One
   fresh-context reviewer read the diff against `main`: APPROVE-WITH-FIXES, no blocker. A
