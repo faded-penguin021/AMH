@@ -16,11 +16,11 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 16.1.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 16.1.1** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-This tree declares **16.1.0**; `harness/CHANGELOG.md` names what each version carries. Whether
+This tree declares **16.1.1**; `harness/CHANGELOG.md` names what each version carries. Whether
 it is tagged or released is not recorded here — `scripts/session-start.sh` probes that every
 session.
 
@@ -57,11 +57,8 @@ Operational gotchas:
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**OPEN — choose the version number before this tree goes to a pull request.** It carries guard and
-adapter fixes (**DD-070**, **DD-071**) while `harness/VERSION` still equals the newest tag, so CI's
-lockstep rung fails on a PR until you pick one. Recommended: PATCH, 16.1.1; adopters may hand-apply
-the `//proc` rails and need do nothing else. Check: `scripts/guards/version-lockstep.sh
---against-latest-tag` — a non-zero exit means the number is still unset.
+**OPEN — tag `amh-v16.1.1` once this tree is merged.** Tagging is an owner step. Check:
+`git ls-remote --tags origin amh-v16.1.1` — no output means it is still open.
 
 **OPEN — decide whether to plan a fix for a quote inside backticks.** Found while building Unit 2:
 bash ends a backtick substitution at the first unescaped backtick, quotes or not, and every walker
@@ -123,6 +120,9 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-09 — **16.1.1 drafted as PATCH, on the owner's choice,** for the fixes below; the version
+  queue item is answered and the tag is queued.
 
 - 2026-11-09 — **Two Owner-queue items closed on the owner's ask.** The interpreter and hook-file
   advisories re-fire with no digest tool (**DD-071**), and the machine-mode review's three gaps are
