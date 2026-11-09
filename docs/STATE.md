@@ -33,7 +33,7 @@ first says which decisions it needs and does not start until they are answered.*
 review is pre-allowed for every unit.
 
 - [x] H0 — the plan committed (rev 2)
-- [ ] H0.5 — review by gpt-6-astra at `-e high` (started by the owner; waits on its mandate)
+- [ ] H0.5 — review by gpt-6-astra at `-e high`, mandate as N1's (started by the owner)
 - [ ] H1, H4a, H4b, H2, H3, H5, H6a, H6b (optional), H7, H8 — none approved yet
 
 Multi-unit work, planned: `docs/plans/2026-11-04-spill-guard-borrowings.md` closes the
@@ -77,10 +77,8 @@ command whose body the guard used to misread and refuse (**DD-059**).
 unjudged; measured only as the mechanism, on Linux. No Windows host here can test the proposed fix,
 and no one-line check here settles it.
 
-**OPEN — decide H0.5's reviewer mandate (research-gaps plan).** May gpt-6-astra overturn that
-plan's decisions and add, rewrite or reorder units, as N1 could for the cc-safety-net plan, or only
-report findings for the owner to rule on? H0.5 does not run until this is answered. The plan's other
-§1 decisions are asked when the unit each one belongs to is started.
+**OPEN — the research-gaps plan's remaining §1 decisions.** Asked when the unit each one belongs to
+is started; none is answered yet except the two §1 marks as answered.
 
 **OPEN — decide whether to adopt rev 2 of the cc-safety-net plan,
 `docs/plans/2026-11-09-cc-safety-net-borrowings.md`, and which units.** Its N1 review is folded, and

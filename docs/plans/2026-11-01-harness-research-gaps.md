@@ -143,10 +143,21 @@ H6b is optional.
 
 - **Why:** the owner's ask when adopting the plan. Rev 2 predates 16.1.x and the two later plans
   that touch the same files.
-- **Status:** the owner has said to start it. **It waits on one owner decision: the reviewer's
-  mandate**, recorded in the Owner queue. Nothing runs until that is answered.
+- **Mandate, answered by the owner on 2026-11-09: as N1 had for the cc-safety-net plan.**
+  - **Inside the grant:** every recommendation and verdict this plan makes, each unit's scope, tier,
+    fixtures, acceptance and place in the order, and what counts as enough evidence. The reviewer
+    may add, rewrite, merge, split, reorder or delete units.
+  - **Outside it, recommendation to the Owner queue only:** the owner's answers in §1 and the
+    decisions §1 leaves open; ledger rows and the STATE Decided non-items; the `AGENTS.md` hard
+    boundaries; the spill-guard and cc-safety-net plans, and the order across plans.
+  - **Not granted:** approval to execute any unit.
+- **Reads:** this plan, the tree it describes as it stands now, and current host sandbox
+  documentation staged for it, which is data. Its sandbox has no network.
+- **The fold:** decisions inside the mandate are applied as written, as rev 3. Factual claims are
+  replayed or read back first. Recommendations outside it go to the Owner queue.
 - **Pass owed:** this unit is the pass. One fresh-context reviewer, read-only.
-- **Acceptance:** set when the mandate is answered.
+- **Acceptance (binary):** rev 3 is committed; §7 has a row for every finding; each recommendation
+  outside the mandate is an Owner-queue item; `scripts/ladder.sh --guards-only` passes.
 
 ### H1 — inventory what each session must read, item by item (docs-only, measurement)
 
