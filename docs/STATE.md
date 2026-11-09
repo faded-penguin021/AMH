@@ -34,7 +34,8 @@ review is pre-allowed for every unit.
 
 - [x] H0 — the plan committed (rev 2)
 - [x] H0.5 — review by gpt-6-astra at `-e high`, mandate as N1's; folded as rev 3
-- [ ] H9, H1, H4a, H4b, H2, H3, H5, H6a, H6b (optional), H7 — none approved yet (H8 parked)
+- [x] H9 — what the verifier reports when scratch creation fails: measured, routed (**DD-072**)
+- [ ] H1, H4a, H4b, H2, H3, H5, H6a, H6b (optional), H7 — none approved yet (H8 parked)
 
 Multi-unit work, planned: `docs/plans/2026-11-04-spill-guard-borrowings.md` closes the
 credential-handling gaps found by comparing AMH with spill-guard. The owner adopted its four
@@ -80,8 +81,17 @@ and no one-line check here settles it.
 **OPEN — the research-gaps plan's remaining §1 decisions, including those H0.5 added.** Each is
 asked when the unit it belongs to is started: the Windows, scope and dependency choices (H4a), H2's
 evidence threshold, H3's layout and migration, and an H8 incident-bar exception. Its next unit by
-the plan's own order is H9; none after H0.5 is approved yet. Its §7.1 also recommends a combined
+the plan's own order is H1; none after H9 is approved yet. Its §7.1 also recommends a combined
 order across all three plans, which the item below owns.
+
+**OPEN — decide whether to fix what H9 measured: one failed `mktemp` can turn the ladder green,
+guards-only or full, over defects it never read (evidence: **DD-072**).** The failure was simulated
+by a shim; none was seen outside it. H9's recommendation is to fix it, by exiting red where the
+scratch path is created, as `scripts/guards/path-refs.sh` already does; the plan's H9 section has
+the replay and what a fix must carry, and H9 repaired nothing.
+Check: `grep -n 'mktemp' scripts/ladder.sh scripts/guards/placeholder-integrity.sh
+scripts/guards/ledger-append-only.sh` — a line ending at the closing parenthesis, with no `||`
+after it, is still unchecked.
 
 **OPEN — decide whether to adopt rev 2 of the cc-safety-net plan,
 `docs/plans/2026-11-09-cc-safety-net-borrowings.md`, and which units.** Its N1 review is folded, and
@@ -126,6 +136,10 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-09 — **H9 of the research-gaps plan done: a failed `mktemp` measured, no repair made.** One
+  failure at the ladder's scratch directory exits the ladder 0 over planted defects (**DD-072**);
+  whether to fix it is in the Owner queue.
 
 - 2026-11-09 — **H0.5 of the research-gaps plan done: gpt-6-astra's review folded into rev 3.** 18
   findings; it added H9 and parked H8, and approved no unit. The plan's §7.1 has a row for each.

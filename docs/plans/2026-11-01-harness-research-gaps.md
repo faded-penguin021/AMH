@@ -193,7 +193,7 @@ coverage within that same pass when the unit's intended machinery requires it.
   the fold's fidelity to the findings, not a second review of the plan, followed; its nine items
   were applied.
 
-### H9 — measure what the verifier reports when scratch creation fails (measurement; added by H0.5)
+### H9 — measure what the verifier reports when scratch creation fails (measurement; added by H0.5): done 2026-11-09
 
 - **Why:** principles 1 and 8. H0.5's read-only replay saw clean citation, secret-scan and
   placeholder lines after failed `mktemp` calls. The ladder still exited 1, so no overall false
@@ -210,6 +210,242 @@ coverage within that same pass when the unit's intended machinery requires it.
   fix is needed (`docs/RUNBOOK.md` → **Session discipline** 10).
 - **Acceptance:** the characterization replays from its recorded commands, and the Owner-queue item
   exists.
+- **Result, measured 2026-11-09 at `6fb6076`, as a non-root user on Linux, one throwaway clone per
+  case.** The "no overall false pass" above held only because every `mktemp` failed at once, and
+  even then the red came from three rungs that have nothing to do with the scratch path. One of
+  them, `path-refs.sh`, is repo-local, so an adopter install has only the two rail self-tests, and
+  `redact-tool-output.sh` stands its self-test down with a SKIP when no Python 3 is present
+  (`redact-tool-output.sh:414`; estimated by reading, no adopter install was built):
+
+  | `mktemp` failing | Tree | Exit | What was reported |
+  |---|---|---|---|
+  | none (control), guards-only and full | clean | 0 | green; 51 citations resolve |
+  | every call, by shim or by `TMPDIR` on a missing directory, guards-only and full | clean | 1 | three FAILs, all elsewhere: the `command-guard.sh` and `redact-tool-output.sh` self-tests and `path-refs.sh`. `scripts/verify.sh` not reached |
+  | only `scripts/ladder.sh:104` | clean | 0 | `ok  citation(s) resolve`, with the count blank, and `ok no credential-shaped strings`; one spurious WARN about ledger volumes |
+  | none (control) | planted bad citation and credential-shaped string | 1 | three FAILs naming both defects |
+  | only `scripts/ladder.sh:104` | same plants | **0** | the same two `ok` lines, and `✓ guards clean (1 warning(s))` |
+  | only `scripts/ladder.sh:104`, full ladder | same plants | **0** | the same two `ok` lines, `verification set: clean` and `✓ ladder green (1 warning(s))` |
+  | none (control) | a new ledger row of 13 sentences | 1 | `new ledger row runs to 13 sentences` |
+  | only `scripts/ladder.sh:104` | same plant | **0** | the rung prints nothing, and `✓ guards clean` |
+  | none (control) | the state file committed above the 14 KB trigger, then shrunk 1200 bytes | 1 | `unfinished compression pass` |
+  | only `scripts/ladder.sh:104` | same plant | **0** | the rung prints nothing, and `✓ guards clean` |
+  | none (control), standalone placeholder guard | planted undocumented placeholder | 1 | names `H9_PLANTED` |
+  | every call, standalone placeholder guard | same plant | **0** | ` placeholder(s) documented, none left unfilled`, with the count blank |
+  | both of that guard's, inside a guards-only ladder | same plant | **0** | `ok placeholder-integrity.sh — mktemp: simulated failure` and `✓ guards clean` |
+  | calls from `ledger-append-only.sh` | clean | 0 | no `mktemp` call, so nothing failed: it exits 0 earlier on an unchanged ledger |
+  | calls from `ledger-append-only.sh` | planted row edit | 1 | red because its writes fail, not because it found the edit: `mkdir: cannot create directory '/head-tree'` |
+
+  **Attempted paths** with `$TMP` empty: `/state-head`, `/chain`, `/scanfiles`, `/scanfiles.t`,
+  `/rows`, `/rows.raw`, `/marked`, `/cited`, `/files.nul`; when a ledger volume differs from HEAD,
+  also `/head-ledger`, `/work-ledger`, `/head-rows`, `/work-rows`, `/head-chain` and
+  `/head-ledger/docs/LEDGER.md`; and `/head-tree` in the ledger guard. These come from the shell's
+  own errors and a `bash -x` trace; `/redact.base` and `/cmp.err` are assigned but not written, because the file list
+  is empty. The root listing was unchanged after all 26 cases. `rm -rf "$TMP"` on the empty string
+  deletes nothing. **Not measured:** a host where `/` is writable, here unavailable (non-root, user
+  namespaces refused), where by reading those writes would succeed and be left behind.
+  The suites' own `WORK=$(mktemp -d)` are unchecked too (`test-ladder-guards.sh:16`,
+  `local-guards.sh:29`, `test-init-e2e.sh:33`; with `WORK` empty, `test-init-e2e.sh:35` sets `HOME`
+  to `/home`). The ladder reaches them only through `scripts/verify.sh` (`ladder.sh:1790`), after
+  every guard passed. So the replay runs the full ladder under an every-caller failure only after
+  the guards-only run of that variant exited 1. Under the single failure, its shim also requires the
+  clone root as the caller's working directory, so the fixture ladders the suites run keep a real
+  `mktemp`.
+- **Replay:** save the block below as `h9-replay.sh` outside the repository, then
+  `bash h9-replay.sh <clone-of-this-repo> 6fb6076 <empty-output-dir>`; `summary.txt` there has each
+  exit status, and each case's `.log` and `.mktemp` files have its messages and calls.
+
+```bash
+#!/usr/bin/env bash
+# H9 replay: what the ladder and two guards report when mktemp fails.
+# usage: h9-replay.sh <source-repo> <commit> <output-dir>
+# Every case runs in its own throwaway clone with a throwaway HOME. No file in <source-repo>
+# changes. The full ladder runs under an every-caller failure only after the guards-only run of
+# that same variant exited 1, because scripts/verify.sh's suites do not check their own mktemp.
+set -uo pipefail
+SRC=$1 REV=$2 OUT=$3
+# With an empty scratch path the ladder writes at the filesystem root, so this runs only where
+# those writes cannot land.
+if [ -w / ]; then
+	echo 'refusing: / is writable here, and the failing cases would write to it' >&2
+	exit 1
+fi
+mkdir -p "$OUT" || exit 1
+W=$(mktemp -d "$OUT/work.XXXXXX") || exit 1
+SHIM=$W/shim
+REAL_MKTEMP=$(command -v mktemp)
+mkdir -p "$SHIM" || exit 1
+cat >"$SHIM/mktemp" <<EOF
+#!/bin/sh
+parent=\$(tr '\\0' ' ' </proc/\$PPID/cmdline)
+pcwd=\$(readlink /proc/\$PPID/cwd)
+case "\$parent" in
+*"\$H9_FAIL_ONLY"*)
+	if [ -z "\${H9_CWD:-}" ] || [ "\$pcwd" = "\$H9_CWD" ]; then
+		printf 'FAILED  %s <- %s (cwd %s)\\n' "\$*" "\$parent" "\$pcwd" >>"\$H9_LOG"
+		echo 'mktemp: simulated failure' >&2
+		exit 1
+	fi
+	;;
+esac
+printf 'passed  %s <- %s (cwd %s)\\n' "\$*" "\$parent" "\$pcwd" >>"\$H9_LOG"
+exec "$REAL_MKTEMP" "\$@"
+EOF
+chmod 755 "$SHIM/mktemp" || exit 1
+ls -A / | sort >"$OUT/root-before.txt"
+: >"$OUT/summary.txt"
+
+fresh() {
+	local c=$W/$1/repo
+	mkdir -p "$W/$1/home" || return 1
+	git clone -q --no-local "$SRC" "$c" || return 1
+	git -C "$c" fetch -q "$SRC" "+refs/remotes/origin/main:refs/remotes/origin/main" || return 1
+	git -C "$c" checkout -q -B session/h9-replay "$REV" || return 1
+	printf '%s' "$c"
+}
+
+none() { :; }
+plant_citation_and_secret() {
+	printf '# see DD-9999\n' >>"$1/scripts/verify.sh"
+	printf 'key AKIA%s\n' 'H9PLANTEDH9PLANT' >"$1/docs/h9-canary.txt"
+}
+plant_placeholder() { printf '{{%s}}\n' H9_PLANTED >"$1/harness/templates/seed/h9-planted.md"; }
+plant_ledger_edit() { sed -i '/^- DD-071:/s/Reported by/Reported BY/' "$1/docs/LEDGER_D.md"; }
+plant_long_row() {
+	{
+		printf -- '- DD-072: **A planted row that is far too long.**'
+		local i
+		for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+			printf ' This is planted sentence number %s of the probe row.' "$i"
+		done
+		printf '\n'
+	} >>"$1/docs/LEDGER_D.md"
+}
+plant_state_shrink() {
+	# Commit a state file above the 14 KB trigger, then shrink it by more than the 1024-byte
+	# edit delta while it stays above the trigger: an unfinished compression pass.
+	local c=$1 an ae pad
+	an=$(git -C "$c" log -1 --format=%an)
+	ae=$(git -C "$c" log -1 --format=%ae)
+	pad=$(head -c 5800 /dev/zero | tr '\0' 'x')
+	printf '\n- 2026-11-01 — probe padding %s\n' "$pad" >>"$c/docs/STATE.md"
+	git -C "$c" -c user.name="$an" -c user.email="$ae" commit -q -m 'H9 probe: pad the state file' docs/STATE.md || return 1
+	sed -i 's/probe padding x\{1200\}/probe padding /' "$c/docs/STATE.md"
+}
+
+LAST_RC=0
+run() { # name planter mode command...
+	local name=$1 plant=$2 mode=$3 c
+	shift 3
+	c=$(fresh "$name") || {
+		printf '%-30s CLONE FAILED\n' "$name" | tee -a "$OUT/summary.txt"
+		LAST_RC=99
+		return
+	}
+	"$plant" "$c"
+	(
+		cd "$c" || exit 98
+		export HOME=$W/$name/home H9_LOG=$OUT/$name.mktemp
+		: >"$H9_LOG"
+		unset CI
+		case $mode in
+		real) ;;
+		tmpdir) export TMPDIR=/nonexistent/h9 ;;
+		shim-all) export H9_FAIL_ONLY='' PATH=$SHIM:$PATH ;;
+		shim:*) export H9_FAIL_ONLY=${mode#shim:} PATH=$SHIM:$PATH ;;
+		shimcwd:*) export H9_FAIL_ONLY=${mode#shimcwd:} H9_CWD=$c PATH=$SHIM:$PATH ;;
+		esac
+		timeout 1500 "$@"
+	) >"$OUT/$name.log" 2>&1
+	LAST_RC=$?
+	printf '%-30s plant=%-26s mode=%-40s rc=%s\n' "$name" "$plant" "$mode" "$LAST_RC" | tee -a "$OUT/summary.txt"
+}
+
+LADDER=(bash scripts/ladder.sh --guards-only)
+FULL=(bash scripts/ladder.sh)
+PH=(bash scripts/guards/placeholder-integrity.sh)
+LA=(bash scripts/guards/ledger-append-only.sh)
+
+# Every mktemp fails, by the two routes; the writable control first.
+run ladder-control none real "${LADDER[@]}"
+run ladder-tmpdir none tmpdir "${LADDER[@]}"
+tmpdir_rc=$LAST_RC
+run ladder-shim-all none shim-all "${LADDER[@]}"
+shim_rc=$LAST_RC
+run full-control none real "${FULL[@]}"
+if [ "$tmpdir_rc" -eq 1 ]; then
+	run full-tmpdir none tmpdir "${FULL[@]}"
+else
+	printf 'full-tmpdir SKIPPED: guards-only did not exit 1 under this failure\n' | tee -a "$OUT/summary.txt"
+fi
+if [ "$shim_rc" -eq 1 ]; then
+	run full-shim-all none shim-all "${FULL[@]}"
+else
+	printf 'full-shim-all SKIPPED: guards-only did not exit 1 under this failure\n' | tee -a "$OUT/summary.txt"
+fi
+
+# Only the ladder's own scratch directory fails; nothing else can go red on mktemp's account.
+run ladder-only-clean none shim:scripts/ladder.sh "${LADDER[@]}"
+run ladder-only-control-planted plant_citation_and_secret real "${LADDER[@]}"
+run ladder-only-planted plant_citation_and_secret shim:scripts/ladder.sh "${LADDER[@]}"
+run ladder-only-trace none shim:scripts/ladder.sh bash -x scripts/ladder.sh --guards-only
+run ladder-only-rowlen-control plant_long_row real "${LADDER[@]}"
+run ladder-only-rowlen plant_long_row shim:scripts/ladder.sh "${LADDER[@]}"
+run ladder-only-state-control plant_state_shrink real "${LADDER[@]}"
+run ladder-only-state plant_state_shrink shim:scripts/ladder.sh "${LADDER[@]}"
+# The full ladder under the single failure. The shim also requires the clone root as the caller's
+# working directory, so the fixture ladders that scripts/verify.sh's suites run keep a real mktemp.
+run full-ladder-only-planted plant_citation_and_secret shimcwd:scripts/ladder.sh "${FULL[@]}"
+
+# The standalone guards, clean and over a planted defect.
+run placeholder-control none real "${PH[@]}"
+run placeholder-shim none shim-all "${PH[@]}"
+run placeholder-tmpdir none tmpdir "${PH[@]}"
+run placeholder-control-planted plant_placeholder real "${PH[@]}"
+run placeholder-shim-planted plant_placeholder shim-all "${PH[@]}"
+run ledger-control none real "${LA[@]}"
+run ledger-shim none shim-all "${LA[@]}"
+run ledger-control-planted plant_ledger_edit real "${LA[@]}"
+run ledger-shim-planted plant_ledger_edit shim-all "${LA[@]}"
+
+# Only one guard's mktemp fails inside a whole ladder run, over its planted defect.
+run ladder-placeholder-planted plant_placeholder shim:scripts/guards/placeholder-integrity.sh "${LADDER[@]}"
+run ladder-ledger-planted plant_ledger_edit shim:scripts/guards/ledger-append-only.sh "${LADDER[@]}"
+
+ls -A / | sort >"$OUT/root-after.txt"
+if cmp -s "$OUT/root-before.txt" "$OUT/root-after.txt"; then
+	printf 'filesystem root listing: unchanged\n' | tee -a "$OUT/summary.txt"
+else
+	printf 'filesystem root listing: CHANGED\n' | tee -a "$OUT/summary.txt"
+fi
+```
+
+- **Disposition, routed to the owner (§1 item 11), a recommendation only:** fix it. A single failed
+  `mktemp` can turn the ladder green, guards-only or full, over a planted credential-shaped string,
+  a bad citation, an over-long ledger row or an unfinished compression. That failure was simulated by
+  a shim keyed on the caller and was not observed outside it. A failure of every `mktemp` is red
+  in this repository, but only by the accident the Result describes, and with fewer rungs in an
+  adopter install; `ladder.sh` is shipped, so the adopter case is the one to weigh. The repair is
+  small and has a precedent in this tree: `scripts/guards/path-refs.sh:266` already exits 1 with
+  "this guard checked NOTHING". It belongs at `scripts/ladder.sh:104`, with its shipped original and
+  manifest, and at `placeholder-integrity.sh:25-26`; `ledger-append-only.sh:356` fails closed, so
+  only its empty-path write remains. This measurement adds two requirements to the Output bullet's
+  list for that fix:
+  - Its fixture must fail only the ladder's own `mktemp`, over a planted defect. With every `mktemp`
+    failing, the ladder is already red at `6fb6076`, so a fixture built that way passes without the
+    fix.
+  - It either covers the three suites' unchecked `WORK=$(mktemp -d)`, one of them in the shipped
+    `test-ladder-guards.sh`, or says why it leaves them.
+
+  This unit repairs nothing.
+- **What ran:** the owner chose the reviewer on 2026-11-09: Fable 5.2, one fresh-context pass,
+  read-only and blocking, with a findings-only mandate that let it correct the characterization and
+  the disposition but not approve a fix or change what H9 covers. Before it, a gpt-6.1-sol check of
+  the replay, not counted as the pass, added the writable-root refusal and the exit-1 precondition.
+  Fable replayed the 21 cases then recorded, matching on every exit status, and probed further. Its
+  eight findings were applied: the row-length and landing-check cases, the full ladder under the
+  single failure, the missing attempted paths, the adopter caveat, the fix's two added requirements,
+  the realism limit and two wording fixes. The 26-case script above was then replayed from this
+  text.
 
 ### H1 — inventory what each session must read, item by item (docs-only, measurement)
 
@@ -673,7 +909,8 @@ External figures are **reported**. None of them is evidence about AMH.
 
 - Codex's exact supported versions, complete precedence and platform failure behaviour; the
   platform facts in H4a are documented, not observed. H4a's matrix keeps the two apart.
-- H9's scratch-failure behaviour was observed only under H0.5's read-only sandbox.
+- H9's scratch-failure behaviour was measured only with `/` unwritable; a host where `/` is writable
+  is read from the code, not observed.
 - No live sandbox probe was run. Every containment claim waits for H4b's probes.
 - Token figures are estimates. Byte figures measure text volume, not consumption.
 - Of `harness/src/10-principles.md` and `docs/RUNBOOK.md`, only the sections quoted in this
