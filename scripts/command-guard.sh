@@ -7090,15 +7090,12 @@ st_destructive_reason_names() { # st_destructive_reason_names <substring> <comma
 # re-firing. <how> is `fail` for no digest tool, `empty` for one whose pipeline printed nothing and
 # exited 0. The same state file serves both tiers because a command only ever reaches one of them.
 st_tier_unkeyable() { # st_tier_unkeyable <fail|empty> <command>
-	local how=$1 cmd=$2 state saved n old_i_set old_i old_h_set old_h
+	local how=$1 cmd=$2 state saved n old_i_set old_i old_h_set old_h st_digest_how=$1
 	saved=$(declare -f interpreter_signature)
-	if [ "$how" = empty ]; then
-		# shellcheck disable=SC2317 # reached through the name, by the code under test.
-		interpreter_signature() { :; }
-	else
-		# shellcheck disable=SC2317 # reached through the name, by the code under test.
-		interpreter_signature() { return 1; }
-	fi
+	# Prints nothing either way, and succeeds only for `empty`. Reached through the name, by the code
+	# under test; shellcheck calls that SC2317 before its 0.11 and SC2329 from then on, so both.
+	# shellcheck disable=SC2317,SC2329
+	interpreter_signature() { [ "$st_digest_how" = empty ]; }
 	old_i_set=${INTERPRETER_ADVISORY_STATE+x}
 	old_i=${INTERPRETER_ADVISORY_STATE:-}
 	old_h_set=${HOOKFILE_ADVISORY_STATE+x}
