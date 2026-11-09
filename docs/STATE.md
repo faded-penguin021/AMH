@@ -33,8 +33,8 @@ first says which decisions it needs and does not start until they are answered.*
 review is pre-allowed for every unit.
 
 - [x] H0 — the plan committed (rev 2)
-- [ ] H0.5 — review by gpt-6-astra at `-e high`, mandate as N1's (started by the owner)
-- [ ] H1, H4a, H4b, H2, H3, H5, H6a, H6b (optional), H7, H8 — none approved yet
+- [x] H0.5 — review by gpt-6-astra at `-e high`, mandate as N1's; folded as rev 3
+- [ ] H9, H1, H4a, H4b, H2, H3, H5, H6a, H6b (optional), H7 — none approved yet (H8 parked)
 
 Multi-unit work, planned: `docs/plans/2026-11-04-spill-guard-borrowings.md` closes the
 credential-handling gaps found by comparing AMH with spill-guard. The owner adopted its four
@@ -77,8 +77,11 @@ command whose body the guard used to misread and refuse (**DD-059**).
 unjudged; measured only as the mechanism, on Linux. No Windows host here can test the proposed fix,
 and no one-line check here settles it.
 
-**OPEN — the research-gaps plan's remaining §1 decisions.** Asked when the unit each one belongs to
-is started; none is answered yet except the two §1 marks as answered.
+**OPEN — the research-gaps plan's remaining §1 decisions, including those H0.5 added.** Each is
+asked when the unit it belongs to is started: the Windows, scope and dependency choices (H4a), H2's
+evidence threshold, H3's layout and migration, and an H8 incident-bar exception. Its next unit by
+the plan's own order is H9; none after H0.5 is approved yet. Its §7.1 also recommends a combined
+order across all three plans, which the item below owns.
 
 **OPEN — decide whether to adopt rev 2 of the cc-safety-net plan,
 `docs/plans/2026-11-09-cc-safety-net-borrowings.md`, and which units.** Its N1 review is folded, and
@@ -88,7 +91,8 @@ only on the owner's approval of that unit.
 **OPEN — decide two recommendations from that review that it had no authority to apply.** (1)
 Whether to reconsider a `find` arm for the permanent targets, which **DD-018** chose not to take
 (the plan's N8). (2) The cross-plan order and release placement in that plan's §2, decision 3, which
-reach the spill-guard and research-gaps plans.
+reach the spill-guard and research-gaps plans; H0.5's recommended order is in the research-gaps
+plan's §7.1, and it did not change that plan's standing here.
 
 **OPEN — approve, or not, starting spill-guard plan Unit S1: refusal text does not repeat a
 supported credential shape.** The plan is adopted for the release after 16.0.0 (its §2), and S1
@@ -122,6 +126,9 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-09 — **H0.5 of the research-gaps plan done: gpt-6-astra's review folded into rev 3.** 18
+  findings; it added H9 and parked H8, and approved no unit. The plan's §7.1 has a row for each.
 
 - 2026-11-09 — **Research-gaps plan adopted by the owner, with H0.5 added;** fresh-context review
   pre-allowed for every unit. `amh-v16.1.1` found on origin, at the merged 16.1.1, so that queue

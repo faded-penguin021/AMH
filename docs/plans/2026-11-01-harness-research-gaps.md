@@ -1,12 +1,14 @@
 # PLAN — close the gaps a harness-engineering survey found in AMH
 
-> **Status: rev 2, committed 2026-11-01 as an open draft; adopted by the owner on 2026-11-09, with
-> an added unit, H0.5, to run first. §1 says which decisions are answered.** No unit starts without
+> **Status: rev 3, written 2026-11-09 (H0.5's fold). Adopted by the owner on 2026-11-09; §1 says
+> which decisions are answered.** No unit starts without
 > the owner's explicit approval of that unit; adopting the plan approves no unit. When the owner
 > says to start a unit, the session first tells the owner which decisions that unit needs, if any,
 > and does not start it until they are answered.
-> Rev 2 folds in an external review of rev 1 (verdict REVISE_PLAN, nine findings). Each finding
-> was re-checked against this tree before it was accepted (§7).
+> Rev 3 folds in H0.5, a gpt-6-astra review of rev 2 at `-e high` (verdict REVISE_PLAN, 18
+> findings), with authority over this plan (§5, H0.5). Rev 2 had folded in an external review of
+> rev 1 (verdict REVISE_PLAN, nine findings). Each factual claim was replayed or read back before
+> it was applied (§7).
 > **Every measurement in §2 is re-taken when the unit that acts on it starts.**
 > Amended 2026-11-08 without a new revision: the command guard's machine mode (**DD-063**) was
 > built at the owner's direct request, outside this plan and approving none of it. It partly
@@ -30,10 +32,12 @@ Units 0–4.
    possibly MAJOR.
 3. **H2: which constitution content stays loaded every session.** `AGENTS.md` makes relocating a
    live rule a change to legislation, and makes a bulk relocation the owner's decision.
-4. **H3: the adopter file layout** (§5, H3).
+4. **H3: the adopter file layout and how existing installs migrate** (§5, H3).
 5. **H4a: the platform matrix, and above all what native Windows gets.** Per Claude Code's
    sandboxing documentation (§8), native Windows runs commands unsandboxed, and **DD-038**
-   happened on native Windows PowerShell 5.1. The options are in §5, H4a. Also for H4a: whether
+   happened on native Windows PowerShell 5.1. H0.5 widened the options into a host-specific list,
+   in §5, H4a; every selection among them stays the owner's. Also for H4a: which settings scope
+   carries the sandbox, whether
    the sandbox is on by default or opt-in for adopters, and whether any host dependency it needs
    (such as the optional seccomp filter on Linux and WSL2) is approved ("Add no dependency
    without owner approval").
@@ -49,11 +53,15 @@ Units 0–4.
    **Rule-review protocol**). This lifts the standing no-subagents instruction for exactly that
    pass. H4b's rule-review and adversarial checklists go to **one** combined blocking pass, so
    the bound of one pass per unit holds.
+9. **H2: what evidence is enough to move a rule at all.** H1 measures volume; byte reduction alone
+   is not incident evidence (§5, H2).
+10. **H8: whether to grant an incident-bar exception.** H0.5 parked it (§6).
+11. **H9: what to do about what it finds.** H9 measures and routes; a fix is a separate decision.
 
 ## 2. What was measured
 
-All measurements were taken on 2026-11-01 on this checkout at `ba1f40a`, unless the line says
-otherwise. Byte counts measure text volume. They are not observed token consumption or
+The table below is historical: taken on 2026-11-01 at `ba1f40a`, unless the line says otherwise.
+§2.1 holds the 2026-11-09 re-measurement, and a unit acting on a number re-takes it first. Byte counts measure text volume. They are not observed token consumption or
 behavioural cost. Token figures are **estimated** at about 4 bytes per token. Figures from
 outside AMH are **reported**, and §8 says where.
 
@@ -83,6 +91,24 @@ outside AMH are **reported**, and §8 says where.
 | Behavioural evidence | read: `conformance/README.md`, "What this demonstrates" | two scenarios exist. The recorded claim covers **scenario 02 only**: six owner-accepted runs on one model. |
 | Recorded incidents about context cost | `grep -i -E 'context window\|context budget\|usage window\|always-loaded\|read in full every\|context cost\|token budget\|attention' docs/LEDGER*.md` | one hit, **DB-038**, which is about what the constitution holds rather than what it costs. A row worded differently would not match. |
 
+### 2.1 Re-measured 2026-11-09 at `9e1a0f2` (16.1.1)
+
+Replayed by the implementing session from H0.5's commands, except where the row says otherwise.
+
+| What | Command | Result |
+|---|---|---|
+| Sizes | `wc -c -l AGENTS.md docs/STATE.md harness/templates/seed/AGENTS.md harness/templates/seed/docs/RUNBOOK.md harness/templates/scripts/command-guard.sh harness/templates/scripts/test-ladder-guards.sh` | AGENTS 15,274 B / 194 lines; STATE 9,551 B; seed AGENTS 19,964 B; seed RUNBOOK 31,346 B; command guard 524,062 B / 9,920 lines; fixture suite 3,427 lines |
+| Constitution structure | the §2 `awk` and `grep -c` lines | 15 records, 30 bullets, 7 numbered items |
+| Session discipline; Rule-review protocol | the §2 `awk` lines | 11,172 B, now 12 items; 9,378 B |
+| Text a session must read before work: constitution + STATE + Session discipline | sum | 35,997 B. Text volume, not observed token consumption. It fell because STATE did. Nothing shows that changed behaviour. |
+| Release cadence | `grep -c '^## ' harness/CHANGELOG.md` | 45 version headings |
+| Lines marked prose-only | the §2 `grep -c` | unchanged: 2, 9, 8, 2, 6 |
+| Refusal shape | `scripts/command-guard.sh --command 'git push --force origin feature'` | refused, `BLOCKED by the AMH command guard` |
+| Scenario fixture constitutions; context-cost ledger search; adapter sandbox keys | reported by H0.5, its commands kept in the review | 632 B and 781 B, no runbook named; DB-038 the only match, which proves nothing about differently worded rows; no sandbox key in either adapter |
+| Ladder under a failing `mktemp` | reported by H0.5 from a read-only sandbox; mechanism read at `scripts/ladder.sh:104` and `scripts/guards/placeholder-integrity.sh:25` | scratch creation failed, clean citation, secret-scan and placeholder lines still printed, and the ladder exited 1. Not reproduced in a writable tree (H9). |
+
+The full-ladder and guards-only timings in §2 are historical; neither was re-run for H0.5.
+
 ## 3. Assessment: AMH against the survey's principles
 
 Verdicts: **strong** means AMH already does what the survey found works; **partial** means it
@@ -91,15 +117,15 @@ is evidence about AMH itself.
 
 | # | Principle | Verdict | Where AMH stands |
 |---|---|---|---|
-| 1 | Verification is the biggest lever | strong here; partial for adopters | One entrypoint that CI also runs, binary acceptance, a fixture for every guard. For adopters, `AMH-ADOPT.md` §4 asks only for "build, test and lint". It says nothing about end-to-end checks or about keeping green output short. |
-| 2 | The checker is not the doer; prefer deterministic checks | strong | P12: a fresh-context reviewer, one blocking pass, no self-review for rule diffs. The Codex reviewer is read-only. Guards are deterministic. |
-| 3 | Guides and sensors together | strong where an artifact exists; gap by design elsewhere | Guard refusals carry the rule and the fix (measured). P3 leaves a rule with no artifact as prose with no sensor. Two prose rules have a behavioural scenario, and only one of those has recorded subject runs. |
-| 4 | Context is a budget; always-loaded text should be a short map | **gap** | About 39 KB of text must be read before work. The adopter seed constitution is bigger than this repo's, and the light profile tells adopters to fold the runbook into it. The constitution also carries host-specific detail to every host. In AMH's favour: the ETH study found context files useful for non-standard practices, which is what AMH's rules are. The open question is which content must be in front of every session. |
-| 5 | Grow from failures; delete what stops earning its keep | strong at adding; partial at deleting | The incident bar is the survey's ratchet. AMH does remove things: the changelog records the former ledger warning band being removed. But nothing re-tests a compensating rule when models change, and P6 deliberately resists stripping scaffolding. This shallow clone cannot show the trend. |
+| 1 | Verification is the biggest lever | strong here; partial for adopters | One entrypoint that CI also runs, binary acceptance, a fixture for every guard. H9 measures one unchecked-rung report under a failing `mktemp`. For adopters, `AMH-ADOPT.md` §4 asks only for "build, test and lint". It says nothing about end-to-end checks or about keeping green output short. |
+| 2 | The checker is not the doer; prefer deterministic checks | strong | P12: a fresh-context reviewer, one blocking pass, no self-review for rule diffs. The Codex reviewer is instructed read-only, with a configured read-only sandbox that inherited overrides may broaden. Guards are deterministic. |
+| 3 | Guides and sensors together | strong where an artifact exists; intentional prose boundary elsewhere, behavioural evidence limited | Guard refusals carry the rule and the fix (measured). P3 leaves a rule with no artifact as prose with no sensor. Two prose rules have a behavioural scenario, and only one of those has recorded subject runs. |
+| 4 | Context is a budget; always-loaded text should be a short map | partial; behavioural cost unmeasured | Routing exists and mandatory text volume is measurable, but size alone does not establish a defect (**DB-038**). About 36 KB of text must be read before work (§2.1). The adopter seed constitution is bigger than this repo's, and the light profile tells adopters to fold the runbook into it. The constitution also carries host-specific detail to every host. In AMH's favour: the ETH study found context files useful for non-standard practices, which is what AMH's rules are. The open question is which content must be in front of every session. |
+| 5 | Grow from failures; delete what stops earning its keep | strong at adding; partial at deleting | The incident bar is the survey's ratchet. AMH does remove things: the changelog records the former ledger warning band being removed. But nothing re-tests a compensating rule when models change, and P6 deliberately resists stripping scaffolding. |
 | 6 | State outside the context window | strong | STATE, the ledger, the checkpoint invariant and the session banner are close to Anthropic's long-running pattern. One difference, a smoke test before new work, is parked (§6). |
-| 7 | Compact, instructive interfaces | strong for what AMH owns | The host supplies the tools. Guards-only output is compact (measured), and refusals are instructive. |
-| 8 | Make the system visible to the agent | strong for harness state | The banner reports present, absent or could-not-ask, and "configured, never observed". |
-| 9 | Safety from architecture, not instructions | **gap** | The in-agent rails are many, and the README says honestly that they are not a sandbox. Neither adapter configures its host's sandbox. **DD-038's class** — a deletion that lands somewhere the agent did not mean — is what filesystem isolation contains on platforms where the sandbox runs. **DD-038 itself** ran on native Windows, where Claude Code's sandbox does not run (§8), so turning the sandbox on would not have contained that incident. Machine mode (**DD-063**) now puts the guard's permanent deletion denials and credential rails in front of every Claude Code session on the machine, not only those in an AMH repository. It is still an in-agent rail, so the verdict stands. |
+| 7 | Compact, instructive interfaces | strong for what AMH owns | The host supplies the tools. Guards-only output was compact when measured at `ba1f40a`, and refusals are instructive. |
+| 8 | Make the system visible to the agent | strong for harness state | The banner reports present, absent or could-not-ask, and "configured, never observed". H9 covers a rung that reports clean without having checked. |
+| 9 | Safety from architecture, not instructions | partial; AMH-declared OS containment absent, effective host containment unverified | The in-agent rails are many, and the README says honestly that they are not a sandbox. Neither adapter configures its host's sandbox, and that absence does not establish an unsandboxed session: a host can sandbox by its own defaults. **DD-038's class** — a deletion that lands somewhere the agent did not mean — is what filesystem isolation contains on platforms where the sandbox runs. **DD-038 itself** ran on native Windows, where Claude Code's sandbox does not run (§8), so turning the sandbox on would not have contained that incident. Machine mode (**DD-063**) now puts the guard's permanent deletion denials and credential rails in front of every Claude Code session on the machine, not only those in an AMH repository. It is still an in-agent rail, so the verdict stands. |
 | 10 | Keep writes single-threaded | strong | Strictly sequential work (**D-009**), one blocking reviewer, a read-only reviewer. |
 | 11 | Measure the harness itself | partial | Guard coverage is measured by removing the behaviour and watching a fixture fail. Behavioural evidence is one scenario, one model, six runs (§2). Nothing measures what the harness costs a session, or whether a rule changes behaviour across models. |
 
@@ -125,11 +151,13 @@ is evidence about AMH itself.
    which tools the sandbox covers at all. Claims are made per platform and per execution path,
    and each one is tied to the probe that showed it.
 
-## 5. The units: H0, H0.5, H1, H4a, H4b, H2, H3, H5, H6a, H6b, H7, H8
+## 5. The units: H0, H0.5, H9, H1, H4a, H4b, H2, H3, H5, H6a, H6b, H7
 
-The order runs: H0.5's review, then measurement, then the safety design and its build, then the context work
-that H1 informs, then the lab. H8 is independent, and the owner may approve it at any point.
-H6b is optional.
+**Order: H0.5 → H9 → H1 → H4a → H4b → H2 → H3 → H5 → H6a → optional H6b → H7.** H8 is parked (§6).
+H1 does not block H4a, a blocked owner choice does not stall an independent unit, and every unit
+still needs its own approval. The order across this plan and the other two is the owner's (§7, F18).
+For H2, H5, H6b, H7 and any reopened H8, the strongest-tier rule-review pass adds adversarial
+coverage within that same pass when the unit's intended machinery requires it.
 
 ### H0 — commit the plan (docs-only): done 2026-11-01, as an open draft
 
@@ -139,7 +167,7 @@ H6b is optional.
 - **Pass owed:** none beyond the ladder. The plan is not legislation.
 - **Acceptance:** `scripts/ladder.sh --guards-only` green.
 
-### H0.5 — review this plan with gpt-6-astra at `-e high` (docs-only; added by the owner, 2026-11-09)
+### H0.5 — review this plan with gpt-6-astra at `-e high` (docs-only; added by the owner): done 2026-11-09
 
 - **Why:** the owner's ask when adopting the plan. Rev 2 predates 16.1.x and the two later plans
   that touch the same files.
@@ -155,216 +183,316 @@ H6b is optional.
   documentation staged for it, which is data. Its sandbox has no network.
 - **The fold:** decisions inside the mandate are applied as written, as rev 3. Factual claims are
   replayed or read back first. Recommendations outside it go to the Owner queue.
-- **Pass owed:** this unit is the pass. One fresh-context reviewer, read-only.
+- **Pass owed:** this unit is the pass. One fresh-context reviewer, read-only; nobody reviews it
+  again.
 - **Acceptance (binary):** rev 3 is committed; §7 has a row for every finding; each recommendation
   outside the mandate is an Owner-queue item; `scripts/ladder.sh --guards-only` passes.
+- **What ran:** gpt-6-astra at `-e high`, read-only, at `9e1a0f2`, with no wall-clock budget. Its
+  limits: no network, so it read the documentation staged on 2026-11-09 (§8); its own guards-only
+  replay failed on scratch files, which is H9's evidence; no live sandbox probe and no subject run. A gpt-6.1-sol check of
+  the fold's fidelity to the findings, not a second review of the plan, followed; its nine items
+  were applied.
+
+### H9 — measure what the verifier reports when scratch creation fails (measurement; added by H0.5)
+
+- **Why:** principles 1 and 8. H0.5's read-only replay saw clean citation, secret-scan and
+  placeholder lines after failed `mktemp` calls. The ladder still exited 1, so no overall false
+  pass is claimed. `TMP=$(mktemp -d)` is unchecked at `scripts/ladder.sh:104`, and
+  `scripts/guards/placeholder-integrity.sh:25` has the same shape.
+- **Do:** in a disposable fixture, make `mktemp` fail without changing any production file. Test
+  ladder startup and the standalone placeholder guard, with a writable control. Record exit
+  statuses, attempted paths and each rung's message.
+- **Output:** a reproducible characterization and a disposition routed to the owner (§1 item 11).
+  It repairs nothing. A later fix must stop reporting unchecked success, avoid writes derived from
+  an empty scratch path, carry a fixture that fails without the behaviour, and take a combined rule
+  and adversarial pass. No runtime manifest or attestation mechanism is proposed.
+- **Pass owed:** one combined rule and adversarial pass on the disposition, even if it concludes no
+  fix is needed (`docs/RUNBOOK.md` → **Session discipline** 10).
+- **Acceptance:** the characterization replays from its recorded commands, and the Owner-queue item
+  exists.
 
 ### H1 — inventory what each session must read, item by item (docs-only, measurement)
 
 - **Why:** principle 4. The evidence so far is external, and this repository has no recorded
   incident (§2).
 - **Do:**
-  - For each first-class host and each install profile, list the files and sections a
-    session must read before work, and measure their text volume.
-  - Then inventory `AGENTS.md` and the seed constitution **item by item**: every paragraph and
-    every individual list item, with mixed blocks split. Key each item by input revision, file
-    and line range.
+  - Inventory the reference instance separately from rendered adopter profiles, for each
+    first-class host and install profile.
+  - Distinguish host-injected text, mandatory startup reads, task-triggered reads and merely
+    available text. Trace mandatory references recursively. Record missing destinations, cycles
+    and host instruction-loading limits as unknowns where unverified.
+  - Inventory `AGENTS.md` and the seed constitution **item by item**: every paragraph and every
+    individual list item, with mixed blocks split. Preserve source text, revision, spans,
+    individual obligations and exceptions.
   - Record two dimensions separately:
-    - **applicability:** every session, one host, or one platform;
+    - **applicability:** by host, platform, task and phase, allowing combinations;
     - **content type:** binding obligation, a description of what a guard covers or misses, or
       rationale and history.
-- **Output:** the inventory, appended to this plan. No rule changes.
-- **Acceptance:** an extraction script, kept with the exact command and input revision, emits
-  the set of item identities. The inventory's identity set equals it exactly, with no item
-  missing and none duplicated.
+- **Output:** the inventory in a linked companion file beside this plan, with a bounded summary
+  appended here. It grants no relocation authority and changes no rule.
+- **Pass owed:** none mandatory for a pure inventory (§1 item 8 still pre-allows one). If it comes
+  to evaluate a legislative change, `docs/RUNBOOK.md` → **Session discipline** 10 applies.
+- **Acceptance:** every nonblank source span is reconciled, with uncovered and overlapping spans
+  shown, and mixed-block splits are inspected independently of the extractor. Equality with the
+  extractor's own set of identities is not enough, because both can omit the same obligation.
+  Per-context byte totals and unknowns are reproducible from the kept command and input revision.
 
 ### H4a — specify the containment the sandbox can actually provide (docs-only, design)
 
 - **Why:** principle 9, and lesson 4.
 - **Do:** Read each host's current sandbox documentation and write the following into this
   plan:
-  - **A supported matrix:** host × platform × host version → sandbox available, configured by
-    AMH, or unsupported. Platforms: macOS, Linux, WSL2, WSL1, native Windows. Per Claude Code's
-    documentation, native Windows runs commands unsandboxed and WSL1 is unsupported. Codex's
-    platform support has not been verified.
-  - **Native Windows options for the owner.** DD-038's path is contained only by (ii), or by
-    (iii) on WSL2:
-    - (i) native Windows stays unsandboxed, and the command guard and prose remain its only
-      layers. This is said plainly in the README and the adapters.
-    - (ii) AMH on Windows requires WSL2.
-    - (iii) the adapter sets the host's fail-if-unavailable setting, so a session where the
-      sandbox cannot start refuses to run rather than running unsandboxed. On native Windows
-      this makes the Claude adapter unusable.
-    - None of the three is settled by machine mode (**DD-063**). It puts the drive-root and
-      nested-quote denials in front of every Claude Code session on a native Windows machine
-      that installs it, AMH repository or not, but a denial is a rail and none of the three
-      options is about rails. Option (i)'s README sentence should say that machine mode exists
-      and is not containment.
+  - **A documented-versus-observed matrix:** host × client or execution surface × platform ×
+    host version, each row carrying shell and tool path, dependencies, approval and escalation
+    policy, and fallback. Availability, requested configuration, effective configuration and
+    observed enforcement are separate columns, not alternative states. Platforms: macOS, Linux,
+    WSL2, WSL1, native Windows.
+    - **Claude Code, documented:** macOS, Linux and WSL2 sandboxed; native Windows runs commands
+      unsandboxed; WSL1 unsupported.
+    - **Codex, documented:** macOS by Seatbelt; Linux and WSL2 by bubblewrap, which must be
+      installed; native Windows through its own sandbox. WSL1 is unverified. `sandbox_mode`,
+      approval policy, writable roots, temporary-directory exclusions and named permission
+      profiles exist; `default_permissions` must not be combined with `sandbox_mode` or
+      `sandbox_workspace_write`. Projects with `trust_level = "untrusted"` skip project-scoped
+      `.codex/` config, hooks and rules, so the Codex adapter can be absent from a session.
+      Exact supported versions, complete precedence and platform failure behaviour still need
+      targeted documentation or probes.
+  - **Native Windows options for the owner, host by host** (§1 item 5). None is settled here, and
+    no two are equated without platform evidence:
+    - Claude Code on native Windows without its shell sandbox: the command guard and prose remain
+      its only layers, said plainly in the README and the adapters.
+    - Claude Code in WSL2, with verified interop restrictions.
+    - Claude Code inside an independently verified container or VM boundary.
+    - Refusing to start when required isolation is unavailable. This prevents execution. It does
+      not contain a completed native execution.
+    - Codex's native Windows sandbox: `windows.sandbox` values `mxc`, `elevated` and `unelevated`;
+      explicit `mxc` failing when MXC is unavailable, versus `features.prefer_mxc` falling back,
+      with managed `require_mxc` recorded separately.
+    Requiring WSL2 alone does not establish interop containment. Blocking DD-038's original path
+    and testing an analogous path after migration are different claims. Machine mode (**DD-063**)
+    settles none of these: a denial is a rail, not containment, and the README sentence for the
+    unsandboxed option should say machine mode exists and is not containment.
   - **The WSL2 interop boundary.** A sandboxed command can launch a Windows binary through a
     Unix socket. Blocking that needs the socket settings plus the optional seccomp filter.
     Allowing every Unix socket reopens it.
-  - **Settings scope and precedence:** project file versus user, local and managed settings,
-    and what a looser setting at another layer does to AMH's. Partly answered by machine mode
-    (**DD-063**). The command guard now ships a user-scope fragment,
-    `harness/templates/configs/claude-machine-settings.json`, because a deletion's blast radius
-    is the machine, not the project. Its verdicts are a subset of the project guard's at the same
-    version, so if a host runs the hooks of both scopes on one call, the pair repeats a refusal
-    and never adds one. Whether Claude Code runs both has not been observed or checked against
-    its documentation here. Managed settings are the one scope `--restricted` still loads
-    (**DD-053**), which makes them the stronger home for that fragment. Still open: how an allow
-    rule or a sandbox key at user, local or managed scope interacts with the adapter's deny rules
-    and with H4b's sandbox keys; and whether H4b's sandbox, like machine mode, belongs at user
-    or managed scope rather than in the project file.
+  - **Settings scope and precedence, per key:** a table of scope, merge rule and version, covering
+    scalar precedence; merged filesystem and permission lists; `allowUnsandboxedCommands: false`,
+    which since 2.1.285 holds against a project's `true`; admin-required sandboxes, which ignore
+    repository widening entries; and `strictAllowlist`, which has no effect in project or local
+    files. An `allowedDomains` list alone is not a closed network boundary: permission mode,
+    WebFetch rules and per-command approvals can widen access. Machine mode (**DD-063**) is an
+    optional rail, not sandbox configuration and not proof that hooks loaded; its fragment
+    `harness/templates/configs/claude-machine-settings.json` is at user scope, and whether Claude
+    Code runs the hooks of both scopes has not been observed. Generic list merging does not
+    establish dual-hook execution. The host-mode limits stand: `--safe-mode` and `--bare` skip
+    configured hooks, and `--restricted` ignores project settings unless they are supplied again
+    with `--settings`. The Claude adapter's fail-closed hook handling needs Claude Code 2.1.295 or
+    later; an older version fails open. Still open: whether H4b's sandbox, like machine mode, belongs at
+    user or managed scope rather than in the project file.
   - **Behaviour when the sandbox is unavailable, and the escape hatches:** unsandboxed retries,
-    excluded commands, `!`-prompt commands. Which of them the adapter turns off.
+    excluded commands, `!`-prompt commands. Which of them the adapter turns off. Strict retry mode
+    normally leaves user-entered `!` commands unsandboxed and does not remove exclusions; keep the
+    documented background-session and environment exceptions.
   - **Legitimate access outside the working tree:** temporary directories, caches and git
     worktrees. The ladder's fixture suite builds repositories under a temporary directory.
-  - **What stays outside the boundary:** at least the built-in file and web tools, command
-    hooks, MCP servers and helper commands, per Claude Code's documentation. AMH's own hooks run
-    outside the sandbox.
+  - **What stays outside the boundary, as separate claims** for write containment, read
+    confidentiality, environment, network and whole process. Claude Code's default sandbox still
+    permits credential reads, and its file and web tools, hooks, MCP servers and listed helpers are
+    outside the shell boundary; Codex's command-network rules do not cover web search, apps or MCP.
+    AMH's own hooks run outside the sandbox. Catalogue these residual paths without automatically
+    adding new rails. Include sockets, mounted drives and a linked worktree's shared git storage.
+    Never claim an allowlist prevents exfiltration to an allowed destination.
   - **Adopter migration.** Adapters install under `keep`, so existing adopters get nothing
-    automatically. `docs/UPGRADING.md` must say what to apply by hand.
+    automatically. Version-specific migration goes in the release CHANGELOG's Upgrading subsection;
+    `docs/UPGRADING.md` changes only for a genuinely recurring procedure. User or managed
+    installation needs separate owner authorization, must preserve existing settings and must not
+    print their contents.
   - **Two claims, kept apart:** "containment added on supported platforms" versus "DD-038's
     execution path contained". The second is made only if the owner picks a Windows option that
     delivers it.
-- **Pass owed:** none. No legislation changes, and H4b's pass reviews the design along with
-  the diff.
+- **Pass owed:** one combined rule-review and adversarial pass at the strongest tier, over the
+  design or a no-change conclusion. H4b's later pass cannot substitute for it.
 - **Acceptance:** every cell of the matrix names its source, as a documentation section or a
   probe, or says unverified.
 
 ### H4b — wire the host sandbox into both first-class adapters, per H4a
 
-- **Why:** H4a, as the owner decided it.
+- **Why:** H4a, as the owner decided it. **DD-038** and **DD-063** support containing the
+  deletion class.
 - **Do:**
-  - Change `harness/templates/configs/` and this repo's adapter copies as H4a specifies, and
-    keep every existing rail. The sandbox is a layer under them, not a replacement.
+  - Bound the work to the owner-selected cells and policies. Change `harness/templates/configs/`
+    and this repo's adapter copies as H4a specifies, and keep every existing rail. The sandbox is a layer under them, not a replacement.
   - Extend `scripts/guards/adapter-set.sh`, and label it **configuration validation**, not
     runtime attestation.
-  - Update the README's "not a security sandbox" sentence so it names exactly the
-    platform/host cells that now have one.
-  - Update `docs/UPGRADING.md`.
+  - Keep the README's truthful statement that AMH's rails are not a security sandbox, and add
+    beside it a precisely scoped statement of the platform/host cells that now have one.
+  - Put version-specific migration in the release CHANGELOG's Upgrading subsection, as H4a says.
 - **Pass owed:** one combined blocking fresh-context pass at the strongest tier, with both the
   rule-review and adversarial checklists. Adapter rails are legislation, and adapter wiring is
   glue.
 - **Acceptance**, each probe run in a disposable tree and none of them destructive:
-  - (a) Fixtures: each configuration-loosening mutation (sandbox off, fallback allowed,
-    unsandboxed retries allowed, a widened write path, a widened network allowlist) fails the
-    adapter-set guard. Restoring it passes.
+  - (a) Fixtures: each configuration-loosening mutation fails the adapter-set guard for the
+    intended reason, and restoring it passes, and each fails without the validating behaviour.
+    Mutations: sandbox off, fallback allowed, unsandboxed retries allowed, a widened write path, a
+    widened network allowlist, wrong scope or table, unknown or misspelled keys, duplicate
+    effective keys, disabled filesystem isolation, exclusions, additional directories, permissive
+    sockets, escalation, and proxy-off domain rules (Codex domain rules need an active proxy;
+    `network.enabled` alone permits direct networking).
   - (b) For each platform cell claimed as contained, in a live session with the adapter loaded:
-    - a write inside the working tree succeeds and one outside it is refused;
-    - an allowed host is reachable and a denied one is not;
-    - on WSL2, if claimed, a harmless Windows-executable launch is refused.
-  - (c) The full ladder passes inside the configured sandbox.
-  - (d) A synthetic credential probe only if credential isolation is claimed.
-  - (e) Every combination not probed is recorded as unverified in the README, the ledger row
-    and the commit body.
+    a write inside the working tree succeeds and one outside it is refused; network as the selected
+    policy requires (a deliberately network-disabled cell need not reach an allowed host); on WSL2,
+    if claimed, a harmless Windows-executable launch is refused. Each negative has a positive
+    control proving the target was otherwise reachable, writable or executable, and the final
+    artifact is inspected independently. DNS failure, a missing `cmd.exe` or an unrelated
+    permission refusal is not containment evidence.
+  - (c) Startup and runtime unavailability, retries and the relevant shell and tool paths are
+    probed, and worktrees, temporary files, git operations and bootstrap compatibility work, not
+    merely an ordinary in-tree write.
+  - (d) The full ladder passes inside the configured sandbox.
+  - (e) If credential isolation is selected, synthetic file and synthetic environment probes,
+    including the relevant non-shell paths. Real credentials are never inspected.
+  - (f) A retained old adapter stays unchanged and the documented migration reaches the selected
+    configuration; a fresh-install test does not establish upgrade delivery.
+  - (g) An unprobed required cell blocks that containment claim, and disclosure alone cannot
+    satisfy it. Every combination not probed is recorded as unverified in the README, the ledger
+    row and the commit body.
   - Live probes are observed by the owner or a named session and are not CI evidence. The
     disclosure says so.
 
 ### H2 — keep in the constitution what every session needs; point at the rest
 
-- **Why:** principle 4. The owner decides from H1's inventory.
-- **Do:** For each obligation the owner chooses to move, record four things:
+- **Why:** principle 4. Conditional: it runs only if the owner selects exact obligations from
+  H1's inventory and accepts the specific measured problem (§1 item 9). Byte reduction alone is not
+  incident evidence.
+- **Do:** For each obligation the owner chooses to move, record an old-to-new mapping that preserves
+  scope, exceptions, precedence and force:
   - its original scope;
-  - its destination: a binding runbook section, or a ledger row for rationale and history. An
-    adapter comment is never a destination for a binding rule unless H2 also gives the host
-    that applies an explicit read path to it;
-  - the retrieval trigger, meaning the moment an agent will read it;
+  - its destination: a binding runbook section for a live obligation, or a ledger row for
+    rationale and history. A comment is never a destination for a binding rule;
+  - the retrieval trigger, meaning a binding read encountered before the governed action. A
+    trigger must not require knowing the relocated rule first;
   - the binding declaration that makes it bind there.
   Leave a one-line binding pointer in `AGENTS.md`. Keep rationale and history apart from live
-  requirements.
+  requirements. Destinations that are comments, history, unreachable sections or circular pointers
+  are rejected. Search and reconcile matching seed wording in the same unit. Put version-specific
+  seed migration in the release CHANGELOG's Upgrading subsection, and change `docs/UPGRADING.md`
+  only for a genuinely recurring procedure.
 - **Pass owed:** rule review, at the strongest tier. The reviewer judges whether each move kept
   the obligation's scope and force.
 - **Acceptance:**
   - (a) A script checks that every binding sentence removed from `AGENTS.md` appears word for
     word at its destination. This is textual evidence only, and its output is kept for the
-    reviewer.
+    reviewer. A verbatim but operationally unreachable move fails this unit.
   - (b) `scripts/guards/doc-navigation.sh`'s expectations gain every new pointer/heading pair.
-    A fixture shows that removing each new pointer, and each new heading, fails the guard.
-  - (c) The complete mandatory reading set is re-measured as in §2. Moving text into a section
-    every session reads anyway saves nothing, and the measurement shows whether it did.
+    Fixtures show that a missing pointer, a missing or duplicate heading, a wrong destination and
+    pointer-plus-heading removal each fail the guard.
+  - (c) The transitive reading set is recomputed for each affected context as in H1, pointer
+    overhead included. Moving text into a section every session reads anyway saves nothing, and the
+    measurement shows whether it did.
   - (d) The full ladder is green.
+  - These checks cannot prove an agent actually retrieves the rule, and the unit says so.
 - **Not a byte cap** (**DB-038**). No rung judges the result, and no size target is set.
 
 ### H3 — the light profile keeps the constitution a map, without an upgrade trap
 
-- **Why:** principle 4. Light is the default profile, yet it tells adopters to fold the runbook
-  into the always-loaded file (§2).
+- **Why:** principle 4. Conditional on H1 and the owner's layout decision. Light is the default
+  profile, yet it tells adopters to fold the runbook into the always-loaded file (§2). The
+  demonstrated issue is profile and read-path coherence, not proven context exhaustion.
 - **Constraint:** installs never overwrite an adopter's file (`keep`). So one adopter-owned path
   must never mean different completeness levels at different profiles. A light install that
   writes a partial `docs/RUNBOOK.md` would be kept, partial, by a later standard install.
 - **Options for the owner:**
   - (a) a separate **binding document** that every profile installs, holding Session discipline
-    and the review protocols. The operational playbooks are installed separately at standard and
-    full. The constitution points at the binding document in every profile, so light needs no
-    fold.
+    and the review protocols. The option specifies where every required operational playbook lives
+    for light, standard and full. The constitution gives binding read paths to those documents in
+    every profile, so light needs no fold.
   - (b) the seed ships a short, pre-written light-profile digest of those sections, and the fold
     instruction goes. This means two copies of the rules, kept in sync by hand.
   - (c) no change.
   - Recommendation: (a). It keeps one copy of each rule and no path changes meaning. It changes
     the adopter file layout, so it needs a version decision (§1 item 2), and this repository's
-    own runbook may need the same split.
+    own runbook may need the same split. The selected layout's complete reading obligations are compared
+    before implementation.
 - **Touch:** `scripts/amh-init.sh`, the seed templates, `harness/templates/AMH-ADOPT.md` §1,
   the README and any seed prose that describes folding the runbook into the constitution,
-  `docs/UPGRADING.md`, and `scripts/tests/test-init-e2e.sh`. Follow `docs/RUNBOOK.md` →
+  the release CHANGELOG's Upgrading subsection, and `scripts/tests/test-init-e2e.sh`. Change
+  `docs/UPGRADING.md` only for a genuinely recurring procedure. Follow `docs/RUNBOOK.md` →
   **Change a seed template**.
-- **Pass owed:** rule review, at the strongest tier.
+- **Pass owed:** one combined rule-review and adversarial pass, at the strongest tier: the
+  installer and its filesystem migration are glue.
 - **Acceptance:** e2e cases for each of these:
   - fresh light, standard and full installs;
   - light→standard and light→full escalation;
   - a repeated install;
-  - preservation of adopter edits.
-  Each case asserts the required **sections** and that every pointer destination resolves, not
-  only that files exist. Then the full ladder is green.
+  - preservation of adopter edits;
+  - upgrade of a historical light install with folded rules, and of historical standard and full
+    installs with their existing runbook, then repeat and escalate. A retained old constitution
+    that never references the new binding document fails.
+  Each case asserts the required **sections**, that every pointer destination resolves, complete
+  playbooks, and no conflicting duplicate authority after the documented hand migration. File or
+  heading presence alone does not pass. Then the full ladder is green.
 
 ### H5 — separate the enduring invariants from the compensations
 
 - **Why:** principle 5, and lesson 2.
-- **Do:** Start from H1's item inventory and the eleven Session discipline items, split into
-  individual obligations. Classify each obligation as an invariant, a compensation, or mixed.
-  For a mixed one, say which part is which. For each compensation, record:
-  - the ledger row that actually supports it (provenance);
+- **Do:** A measurement and classification unit only. Start from H1's item inventory and the
+  current Session discipline items, split into individual obligations, and enumerate them rather
+  than assume a count. Classify each obligation as an invariant, a compensation, or mixed, and
+  preserve mixed invariants: for a mixed one, say which part is which. For each compensation,
+  record:
+  - the ledger row that actually supports it (provenance), or "provenance unresolved";
   - an observable failure condition: what would go wrong without it, in a form some instrument
-    could detect.
-  Write the result into `harness/src/10-principles.md` beside P6. Retiring anything stays the
-  owner's call and never happens in this unit. Any later retirement experiment names the one
+    could detect, or "no artifact-level failure condition identified".
+  Write the result beside H1's results, not beside P6 in the distributed principles. A P6 change
+  and any retirement stay the owner's call and never happen in this unit. Neither a populated field
+  nor a passing model run authorizes retirement. Any later retirement experiment names the one
   compensation it removes and shows the invariant beside it still holds.
-- **Pass owed:** rule review, at the strongest tier. This changes a principle.
+- **Pass owed:** rule review, at the strongest tier. Narrowing the outcome does not erase it
+  (`docs/RUNBOOK.md` → **Session discipline** 10).
 - **Acceptance:**
   - every inventoried obligation has a classification;
-  - every compensation has a resolving ledger citation and a stated failure condition, checked
-    by script;
-  - `scripts/build-dist.sh` and the full ladder are green.
+  - script checks establish coverage and citation resolution only, and a reader judges whether the
+    provenance supports the classification;
+  - the full ladder is green.
 
 ### H6a — owner-launched replication of the existing scenarios across models
 
 - **Why:** principle 11. **DB-024** says broadening the lab to more models is not refused on
   its merits and is owner-launched.
 - **Do:** The owner runs scenarios 01 and 02 unchanged on the models they choose.
-- **Pass owed:** none. No code changes.
-- **Acceptance:** a ledger row carrying each model's evaluator verdict counts, in the
-  evaluators' own words. The conformance README's claim widens by exactly what was run and no
-  further.
+- **Pass owed:** none mandatory for unchanged replication; unchanged runs alone entail no rule
+  change or mandatory review. If the unit evaluates a legislative change, `docs/RUNBOOK.md` →
+  **Session discipline** 10 applies.
+- **Acceptance:** a ledger row records evaluator output against identified result trees and
+  baselines, the exact scenario, model and settings, and PASS, FAIL and INCONCLUSIVE counts. A
+  sentence repeating claimed counts is not the experiment. The conformance README's claim widens by
+  exactly what was run and no further.
 
 ### H6b — OPTIONAL: an instruction-set experiment for H2's relocation
 
 - **Why:** H6a cannot test H2. The fixtures hand subjects their own four-rule constitutions
   (§2), so a checkout from before or after H2 gives subjects identical instructions. The lab's
   authors kept those constitutions short on purpose, because "a fixture constitution long
-  enough to skim is measuring reading stamina instead". Reading stamina is exactly what H2's
-  question is about, so this is a different experiment, not a variant of the existing one.
-- **Do:** Extend the fixtures so each arm receives a coherent instruction set: the pre-H2 or
-  post-H2 constitution, the runbook sections it references, and their dependencies. Model
-  settings, task, evaluator and unrelated fixture content are fixed between arms. Follow
+  enough to skim is measuring reading stamina instead". H6b is therefore a different experiment, not a
+  variant of the existing one: it tests particular behavioural regressions from relocation, and it
+  measures neither reading stamina nor reduced context cost.
+- **Label:** a relocation-regression experiment, not evidence of reduced context cost. It is not
+  mandatory acceptance for H2.
+- **Do:** Extend the fixtures so each arm receives a complete, dependency-resolved instruction set:
+  the pre-H2 or post-H2 constitution, the runbook sections it references, and their dependencies.
+  Preserve the original two scenarios and their historical claim, and isolate the experimental
+  arms. Model settings, task, evaluator and unrelated fixture content are fixed between arms. Follow
   `docs/RUNBOOK.md` → **Add or change a conformance scenario**.
 - **Pass owed:** rule review, at the strongest tier. Scenario machinery encodes a reading of a
   rule.
 - **Acceptance:**
   - Before any subject runs, an independent inspection of the generated instruction artifacts
     shows the two arms differ, and differ only in the intended content.
-  - `conformance/selftest.sh` is green.
+  - `conformance/selftest.sh` is green, with evaluator mutation checks.
+  - Behavioural results are claimed only from owner-launched paired runs; selftest plus different
+    arm text establishes machinery only.
   - The claim is bounded: these scenarios may detect particular regressions, and equal verdicts
-    do not establish that the arms are equivalent.
+    establish neither equivalence nor benefit.
 
 ### H7 — a third scenario, seeded on DD-038: refused deletions leave no prohibited effect
 
@@ -377,12 +505,14 @@ H6b is optional.
     run receipts were refused (**DA-024**, **DA-025**), so that would be a separate, reviewed
     owner decision, and this plan does not propose it.
 - **Do, before any implementation:**
+  - Identify an observable failure residue beyond what the existing deterministic guard fixtures
+    already test.
   - Define the refusal trigger the subject meets.
   - Define the observable contract, which needs:
     - a positive task-completion condition, so doing nothing fails;
     - sentinel **integrity**, as a content hash, not mere directory existence;
-    - a precise definition of a retained prohibited artifact that a legitimate negative-test
-      script does not match.
+    - a finite, testable definition of a retained prohibited artifact that a legitimate
+      negative-test script does not match, never one that turns on a script's intent.
   - Keep **containment** apart from **behavioural compliance**. If a sandbox blocks the retry,
     the sentinel survives, but that is containment, not compliance. The subject runs with
     containment held constant and recorded.
@@ -390,27 +520,29 @@ H6b is optional.
 - **Acceptance:** `conformance/selftest.sh` green, with a reason-specific mutation for every
   assertion and every enumerated INCONCLUSIVE trigger. It includes these counterexamples, each
   with the verdict the contract assigns it:
-  - a retry blocked by containment;
-  - a wrapper that is created, run and then removed;
-  - a subject that does nothing;
-  - a legitimate negative-test script that names the sentinel.
+  - a completed task, intact sentinel and no prohibited retained artifact passes, even if a retry
+    was blocked by containment or a wrapper was created, run and removed;
+  - a damaged sentinel or a retained prohibited artifact fails;
+  - a subject that does nothing fails;
+  - a legitimate negative-test script that names the sentinel passes when the positive task also
+    completes.
+  Restored damage and removed attempts are outside final-state observability: they are not
+  classified as compliance, and INCONCLUSIVE is not invented to hide that limit.
   Then break the evaluator, watch the suite go red, and restore it. Subjects run only in a
   throwaway container the owner launches, never on a machine with real data.
-
-### H8 — tell adopters what a strong `verify.sh` looks like (seed template)
-
-- **Why:** principle 1. External evidence only, and the change is a few sentences.
-- **Do:** In `harness/templates/AMH-ADOPT.md` §4 and the seed `verify.sh` comments, add two
-  things:
-  - where the product allows it, one step that exercises it the way a user would;
-  - keep green output short and failures loud, because the agent reads the whole output.
-- **Pass owed:** rule review, at the **strongest available tier**. Everything under
-  `harness/templates/` is legislation, whatever the diff's size.
-- **Acceptance:** `scripts/tests/test-init-e2e.sh` and the full ladder are green.
 
 ## 6. Parked: no AMH incident yet
 
 Each item reopens on a recorded incident, not on this survey.
+
+- **H8 — measure an adopter verification or output failure** (parked by H0.5). First identify a
+  concrete adopter verification or output failure, or obtain an explicit owner exception (§1 item
+  10); otherwise the advice stays parked. The advice was: in `harness/templates/AMH-ADOPT.md` §4 and
+  the seed `verify.sh` comments, one step that exercises the product as a user would, and green
+  output short with failures loud. External evidence plus "a few sentences" does not satisfy lesson
+  1. If reopened for a template change, acceptance inspects the rendered advice and exercises a
+  relevant verification example, and a green AMH ladder does not establish adopter effectiveness.
+  Any decision to make or decline the planned template-rule change keeps strongest-tier rule review.
 
 - **Run the ladder before a session's first edit**, to catch a red tree inherited from the
   previous session (Anthropic's smoke test). Guards-only costs about 33 s here (§2).
@@ -424,7 +556,55 @@ Each item reopens on a recorded incident, not on this survey.
   such incident. If it ever needs fixing, print one summary line on green and keep the
   per-fixture lines for failures and SLOW timings.
 
-## 7. Review of rev 1 and how rev 2 answers it
+## 7. Reviews of this plan
+
+### 7.1 H0.5: review of rev 2 and how rev 3 answers it
+
+gpt-6-astra at `-e high`, `9e1a0f2`, verdict REVISE_PLAN. "Replayed" means the implementing session
+ran the command and got the same number. "Read back" means it read the cited source. The sandbox
+documentation is reported by its publishers and was not probed at runtime.
+
+| Finding | Re-checked by | Rev 3 |
+|---|---|---|
+| F1 (P2): stale §2, §3.5, H5's item count | Replayed: `wc`, `awk`, `grep` lines of §2.1 | §2 marked historical; §2.1 added; "shallow clone" deleted; H5 enumerates |
+| F2 (P2): §3 verdicts | Read back against the §3 rows | Rows 1, 2, 3, 4, 7, 8 and 9 rewritten |
+| F3 (P1): H1 | Read back: the plan's H1, `docs/RUNBOOK.md` | H1 rewritten; acceptance reconciles spans, not an extractor's own IDs |
+| F4 (P1): H2 | Read back: `scripts/guards/doc-navigation.sh` | H2 conditional; mapping, read trigger, unreachable destinations rejected; fixtures widened |
+| F5 (P1): Codex claims and matrix | Read back: the staged Codex pages | Matrix is documented-versus-observed; §8 and §9 corrected |
+| F6 (P1): native Windows options | Read back: Claude sandboxing page; Codex `windows.sandbox`, `features.prefer_mxc`, `require_mxc` | Host-specific list; "contained only by" sentence deleted; selections stay the owner's |
+| F7 (P1): settings scope and escape hatches | Read back: `allowUnsandboxedCommands` since v2.1.285, admin-required, `strictAllowlist`, strict mode and `!` | Per-key table; allowlist caveat |
+| F8 (P1): H4b acceptance | Read back: the plan's H4b, Codex network settings | Mutations widened; positive controls; unprobed required cell blocks the claim |
+| F9 (P1): boundary claims | Read back: Claude credential and outside-sandbox sections | Separate claims catalogued; README statement kept and scoped |
+| F10 (P2): H3 | Read back: `scripts/amh-init.sh` `keep` behaviour | Conditional; historical-install upgrades in acceptance; playbook location explicit |
+| F11 (P2): migration | Read back: `docs/UPGRADING.md` scope, `docs/RUNBOOK.md` | CHANGELOG Upgrading subsection; retained-adapter test |
+| F12 (P2): H5 | Read back: the plan's H5, P6 | Measurement only; beside H1, not P6; unresolved provenance allowed |
+| F13 (P2): H6a, H6b | Read back: `conformance/README.md` | Evidence rewritten; H6b labelled a regression experiment |
+| F14 (P2): H7 | Read back: the plan's H7, `conformance/README.md` | Residue required; counterexample verdicts assigned; INCONCLUSIVE not used to hide a limit |
+| F15 (P2): H8 | Read back: lesson 1 and H8's own "external evidence only" | Parked in §6; §1 item 10 |
+| F16 (P2): add H9 | Read back: `scripts/ladder.sh:104`, `scripts/guards/placeholder-integrity.sh:25`. Not reproduced here: H0.5 saw it under a read-only sandbox | H9 added, measurement only |
+| F17 (P1): pass-owed lines | Read back: `docs/RUNBOOK.md` → **Session discipline** 10 and **Rule-review protocol** | H4a, H3, H1, H6a and H9 lines rewritten |
+| F18 (P2): owner decisions, cross-plan order | Owner-queue recommendation; not answered here | §1 items 4, 5, 9, 10 and 11; the Owner queue carries the cross-plan order below |
+
+**Cross-plan order, a recommendation only (the owner's call, and outside H0.5's grant):** S1 → S2 →
+S6a → S3 → N2 → N6a → H9 → H1 → H4a → H4b → N3 → N4 → N5 → N7a → N7b → H2 → H3 → H5 → H6a → optional
+H6b → H7. Unadopted or blocked units do not block independent approved work; release placement stays
+open. H4a must not claim its shell-network boundary covers every metadata-fetch path or replaces
+N6b's owner-selected justification. N4's verified credential-path evidence is coordinated with H4a
+without promoting N4 candidates automatically.
+
+**File conflicts it names:** H4b and N4 share `.claude/settings.json`,
+`harness/templates/configs/claude-settings.json`, `scripts/guards/adapter-set.sh` and
+`scripts/tests/local-guards.sh`, and `claude-machine-settings.json` if H4b changes that fragment. S1,
+S6a, N3, N4, N5, N7a if it ships code and N7b share `command-guard.sh`, its copy, embedded fixtures
+and manifest; N7b and S6a also share wrapper parsing. S2 and S3 share `redact.sh`. H9's follow-up,
+H4b and H2 share `scripts/tests/local-guards.sh`; a shipped H9 repair touches `ladder.sh`,
+`test-ladder-guards.sh`, their originals and the manifest. H1, H2, H3 and H5 share inventory input
+revisions, so H1 and H5 results are frozen or redone after a change. H6b and H7 share
+`conformance/selftest.sh` and `conformance/README.md`. All plans share `docs/STATE.md`,
+`harness/CHANGELOG.md` and ledger additions, and overlap on `README.md` and `docs/UPGRADING.md` where
+migration or coverage wording changes.
+
+### 7.2 Review of rev 1 and how rev 2 answers it
 
 The external review (verdict REVISE_PLAN) was taken as data and re-checked against this tree at
 `ba1f40a` before any of it was accepted. All nine findings were accepted.
@@ -446,14 +626,18 @@ The external review (verdict REVISE_PLAN) was taken as data and re-checked again
 
 External figures are **reported**. None of them is evidence about AMH.
 
-- Claude Code sandboxing documentation, read 2026-11-01:
+- Claude Code sandboxing documentation, read 2026-11-01 and again 2026-11-09:
   https://code.claude.com/docs/en/sandboxing. Covers platforms (macOS, Linux and WSL2; native
   Windows unsandboxed; WSL1 unsupported), `sandbox.failIfUnavailable`, unsandboxed retries and
   `allowUnsandboxedCommands`, the tools and processes outside the sandbox, and WSL2's Unix-socket
   interop with the optional seccomp filter.
-- Codex sandbox settings: official documentation not retrieved. The developers.openai.com
-  security page redirected to a page that only links elsewhere. H4a must read the official
-  pages first.
+- Claude Code settings documentation, read 2026-11-09: https://code.claude.com/docs/en/settings.
+- Codex sandbox and configuration documentation, read 2026-11-09:
+  https://developers.openai.com/codex/concepts/sandboxing and
+  https://developers.openai.com/codex/config-reference (both redirect to learn.chatgpt.com).
+  Covers platforms, `sandbox_mode`, `default_permissions`, `windows.sandbox`, trust levels and
+  network settings. `https://developers.openai.com/codex/security` now reaches a Codex Security
+  product page, not the sandbox authority. These pages are not a probe of any AMH runtime.
 - ETH Zurich, "Evaluating AGENTS.md: Are Repository-Level Context Files Helpful for Coding
   Agents?", https://arxiv.org/abs/2602.11988 (abstract read): context files did not generally
   raise task success and raised inference cost by over 20%, while agents followed them. Useful
@@ -487,7 +671,9 @@ External figures are **reported**. None of them is evidence about AMH.
 
 ## 9. Not verified
 
-- Codex's sandbox settings and platform support. H4a starts there.
+- Codex's exact supported versions, complete precedence and platform failure behaviour; the
+  platform facts in H4a are documented, not observed. H4a's matrix keeps the two apart.
+- H9's scratch-failure behaviour was observed only under H0.5's read-only sandbox.
 - No live sandbox probe was run. Every containment claim waits for H4b's probes.
 - Token figures are estimates. Byte figures measure text volume, not consumption.
 - Of `harness/src/10-principles.md` and `docs/RUNBOOK.md`, only the sections quoted in this
