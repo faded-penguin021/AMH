@@ -6,6 +6,10 @@
 > Rev 2 folds in an external review of rev 1 (verdict REVISE_PLAN, nine findings). Each finding
 > was re-checked against this tree before it was accepted (§7).
 > **Every measurement in §2 is re-taken when the unit that acts on it starts.**
+> Amended 2026-11-08 without a new revision: the command guard's machine mode (**DD-063**) was
+> built at the owner's direct request, outside this plan and approving none of it. It partly
+> answers H4a's settings-scope question and changes no verdict in §3. The lines that say so are
+> in §3 row 9 and in H4a.
 
 The plan is provisional while it is live. Its durable outcomes go to Changelog lines and ledger
 rows. Code cites ledger rows and never this file, and no ledger row may cite this file's path.
@@ -91,7 +95,7 @@ is evidence about AMH itself.
 | 6 | State outside the context window | strong | STATE, the ledger, the checkpoint invariant and the session banner are close to Anthropic's long-running pattern. One difference, a smoke test before new work, is parked (§6). |
 | 7 | Compact, instructive interfaces | strong for what AMH owns | The host supplies the tools. Guards-only output is compact (measured), and refusals are instructive. |
 | 8 | Make the system visible to the agent | strong for harness state | The banner reports present, absent or could-not-ask, and "configured, never observed". |
-| 9 | Safety from architecture, not instructions | **gap** | The in-agent rails are many, and the README says honestly that they are not a sandbox. Neither adapter configures its host's sandbox. **DD-038's class** — a deletion that lands somewhere the agent did not mean — is what filesystem isolation contains on platforms where the sandbox runs. **DD-038 itself** ran on native Windows, where Claude Code's sandbox does not run (§8), so turning the sandbox on would not have contained that incident. |
+| 9 | Safety from architecture, not instructions | **gap** | The in-agent rails are many, and the README says honestly that they are not a sandbox. Neither adapter configures its host's sandbox. **DD-038's class** — a deletion that lands somewhere the agent did not mean — is what filesystem isolation contains on platforms where the sandbox runs. **DD-038 itself** ran on native Windows, where Claude Code's sandbox does not run (§8), so turning the sandbox on would not have contained that incident. Machine mode (**DD-063**) now puts the guard's permanent deletion denials and credential rails in front of every Claude Code session on the machine, not only those in an AMH repository. It is still an in-agent rail, so the verdict stands. |
 | 10 | Keep writes single-threaded | strong | Strictly sequential work (**D-009**), one blocking reviewer, a read-only reviewer. |
 | 11 | Measure the harness itself | partial | Guard coverage is measured by removing the behaviour and watching a fixture fail. Behavioural evidence is one scenario, one model, six runs (§2). Nothing measures what the harness costs a session, or whether a rule changes behaviour across models. |
 
@@ -167,11 +171,26 @@ H6b is optional.
     - (iii) the adapter sets the host's fail-if-unavailable setting, so a session where the
       sandbox cannot start refuses to run rather than running unsandboxed. On native Windows
       this makes the Claude adapter unusable.
+    - None of the three is settled by machine mode (**DD-063**). It puts the drive-root and
+      nested-quote denials in front of every Claude Code session on a native Windows machine
+      that installs it, AMH repository or not, but a denial is a rail and none of the three
+      options is about rails. Option (i)'s README sentence should say that machine mode exists
+      and is not containment.
   - **The WSL2 interop boundary.** A sandboxed command can launch a Windows binary through a
     Unix socket. Blocking that needs the socket settings plus the optional seccomp filter.
     Allowing every Unix socket reopens it.
   - **Settings scope and precedence:** project file versus user, local and managed settings,
-    and what a looser setting at another layer does to AMH's.
+    and what a looser setting at another layer does to AMH's. Partly answered by machine mode
+    (**DD-063**). The command guard now ships a user-scope fragment,
+    `harness/templates/configs/claude-machine-settings.json`, because a deletion's blast radius
+    is the machine, not the project. Its verdicts are a subset of the project guard's at the same
+    version, so if a host runs the hooks of both scopes on one call, the pair repeats a refusal
+    and never adds one. Whether Claude Code runs both has not been observed or checked against
+    its documentation here. Managed settings are the one scope `--restricted` still loads
+    (**DD-053**), which makes them the stronger home for that fragment. Still open: how an allow
+    rule or a sandbox key at user, local or managed scope interacts with the adapter's deny rules
+    and with H4b's sandbox keys; and whether H4b's sandbox, like machine mode, belongs at user
+    or managed scope rather than in the project file.
   - **Behaviour when the sandbox is unavailable, and the escape hatches:** unsandboxed retries,
     excluded commands, `!`-prompt commands. Which of them the adapter turns off.
   - **Legitimate access outside the working tree:** temporary directories, caches and git

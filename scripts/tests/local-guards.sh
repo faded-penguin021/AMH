@@ -744,6 +744,67 @@ sed_in_place 's|/scripts/command-guard.sh # On|/scripts/command-guard.sh --pre-t
 expect fail "adapter-set: the command guard hook is not found exactly once" "$d" adapter-set.sh \
 	"PreToolUse command-guard hook was not found exactly once"
 
+# The machine-mode template (DD-063): a user-level fragment no ladder can see once it is installed,
+# so each way of shipping it wrong fails here. A hook without `--machine` would install the full
+# project guard for every session on the machine.
+mt=harness/templates/configs/claude-machine-settings.json
+d=$(snapshot adapter_machine_mode_flag_gone)
+sed_in_place 's/amh-command-guard.sh\\" --machine #/amh-command-guard.sh\\" #/' "$d/$mt"
+expect fail "adapter-set: the machine template's hook lost --machine" "$d" adapter-set.sh \
+	"the machine-mode hook was not found exactly once (found 0)"
+
+d=$(snapshot adapter_machine_mode_fail_open)
+sed_in_place 's/"onFailure": "block"/"onFailure": "continue"/' "$d/$mt"
+expect fail "adapter-set: the machine template's hook no longer refuses on failure" "$d" adapter-set.sh \
+	"the machine-mode hook is not exactly"
+
+d=$(snapshot adapter_machine_mode_bash_only)
+sed_in_place 's/"matcher": "Bash|PowerShell",/"matcher": "Bash",/' "$d/$mt"
+expect fail "adapter-set: the machine template's matcher was narrowed to Bash" "$d" adapter-set.sh \
+	"the machine-mode hook does not sit under"
+
+# The exact entry under the wrong event runs after the command it was meant to stop, and a deny
+# array under the wrong key denies nothing; both passed this guard until the fresh-context review
+# mutated them.
+d=$(snapshot adapter_machine_mode_wrong_event)
+sed_in_place 's/"PreToolUse": \[/"PostToolUse": [/' "$d/$mt"
+expect fail "adapter-set: the machine template's hook moved to PostToolUse" "$d" adapter-set.sh \
+	"the machine-mode hook does not sit under \"PreToolUse\""
+
+d=$(snapshot adapter_machine_mode_wrong_permissions_key)
+sed_in_place 's/"permissions": {/"permissionz": {/' "$d/$mt"
+expect fail "adapter-set: the machine template's deny array left \"permissions\"" "$d" adapter-set.sh \
+	"does not open directly inside \"permissions\""
+
+d=$(snapshot adapter_machine_mode_bash_rails_gone)
+sed_in_place '/"Bash(gh auth token:\*)",/d' "$d/$mt"
+sed_in_place '/"Bash(git credential fill:\*)",/d' "$d/$mt"
+expect fail "adapter-set: the machine template dropped the credential-printing command denials" "$d" adapter-set.sh \
+	'lacks "Bash(git credential fill:*)"'
+
+d=$(snapshot adapter_machine_mode_read_rail_gone)
+sed_in_place '/"Read(~\/.aws\/credentials)",/d' "$d/$mt"
+expect fail "adapter-set: the machine template dropped a credential Read rail" "$d" adapter-set.sh \
+	'lacks "Read(~/.aws/credentials)"'
+
+# Derived, not listed: a credential rail added to the ADAPTER template is owed by the machine one.
+d=$(snapshot adapter_machine_mode_adapter_gained_rail)
+sed_in_place 's|"Read(~/.cargo/credentials.toml)",|"Read(~/.cargo/credentials.toml)",\
+      "Read(~/.example-tool/token)",|' "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: a Read rail added to the adapter template is owed by the machine template" "$d" adapter-set.sh \
+	'lacks "Read(~/.example-tool/token)"'
+
+d=$(snapshot adapter_machine_mode_self_deny_gone)
+sed_in_place '/"Edit(~\/.claude\/hooks\/amh-command-guard.sh)"/d' "$d/$mt"
+sed_in_place 's|"Read(~/.cargo/credentials.toml)",|"Read(~/.cargo/credentials.toml)"|' "$d/$mt"
+expect fail "adapter-set: the machine template dropped the Edit rail on the installed guard" "$d" adapter-set.sh \
+	'lacks "Edit(~/.claude/hooks/amh-command-guard.sh)"'
+
+d=$(snapshot adapter_machine_mode_template_gone)
+rm -f "$d/$mt"
+expect fail "adapter-set: the machine template is missing" "$d" adapter-set.sh \
+	"machine-mode template missing"
+
 # The PostToolUse redaction hook is the second hand-applied Claude step and, unlike the pin, its
 # absence is invisible in BOTH directions: the host discards a replacement that misses a tool's
 # schema and uses the original output, and a host without python3 stands the rail down — so a

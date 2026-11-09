@@ -108,7 +108,9 @@
 #     model would have `env -X VALUE cat .env` judge `VALUE` and miss the read. What gets
 #     past is otherwise every wrapper outside that set: `xargs cat .env`, `timeout 5 cat .env`,
 #     `ssh host cat .env`, `bash -c 'cat .env'`, and any shell function or alias standing in
-#     for the command. Do not read this bullet as "wrappers defeat the guard" — several do
+#     for the command. `xargs` is that kind of miss for these rails only: the destructive rail
+#     reads through it (the destructive bullet below says how far). Do not read this bullet as
+#     "wrappers defeat the guard" — several do
 #     not, and deleting the strip loop because a comment said it was useless would remove
 #     real coverage the self-test asserts. The command word and each of those prefixes are
 #     judged by the name bash looks up: a path (`/usr/bin/env`, `/usr/bin/sudo`), one leading
@@ -200,15 +202,26 @@
 #     `del|erase /s` behind `cmd /c` or `/k` (see `cmd_inner_deletion` for that arm's misses,
 #     a `.bat` file first among them). Anything else that empties a
 #     path reaches the filesystem unadvised — `mv` over a target, `truncate`, `dd`, `find
-#     -delete`, `shred`, a `>` redirection, and every one of these run through an
-#     interpreter — though an interpreter handed a deletion INLINE now gets its own one-time
-#     advisory, the tier described two bullets down; it is a word in a command line, not a
+#     -delete`, `find -exec rm -rf {} +`, `shred`, a `>` redirection, and every one of these
+#     run through an interpreter — though an interpreter handed a deletion INLINE now gets its
+#     own one-time advisory, the tier described two bullets down; it is a word in a command line, not a
 #     reading of the program. Two further limits INSIDE the list: the git verbs added after
 #     `git clean` are armed only when the target is unknown at scan time (see
 #     `operands_unknown_target`), so a fully literal `git reset --hard origin/main` is
 #     deliberately silent; and `git checkout -- "$f"` carries no force flag and is not
 #     recognised at all. The rail is a speed bump on the shapes an agent actually
 #     mistypes, never an inventory of ways to lose a file.
+#     BEHIND `xargs` EVERY VERB ABOVE IS JUDGED, and always as a target unknown at scan time,
+#     because `xargs` adds operands from its input when it runs: `… | xargs rm -rf` and
+#     `xargs -0 git rm -r -f` get the one-time advisory, keyed on a digest of the whole
+#     command text so a different pipeline rearms it, and a literal operand written after
+#     the verb is still judged, so `xargs rm -rf ~` is denied like `rm -rf ~` (AMH ledger row
+#     DD062). Its options are skipped by a LIST, GNU's and BSD's together (see the `xargs` arm
+#     in `is_destructive_segment`); `gxargs` is read as `xargs`. Not read: a prefix that arm
+#     does not peel on EITHER side of `xargs` — `timeout`, `bash -c`, a prefix carrying
+#     options (`env -i`, `nice -n 5`, `xargs sudo -u root rm -rf`) — `xargs sh -c 'rm -rf "$@"'`,
+#     which is `sh -c` again, the interpreter tier's inline-program advisory, which does not look
+#     behind `xargs`, and `parallel`, which is not `xargs`.
 #     ONE TARGET LIST INSIDE IT IS NOT A SPEED BUMP. An `rm -r -f`, a `git clean -f -d` or a
 #     `cmd /c` recursive deletion whose operand names the filesystem root, a home directory, or
 #     a directory holding home directories is blocked every time and never clears on a rerun —
@@ -376,9 +389,48 @@
 # see the shape it chose. Treat a green run as "no mistake this scanner recognises", never
 # as "this command is safe".
 #
+# MACHINE MODE (`--machine`, given as the FIRST argument) is this same script installed once for
+# a whole machine — in Claude Code, from the user-level settings file — so that a session in a
+# project that does not use AMH still meets the rails whose damage no project contains. A
+# deletion destroys the machine's disk, not the project's tree: the reported Windows drive wipes
+# ran in scratch directories and took whole drives with them. And a credential an agent prints is
+# the user's, whatever repository printed it (AMH ledger row DD063). It keeps three things:
+#   * the destructive rail's TWO PERMANENT verdicts — a deletion aimed at the target list
+#     (`names_catastrophic_target`), and a recursive `cmd.exe` deletion carrying `\"` nested
+#     quotes — and nothing else of that rail. An ordinary deletion, the git verbs on an unknown
+#     target, the data-plane tier and the `xargs` advisory all pass without a word;
+#   * the credential block tier whole: secret-file reads and copies through the reader list and
+#     `<` redirections, environment dumps, a credential-shaped variable echoed, `source .env`,
+#     `gh auth token` and `git credential fill`;
+#   * the refusals that say the guard did not manage to read the command — a heredoc that never
+#     closes, a parse that produced nothing — because a command it could not read may hold
+#     either of the above.
+# It DROPS everything that encodes AMH's own process, which a project chooses and a machine does
+# not: the push rails (default branch, force, tags, deletion, an implicit or second ref), the
+# pre-push rail's off switches, the forge/API rail, every one-time advisory (`.env`, `.pem` and
+# `.key` mentions, deletions, interpreter deletions, the hook file) and the ladder warning. It
+# reads NO `amh.conf`: the copy sits beside no project, and sourcing whatever file sits beside it
+# would run another file's code in every session on the machine. Dropping the advisories is also
+# what keeps one copy from leaking between projects: their state files are keyed by this
+# script's own location and the command's text, never by project, so a single shared copy would
+# let a rerun in one project clear the same command in every other. Machine mode writes no state
+# file at all. Its verdicts are a SUBSET of the project guard's at the same version, so where both
+# run — an AMH repository on a machine with the user-level hook — it repeats a refusal the
+# project guard already gave and adds none. At different versions the two can disagree, which is
+# the price of a copy no ladder checks: nothing inside a repository can see a user-level hook.
+# Read what it does NOT change. It is still this guard, with every miss listed above (`bash -c`,
+# interpreters, script files, `Start-Process`, `Invoke-Expression`, `.NET` deletions), and a host
+# mode that skips settings hooks skips a user-level one too: Claude Code's `--safe-mode` and
+# `--bare` skip every settings hook, and `--restricted` ignores the user settings file, though not
+# managed settings. It is a speed bump on two mistakes in every project, not containment; a container, a
+# VM, or an account that cannot write the disk, is containment.
+#
 # Usage:
 #   command-guard.sh                  read a hook payload (JSON) on stdin
 #   command-guard.sh --command 'CMD'  check one command directly
+#   command-guard.sh --powershell 'CMD'  check one PowerShell command directly
+#   command-guard.sh --machine        read a hook payload in machine mode (see MACHINE MODE)
+#   command-guard.sh --machine --command 'CMD'     (or --powershell 'CMD') check one in machine mode
 #   command-guard.sh --pre-push       read git's pre-push stdin and judge each ref
 #   command-guard.sh --pre-task       one-time advisory before a subagent spawn
 #   command-guard.sh --self-test      blocked + allowed fixture matrix
@@ -407,10 +459,24 @@ export LC_ALL=C
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Decided before `amh.conf` is read, because machine mode reads none (see MACHINE MODE above).
+MACHINE_MODE=0
+if [ "${1:-}" = --machine ]; then
+	MACHINE_MODE=1
+	shift
+fi
+
 DEFAULT_BRANCH=main
 BRANCH_PREFIX=session
 # shellcheck source=/dev/null
-[ -f "$ROOT/amh.conf" ] && . "$ROOT/amh.conf"
+[ "$MACHINE_MODE" -eq 0 ] && [ -f "$ROOT/amh.conf" ] && . "$ROOT/amh.conf"
+
+# The first line of every refusal. Machine mode names itself there, because an agent in a project
+# that does not use AMH would otherwise read a reason citing an AMH rule, a constitution or "the
+# owner" and look for them in a repository that has none.
+BLOCK_HEADING='BLOCKED by the AMH command guard.'
+# shellcheck disable=SC2016 # the backticks are prose, not a command substitution.
+[ "$MACHINE_MODE" -eq 1 ] && BLOCK_HEADING='BLOCKED by the AMH command guard in machine mode: a user-level hook that judges every session on this machine, whatever the project, and keeps only the permanent deletion denials, the credential rails, and its refusals to pass a command it could not read. Where the reason cites an AMH rule, a constitution or "the owner", read it as this machine'"'"'s owner; the project you are in may not use AMH, and the refusal stands either way. Do not retry it in another spelling.'
 
 # --- windowed character scanning --------------------------------------------
 # Every scanner below walks a string one character at a time. `${s:i:1}` re-walks the
@@ -1649,6 +1715,12 @@ advisory_state_file() { # advisory_state_file <name>
 
 needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 	local name=$1 cmd=$2 state sig when
+	# Machine mode keeps no one-time tier, only the destructive rail's two permanent verdicts
+	# below (see MACHINE MODE in the header). This line is a shortcut that spares the other
+	# categories their detectors; it decides nothing. The machine-mode gate after the permanent
+	# verdicts returns for every category too. The fixtures pin that gate for deletions; for the
+	# other four categories either line alone keeps them silent, so the fixtures pin the pair.
+	[ "$MACHINE_MODE" -eq 1 ] && [ "$name" != destructive ] && return 1
 	case $name in
 	dotenv) case $cmd in *.env*) ;; *) return 1 ;; esac ;;
 	# `.pem` and `.key` must be followed by a non-alphanumeric character or end the word.
@@ -1717,6 +1789,11 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		ADVISORY_REASON='BLOCKED, and this one does NOT clear on a rerun: this recursive `cmd.exe` deletion wraps a path in `\"` nested quotes. `\"` is an escape to bash and to the C runtime, NOT to `cmd.exe` and not to Windows PowerShell 5.1, so somewhere between this text and `cmd.exe` the string closes early and the path `rmdir /s` receives is not the one you wrote. In two reported incidents it was a bare `\`, and `rmdir /s /q \` is the root of the current drive. The path you can read here is not evidence of what will be deleted, which is why a rerun cannot settle it. Do the same deletion in a spelling that needs NO nested quoting: a leftover git worktree with `git worktree remove --force <path>` (and `git worktree prune` for entries whose directory is gone); from bash, `rm -rf -- '"'"'/c/path/to/dir'"'"'` in single quotes; from PowerShell, `Remove-Item -LiteralPath '"'"'C:\path\to\dir'"'"' -Recurse -Force` in single quotes. Print the path first and read it. What is NOT an answer: another nesting of the same quotes, `^` escapes, or moving this text into a `.bat` file — those are the same guess about a parser you cannot see, and a script file is not read here at all.'
 		return 0
 	fi
+	# Machine mode stops here, BEFORE any state file is named: a deletion that is neither of the
+	# two permanent verdicts above passes, and nothing is recorded. One copy serves every project
+	# on the machine, and a state file keyed by this script's location would let a rerun in one
+	# project clear the same deletion in all of them (AMH ledger row DD063).
+	[ "$MACHINE_MODE" -eq 0 ] || return 1
 	state=$(advisory_state_file "$name")
 	[ -n "$state" ] || return 1
 	if [ "$name" = destructive ]; then
@@ -1746,7 +1823,9 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# If `grep` is unavailable the test above fails and the advisory re-fires — the
 		# right direction — at the cost of a duplicate line per attempt. Bounded by the
 		# session, and the bootstrap deletes the file; not worth a second mechanism.
-		printf '%s\n' "$sig" >>"$state" 2>/dev/null || return 1
+		# An `xargs` deletion with no digest to key it on is never recorded, so it never matches
+		# and re-fires on every attempt (see `record_destructive_targets`).
+		[ "${DESTRUCTIVE_UNKEYABLE:-0}" -eq 1 ] || printf '%s\n' "$sig" >>"$state" 2>/dev/null || return 1
 	elif [ "$name" = interpreter ] || [ "$name" = hookfile ]; then
 		# The hook-file tier rearms the same way, per command text: removing the hook at minute
 		# two must not buy silence for moving it aside at minute forty.
@@ -1897,6 +1976,18 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		if [ "${DESTRUCTIVE_WORKTREE:-0}" -eq 1 ]; then
 			# shellcheck disable=SC2016 # the backticked commands must print literally.
 			ADVISORY_REASON="$ADVISORY_REASON"' A path here names a `worktrees` directory. If it is a git worktree, `git worktree remove --force <path>` removes it and its metadata together, and `git worktree prune` clears entries whose directory is already gone — neither needs a path nested inside another shell'"'"'s quotes, which is where the reported drive-root deletion of a leftover worktree went wrong.'
+		fi
+		# ADDITIVE as well: an `xargs` deletion can also carry a literal operand or a variable,
+		# and those paragraphs still describe it. This one says what none of them can — that
+		# the targets are not in the command at all — and names the splitting that turned the
+		# reported incident's paths into a parent nobody wrote (AMH ledger row DD062).
+		if [ "${DESTRUCTIVE_XARGS:-0}" -eq 1 ]; then
+			# shellcheck disable=SC2016 # the examples must print literally, unexpanded.
+			ADVISORY_REASON="$ADVISORY_REASON"' This runs behind `xargs`, so what it acts on is not in the command: `xargs` adds operands it reads from its input at run time, and neither this guard nor a reader of your transcript can see them. Before you rerun, run the same pipeline with `printf '"'"'[%s]\n'"'"'` in place of the destructive command and read every line it prints. Read them for SPLITTING above all: by default `xargs` splits its input at blanks as well as newlines and gives quotes and backslashes meaning, so a path containing a space arrives as two operands, and the first half names a directory you never wrote. Prefer input no file name can split — `find … -print0 | xargs -0 …` — or GNU `xargs -d '"'"'\n'"'"'`, which splits at newlines only; that rewrite is a new command text, so it is stopped once more, and that turn is cheaper than a split path. The reported incident behind this paragraph was exactly that: paths under `~/Library/Application Support` went through `xargs -n1 dirname` into `xargs rm -rf`, `dirname` of `~/Library/Application` was `~/Library`, and `~/Library` was deleted. Rerunning clears this for this exact command text, and the same text run later acts on whatever its input produces by then.'
+			if [ "${DESTRUCTIVE_UNKEYABLE:-0}" -eq 1 ]; then
+				# shellcheck disable=SC2016 # the backticked tool names must print literally.
+				ADVISORY_REASON="$ADVISORY_REASON"' No digest tool (`sha256sum`, `shasum` or `cksum`) was found to key this command on, so this advisory fires on every attempt and a rerun will not clear it: install one, or ask the owner.'
+			fi
 		fi
 		if [ "${DESTRUCTIVE_POWERSHELL:-0}" -eq 1 ] &&
 			{ [ "$DESTRUCTIVE_ROOTISH" -eq 1 ] || [ "$DESTRUCTIVE_UNEXPANDED" -eq 1 ]; }; then
@@ -2810,7 +2901,9 @@ check_segment() {
 	local cmd=$COMMAND_WORD
 	local args=("${words[@]:$((i + 1))}")
 
-	if forge_api_mutation "$cmd" ${args[@]+"${args[@]}"}; then
+	# The forge/API rail, the `core.hooksPath` arms and the push rails below encode AMH's
+	# publication process, a project's choice; machine mode skips all three (see MACHINE MODE).
+	if [ "$MACHINE_MODE" -eq 0 ] && forge_api_mutation "$cmd" ${args[@]+"${args[@]}"}; then
 		BLOCK_REASON="Forge/API mutation blocked: client=$FORGE_CLIENT method=$FORGE_METHOD operation-class=$FORGE_CLASS. This local rail never prints payloads or credentials. Use an explicit owner-approved administrative workflow with least-privilege credentials, protected environments and required approvals."
 		return 1
 	fi
@@ -2884,7 +2977,7 @@ check_segment() {
 		[ "$j" -lt "${#args[@]}" ] || return 0
 		case ${args[$j]} in
 		config)
-			if git_config_sets_hooks_path "${args[@]:$((j + 1))}"; then
+			if [ "$MACHINE_MODE" -eq 0 ] && git_config_sets_hooks_path "${args[@]:$((j + 1))}"; then
 				BLOCK_REASON="Setting \`core.hooksPath\` moves git's hooks directory away from the one holding the AMH pre-push rail, which switches that rail off for every later push, by any agent or none (AMH P13). Moving where a repository's hooks live is an owner decision: ask via the Owner queue. Reading the setting (\`git config --get core.hooksPath\`) and unsetting it are allowed."
 				return 1
 			fi
@@ -2914,7 +3007,7 @@ check_segment() {
 			fi
 			return 0
 			;;
-		push) ;;
+		push) [ "$MACHINE_MODE" -eq 0 ] || return 0 ;;
 		*) return 0 ;;
 		esac
 		if [ -n "$hooks_override" ]; then
@@ -3832,6 +3925,44 @@ JOINED=''
 #
 # All three still set DESTRUCTIVE_UNEXPANDED, so they get the weaker "print the expansion"
 # text. The exclusion narrows which paragraph fires, never whether the advisory fires.
+# Fold `${NAME}` and `${NAME:?…}` to `$NAME` throughout <text>, under `normalize_operand`'s rule
+# for an operand: only when the character after the closing brace cannot continue a name, and
+# never the substituting forms (`${NAME:-…}`, `${NAME:+…}`). It steps from one `${` to the
+# next rather than one character at a time, because the text is a whole command line and can
+# carry a heredoc of many kilobytes. Sets FOLDED_TEXT.
+# shellcheck disable=SC2016 # the `${` patterns are literal command text, not expansions.
+fold_guarded_vars() { # fold_guarded_vars <text>
+	local left=$1 folded='' inner name rest after
+	while :; do
+		case $left in *'${'*) ;; *) break ;; esac
+		folded=$folded${left%%'${'*}
+		left=${left#*'${'}
+		case $left in
+		*'}'*) ;;
+		*)
+			folded=$folded'${'
+			continue
+			;;
+		esac
+		inner=${left%%\}*}
+		after=${left#*\}}
+		name=${inner%%[!A-Za-z0-9_]*}
+		rest=${inner#"$name"}
+		case ${after:0:1} in
+		[A-Za-z0-9_]) folded=$folded\$\{$inner\} ;;
+		*)
+			if [ -n "$name" ] && { [ -z "$rest" ] || [ "${rest#':?'}" != "$rest" ]; }; then
+				folded=$folded\$$name
+			else
+				folded=$folded\$\{$inner\}
+			fi
+			;;
+		esac
+		left=$after
+	done
+	FOLDED_TEXT=$folded$left
+}
+
 record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 	local kind=$1 w bare name entry braces=1
 	shift
@@ -3909,7 +4040,16 @@ record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 	# because git itself does: `-C` moves the directory a relative pathspec is read from, a
 	# `--work-tree` bounds what a clean with nothing narrower can reach, and a `--git-dir`
 	# names repository metadata that none of these verbs deletes.
-	local places=${DESTRUCTIVE_PLACE_KINDS:-} place='' tree='' pathspecs=0 whole=0
+	#
+	# Only a git verb reads them. The marks are a global the `git` arm sets per bash segment, and
+	# PowerShell's `Remove-Item` and `cmd /c` arms reach this function without passing through
+	# that arm's reset, so in one PowerShell command a `git -C` or `--git-dir` statement — any
+	# verb, `status` included — left its letters for the deletion judged after it. That deletion
+	# then read its first operand as git's directory, never as the target, and
+	# `git -C build clean -fdx; Remove-Item -Recurse -Force C:\` got the one-time advisory instead
+	# of the permanent denial (AMH ledger row DD064).
+	local places='' place='' tree='' pathspecs=0 whole=0
+	case $kind in git-*) places=${DESTRUCTIVE_PLACE_KINDS:-} ;; esac
 	for w in "$@"; do
 		case $w in *'$'*) DESTRUCTIVE_UNEXPANDED=1 ;; esac
 		if [ -n "$places" ]; then
@@ -3998,6 +4138,33 @@ record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 		done
 		entry="$kind $(printf '%q\n' "${norm[@]}" | LC_ALL=C sort | tr '\n' ' ')"
 	fi
+	# Behind `xargs` the operands above are not the target set: the targets are whatever its
+	# input produces at run time, so an entry keyed on them alone would be one signature for
+	# every `… | xargs rm -rf` in the session, and the first rerun would clear them all — the
+	# category one-shot this rail's rearm rule exists to refuse (AMH ledger row DB030). The
+	# input's producer is in the COMMAND TEXT, so the entry is keyed on that too, rearming per
+	# command text as the interpreter tier does, and by a digest for that tier's reason: a
+	# command line can carry a literal credential, and the state file is world-readable. The
+	# text digested is the command as the host handed it over, before either comment reading,
+	# and the entry carries the kind and NOT the operands, which the digest already covers: the
+	# two readings can hand this function different operands for one command, and keying on
+	# them made such a command prompt twice. The text is digested with `${VAR:?}` and `${VAR}`
+	# folded to `$VAR`, as `normalize_operand` folds an operand, because the advisory promises
+	# that the guarded rewrite it asks for is the rerun and not a second prompt (AMH ledger row
+	# DC004). No digest tool means no key, and this advisory then re-fires on every attempt
+	# (`DESTRUCTIVE_UNKEYABLE`): loud, the direction an advisory may fail — where the
+	# interpreter tier, with no digest, falls silent instead.
+	if [ "${DESTRUCTIVE_VIA_XARGS:-0}" -eq 1 ]; then
+		DESTRUCTIVE_XARGS=1
+		local digest
+		fold_guarded_vars "${DESTRUCTIVE_COMMAND_TEXT:-}"
+		if digest=$(interpreter_signature "$FOLDED_TEXT") && [ -n "$digest" ]; then
+			entry="xargs:$digest $kind"
+		else
+			DESTRUCTIVE_UNKEYABLE=1
+			entry="xargs:no-digest $kind"
+		fi
+	fi
 	DESTRUCTIVE_TARGETS+=("$entry")
 }
 
@@ -4030,9 +4197,13 @@ record_destructive_targets() { # record_destructive_targets <kind> <operand>...
 # test and cannot tell a path operand from a revision one, so `git worktree add wt "$REF"`
 # arms on a commit-ish whose destination is literal and safe. Separating them needs a git
 # query, which no rail here may make.
+#
+# A THIRD way, which needs no operand at all: behind `xargs` the operands written here are only
+# the first ones, and the rest arrive from its input at run time (AMH ledger row DD062).
 operands_unknown_target() { # operands_unknown_target <whole-tree-when-empty> <operand>...
 	local empty_is_whole_tree=$1
 	shift
+	[ "${DESTRUCTIVE_VIA_XARGS:-0}" -eq 1 ] && return 0
 	[ "$#" -eq 0 ] && return "$empty_is_whole_tree"
 	local w
 	for w in "$@"; do
@@ -4953,11 +5124,19 @@ ps_destructive_scan() { # ps_destructive_scan <text>; does NOT reset state
 			lead=${ws[0]##*\\}
 			ps_lower "$lead"
 			case $PS_LOWER in
+			# These two arms judge a statement without passing through `is_destructive_segment`,
+			# which is where the per-segment flags are reset, so the flag saying a package runner
+			# resolved a SCRIPT NAME is reset here: an earlier `npm run build;` statement left it
+			# set, and the deletion after it was told it had matched a package script (AMH ledger
+			# row DD064). The git arm's directory marks are scoped by kind in
+			# `record_destructive_targets` instead.
 			remove-item | rm | rmdir | rd | del | erase | ri)
 				PS_UPSTREAM=$upstream
+				DESTRUCTIVE_FROM_SCRIPT_NAME=0
 				ps_remove_item "${ws[@]:1}" && found=0
 				;;
 			cmd | cmd.exe)
+				DESTRUCTIVE_FROM_SCRIPT_NAME=0
 				cmd_wrapper_deletion "$raw" "${ws[@]:1}" && found=0
 				;;
 			*)
@@ -5102,6 +5281,7 @@ powershell_wrapper_deletion() { # powershell_wrapper_deletion <raw segment>
 
 is_ps_destructive_command() {
 	reset_destructive_state
+	DESTRUCTIVE_COMMAND_TEXT=$1
 	ps_destructive_scan "$1"
 }
 
@@ -5309,6 +5489,40 @@ check_powershell_command() {
 }
 GUARD_SHELL=bash
 
+# True when <cluster> — a short-option word after `xargs`, its leading `-` removed — ends in an
+# option whose value is the NEXT word. Every letter before the first value-taking one is a flag;
+# that one takes the rest of the cluster as its value, or the next word when nothing follows.
+# GNU's `-e`, `-i` and `-l` take an attached value only, so they never take the next word.
+xargs_short_takes_next() { # xargs_short_takes_next <cluster>
+	local opts=$1 c
+	while [ -n "$opts" ]; do
+		c=${opts:0:1}
+		opts=${opts:1}
+		case $c in
+		[adEIJLnPRSs])
+			[ -z "$opts" ]
+			return
+			;;
+		[eil]) return 1 ;;
+		esac
+	done
+	return 1
+}
+
+# True when <word> is a GNU `xargs` long option, read by unique prefix as getopt reads it, whose
+# value may be the next word. Each pair is the full name and its shortest unique prefix; an
+# ambiguous prefix such as `--max-` is refused by xargs, which then runs nothing.
+xargs_long_takes_value() { # xargs_long_takes_value <word>
+	local w=$1 pair full min
+	for pair in --arg-file:--a --delimiter:--d --max-args:--max-a --max-procs:--max-p \
+		--max-chars:--max-c --process-slot-var:--p; do
+		full=${pair%%:*}
+		min=${pair#*:}
+		case $w in "$min"*) case $full in "$w"*) return 0 ;; esac ;; esac
+	done
+	return 1
+}
+
 is_destructive_segment() {
 	local raw=$1 w cmd recursive=1 force=1 descend=1 i=0
 	local sub kind='' hard=1 staged=1 worktree_target=1
@@ -5320,10 +5534,23 @@ is_destructive_segment() {
 	DESTRUCTIVE_FROM_SCRIPT_NAME=0
 	# Per segment for the same reason: its letters describe THIS segment's leading operands.
 	DESTRUCTIVE_PLACE_KINDS=''
-	split_words "$raw"
+	# Whether THIS segment's command runs behind `xargs` (see the arm below). A `local`, not a
+	# global reset: bash scopes it dynamically, so the functions this segment calls read it,
+	# a nested scan (a `pwsh -c` statement's own segment) gets its own and cannot clear this
+	# one, and nothing outside a segment — the next PowerShell statement, judged by arms that
+	# never enter here — inherits it.
+	local DESTRUCTIVE_VIA_XARGS=0
+	# Judge the words bash would pass, not the redirections around them, as `check_segment`
+	# does: a redirection before the command word (`< list.txt rm -rf ~`), or between `xargs`
+	# and its command, used to hide the deletion from this rail, its permanent denials
+	# included (AMH ledger row DD067). The wrapper arms below still read `raw`, because each
+	# parses its own inner text.
+	strip_redirections "$raw"
+	split_words "$STRIPPED"
 	words=(${SPLIT_WORDS[@]+"${SPLIT_WORDS[@]}"})
 	# Find the same leading command that leading_command reports, without treating
-	# later quoted prose or operands as commands.
+	# later quoted prose or operands as commands — and, for this rail alone, read through
+	# `xargs`, which leading_command does not.
 	while [ "$i" -lt "${#words[@]}" ]; do
 		w=${words[$i]}
 		case $w in *=*)
@@ -5334,6 +5561,48 @@ is_destructive_segment() {
 		command_word "$w"
 		case $COMMAND_WORD in
 		sudo | nohup | nice | time | command | builtin | exec | if | then | else | elif | while | until | do | '!') i=$((i + 1)) ;;
+		xargs | gxargs)
+			# `xargs` runs the command after its options with operands it reads from its input
+			# at run time, so the deletion behind it is a deletion whose targets this guard
+			# never sees. It was a named wrapper miss, filed as evasion, until a reported
+			# incident showed it as an honest mistake: an agent piped paths under
+			# `~/Library/Application Support` through `xargs -n1 dirname` into `xargs rm -rf`,
+			# xargs split each path at the space, `dirname` of the first half was `~/Library`,
+			# and that was what got deleted (AMH ledger row DD062). So this rail now reads
+			# through it, and only this rail: the secret and push rails still stop at `xargs`,
+			# because nothing here has measured what widening them would cost.
+			#
+			# Options are skipped with the union of the GNU and BSD grammars, both of which
+			# take an option's value attached or as the next word. Value-taking short
+			# options: GNU `-a -d -E -I -L -n -P -s`, BSD `-E -I -J -L -n -P -R -S -s`; GNU's
+			# `-e -i -l` take a value only when it is attached. No letter is a flag in one
+			# grammar and value-taking in the other. A GNU long option is read by unique
+			# prefix, and those whose value may be the next word are `--arg-file`,
+			# `--delimiter`, `--max-args`, `--max-procs`, `--max-chars` and
+			# `--process-slot-var`. An option outside these lists is read as a flag, so its
+			# value would be judged as the command — the usual failure direction of every list
+			# here. `gxargs` is GNU xargs as Homebrew installs it on macOS, the reported
+			# incident's platform.
+			DESTRUCTIVE_VIA_XARGS=1
+			i=$((i + 1))
+			while [ "$i" -lt "${#words[@]}" ]; do
+				w=${words[$i]}
+				case $w in
+				--)
+					i=$((i + 1))
+					break
+					;;
+				--*=*) i=$((i + 1)) ;;
+				--*)
+					if xargs_long_takes_value "$w"; then i=$((i + 2)); else i=$((i + 1)); fi
+					;;
+				-?*)
+					if xargs_short_takes_next "${w#-}"; then i=$((i + 2)); else i=$((i + 1)); fi
+					;;
+				*) break ;;
+				esac
+			done
+			;;
 		env)
 			if [ $((i + 1)) -lt "${#words[@]}" ]; then
 				case ${words[$((i + 1))]} in -*) break ;; *) i=$((i + 1)) ;; esac
@@ -5930,11 +6199,15 @@ reset_destructive_state() {
 	DESTRUCTIVE_CMD_QUOTING=0
 	DESTRUCTIVE_WORKTREE=0
 	DESTRUCTIVE_POWERSHELL=0
+	DESTRUCTIVE_XARGS=0
+	DESTRUCTIVE_UNKEYABLE=0
+	DESTRUCTIVE_COMMAND_TEXT=''
 }
 
 is_destructive_command() {
 	local cmd=$1 seg found=1
 	reset_destructive_state
+	DESTRUCTIVE_COMMAND_TEXT=$cmd
 	cmd=$(strip_heredocs "$cmd")
 	# Every destructive segment is scanned, not just the first. A command that deletes two
 	# path sets is two decisions, and the advisory should be able to name both — stopping
@@ -6087,7 +6360,8 @@ check_command_reading() { # check_command_reading <command>, under the current C
 		BLOCK_REASON=$ADVISORY_REASON
 		return 1
 	fi
-	warn_ladder_tail "$cmd"
+	# The ladder is AMH's, and machine mode judges projects that may have none.
+	[ "$MACHINE_MODE" -eq 1 ] || warn_ladder_tail "$cmd"
 	cmd=$(strip_heredocs "$cmd")
 	split_segments "$cmd"
 	# Same fail-closed rule as check_segment's, one level up: a non-blank command that
@@ -6118,8 +6392,17 @@ extract_command() { # fail-open: print nothing if the payload is not what we exp
 	# status decides: its program exits 0 on every payload it reads — declining a non-Bash or
 	# malformed one included — and only an interpreter that did not run exits otherwise, which
 	# sends the payload to the fallback instead (AMH ledger row DD030).
+	#
+	# `-I`, isolated mode, because the hook runs in the SESSION's current directory and `-c` puts
+	# that directory first on `sys.path`. A file named `json.py` there was imported in place of
+	# the standard module: an empty one made `json.load` raise inside the `try`, the parser
+	# printed nothing and exited 0, and every call was allowed unjudged, while one with code in
+	# it ran that code inside the hook. Machine mode carries this reader into every folder on
+	# the machine (AMH ledger row DD065). `-I` also ignores `PYTHON*` variables and the user
+	# site directory. A Python too old to know the flag exits non-zero, which is the fallback's
+	# route above, never a silent pass.
 	if command -v python3 >/dev/null 2>&1 &&
-		parsed=$(printf '%s' "$payload" | python3 -c 'import json,sys
+		parsed=$(printf '%s' "$payload" | python3 -I -c 'import json,sys
 try:
     d = json.load(sys.stdin)
     if d.get("tool_name") in ("Bash", "PowerShell"):
@@ -6237,7 +6520,7 @@ run_hook() {
 	[ "$tool" = PowerShell ] && checker=check_powershell_command
 	[ -n "$cmd" ] || exit 0
 	if ! "$checker" "$cmd"; then
-		printf 'BLOCKED by the AMH command guard.\n\n%s\n' "$BLOCK_REASON" >&2
+		printf '%s\n\n%s\n' "$BLOCK_HEADING" "$BLOCK_REASON" >&2
 		exit 2
 	fi
 	[ -n "$WARN_REASON" ] && printf 'WARNING from the AMH command guard.\n\n%s\n' "$WARN_REASON" >&2
@@ -6343,6 +6626,33 @@ st_allowed() {
 		ST_FAILS=$((ST_FAILS + 1))
 	elif [ -n "$WARN_REASON" ]; then
 		printf 'SELF-TEST FAIL: should have been ALLOWED WITHOUT WARNING: %s\n   warning given: %s\n' "$1" "$WARN_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+}
+# st_machine <blocked|allowed> <bash|powershell> <command> [phrase a refusal must carry]
+# Judges <command> in machine mode and restores the project mode on every path out. A refusal must
+# carry the phrase, so a machine mode that blocked for the wrong reason — an advisory it should
+# never fire — fails a case it would otherwise pass; an allowed case must also carry no warning.
+st_machine() {
+	local want=$1 shell=$2 cmd=$3 phrase=${4:-} checker=check_command rc
+	[ "$shell" = powershell ] && checker=check_powershell_command
+	MACHINE_MODE=1
+	"$checker" "$cmd"
+	rc=$?
+	MACHINE_MODE=0
+	if [ "$want" = blocked ]; then
+		if [ "$rc" -eq 0 ]; then
+			printf 'SELF-TEST FAIL: machine mode should have BLOCKED (%s): %s\n' "$shell" "$cmd" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+		elif [ -n "$phrase" ] && [ "${BLOCK_REASON#*"$phrase"}" = "$BLOCK_REASON" ]; then
+			printf 'SELF-TEST FAIL: machine mode blocked (%s) without naming %s: %s\n   reason given: %s\n' "$shell" "$phrase" "$cmd" "$BLOCK_REASON" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+		fi
+	elif [ "$rc" -ne 0 ]; then
+		printf 'SELF-TEST FAIL: machine mode should have ALLOWED (%s): %s\n   reason given: %s\n' "$shell" "$cmd" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif [ -n "$WARN_REASON" ]; then
+		printf 'SELF-TEST FAIL: machine mode should have ALLOWED WITHOUT WARNING (%s): %s\n   warning given: %s\n' "$shell" "$cmd" "$WARN_REASON" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	fi
 }
@@ -6761,6 +7071,37 @@ st_destructive_reason_names() { # st_destructive_reason_names <substring> <comma
 		esac
 	fi
 	rm -f -- "$state"
+	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
+}
+
+# With no digest tool an `xargs` deletion has no key, so it must be advised on EVERY attempt and
+# say why. The digest function is replaced for the duration, not the PATH, because a self-test
+# cannot assume which tools a host's PATH holds or where.
+st_destructive_xargs_unkeyable() { # st_destructive_xargs_unkeyable <command>
+	local cmd=$1 state old_set old_state saved n
+	saved=$(declare -f interpreter_signature)
+	interpreter_signature() { return 1; }
+	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
+	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-unkeyable-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	DESTRUCTIVE_ADVISORY_STATE=$state
+	for n in 1 2; do
+		if st_check "$cmd"; then
+			printf 'SELF-TEST FAIL: an xargs deletion with no digest must be advised on every attempt (attempt %s): %s\n' "$n" "$cmd" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+		else
+			case $ADVISORY_REASON in
+			*'No digest tool'*) ;;
+			*)
+				printf 'SELF-TEST FAIL: an unkeyable xargs advisory did not say why it re-fires: %s\n' "$cmd" >&2
+				ST_FAILS=$((ST_FAILS + 1))
+				;;
+			esac
+		fi
+	done
+	rm -f -- "$state"
+	eval "$saved"
 	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
 }
 
@@ -7841,6 +8182,20 @@ EOF'
 	ST_CHECKER=check_powershell_command st_destructive_never_clears 'Get-ChildItem | ForEach-Object { Remove-Item C:\ -Recurse }' 'the root of a Windows drive'
 	ST_CHECKER=check_powershell_command st_destructive_never_clears "& cmd.exe /c rd /s /q D:\\" 'the root of a Windows drive'
 	ST_CHECKER=check_powershell_command st_destructive_never_clears 'Remove-Item C:\ -Recurse -ErrorAction SilentlyContinue 2>&1 | Out-Null' 'the root of a Windows drive'
+	# A `git -C` or `--git-dir` statement earlier in the same command, of any verb, leaves the git
+	# arm's directory marks set; the deletion after it must not read them as its own and take its
+	# first operand for git's directory (AMH ledger row DD064).
+	ST_CHECKER=check_powershell_command st_destructive_never_clears "git -C build clean -fdx; Remove-Item -Recurse -Force C:\\" 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears "git --git-dir=x --work-tree=y status; Remove-Item -Recurse -Force C:\\" 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears "git -C build status; rm -r -fo D:\\" 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears "git -C build status; cmd /c rd /s /q C:\\" 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears "git -C build status; cmd /c del /s /q C:\\" 'the root of a Windows drive'
+	ST_CHECKER=check_powershell_command st_destructive_never_clears 'git -C build status; Remove-Item -Recurse -Force $HOME' 'your home directory'
+	st_destructive_never_clears 'pwsh -c "git -C build status; Remove-Item -Recurse -Force C:\\"' 'the root of a Windows drive'
+	# The same leak's other flag: an earlier `npm run` statement must not make the deletion after it
+	# claim it matched a package script.
+	ST_CHECKER=check_powershell_command st_destructive_reason_lacks 'matched a package SCRIPT NAME' 'npm run build; Remove-Item -Recurse -Force .\build'
+	ST_CHECKER=check_powershell_command st_destructive_reason_lacks 'matched a package SCRIPT NAME' 'npm run build; cmd /c rd /s /q build'
 	# PowerShell's quoting keeps a quoted path with a space whole, and an ordinary target is the
 	# ordinary advisory — with the PowerShell form of the variable paragraph, never the bash one.
 	ST_CHECKER=check_powershell_command st_destructive_advisory_once "Remove-Item -LiteralPath 'C:\Users\John Smith\proj\build' -Recurse -Force"
@@ -8283,6 +8638,76 @@ EOF'
 	st_destructive_advisory_once 'pnpm exec git clean -fdx'
 	# A runner option that takes a value names a package, not a command.
 	st_destructive_advisory_once 'npx -p prisma@5 prisma migrate reset'
+
+	# --- `xargs`, read through by this rail alone (AMH ledger row DD062). The reported
+	# incident's own pipeline first: its targets came from input xargs split at a space.
+	st_destructive_advisory_once 'find ~/Library/Application\ Support/AgentThreads/channels -name "test-*" -type f | xargs -n1 dirname | sort -u | xargs rm -rf'
+	st_destructive_advisory_once 'xargs -0 rm -rf < list.txt'
+	# The option grammar: a value attached inside a cluster, a value as the next word, a GNU
+	# long option shortened to a unique prefix with its value as the next word, a replacement
+	# string, the end of options, and a prefix on either side of xargs.
+	st_destructive_advisory_once 'find . -print0 | xargs -0n1 rm -rf'
+	st_destructive_advisory_once 'xargs -n 1 -P 4 rm -rf'
+	st_destructive_advisory_once 'xargs --max-a 1 rm -rf'
+	st_destructive_advisory_once 'xargs -I {} rm -rf {}'
+	st_destructive_advisory_once 'xargs --max-args=1 rm -rf'
+	st_destructive_advisory_once 'xargs --delimiter '"'"'\n'"'"' rm -rf'
+	# The two spellings the advisory itself recommends must reach the verb.
+	st_destructive_advisory_once 'xargs -d '"'"'\n'"'"' rm -rf'
+	st_destructive_advisory_once 'find . -print0 | xargs -0 rm -rf'
+	# BSD's value-taking `-J`, and GNU's `-i`, whose value is attached only.
+	st_destructive_advisory_once 'xargs -J % rm -rf % dest'
+	st_destructive_advisory_once 'xargs -i rm -rf {}'
+	st_destructive_advisory_once 'gxargs rm -rf'
+	# `--` and the long-option fallback agree on this spelling; the arm matters only for a
+	# command whose name starts with `-`.
+	st_destructive_advisory_once 'xargs -- rm -rf'
+	st_destructive_advisory_once 'sudo xargs rm -rf'
+	st_destructive_advisory_once 'xargs sudo rm -rf'
+	# The git verbs armed only on an unknown target are armed behind xargs, which adds operands —
+	# including after a literal one, which alone would leave them silent.
+	st_destructive_advisory_once 'xargs -I{} git checkout -f {}'
+	st_destructive_advisory_once 'xargs -0 git rm -r -f'
+	# A literal operand written after the verb is still judged against the target list.
+	st_destructive_never_clears 'xargs rm -rf ~' 'your home directory'
+	# A redirection is not a word bash passes, wherever it sits: before the command word it hid
+	# the deletion from this rail, permanent denials included, and between `xargs` and its
+	# command it hid the verb (AMH ledger row DD067).
+	st_destructive_never_clears '< list.txt rm -rf ~' 'your home directory'
+	st_destructive_never_clears '2>/dev/null rm -rf /' 'the filesystem root'
+	st_destructive_never_clears '0<x xargs rm -rf ~' 'your home directory'
+	st_destructive_advisory_once '< list.txt xargs rm -rf'
+	st_destructive_advisory_once 'xargs 2>/dev/null rm -rf'
+	st_destructive_advisory_once '>log git clean -fdx'
+	st_allowed '< list.txt xargs rm -f'
+	st_allowed '2>/dev/null rm -f build >log'
+	st_destructive_reason_names 'This runs behind `xargs`' 'find a | xargs rm -rf'
+	st_destructive_reason_lacks 'This runs behind `xargs`' 'rm -rf a'
+	# Keyed on the command text: clearing one pipeline does not clear another, which a key
+	# built from the operands alone — none here — would have.
+	st_destructive_rearms_per_target 'find a -type d | xargs rm -rf' 'find b -type d | xargs rm -rf'
+	ST_CHECKER=check_powershell_command st_destructive_rearms_per_target \
+		'Get-ChildItem a | xargs rm -rf' 'Get-ChildItem b | xargs rm -rf'
+	# A nested scan must not clear the outer segment's xargs reading: the `git status` here is
+	# judged as its own segment before the deletion beside it.
+	st_destructive_rearms_per_target 'find a | xargs pwsh -c "git status; Remove-Item -Recurse -Force x"' \
+		'find b | xargs pwsh -c "git status; Remove-Item -Recurse -Force x"'
+	# Nor may one segment's xargs reach a later segment or statement that has none.
+	st_destructive_reason_lacks 'This runs behind `xargs`' 'ls | xargs echo && rm -rf build'
+	ST_CHECKER=check_powershell_command st_destructive_reason_lacks 'This runs behind `xargs`' \
+		'echo a | xargs echo; Remove-Item -Recurse -Force x'
+	# The guarded rewrite the advisory asks for is the rerun, not a second prompt.
+	st_destructive_same_target_set 'find a | xargs rm -rf "$D/x"' 'find a | xargs rm -rf "${D:?}/x"'
+	# The two comment readings hand over different operands for this command; one rerun must
+	# still clear it.
+	st_destructive_advisory_once "find c | xargs rm -rf # don't keep these"
+	st_destructive_xargs_unkeyable 'find a | xargs rm -rf'
+	# Not a deletion: the verb lacks a flag, or xargs runs something else.
+	st_allowed 'xargs rm -f'
+	st_allowed 'xargs -n1 dirname'
+	st_allowed 'xargs echo rm -rf'
+	st_allowed 'find . -name "*.o" | xargs grep foo'
+	st_allowed 'git commit -m "guard: read through xargs rm -rf"'
 	# Global options come before the subcommand, the way the git arm has always read them.
 	st_destructive_advisory_once 'supabase --workdir . db reset'
 	st_destructive_advisory_once 'prisma db push --accept-data-loss=true'
@@ -9217,6 +9642,86 @@ git push --force origin main
 	# A BRANCH whose name merely contains `tags` is not a tag.
 	st_prepush_allowed "refs/heads/$BRANCH_PREFIX/tags-cleanup" "$pp_a" "refs/heads/$BRANCH_PREFIX/tags-cleanup" "$pp_zero"
 
+	# --- machine mode (`--machine`; see MACHINE MODE in the header) ---
+	# Every ALLOWED case below is a command the project guard refuses, permanently or once, so each
+	# fails against a script whose machine mode changes nothing. Every BLOCKED case must keep its
+	# own reason, so a machine mode that skipped too much fails them. The one-time tiers get FRESH,
+	# unspent state files here, so a machine mode that still fired an advisory would refuse the
+	# `.env`, `.pem`, deletion, interpreter and hook-file cases — and the check after them fails
+	# if machine mode wrote any state file at all (AMH ledger row DD063).
+	local mm_dir mm_f
+	local mm_old_dotenv_set=${DOTENV_ADVISORY_STATE+x} mm_old_dotenv=${DOTENV_ADVISORY_STATE:-}
+	local mm_old_keymaterial_set=${KEYMATERIAL_ADVISORY_STATE+x} mm_old_keymaterial=${KEYMATERIAL_ADVISORY_STATE:-}
+	local mm_old_destructive_set=${DESTRUCTIVE_ADVISORY_STATE+x} mm_old_destructive=${DESTRUCTIVE_ADVISORY_STATE:-}
+	local mm_old_interpreter_set=${INTERPRETER_ADVISORY_STATE+x} mm_old_interpreter=${INTERPRETER_ADVISORY_STATE:-}
+	local mm_old_hookfile_set=${HOOKFILE_ADVISORY_STATE+x} mm_old_hookfile=${HOOKFILE_ADVISORY_STATE:-}
+	mm_dir=$(mktemp -d "${TMPDIR:-/tmp}/amh-machine-self-test.XXXXXX") || exit 1
+	DOTENV_ADVISORY_STATE=$mm_dir/dotenv
+	KEYMATERIAL_ADVISORY_STATE=$mm_dir/keymaterial
+	DESTRUCTIVE_ADVISORY_STATE=$mm_dir/destructive
+	INTERPRETER_ADVISORY_STATE=$mm_dir/interpreter
+	HOOKFILE_ADVISORY_STATE=$mm_dir/hookfile
+	# The permanent deletion verdicts, the reported incident's own command first.
+	st_machine blocked bash 'cmd /c "rmdir /s /q \"D:\My Documents\Projects\_scratch_sitevideo\profile\""' 'nested quotes'
+	st_machine blocked bash "cmd /c rmdir /s /q \\" 'the filesystem root'
+	st_machine blocked bash 'rm -rf /' 'the filesystem root'
+	st_machine blocked bash 'rm -rf ~' 'your home directory'
+	st_machine blocked bash 'xargs rm -rf ~' 'your home directory'
+	st_machine blocked bash '< list.txt rm -rf ~' 'your home directory'
+	st_machine blocked bash 'git --git-dir="$HOME/.cfg" --work-tree="$HOME" clean -fd' 'your home directory'
+	st_machine blocked powershell 'cmd /c "rmdir /s /q \"D:\My Documents\Projects\_scratch_sitevideo\profile\""' 'nested quotes'
+	st_machine blocked powershell "Remove-Item -Recurse -Force C:\\" 'the root of a Windows drive'
+	st_machine blocked powershell "rm -r -fo D:\\" 'the root of a Windows drive'
+	# The credential tier, whole.
+	st_machine blocked bash 'cat .env' 'credential values'
+	st_machine blocked bash 'cat id_ed25519' 'private key material'
+	st_machine blocked bash 'cat ~/.aws/credentials' 'login tokens'
+	st_machine blocked bash "tr '\\0' '\\n' < /proc/self/environ" 'Redirecting from'
+	st_machine blocked bash 'printenv' 'prints credential values'
+	st_machine blocked bash 'env' 'prints the environment'
+	st_machine blocked bash 'echo "$GITHUB_TOKEN"' 'credential-shaped variable'
+	st_machine blocked bash 'source .env' 'loads every credential'
+	st_machine blocked bash 'gh auth token' 'GitHub token'
+	st_machine blocked bash 'git credential fill' 'credential helper'
+	st_machine blocked powershell 'gh auth token' 'GitHub token'
+	st_machine blocked powershell 'cat C:\Users\dev\.netrc' 'login tokens'
+	# The refusal to pass what the guard could not read.
+	st_machine blocked bash $'cat <<EOF\nrm -rf /' 'could not find the end of a heredoc'
+	# AMH's own process: the push rails, the pre-push rail's off switches, the forge/API rail.
+	st_machine allowed bash 'git push --force origin main'
+	st_machine allowed bash 'git push origin main'
+	st_machine allowed bash 'git push'
+	st_machine allowed bash 'git push origin refs/tags/v1.0.0'
+	st_machine allowed bash 'git push --no-verify origin feature'
+	st_machine allowed bash 'git -c core.hooksPath=/dev/null push origin feature'
+	st_machine allowed bash 'git config core.hooksPath .githooks'
+	st_machine allowed bash 'gh api -X DELETE repos/o/r/git/refs/heads/x'
+	st_machine allowed powershell 'git push --force origin main'
+	# Every one-time tier, and the ladder warning (`st_machine allowed` refuses a warning too).
+	st_machine allowed bash 'rm -rf build'
+	st_machine allowed bash 'git reset --hard "$BASE"'
+	st_machine allowed bash 'ls | xargs rm -rf'
+	st_machine allowed bash 'supabase db reset'
+	st_machine allowed bash 'ls -la .env'
+	st_machine allowed bash 'openssl x509 -in cert.pem -noout -text'
+	st_machine allowed bash "python3 -c \"import shutil; shutil.rmtree('build')\""
+	st_machine allowed bash 'rm .git/hooks/pre-push'
+	st_machine allowed bash 'scripts/ladder.sh 2>&1 | tail -n 20'
+	st_machine allowed powershell 'Remove-Item -Recurse -Force .\build'
+	st_machine allowed powershell 'cmd /c "rd /s /q build"'
+	for mm_f in "$mm_dir"/*; do
+		[ -e "$mm_f" ] || continue
+		printf 'SELF-TEST FAIL: machine mode wrote advisory state: %s\n' "${mm_f##*/}" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	done
+	rm -f -- "$mm_dir"/*
+	rmdir -- "$mm_dir" 2>/dev/null || :
+	if [ -n "$mm_old_dotenv_set" ]; then DOTENV_ADVISORY_STATE=$mm_old_dotenv; else unset DOTENV_ADVISORY_STATE; fi
+	if [ -n "$mm_old_keymaterial_set" ]; then KEYMATERIAL_ADVISORY_STATE=$mm_old_keymaterial; else unset KEYMATERIAL_ADVISORY_STATE; fi
+	if [ -n "$mm_old_destructive_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$mm_old_destructive; else unset DESTRUCTIVE_ADVISORY_STATE; fi
+	if [ -n "$mm_old_interpreter_set" ]; then INTERPRETER_ADVISORY_STATE=$mm_old_interpreter; else unset INTERPRETER_ADVISORY_STATE; fi
+	if [ -n "$mm_old_hookfile_set" ]; then HOOKFILE_ADVISORY_STATE=$mm_old_hookfile; else unset HOOKFILE_ADVISORY_STATE; fi
+
 	rm -f -- "$self_keymaterial_advisory_state"
 	if [ -n "$old_keymaterial_advisory_state_set" ]; then
 		KEYMATERIAL_ADVISORY_STATE=$old_keymaterial_advisory_state
@@ -9312,6 +9817,21 @@ spawn_report() {
 	return 0
 }
 
+# Machine mode has three entry points: the hook and the two inspections. The others belong to
+# a repository — git's pre-push stdin, the spawn speed bump, this file's fixture matrix and the
+# advisory reports — so with `--machine` they are a usage error, and a usage error exits 2, which
+# a host reads as a refusal: a misspelled user-level hook refuses every call rather than letting
+# every call through unjudged.
+if [ "$MACHINE_MODE" -eq 1 ]; then
+	case "${1:-}" in
+	"" | --command | --powershell) ;;
+	*)
+		printf 'usage: %s --machine [--command CMD|--powershell CMD]\n' "$0" >&2
+		exit 2
+		;;
+	esac
+fi
+
 case "${1:-}" in
 "") run_hook ;;
 --command)
@@ -9319,7 +9839,7 @@ case "${1:-}" in
 		[ -n "$WARN_REASON" ] && printf 'WARNING from the AMH command guard.\n\n%s\n' "$WARN_REASON" >&2
 		exit 0
 	fi
-	printf 'BLOCKED by the AMH command guard.\n\n%s\n' "$BLOCK_REASON" >&2
+	printf '%s\n\n%s\n' "$BLOCK_HEADING" "$BLOCK_REASON" >&2
 	exit 2
 	;;
 --powershell)
@@ -9327,7 +9847,7 @@ case "${1:-}" in
 		[ -n "$WARN_REASON" ] && printf 'WARNING from the AMH command guard.\n\n%s\n' "$WARN_REASON" >&2
 		exit 0
 	fi
-	printf 'BLOCKED by the AMH command guard.\n\n%s\n' "$BLOCK_REASON" >&2
+	printf '%s\n\n%s\n' "$BLOCK_HEADING" "$BLOCK_REASON" >&2
 	exit 2
 	;;
 --pre-push) run_prepush ;;
@@ -9336,7 +9856,7 @@ case "${1:-}" in
 --advisory-report) advisory_report ;;
 --spawn-report) spawn_report ;;
 *)
-	printf 'usage: %s [--command CMD|--powershell CMD|--pre-push|--pre-task|--self-test|--advisory-report|--spawn-report]\n' "$0" >&2
+	printf 'usage: %s [--command CMD|--powershell CMD|--pre-push|--pre-task|--self-test|--advisory-report|--spawn-report]\n       %s --machine [--command CMD|--powershell CMD]\n' "$0" "$0" >&2
 	exit 2
 	;;
 esac

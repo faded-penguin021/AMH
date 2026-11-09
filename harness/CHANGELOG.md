@@ -11,6 +11,83 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 16.1.0 — 2026-11-08
+
+- **The command guard's deletion rail reads through `xargs`.** A reported incident on macOS: an
+  agent cleaning up test files under `~/Library/Application Support` piped their paths through
+  `xargs -n1 dirname` into `xargs rm -rf`. `xargs` split each path at the space, `dirname` of the
+  first half was `~/Library`, and `~/Library` was deleted. The guard never saw it, because it
+  stopped at `xargs`, which it filed as deliberate evasion rather than a mistake. Now every verb
+  the deletion rail knows — `rm -r -f`, the git verbs, `cmd /c` deletions, the data-plane
+  commands — is judged when it runs behind `xargs` (or Homebrew's `gxargs`), after `xargs`'s own
+  options (GNU's and BSD's together, a GNU long option by unique prefix). The target is always treated as unknown, because
+  `xargs` adds operands from its input at run time: the command gets the one-time advisory, and
+  a new paragraph in it asks for the pipeline to be run with `printf '[%s]\n'` first. It warns
+  that `xargs` splits at blanks, and points at `find -print0 | xargs -0`. The advisory is keyed on
+  a digest of the whole command text, so a different pipeline gets its own, while the `${VAR:?}`
+  rewrite the advisory asks for counts as the same command; with no digest tool it fires on
+  every attempt. A literal operand after the verb is still judged, so
+  `xargs rm -rf ~` is denied permanently, like `rm -rf ~`. The secret and push rails still stop
+  at `xargs`. `find -exec rm -rf {} +`, `xargs sh -c '…'` and `parallel` are still not read.
+- **Machine mode: the guard's drive-wipe and credential rails for every session on the
+  machine, optional and installed only on your yes.** The command guard only ran for sessions started
+  inside an AMH repository. The deletions it exists to stop are not confined to a project: the
+  reported Windows drive wipes ran in scratch folders and took whole drives, including every
+  other project on them. `scripts/command-guard.sh --machine` is the same script in a narrower
+  mode. It keeps only the permanent deletion denials (the filesystem root, a home directory, a
+  Windows drive root, a `cmd /c` recursive deletion with `\"` nested quotes), the credential
+  rails, and the guard's refusals to pass a command it could not read. It drops AMH's push,
+  forge and hook-file rails, every one-time advisory, and `amh.conf`, which are a project's
+  process rather than a machine's. It writes no state file, so one copy cannot let a rerun in one
+  project clear the same command in another, and its refusal names it in the first line.
+  `harness/templates/configs/claude-machine-settings.json` is the Claude Code fragment: copy
+  the script to `~/.claude/hooks/amh-command-guard.sh` and merge the fragment into
+  `~/.claude/settings.json`. The installer never writes it. The adoption brief's last step asks
+  whether you want it, and an agent installs it only on your explicit yes, checking a staged
+  copy before it replaces anything. Nothing inside a repository can see the installed copy,
+  so the upgrade prompt in `docs/UPGRADING.md` compares it with the release's on every upgrade
+  and refreshes it only on your yes, or offers it once where none is installed; Claude Code's
+  `--safe-mode` and `--bare` skip it as they skip any settings hook, and `--restricted` skips it
+  unless it sits in managed settings; and it is a speed bump, not containment.
+- **Fixed: a `git -C` statement in PowerShell text no longer downgrades a drive-root or
+  home-directory deletion after it.** In one PowerShell command such as
+  `git -C build clean -fdx; Remove-Item -Recurse -Force C:\`, the git statement's directory
+  option was still recorded when the guard judged `Remove-Item`, which then read `C:\` as git's
+  directory rather than its target. The permanent denial became a one-time advisory that a rerun
+  cleared. Any git verb with `-C`, `--git-dir` or `--work-tree` did it, `status` included, ahead
+  of `Remove-Item` or one of its aliases, or of an unquoted `cmd /c` `rd` or `del`. It applied to
+  the PowerShell tool and to PowerShell text run from bash through `pwsh -c` or
+  `powershell -Command`. A plain bash deletion was not affected. The same path also told a
+  deletion after an `npm run` statement that it had matched a package script; it no longer does.
+- **Fixed: a file named `json.py` in the session's folder no longer switches the command guard
+  off.** The hook runs in the session's current folder, and the guard read its payload with
+  `python3 -c`, which looks there first for modules. An empty `json.py` made the parser fail
+  quietly, and every command was allowed without being judged; one with code in it ran that
+  code inside the hook. The parser now runs as `python3 -I`, which ignores the current folder,
+  the `PYTHON*` variables and the user site directory. Machine mode would otherwise have carried
+  this into every folder on the machine.
+- **Fixed: a redirection before the command no longer hides a deletion.** `< list.txt rm -rf ~`,
+  `2>/dev/null rm -rf /` and the like passed the permanent root and home-directory denials, in
+  project mode and machine mode alike, because the deletion rail read the redirection as the
+  command word; every other rail already skipped it. A redirection between `xargs` and its
+  command hid the verb the same way. The rail now drops redirections first, wherever they stand.
+  The machine-mode install check also runs `--command 'ls'`, which should exit 0, and adoption
+  and the upgrade prompt check whether merging the release's settings fragment would add or
+  change anything, so a release that changes only the fragment still reaches an installed copy.
+
+### Upgrading
+
+Copy the 16.1.0 shipped scripts and manifest through the normal upgrade procedure. Nothing else
+changes in your repository: a command that pipes paths into `xargs rm -rf` now costs one extra
+turn per distinct command text. Machine mode is opt-in and per machine. The upgrade prompt in
+`docs/UPGRADING.md` now asks about it every time: it offers it where no copy is installed, and
+where one is, it compares that copy with the release's and refreshes it only on your yes. To
+install it yourself, follow the "One guard for the whole machine" section of the README. If you
+want your constitution to say that such a copy may judge your agent's commands, and that
+installing or refreshing one takes your explicit yes, copy the last three sentences of the
+"An agent with no pre-execution hook has no command rail at all" bullet in
+`harness/templates/seed/AGENTS.md`.
+
 ## 16.0.0 — 2026-10-26
 
 - **A unit owes the reviews of what it was set to change, not only those of the diff it ends

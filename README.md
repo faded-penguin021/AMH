@@ -61,7 +61,7 @@ Install the latest stable release of the Agentic Maintenance Harness (AMH) into 
 
 Run:
 
-    git clone --depth 1 --branch amh-v16.0.0 https://github.com/faded-penguin021/AMH.git /tmp/amh
+    git clone --depth 1 --branch amh-v16.1.0 https://github.com/faded-penguin021/AMH.git /tmp/amh
     /tmp/amh/scripts/amh-init.sh .
 
 Once the harness has been instantiated, read `AMH-ADOPT.md` and follow it completely.
@@ -164,6 +164,94 @@ The harness is the accumulated answer to those, and every mechanism in it is nar
 Nothing in the harness consumes a self-report. A checklist an agent ticks is not evidence;
 the ladder is.
 
+### One guard for the whole machine (optional)
+
+The command guard runs for sessions started inside a repository that adopted AMH. The worst
+things it stops are not confined to a repository. An agent cleaning up a scratch folder can wipe
+a whole drive, every other project on it included: the reported Windows drive wipes started
+exactly that way. And a credential an agent prints is yours, whichever project printed it.
+**Machine mode** runs a narrow version of the same guard for every Claude Code session on your
+machine, whatever folder it was started in.
+
+It keeps three things and nothing else:
+
+- **the permanent deletion blocks:** the filesystem root, a home directory, a Windows drive root,
+  and a `cmd /c` recursive delete written with `\"` nested quotes, the spelling behind the
+  reported drive wipes;
+- **the credential blocks:** reading `.env`, private keys and tools' stored logins, dumping the
+  environment, `gh auth token`, `git credential fill`;
+- **the guard's refusal to pass a command it could not read.**
+
+It leaves out everything that is AMH's own process: the push rules, the forge rule, the hook-file
+rule and the one-time warnings. It reads no `amh.conf` either, so a project that doesn't use AMH
+doesn't get AMH's git policy. Inside an AMH repository the project guard still applies all of it.
+When both copies are the same version, machine mode only repeats a block the project guard has
+already given; a newer machine copy beside an older project guard can add one.
+
+Your agent asks whether you want it at the end of adoption, and the upgrade prompt in
+`docs/UPGRADING.md` checks the copy on every upgrade; neither changes anything outside the
+repository without your yes. To install it yourself for Claude Code, from the release checkout
+the Quick Start clones:
+
+```bash
+mkdir -p ~/.claude/hooks
+```
+
+```bash
+cp /tmp/amh/scripts/command-guard.sh ~/.claude/hooks/amh-command-guard.sh.new
+```
+
+Check the staged copy before it replaces anything:
+
+```bash
+bash ~/.claude/hooks/amh-command-guard.sh.new --machine --command 'rm -rf ~'
+```
+
+It should print `BLOCKED by the AMH command guard in machine mode` and exit 2. The guard only
+judges that command; it never runs it. A copy that refuses everything would pass that, so check
+the other direction too:
+
+```bash
+bash ~/.claude/hooks/amh-command-guard.sh.new --machine --command 'ls'
+```
+
+It should print nothing and exit 0. Only then move it into place:
+
+```bash
+mv ~/.claude/hooks/amh-command-guard.sh.new ~/.claude/hooks/amh-command-guard.sh
+```
+
+Behind a live hook, a broken copy can refuse every shell call on the machine or pass them all
+unjudged, so a copy goes in place only after it passes, and the rename swaps the file whole.
+
+Then merge `harness/templates/configs/claude-machine-settings.json` into
+`~/.claude/settings.json`: add its `PreToolUse` group under `hooks` and its entries under
+`permissions.deny`, keeping everything the file already holds. If you administer Claude Code's
+managed settings, the same fragment is stronger there: a project cannot override managed
+settings, and `--restricted` still loads them.
+
+Know its limits before you rely on it:
+
+- **It is a speed bump, not containment.** Everything the guard's header lists as not caught
+  gets past it: `bash -c`, interpreters, script files, `Start-Process`, `Invoke-Expression`, and
+  more. In PowerShell, `Get-Content .env` and PowerShell's other file readers pass too: the guard
+  does not read them, and machine mode drops the one-time `.env` warning that stops them once in
+  an AMH project. A container, a VM, or a user account that cannot write the disk is containment.
+- **Nothing inside a repository can see it**, so no ladder checks it. Repeat the copy, check and
+  move after every AMH upgrade, or the machine copy falls behind; the upgrade prompt compares the
+  two and asks before it refreshes yours.
+- **Claude Code's `--safe-mode` and `--bare` skip it**, as they skip any settings hook, and
+  **`--restricted` skips it** unless you installed it in managed settings.
+- **It fails closed.** If the script goes missing while the hook entry stays, every shell command
+  in every session is refused, so remove the hook entry before you delete the script. On Windows
+  it needs Git for Windows, like the project adapter.
+- **Nothing stops an agent editing `~/.claude/settings.json` itself.** The fragment denies the
+  file-editing tools the installed script, not the settings file, because denying that file would
+  block every legitimate settings change.
+- **Only Claude Code has a fragment.** The mode reads the same hook payload as the project guard,
+  so another agent with user-level pre-execution hooks could wire it too, but nobody has tested
+  that.
+
 ## Who it is for
 
 **It fits** a repository with a single human owner, maintained by agent sessions that run one
@@ -251,7 +339,9 @@ harness/             THE PRODUCT — what an adopter copies
   templates/
     AMH-ADOPT.md     the adoption brief, written into an adopter's tree for their agent
     scripts/         the shipped scripts, plus their generated integrity manifest
-    configs/         CI workflow plus Claude Code and Codex adapters; substituted at init
+    configs/         CI workflow plus Claude Code and Codex adapters; substituted at init.
+                     claude-machine-settings.json is the exception: the optional user-level
+                     machine mode, merged into ~/.claude/settings.json only on your yes
     seed/            prose scaffolds: copied once, then yours forever
     amh.conf.example
 scripts/             THE INSTANCE — this repo living under what it ships

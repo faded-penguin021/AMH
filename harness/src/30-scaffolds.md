@@ -360,6 +360,23 @@ rebased, or cut from a newer commit than HEAD.
   for the agent — distinguishing a
   hook invocation from a manual one requires vendor-specific environment variables the harness
   will not assume — so it is stated in the constitution rather than warned about at boot.
+- **Machine mode** (optional, where the agent reads a user-level settings file): the same
+  `scripts/command-guard.sh`, copied once to a fixed user-level path and wired with `--machine`
+  from that file, so that every session on the machine meets the two rails whose damage no
+  project contains. One is a deletion of the filesystem root, a home directory or a Windows drive
+  root, or a `cmd /c` recursive deletion with `\"` nested quotes; the other is a credential read
+  or print. The reported drive wipes ran in scratch folders and took whole drives, which a
+  project-scoped rail never sees (**DD-063**). It keeps those two and the guard's refusals to pass
+  a command it could not read, and drops everything that is a project's process: the push and
+  forge rails, the hook-file rail, every one-time advisory, and `amh.conf`. An advisory's state
+  is keyed by the script's location rather than the project, so a single shared copy would let a
+  rerun in one project clear the same command in all of them; machine mode keeps none and writes
+  nothing. Its verdicts are a subset of the project guard's at the same version, so inside an AMH
+  repository it only repeats a refusal. `harness/templates/configs/claude-machine-settings.json`
+  is the Claude Code fragment, merged into the user's settings only on their yes and never by the installer.
+  Two limits to state with it: nothing inside a repository can see a user-level hook, so no ladder
+  checks the copy's version; and a host mode that skips settings hooks skips this one too. It is
+  a speed bump on two mistakes in every project, not containment.
 - **Subagent-spawn speed bump** (where the agent's pre-tool-use hooks match on tool NAME): wire
   `scripts/command-guard.sh --pre-task` to the spawn tool (Claude Code: a `Task` matcher) so a
   subagent spawn is stopped once with the one-blocking-reviewer rule as its reason, and proceeds

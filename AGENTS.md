@@ -1,7 +1,7 @@
 # AMH meta-repository — maintenance guide
 
 This repository is the source of truth for the **Agentic Maintenance Harness** (AMH) and its
-reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 16.0.0**
+reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 16.1.0**
 (`harness/VERSION`).
 
 This file states the harness and this repository as they are now. Rules are rewritten in place
@@ -99,7 +99,7 @@ definition of that scope.
   `del /s`, or a PowerShell `Remove-Item -Recurse` (any alias), naming the filesystem root, a
   Windows drive root or a home directory, is blocked and does not clear on a rerun; a `cmd /c` recursive deletion whose text carries `\"` nested quotes
   is blocked the same way, whatever its path — and the git verbs armed only on an unknown target
-  are silent on a literal path. A deletion the guard denied PERMANENTLY, or the host refused, is a
+  are silent on a literal path, except behind `xargs`, which adds operands of its own. A deletion the guard denied PERMANENTLY, or the host refused, is a
   stop, not a spelling problem: never retry it through another shell, a `cmd /c` or
   `powershell -Command` wrapper, an interpreter or a script file to get it past the refusal. Read
   what the refusal objected to; if the deletion is still needed, use a spelling the refusal
@@ -158,7 +158,13 @@ definition of that scope.
   hooks its settings files define, and the CLAUDE.md that points here, and `--restricted`
   ignores the project's settings file unless it is passed again with `--settings`, so a session
   started in any of them has no command rail, no output redaction and no session bootstrap,
-  whatever `.claude/settings.json` says (**DD-053**). Where a host routes shell commands through
+  whatever `.claude/settings.json` says (**DD-053**). A machine-mode copy of the guard
+  (`command-guard.sh --machine`, wired from a user-level settings file) may also judge your
+  commands. It keeps only the permanent deletion denials, the credential rails and its refusals
+  of a command it could not read, names itself in the first line of its refusal, and stands in
+  for none of this repository's rails. Nothing here can see whether one is installed, and the
+  host modes above skip it too (**DD-063**). Installing or refreshing one changes files outside
+  the repository, so it takes the owner's explicit yes, never your judgement (**DD-066**). Where a host routes shell commands through
   a PowerShell tool, the command rail exists only if the adapter's matcher names that tool and the
   hook's own shell (bash) is present; the Claude adapter's matcher does, and PowerShell text then
   goes to the guard's PowerShell reader, a shorter list than the bash one, whose misses the

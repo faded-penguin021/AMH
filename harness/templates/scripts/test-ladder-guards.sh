@@ -552,6 +552,84 @@ else
 	report no "the incident command is denied through the Python reader" "rc=$rc" "$out"
 fi
 
+# --- command-guard.sh: machine mode (`--machine`) -----------------------------
+# The user-level install: the guard copied OUTSIDE any repository, to the path the Claude machine
+# template names, beside an `amh.conf` machine mode must never read — sourcing it prints a marker.
+# Every call runs from a directory that is no git repository, as a session in an arbitrary folder
+# does. Each assertion fails against a guard with no machine mode, which answers `--machine` with
+# its usage line and exit 2 whatever the payload.
+mh="$WORK/machine-home"
+mkdir -p "$mh/.claude/hooks" "$mh/elsewhere"
+cp "$ROOT/scripts/command-guard.sh" "$mh/.claude/hooks/amh-command-guard.sh"
+mguard="$mh/.claude/hooks/amh-command-guard.sh"
+printf '%s\n' "printf 'AMH-CONF-WAS-SOURCED\\n' >&2" 'DEFAULT_BRANCH=feature' >"$mh/.claude/amh.conf"
+# The control: the SAME copy in project mode reads that file, so the marker is live and its
+# absence below is evidence, not a trap that could never fire.
+out=$(cd "$mh/elsewhere" && bash "$mguard" --command 'printf ok' 2>&1)
+if printf '%s' "$out" | grep -qF 'AMH-CONF-WAS-SOURCED'; then
+	report ok "machine-mode fixture: the amh.conf beside the copy is read in project mode (the marker is live)"
+else
+	report no "machine-mode fixture: the amh.conf beside the copy is read in project mode (the marker is live)" "$out"
+fi
+out=$(cd "$mh/elsewhere" && printf '%s' "$incident_payload" | bash "$mguard" --machine 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'nested quotes' &&
+	printf '%s' "$out" | grep -qF 'in machine mode' && ! printf '%s' "$out" | grep -qF 'AMH-CONF-WAS-SOURCED'; then
+	report ok "machine mode denies the incident payload, names itself, and reads no amh.conf"
+else
+	report no "machine mode denies the incident payload, names itself, and reads no amh.conf" "rc=$rc" "$out"
+fi
+out=$(cd "$mh/elsewhere" && printf '%s' "$incident_payload" | env PATH="$fallback_path" bash "$mguard" --machine 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'nested quotes'; then
+	report ok "machine mode denies the incident payload without Python"
+else
+	report no "machine mode denies the incident payload without Python" "rc=$rc" "$out"
+fi
+out=$(cd "$mh/elsewhere" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printenv"}}' |
+	bash "$mguard" --machine 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'prints credential values'; then
+	report ok "machine mode keeps the credential rails"
+else
+	report no "machine mode keeps the credential rails" "rc=$rc" "$out"
+fi
+out=$(cd "$mh/elsewhere" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git push --force origin main && rm -rf build"}}' |
+	bash "$mguard" --machine 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
+	report ok "machine mode passes AMH's push rails and the one-time deletion advisory without a word"
+else
+	report no "machine mode passes AMH's push rails and the one-time deletion advisory without a word" "rc=$rc" "$out"
+fi
+# A `json.py` in the session's directory — where the host runs the hook — must not stand in for
+# the standard module. Empty, it made the payload parser raise, print nothing and exit 0, so the
+# call was allowed unjudged; both modes are checked, since the reader is shared.
+mkdir -p "$mh/shadowed"
+: >"$mh/shadowed/json.py"
+home_payload='{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"rm -rf ~"}}'
+out=$(cd "$mh/shadowed" && printf '%s' "$home_payload" | bash "$mguard" --machine 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'your home directory'; then
+	report ok "a json.py in the session's directory does not switch machine mode off"
+else
+	report no "a json.py in the session's directory does not switch machine mode off" "rc=$rc" "$out"
+fi
+out=$(cd "$mh/shadowed" && printf '%s' "$home_payload" | bash "$ROOT/scripts/command-guard.sh" 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'your home directory'; then
+	report ok "a json.py in the session's directory does not switch the project guard off"
+else
+	report no "a json.py in the session's directory does not switch the project guard off" "rc=$rc" "$out"
+fi
+out=$(cd "$mh/elsewhere" && printf '' | bash "$mguard" --machine --pre-push 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF -- '--machine [--command CMD|--powershell CMD]'; then
+	report ok "machine mode refuses a repository entry point with its usage line"
+else
+	report no "machine mode refuses a repository entry point with its usage line" "rc=$rc" "$out"
+fi
+
 # A command of nothing but a line end holds no command, and is not judged as one.
 out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"\n"}}' |
 	scripts/command-guard.sh 2>&1)

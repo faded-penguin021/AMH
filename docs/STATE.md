@@ -16,41 +16,27 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 16.0.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 16.1.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-This tree declares **16.0.0**, MAJOR on the owner's call: a unit owes the review of what it
-was set to change, never only that of the diff it ends with, and a decision says whether its
-evidence was measured, estimated or reported (**DD-050**). It carries the 15.2.0 draft whole,
-and every command-guard, adapter and banner change since, each named by a bullet of the 16.0.0
-entry in `harness/CHANGELOG.md` and by its row (**DD-040** to **DD-042**, **DD-044** to
-**DD-049**, **DD-051** to **DD-054**). Whether this draft is tagged or released is not recorded
-here — `scripts/session-start.sh` probes it every session and reports present, absent or
-could-not-ask, which is the only answer that can be right twice.
+This tree declares **16.1.0**, MINOR: the command guard's deletion rail reads through `xargs`
+(**DD-062**); the guard has an optional user-level machine mode (**DD-063**),
+which the adoption brief and the upgrade prompt offer and refresh only on the owner's yes
+(**DD-066**); and a `git -C`
+statement in PowerShell text no longer downgrades a deletion after it (**DD-064**); and a
+`json.py` in the session's folder no longer stands the guard down (**DD-065**); and a
+redirection before the command no longer hides a deletion from that rail (**DD-067**). Each
+`harness/CHANGELOG.md` entry names what its version carries. Whether this
+draft is tagged or released is not recorded here — `scripts/session-start.sh` probes it every
+session and reports present, absent or could-not-ask, which is the only answer that can be
+right twice.
 
 `docs/LEDGER_D.md` is the live ledger volume.
 
-Multi-unit work, planned: `docs/plans/2026-10-31-owner-queue-closure.md`. It closes the
-command-guard gaps the Owner queue named: a quote inside a `#` comment, heredoc bodies cut at
-the wrong line, and abbreviated `git push` long options. It also closes the related shapes that
-measuring those gaps turned up. All of it rides the 16.0.0 draft, and each guard unit gets one
-fresh-context review pass. **Each unit starts only on the owner's explicit approval of that
-unit.** The owner approved Units 0, 1, 2 and 3, one at a time, on 2026-11-02 approved Unit 3s
-to follow Unit 3, and on 2026-11-04 approved Unit 4. Unit 2's first attempt failed its
-review and was not shipped (**DD-055**). Its second attempt, plan rev 4, judges a command under two
-readings of its comments, and the stricter verdict wins (**DD-056**). The first attempt is kept
-whole as `docs/plans/2026-11-02-unit2-attempt-1.patch`, which applies to `be7a4df` and retires
-with the plan. Unit 4's first attempt failed its review too, and on 2026-11-05 the owner had it
-fixed in place and granted it a fresh pass (**DD-060**). Every unit is done; the plan's Phase A,
-shipping 16.0.0, is what remains.
-
-- [x] 0 — the plan committed, and the cc-safe-setup Changelog lines folded
-- [x] 1 — `git push` long options read by unique prefix
-- [x] 2 — comments made inert before any walker reads the text (rev 4, attempt 2)
-- [x] 3 — heredoc bodies end where bash ends them
-- [x] 3s — an unclosed heredoc body blocks the command
-- [x] 4 — heredoc bodies start where bash starts them
+`docs/plans/2026-10-31-owner-queue-closure.md` has every unit done. Its Phase A merge and tag
+were seen on origin on 2026-11-08, and A5, retiring it together with
+`docs/plans/2026-11-02-unit2-attempt-1.patch`, is what remains.
 
 Multi-unit work, planned: `docs/plans/2026-11-04-spill-guard-borrowings.md`. It closes the
 credential-handling gaps that comparing AMH with spill-guard exposed. The owner adopted its four
@@ -80,17 +66,21 @@ Operational gotchas:
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
 > final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
 
-**OPEN — tag the drafted 16.0.0 release after its PR merges.** Tagging is an owner action, and
-the README Quick Start names the draft tag before it exists. Check: `git ls-remote --exit-code
---tags origin refs/tags/amh-v16.0.0` — a matching ref resolves this item; no output means the
-documented install command is not live yet.
+**OPEN — decide when the 16.1.0 draft is complete, then merge and tag it.** It holds the
+`xargs` unit (**DD-062**) and the machine-mode unit with the two fixes it surfaced
+(**DD-063** to **DD-065**), the unit that has adoption and every upgrade ask about it
+(**DD-066**), and the fixes from the owner-requested whole-train review (**DD-067**). The spill-guard units below are slated for the release after 16.0.0,
+so whether they join this draft first is the owner's call. Then: open its PR (or ask for
+it), edit its squash message — a poison token in GitHub's default one suppresses the release
+commit's CI run (**DC-040**) — merge, and tag; the README Quick Start names the draft tag before
+it exists. Check: `git ls-remote --exit-code --tags origin refs/tags/amh-v16.1.0` — a matching
+ref resolves this item; no output means the documented install command is not live yet.
 
-**OPEN — edit the squash message of the 16.0.0 train's PR, then merge it (the
-owner-queue-closure plan's Phase A, steps A2 and A3).** GitHub's default squash message joins
-every commit body on the branch, and a poison token in it suppresses the release commit's CI run;
-the ladder checks the branch's commits, never the message the forge composes at merge time
-(**DC-040**). Check: `gh pr list --state merged --search 'AMH 16.0.0 in:title'` — a listed PR
-resolves this item; no output means it is still open.
+**OPEN — decide whether to fix the interpreter and hook-file advisories going silent with no
+digest tool.** Found by the `xargs` unit's review: their comment in `scripts/command-guard.sh`
+says such an advisory re-fires, but `interpreter_signature` failing returns before it fires, and
+the same comment cites DC-004 for the one-shot rule DB-030 states. Reported by that reviewer,
+measured with a `PATH` holding no `sha256sum`, `shasum` or `cksum`; no one-line check here.
 
 **OPEN — decide whether to plan a fix for a quote inside backticks.** Found while building Unit 2:
 bash ends a backtick substitution at the first unescaped backtick, quotes or not, and every walker
@@ -99,6 +89,27 @@ in the command guard reads a `'` inside one as opening a string that hides the r
 Check: `scripts/command-guard.sh --command "echo \`echo 'x\`; printenv"` — exit status 0 means
 it is still open. Unit 4 now reads heredoc bodies as bash does, so this gap also reaches a
 command whose body the guard used to misread and refuse (**DD-059**).
+
+**OPEN — decide whether to fix three gaps the machine-mode review found outside its unit.** (1)
+`scripts/redact-tool-output.sh` starts its Python with `-c` and no `-I`, so a `json.py` in the
+session's folder replaces the JSON module there too (the class **DD-065** fixed in the command
+guard); redaction then stands down, fail-open by design. (2) `scripts/guards/adapter-set.sh`'s pins
+on the project Claude adapter read each hook's lines but not the event key above them: the reviewer
+renamed `PreToolUse` to `Stop` in both copies and the guard passed. The machine template's pin now
+reads it. (3) The adapter's `Read(/proc/*/environ)` rails start with one slash, which in a settings
+file names a path beside that file, so they may never reach `/proc`; the machine template adds
+`//proc` spellings, and nobody has checked either against the host. Check for (1):
+`grep -c '"$PY" -c ' scripts/redact-tool-output.sh` — a count above 0 means it is still open.
+
+**OPEN — decide whether to fix the command guard's payload parser on a non-UTF-8 code page.**
+Found by the whole-train review of the 16.1.0 draft (**DD-067**), pre-existing: the parser reads
+and prints through text stdio and `except Exception: pass` swallows an encode or decode error, so
+the command passes unjudged. Measured only as the mechanism, on Linux, by that reviewer: an
+`rm -rf ~ # 清理` payload through the parser under `PYTHONIOENCODING=cp1252` printed nothing and
+exited 0. On Windows with Python older than 3.15 and a non-UTF-8 ANSI code page it is estimated to
+happen for real, and `-I` (**DD-065**) now ignores `PYTHONUTF8` and `PYTHONIOENCODING` too. The
+proposed fix reads `sys.stdin.buffer` and writes UTF-8 bytes; no Windows host here can test it,
+and no one-line check here settles it.
 
 **OPEN — decide whether to adopt the harness-research-gaps plan,
 `docs/plans/2026-11-01-harness-research-gaps.md`, and each decision in its §1.** It is committed
@@ -138,69 +149,49 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-11-05 — **The hook-file check's path fold drops the spelling that left the macOS CI leg
-  running until cancelled, and CI jobs end at 30 minutes.** On the owner's ask after the 16.0.0
-  PR's stock Bash 3.2 leg never returned from the command guard's self-test: a slash in that
-  substitution pattern is now `\/`, a fold that changes nothing answers yes rather than looping,
-  and both CI jobs carry `timeout-minutes: 30` (**DD-061**). Whether 3.2 now passes is the next
-  macOS run's to say.
+- 2026-11-08 — **The 16.1.0 train reviewed whole, on the owner's ask, and its PR opened.** One
+  fresh-context reviewer read the diff against `main`: APPROVE-WITH-FIXES, no blocker. A
+  redirection before the command hid a deletion from the destructive rail, permanent denials
+  included, and now does not; the machine-mode procedures check the allow direction and the
+  fragment's merge; the constitution's xargs exception was added; the parser's code-page gap went
+  to the Owner queue (**DD-067**). Not taken: an `xargs:` digest in the ladder's report (the
+  interpreter tier's accepted design), and `git worktree add` behind `xargs` (a documented false
+  positive).
 
-- 2026-11-05 — **Owner-queue-closure plan, Phase A: step A1.** The owner said "open the PR",
-  which answers that Owner-queue item, and the agent described the whole 16.0.0 train against
-  `main` from the pull-request template. Steps A2 to A4, the squash message, the merge and the
-  tag, are the owner's and wait in the queue; A5, retiring the plan, follows the tag.
+- 2026-11-08 — **Adoption and every upgrade ask about machine mode, inside the 16.1.0 draft.**
+  On the owner's report that the brief only mentioned it and the upgrade procedure never named
+  it: the brief's last step asks and, on an explicit yes, stages, checks, moves and merges; the
+  upgrade prompt compares an installed copy on every upgrade and refreshes it only on a yes; the
+  constitution and seed say installing one takes that yes (**DD-066**).
 
-- 2026-11-04 — **Spill-guard plan: committed (S0) and adopted.** The owner took its four selected
-  units, S1, S2, S6a and S3, into the 16.0.0 draft, each still approved one at a time, with one
-  fresh-context review pass per unit and S1's control-character escaping included. S4, S5, S6b
-  and S6c stay deferred. No guard unit has started.
+- 2026-11-08 — **The command guard gets a user-level machine mode, inside the 16.1.0 draft.** On
+  the owner's ask after a reported drive wipe from a scratch project: `--machine` keeps only the
+  permanent deletion denials, the credential rails and the unread-command refusals, writes no
+  state and reads no `amh.conf`, with a Claude Code fragment the owner merges by hand (**DD-063**).
+  Its fixtures surfaced, and the unit fixes, a PowerShell `git -C` statement downgrading a
+  drive-root or home deletion after it (**DD-064**); its review surfaced a `json.py` in the
+  session's folder standing the guard down (**DD-065**). The harness-research-gaps plan's H4a and
+  §3 row 9 note what this settles and what it does not.
 
-- 2026-11-05 — **Owner-queue-closure plan: Unit 4 done, and with it every unit.** A heredoc body
-  starts where bash starts it, read in one pass with one stack of open contexts, and the
-  delimiter gets bash's quote removal, so item 2's checks now block (**DD-059**). Its first
-  attempt failed its review; the owner had it fixed in place with a fresh pass (**DD-060**,
-  `docs/history/2026-11-05-unit4-review-and-fix.md`). On 2026-11-04 the owner moved the
-  spill-guard plan to the release after 16.0.0.
+- 2026-11-08 — **The command guard's deletion rail reads through `xargs`, drafted as 16.1.0.**
+  On the owner's ask after a reported `xargs rm -rf` that deleted `~/Library` on macOS: every
+  deletion verb behind `xargs` gets the one-time advisory, its target unknown and its key the
+  command text, and `xargs rm -rf ~` stays denied (**DD-062**). Two queue items left as done:
+  `amh-v16.0.0` was seen on origin, and the 16.0.0 PR merged on 2026-11-06.
 
-- 2026-11-03 — **Owner-queue-closure plan: Unit 3s done.** A heredoc body the command guard
-  opens and never closes now refuses the command, naming the delimiter it waited for, so the
-  misread delimiters Unit 4 targets are refused, unless a line matches the misread word, and so is
-  a `<<` in a multi-line string or a comment that no later line matches (**DD-058**).
+- 2026-10-31 through 2026-11-06 — **The rest of the 16.0.0 train, folded.** The
+  owner-queue-closure plan's units: `git push` long options read by unique prefix (**DD-054**);
+  comments judged under two readings, on a second attempt (**DD-055**, **DD-056**); heredoc
+  bodies that end and start where bash ends and starts them, and an unclosed one refused
+  (**DD-057** to **DD-060**, `docs/history/2026-11-05-unit4-review-and-fix.md`). The hook-file
+  fold's macOS hang was fixed and CI jobs end at 30 minutes (**DD-061**). The spill-guard plan
+  was committed and adopted for the release after 16.0.0.
 
-- 2026-11-02 — **Owner-queue-closure plan: Unit 3 done; Unit 3s decided.** Every heredoc operator
-  on a line now opens a body, terminators match exactly, an unquoted body joins its
-  backslash-newlines, and a `<<` inside arithmetic is a shift (**DD-057**). A fuzz against bash
-  found eleven inputs it newly allows, each ending in a body that never closes. The owner chose to ship
-  and to block an unclosed body next, which answers the Unit 3s queue item: block.
-
-- 2026-11-02 — **Owner-queue-closure plan: Unit 2 done, on its second attempt.** A gpt-6-astra
-  spec review found inputs that rev 3's inert comments would newly allow, and plan rev 4 folded
-  it in. The command guard now judges a command with a `#` twice, comments as text and comments
-  inert, and either refusal stands, so `echo a # don't⏎printenv` and a `<<` inside a comment
-  are refused (**DD-056**). The backtick queue item's header gap is now named.
-
-- 2026-10-31 to 2026-11-02 — **Owner-queue-closure plan: Units 0 and 1, each approved by the
-  owner on its own, are done.** Unit 0 committed the plan; the two queue items asking whether to
-  fix the command-guard parse gaps and abbreviated `git push` options were answered (fix both
-  inside 16.0.0, one fresh-context review per unit) and left the queue. Unit 1 made the push rail
-  read a long option by unique prefix, as git does, and skip the value of an option that takes
-  one, so item 3's check, `git push --del origin session/x`, now blocks (**DD-054**).
-  Unit 2's first attempt, which removed comments, failed its review on 11 inputs the guard then
-  passed and bash ran; it was reversed unshipped, and plan rev 3 redesigns the unit (**DD-055**).
-
-- 2026-10-04 through 2026-10-30 — **15.0.1, 15.1.0 and the 16.0.0 draft so far, folded.** The
-  author-identity rung stopped judging the forge's test merge (**DD-036**). Windows drive roots,
-  `cmd /c` deletions and PowerShell reached the command guard (**DD-038**, **DD-039**). The
-  15.2.0 draft, which 16.0.0 carries whole, and the cc-safe-setup plan's six units hardened the
-  Claude hooks and the guard's reading of commands (**DD-040** to **DD-042**, **DD-044** to
-  **DD-049**, **DD-051** to **DD-053**); the owner made the draft MAJOR on 2026-10-26
-  (**DD-050**). The redaction hook was observed firing (**DD-037**), and the queue was triaged
-  to actionable items (**DD-043**). `amh-v15.0.0` and `amh-v15.1.0` were seen on origin on
-  2026-10-04 and 2026-10-14. The cc-safe-setup plan is archived in `docs/history/`.
-
-- 2026-07-25 through 2026-09-29 — **Everything before 15.0.1, folded.** Founding through the
-  15.0.0 train: portable rails, the constitution rewrite, git-native pre-push enforcement, a
-  tree-relative working memory with immutable ledger rows, destructive-deletion denial, and
-  output redaction in both adapters (**DD-001** to **DD-035**, **DC-020** to **DC-044**, and the
-  volumes for everything older). Seen on origin by 2026-10-04: `amh-v10.0.0`, `amh-v10.2.0`,
-  `amh-v14.1.0` and `amh-v15.0.0`; the 10.3.0–10.4.0 and 14.2.0 drafts rode later tags untagged.
+- 2026-07-25 through 2026-10-30 — **Everything before that, folded.** Founding through the
+  16.0.0 draft: portable rails, the constitution rewrite, git-native pre-push enforcement, a
+  tree-relative working memory with immutable ledger rows, destructive-deletion denial, output
+  redaction, Windows and PowerShell coverage, and the cc-safe-setup hardening (**DD-001** to
+  **DD-053**, **DC-020** to **DC-044**, and the volumes for everything older; the cc-safe-setup
+  plan is archived in `docs/history/`). Seen on origin by 2026-10-14: `amh-v10.0.0`,
+  `amh-v10.2.0`, `amh-v14.1.0`, `amh-v15.0.0` and `amh-v15.1.0`; the 10.3.0–10.4.0 and 14.2.0
+  drafts rode later tags untagged, and 16.0.0 carried the 15.2.0 draft whole.
