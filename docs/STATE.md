@@ -88,10 +88,15 @@ and no one-line check here settles it.
 as a draft, and nothing in it is approved. No unit starts without the owner's approval of that
 unit.
 
-**OPEN — run N1 of the cc-safety-net plan, `docs/plans/2026-11-09-cc-safety-net-borrowings.md`:
-its gpt-6-astra (`-e high`) review.** The owner granted that pass authority to overturn the plan's
-own decisions and to add or rewrite its units (its §2). Nothing in the plan is adopted or
-approved, and each later unit starts only on the owner's approval of that unit.
+**OPEN — decide whether to adopt rev 2 of the cc-safety-net plan,
+`docs/plans/2026-11-09-cc-safety-net-borrowings.md`, and which units.** Its N1 review is folded, and
+its §8 has a row for each finding. Nothing in it is adopted or approved, and each later unit starts
+only on the owner's approval of that unit.
+
+**OPEN — decide two recommendations from that review that it had no authority to apply.** (1)
+Whether to reconsider a `find` arm for the permanent targets, which **DD-018** chose not to take
+(the plan's N8). (2) The cross-plan order and release placement in that plan's §2, decision 3, which
+reach the spill-guard and research-gaps plans.
 
 **OPEN — approve, or not, starting spill-guard plan Unit S1: refusal text does not repeat a
 supported credential shape.** The plan is adopted for the release after 16.0.0 (its §2), and S1
@@ -125,6 +130,9 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-09 — **N1 of the cc-safety-net plan done: gpt-6-astra's review folded into rev 2.** It
+  rewrote most units and approved none; the plan's §8 has a row for each finding.
 
 - 2026-11-09 — **Working memory compressed, and the 16.1.0 queue item left as done:** its check
   found `amh-v16.1.0` on origin that day.
