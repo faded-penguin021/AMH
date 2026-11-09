@@ -11,6 +11,33 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 16.1.1 — 2026-11-09
+
+- **Two command-guard advisories no longer go silent on a host with no hashing tool.** The
+  interpreter-deletion and hook-file advisories are cleared by rerunning the same command, which
+  needs a digest of that command. With no `sha256sum`, `shasum` or `cksum`, the guard skipped the
+  advisory altogether, while its own comment promised the opposite. Both now fire on every attempt
+  and say why, as an `xargs` deletion already did; a digest tool that prints nothing counts the same.
+  On such a host a rerun will not clear them: install one of those tools, or ask the owner.
+- **A `json.py` in the session's folder no longer switches output redaction off.**
+  `scripts/redact-tool-output.sh` now starts Python with `-I`, as the command guard already did. A
+  planted module used to replace the JSON module, and the hook then stood down without a word. `-I`
+  also ignores `PYTHON*` variables and the user site directory, so a `PYTHONUTF8` you set on Windows
+  no longer reaches this hook; that case has not been tested on a Windows host.
+- **The `/proc` credential rails in the Claude adapter are also spelled from the filesystem root.**
+  One leading slash in a settings file does not name the root, so `Read(/proc/*/environ)` may never
+  have reached `/proc`. `harness/templates/configs/claude-settings.json` now also carries
+  `Read(//proc/*/environ)` and `Read(//proc/**/environ)`, as the machine-mode fragment already did.
+  Nobody has observed the host refuse a read under either spelling.
+
+### Upgrading
+
+Copy the 16.1.1 shipped scripts and manifest through the normal upgrade procedure. Nothing else is
+required. Optional: to get the root-anchored rails in an existing adapter, add the two
+`Read(//proc/...)` lines above to `permissions.deny` in your `.claude/settings.json`. If you
+installed machine mode, the guard changed in this release, so refresh your copy; the upgrade prompt
+in `docs/UPGRADING.md` compares it and asks first.
+
 ## 16.1.0 — 2026-11-08
 
 - **The command guard's deletion rail reads through `xargs`.** A reported incident on macOS: an

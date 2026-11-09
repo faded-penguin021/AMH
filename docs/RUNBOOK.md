@@ -380,6 +380,15 @@ written before the acceptance run, so the ladder verifies the tree that is commi
    reader is the only check. Prose-only, and it must stay so — nothing in the artifacts tells
    an estimate from a measurement, and a required "measured:" field would be filled either
    way (**D-014**); the sentence stays a disclosure because nothing consumes it (**DD-050**).
+12. **A branch that outlives its squash merge is merged, never rebased.** Under
+   `MERGE_MODE=branch-train` the forge squashes a train into one new commit, so a session branch
+   that keeps going afterwards no longer contains the default branch and the forge reports it as
+   diverged. A rebase would rewrite pushed history and need a force-push, and both are hard
+   boundaries. Find the branch's last commit the squash carried: if
+   `git diff <that commit> origin/<default>` prints nothing, the branch already holds all of it,
+   and `git merge -s ours origin/<default>` records that with no file changed. If it prints
+   anything, run an ordinary `git merge origin/<default>` and resolve it. Either way a plain push
+   follows, and `git merge-base --is-ancestor origin/<default> HEAD` exiting 0 confirms it.
 
 ## Adversarial review protocol (MANDATORY for diffs the fixtures cannot see)
 
