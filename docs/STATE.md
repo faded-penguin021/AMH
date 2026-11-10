@@ -57,6 +57,13 @@ each code unit starts only on the owner's explicit approval of that unit.
 - [x] G0 — the plan committed (rev 1)
 - [ ] G1 — review of the plan by gpt-6-astra at `-e high`, folded in as rev 2
 
+Multi-unit work, drafted: `docs/plans/2026-11-10-queue-cycle-and-memory-tiers.md` covers what
+the owner asked about outside the command guard: the Owner-queue cycle, how the protected
+sections of this file are sized, ledger retrieval and the principles. Nothing in it is approved.
+
+- [x] M0 — the plan committed (rev 1)
+- [ ] M1 to M9 — none approved
+
 Operational gotchas:
 
 - A poison token in a squash-merge message suppresses the release commit's CI run entirely. Edit
@@ -114,6 +121,10 @@ not gate a command-guard gap.** It is recorded in that plan's §2, item 3, with 
 research-gaps plan's lesson 1 still say the opposite, and the cc-safety-net plan defers N9 and N6b
 on that bar. Changing any of them is a rule-review unit; no command settles this.
 
+**OPEN — decide on the queue-cycle plan, `docs/plans/2026-11-10-queue-cycle-and-memory-tiers.md`:
+whether it is reviewed first (M1), whether to adopt it, and the downstream facts its §2, item 3
+asks for.** No command settles this.
+
 **OPEN — decide whether to adopt rev 2 of the cc-safety-net plan,
 `docs/plans/2026-11-09-cc-safety-net-borrowings.md`, and which units.** Its N1 review is folded, and
 its §8 has a row for each finding. Nothing in it is adopted or approved, and each later unit starts
@@ -157,6 +168,9 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-10 — **A plan for the gaps outside the command guard, committed as a draft (M0).** On
+  the owner's ask, from a read reported in chat; its measurements are in its §3. No code changed.
 
 - 2026-11-10 — **A plan for the command-guard gaps two reviews found, committed as a draft
   (G0).** A session's read and an external review the owner relayed, each claim re-measured at
