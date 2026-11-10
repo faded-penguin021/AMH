@@ -49,6 +49,14 @@ approved yet.
 - [ ] S6a — options on the wrappers the guard already peels
 - [ ] S3 — four token shapes
 
+Multi-unit work, drafted: `docs/plans/2026-11-10-command-guard-gap-review.md` collects the
+command-guard gaps that two reviews measured and that no other plan, queue item or header bullet
+carries, as units G0 to G14. Nothing in it is approved: G1 is a review of the plan itself, and
+each code unit starts only on the owner's explicit approval of that unit.
+
+- [x] G0 — the plan committed (rev 1)
+- [ ] G1 — review of the plan by gpt-6-astra at `-e high`, folded in as rev 2
+
 Operational gotchas:
 
 - A poison token in a squash-merge message suppresses the release commit's CI run entirely. Edit
@@ -93,6 +101,19 @@ Check: `grep -n 'mktemp' scripts/ladder.sh scripts/guards/placeholder-integrity.
 scripts/guards/ledger-append-only.sh` — a line ending at the closing parenthesis, with no `||`
 after it, is still unchecked.
 
+**OPEN — run G1, the gpt-6-astra `-e high` review of the command-guard gap plan,
+`docs/plans/2026-11-10-command-guard-gap-review.md`, and decide its mandate (the plan's §2, item
+2).** The session that committed the plan had no way to launch that reviewer. When the review is
+folded, this item becomes "decide whether to adopt rev 2, and which units". Check for one of the
+plan's gaps: `scripts/command-guard.sh --command 'rm -r ~'` — exit status 0 means a recursive
+deletion of the home directory without `-f` still passes the permanent denial.
+
+**OPEN — decide whether to legislate the owner's answer of 2026-11-10, that the incident bar does
+not gate a command-guard gap.** It is recorded in that plan's §2, item 3, with its wording.
+`docs/RUNBOOK.md` → **Add a guard**, the guard header's data-plane bullet (**DC-027**) and the
+research-gaps plan's lesson 1 still say the opposite, and the cc-safety-net plan defers N9 and N6b
+on that bar. Changing any of them is a rule-review unit; no command settles this.
+
 **OPEN — decide whether to adopt rev 2 of the cc-safety-net plan,
 `docs/plans/2026-11-09-cc-safety-net-borrowings.md`, and which units.** Its N1 review is folded, and
 its §8 has a row for each finding. Nothing in it is adopted or approved, and each later unit starts
@@ -136,6 +157,11 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-10 — **A plan for the command-guard gaps two reviews found, committed as a draft
+  (G0).** A session's read and an external review the owner relayed, each claim re-measured at
+  `8b7c836` with `scripts/command-guard.sh --command` or in a fixture tree before it was kept. Its
+  G1 review is in the Owner queue; nothing is approved and no code changed.
 
 - 2026-11-09 — **H9 of the research-gaps plan done: a failed `mktemp` measured, no repair made.** One
   failure at the ladder's scratch directory exits the ladder 0 over planted defects (**DD-072**);
