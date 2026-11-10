@@ -39,12 +39,12 @@ review is pre-allowed for every unit.
 
 Multi-unit work, planned: `docs/plans/2026-11-04-spill-guard-borrowings.md` closes the
 credential-handling gaps found by comparing AMH with spill-guard. The owner adopted its four
-selected units on 2026-11-04; S4, S5, S6b and S6c stay deferred.
- **Each unit starts only on the owner's explicit approval of that unit**; none is
-approved yet.
+selected units on 2026-11-04; S4, S5, S6b and S6c stay deferred. **The owner approved all four
+on 2026-11-10, to run in the plan's order.** Each still takes its own review (the plan's §2,
+item 4), and its version semantics are settled when its behaviour is final (item 5).
 
 - [x] S0 — the plan committed (rev 2)
-- [ ] S1 — refusal text does not repeat a supported credential shape (awaiting approval)
+- [ ] S1 — refusal text does not repeat a supported credential shape
 - [ ] S2 — private-key bodies under a line prefix
 - [ ] S6a — options on the wrappers the guard already peels
 - [ ] S3 — four token shapes
@@ -55,7 +55,8 @@ carries, as units G0 to G14. Nothing in it is approved: G1 is a review of the pl
 each code unit starts only on the owner's explicit approval of that unit.
 
 - [x] G0 — the plan committed (rev 1)
-- [ ] G1 — review of the plan by gpt-6-astra at `-e high`, folded in as rev 2
+- [ ] G1 — one review of this plan and the cc-safety-net plan together, by gpt-6-astra at
+  `-e high`, folded in as a new revision of each (owner, 2026-11-10)
 
 Multi-unit work, drafted: `docs/plans/2026-11-10-queue-cycle-and-memory-tiers.md` covers what
 the owner asked about outside the command guard: the Owner-queue cycle, how the protected
@@ -108,11 +109,12 @@ Check: `grep -n 'mktemp' scripts/ladder.sh scripts/guards/placeholder-integrity.
 scripts/guards/ledger-append-only.sh` — a line ending at the closing parenthesis, with no `||`
 after it, is still unchecked.
 
-**OPEN — run G1, the gpt-6-astra `-e high` review of the command-guard gap plan,
-`docs/plans/2026-11-10-command-guard-gap-review.md`, and decide its mandate (the plan's §2, item
-2).** The session that committed the plan had no way to launch that reviewer. When the review is
-folded, this item becomes "decide whether to adopt rev 2, and which units". Check for one of the
-plan's gaps: `scripts/command-guard.sh --command 'rm -r ~'` — exit status 0 means a recursive
+**OPEN — run G1, one gpt-6-astra `-e high` review of both command-guard plans,
+`docs/plans/2026-11-10-command-guard-gap-review.md` and
+`docs/plans/2026-11-09-cc-safety-net-borrowings.md`; then decide whether to adopt them, together,
+and which units.** Owner, 2026-11-10: one review covers both, with the mandate N1 had (the gap
+plan's §2, item 2), and adoption is decided for both together. That reviewer needs `codex`, which
+this session lacks. Check for one of the gap plan's gaps: `scripts/command-guard.sh --command 'rm -r ~'` — exit status 0 means a recursive
 deletion of the home directory without `-f` still passes the permanent denial.
 
 **OPEN — decide whether to legislate the owner's answer of 2026-11-10, that the incident bar does
@@ -125,24 +127,11 @@ on that bar. Changing any of them is a rule-review unit; no command settles this
 whether it is reviewed first (M1), whether to adopt it, and the downstream facts its §2, item 3
 asks for.** No command settles this.
 
-**OPEN — decide whether to adopt rev 2 of the cc-safety-net plan,
-`docs/plans/2026-11-09-cc-safety-net-borrowings.md`, and which units.** Its N1 review is folded, and
-its §8 has a row for each finding. Nothing in it is adopted or approved, and each later unit starts
-only on the owner's approval of that unit.
-
 **OPEN — decide two recommendations from that review that it had no authority to apply.** (1)
 Whether to reconsider a `find` arm for the permanent targets, which **DD-018** chose not to take
 (the plan's N8). (2) The cross-plan order and release placement in that plan's §2, decision 3, which
 reach the spill-guard and research-gaps plans; H0.5's recommended order is in the research-gaps
 plan's §7.1, and it did not change that plan's standing here.
-
-**OPEN — approve, or not, starting spill-guard plan Unit S1: refusal text does not repeat a
-supported credential shape.** The plan is adopted for the release after 16.0.0 (its §2), and S1
-is its first unit.
-Each unit starts only on the owner's explicit approval of that unit, and approving one approves
-only that one. When a unit lands, this item moves to the next. Check for S6a's gap, which the
-plan raised: `scripts/command-guard.sh --command 'nice -n 5 rm -rf ~'` — exit status 0 means a
-wrapper option still takes a deletion of the home directory past the permanent denial.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -168,6 +157,10 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-10 — **Two Owner-queue items answered by the owner.** Spill-guard S1, S2, S6a and S3
+  approved together; one G1 review covers both command-guard plans, with N1's mandate, and their
+  adoption is decided together, so the cc-safety-net item joins G1's. The owner deferred the rest.
 
 - 2026-11-10 — **A plan for the gaps outside the command guard, committed as a draft (M0).** On
   the owner's ask, from a read reported in chat; its measurements are in its §3. No code changed.

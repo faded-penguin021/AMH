@@ -29,6 +29,11 @@ things, which Part A is built on:
    recommended that exemption. It is withdrawn (§5, M4).
 3. **The work cycles:** finishing a plan and working through its units adds items to the Owner
    queue, those items need a plan, and so on.
+4. **The queue is the owner's backlog, not a list of demands** (owner, 2026-11-10): "A queue
+   exists for me to decide at an opportune time. Not a bureaucracy that dictates what I must do,
+   it's what I choose to do and when i choose to." So the defect §4 describes is not that items
+   wait. It is that waiting items are charged to working memory, and that sessions open new ones
+   faster than any owner pace would close them.
 
 **Left out, because another plan or queue item carries it:** what every session must read and
 what may move out of the constitution (research-gaps H1, H2, H3); the host sandbox (H4a, H4b);

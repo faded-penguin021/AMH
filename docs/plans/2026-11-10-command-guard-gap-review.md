@@ -55,12 +55,15 @@ something another plan declined, and say so where they do it (G9, G10).
 ## 2. Owner decisions
 
 1. **Whether to adopt this plan, and which units.** Open. G1 comes first and may change the
-   options. Adopting the plan approves no unit.
+   options. Adopting the plan approves no unit. **Answered in part by the owner, 2026-11-10:
+   adoption is decided for this plan and the cc-safety-net plan together.**
 2. **G1's reviewer and mandate.** The reviewer is answered: gpt-6-astra at `-e high`. This
    session cannot launch it (no `codex` on its `PATH`), so the owner launches it or a session
-   that can. **Open: its mandate.** Recommended: the grant the cc-safety-net plan's N1 had, to
-   overturn this plan's decisions and add, rewrite or delete units, with the ledger's decided
-   rows, the `AGENTS.md` hard boundaries and the other plans outside it.
+   that can. **Mandate answered by the owner, 2026-11-10: one review covers this plan and the
+   cc-safety-net plan, with the mandate N1 had.** Read for two plans, that is authority to
+   overturn either plan's decisions and to add, rewrite, delete or move units between them,
+   with the ledger's decided rows, the `AGENTS.md` hard boundaries and the other three live
+   plans outside it. Its findings fold in as a new revision of each plan.
 3. **Whether the incident bar gates these gaps. Answered by the owner, 2026-11-10: it does
    not.** In the owner's words: "I'd warn against the incident bar for the command guard. You
    don't want to delete the root of the drive, read a .env before thinking on how to guard
