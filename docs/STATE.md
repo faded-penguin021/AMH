@@ -16,11 +16,11 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 16.1.1** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 17.0.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-This tree declares **16.1.1**; `harness/CHANGELOG.md` names what each version carries. Whether
+This tree declares **17.0.0**; `harness/CHANGELOG.md` names what each version carries. Whether
 it is tagged or released is not recorded here — `scripts/session-start.sh` probes that every
 session.
 
@@ -112,6 +112,21 @@ only that one. When a unit lands, this item moves to the next. Check for S6a's g
 plan raised: `scripts/command-guard.sh --command 'nice -n 5 rm -rf ~'` — exit status 0 means a
 wrapper option still takes a deletion of the home directory past the permanent denial.
 
+**OPEN — decide whether the test-first rule is MAJOR or MINOR, then tag once this train is
+merged (evidence: **DD-073**).** Drafted as MAJOR 17.0.0, because the owner ruled the two
+session-discipline rules of 16.0.0 MAJOR (**DD-050**) and this is a third of that kind. The other
+reading is MINOR 16.2.0, a new principle an adopter may take or leave; choosing it means changing
+the five version copies and the changelog's Upgrading wording. Recommendation: MAJOR, to match
+that ruling. The README's clone command names the drafted tag.
+Check: `git ls-remote --tags origin 'amh-v17.0.0' 'amh-v16.2.0'` — no output means neither is
+tagged.
+
+**OPEN — decide whether to build a guard for a fix that changes an existing test (evidence:
+**DD-073**).** The rule is prose-only. A diff shows a modified or deleted test file, so a WARN-only
+advisory over configured test paths, like the `RULE_FILES` one, is buildable. No violation is
+recorded here, and a guard is earned by an incident, so the session built none. Recommendation:
+wait for one. No check settles this; the owner does.
+
 ## Decided non-items (don't re-litigate without new evidence)
 
 A pointer index, not an argument: **read the cited row before reopening any of these**, because
@@ -136,6 +151,11 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-12 — **A fix's test is written before the fix, and existing tests are frozen while it
+  fixes;** on the owner's ask, as P21, fixed seed text and Session discipline 13 (**DD-073**).
+  Prose-only, drafted as MAJOR 17.0.0; that call, the tag and a possible guard are in the Owner
+  queue.
 
 - 2026-11-09 — **H9 of the research-gaps plan done: a failed `mktemp` measured, no repair made.** One
   failure at the ladder's scratch directory exits the ladder 0 over planted defects (**DD-072**);

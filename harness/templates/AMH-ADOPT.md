@@ -129,7 +129,8 @@ The ones worth real thought, because a future session will lean on them:
 - **verification limits** — what genuinely cannot be checked locally. Be honest; overstating
   coverage is worse than admitting a gap, because it stops the next reader checking by hand.
 - **untested glue areas** — the code your test suite structurally cannot see. This is where the
-  adversarial review pass is mandatory, so a wrong answer here is expensive.
+  adversarial review pass is mandatory, so a wrong answer here is expensive. (A fix that changes
+  an existing test owes a pass whatever it touches; that one is not yours to scope.)
 
 If you cannot answer one from the repository, ask rather than invent. An invented invariant is
 worse than a blank one, because it will be enforced.

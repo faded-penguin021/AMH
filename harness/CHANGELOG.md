@@ -11,6 +11,49 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 17.0.0 — 2026-11-12
+
+- **A fix's test is written before the fix, and the tests that already existed are not the fix's
+  to change (new principle P21).** An agent that writes a fix and then its test writes the test
+  from the fix. Such a test passes by construction and repeats whatever the fix got wrong, and
+  showing that it fails without the fix does not expose it, because it fails without the fix too.
+  Two rules now say so. First, a defect's reproducing test is run against the unfixed tree and
+  seen to fail, for the reason the report names, before the fix is written; a test edited after
+  the fix is run against the unfixed tree again. Second, a test that existed before the fix is
+  changed, skipped, loosened or deleted only as a decision of its own. The unit that does it
+  owes a fresh-context review pass at the strongest available tier, with no self-review
+  fallback, and the reviewer judges the old test against the specification and never against
+  the fix. Where no fresh context can be spawned, the test stays as it was and the owner
+  decides. The same agent may still write both the test and the fix. Both rules are prose-only:
+  no guard ships, and nothing records the order in which a test and a fix were written.
+- **The seed states both rules as fixed text.** Until now the seed runbook's bug-fix playbook
+  slot only suggested "failing test first" and "never edit a fixture to pass", as an example an
+  adopter could delete, and the review pass for a changed test did not exist. The seed
+  constitution now carries a bullet under **Coding conventions**, and the seed runbook carries
+  Session discipline item 12 and one sentence in the adversarial review protocol.
+
+### Upgrading
+
+Copy the 17.0.0 shipped scripts and manifest through the normal upgrade procedure; no script
+changed, and the manifest changes only in its version header. Then apply the rules by hand,
+because seeds are yours:
+
+1. Copy the "A fix's test comes first" bullet from **Coding conventions** in
+   `harness/templates/seed/AGENTS.md` into your constitution, below your fixture-immutability
+   rule if you have one. Its sentence "The fixture rule above may forbid the change outright"
+   points at that rule; drop the sentence if you have none.
+2. Copy Session discipline item 12 from `harness/templates/seed/docs/RUNBOOK.md`. If your list
+   does not end at item 11, number it after your last item and change the "Session discipline
+   12" references in the bullet from step 1 and in the sentence from step 3. Its own references
+   to items 3, 7 and 8 are the checkpoint invariant, ask-don't-assume and the verification
+   disclosure; renumber them if yours differ.
+3. Copy the last sentence of the first paragraph of the seed runbook's adversarial review
+   protocol into yours.
+
+This rule is what makes the release MAJOR, on the precedent of 16.0.0: a session that wrote a
+fix and then its test, or changed an existing test to make a fix pass, was within the rules
+before and is not now. The owner has not yet confirmed that call for this release.
+
 ## 16.1.1 — 2026-11-09
 
 - **Two command-guard advisories no longer go silent on a host with no hashing tool.** The

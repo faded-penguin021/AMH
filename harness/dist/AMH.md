@@ -4,7 +4,7 @@
 
 # The Agentic Maintenance Harness
 
-**Harness version 16.1.1.** Repos that adopt it record the version they took
+**Harness version 17.0.0.** Repos that adopt it record the version they took
 (`AMH_VERSION` in `amh.conf`, and a line in their constitution), so process drift stays
 diagnosable as the harness evolves.
 
@@ -715,6 +715,51 @@ re-proposal vaccine both bite here). It is a tripwire for the drift class that a
 not proof of universal doc-correctness — and the constant lives in lockstep with the sentence
 it defends, so changing either means changing both.
 
+**P21. A fix's test is written before the fix, and the tests that already existed are not the
+fix's to change.** A session that writes a fix and then its test writes the test from the fix:
+the test asserts what the new code does, passes by construction, and repeats whatever the fix
+got wrong. Showing that the test fails without the fix does not catch this, because a test
+written from the fix fails without it too. That demonstration proves a test can fail; it says
+nothing about where the test came from, so both are owed and neither replaces the other. What
+this buys under P0 is shipped correctness: a test the fix's code could not have shaped says more
+when it passes. Two rules follow, both about order. The same session may write the test and the
+fix. Order keeps the test from asserting whatever the fix's code happens to do; it does not
+keep the test from sharing the session's diagnosis, which only a second reader can question,
+and no second author is required here.
+
+**(a) Test first.** For a defect, write the test that reproduces it and run it against the
+unfixed tree before any fix is written. It must fail, and fail for the reason the report names:
+a test that fails on a typo, a missing import or an unrelated assertion has reproduced nothing.
+Only then write the fix. The test committed is the test that was seen failing: one edited after
+the fix was written is run against the unfixed tree again. The failing test is not a checkpoint
+of its own: the unit still ends green (P5), with the test and the fix in one commit. Where a
+defect cannot be reproduced in a test, say so in the commit body and say what was done instead;
+never write the test afterwards and present it as the reproduction.
+
+**(b) A test that existed before the fix is frozen for the fix.** A fix makes the code conform
+to the tests it found. If one of them stands in the way, because it encoded the defect or
+because the intended behaviour changed, then changing, skipping, loosening or deleting it is a
+second decision and not part of the fix. "A test" here includes what decides whether it runs and
+what it accepts: its fixtures and golden data, its shared helpers, the runner's exclusions and
+tolerances. The rule follows the purpose, not the unit boundary: a test changed to make way for
+a fix is covered whichever unit changes it. The unit that makes the change owes a fresh-context
+pass run as P12's adversarial pass, with two differences: it is at the strongest available tier
+whatever the size of the diff, and it has no self-review fallback. Where no fresh context can be
+spawned, the test stays as it was and the question goes to the owner (P8). The reviewer gets
+the old test, the new one, and the defect report as it was received or the reproduction where
+the session found the defect itself. It judges whether the old test was wrong by the
+specification, never by the fix; where no specification settles what the behaviour should be,
+that is the owner's fork (P8) and not the reviewer's. Where the unit already owes a pass, this
+is the same pass, not a second one. Adding a test is not covered, and a repository whose
+fixtures are declared immutable (P1) may forbid the change outright, which is stricter and
+stands.
+
+Say which layer holds this: both rules are **prose-only**. Whether the test preceded the fix is
+order, which no artifact records. That an existing test changed is visible in a diff, so a guard
+over (b) is machine-decidable, but none ships: a guard is earned by an incident (P3, P20). The
+commit body says that the test was seen failing first, and names any pre-existing test the unit
+changed. That is disclosure to a reader, and nothing may consume it (P3).
+
 ---
 
 ## Part 2 — The constitution (drop-in template)
@@ -845,6 +890,14 @@ could NOT be verified locally — disclosure of real actions, never implied cove
 - {{SEMANTIC_FIDELITY_RULE}}
 - Provenance comments on ported or spec-derived logic: `// {{PROVENANCE_SOURCE}}: <artifact> <locator>`.
 - {{FIXTURE_IMMUTABILITY_RULE}}
+- **A fix's test comes first, and the tests that already existed are not the fix's to change.**
+  Reproduce a defect in a test and watch it fail on the unfixed tree, for the reason the report
+  names, before writing the fix. A test that existed before the fix is changed, skipped,
+  loosened or deleted only as a decision of its own: the unit that does it owes a fresh-context
+  review pass with no self-review fallback, which judges the old test against the specification
+  and never against the fix. The fixture rule above may forbid the change outright, and then
+  it does. Prose-only: no guard checks either half. See `docs/RUNBOOK.md` → **Session
+  discipline** 12.
 - No new dependencies unless the change clearly warrants it.
 - {{TOOLCHAIN_FLOOR}}
 - Match existing code style and file/package layout.
@@ -1596,6 +1649,33 @@ cut (version invariants; the owner does the tagging), etc.}}
    reader is the only check. Prose-only, and it must stay so — nothing in the artifacts tells
    an estimate from a measurement, and a required "measured:" field would be filled either
    way; the sentence stays a disclosure because nothing consumes it.
+12. **A fix's test is written before the fix, and existing tests are frozen for the fix.**
+   (a) For a defect, write the test that reproduces it and run it against the unfixed tree
+   before any fix is written. It must fail for the reason the report names: a failure on a
+   typo, a missing import or an unrelated assertion has reproduced nothing. Then write the fix.
+   The test committed is the test that was seen failing: one edited after the fix was written
+   is run against the unfixed tree again. The failing test is never committed on its own; the
+   unit ends green, with the test and the fix in one commit (item 3). Where a defect cannot be
+   reproduced in a test, the commit body says so and says what was done instead.
+   (b) A test that existed before the fix is not the fix's to change. Changing,
+   skipping, loosening or deleting one is a second decision, and "a test" includes what decides
+   whether it runs and what it accepts: fixtures and golden data, shared helpers, the runner's
+   exclusions and tolerances. A test changed to make way for a fix is covered whichever unit
+   changes it. That unit owes a fresh-context pass, run as the adversarial pass below with two
+   differences: the strongest available tier whatever the diff's size, and no self-review
+   fallback. Where no fresh context can be spawned, the test stays as it was and the question
+   goes to the Owner queue. The reviewer gets the old test, the new one, and the defect report
+   as it was received (or the reproduction, where the session found the defect itself), and
+   judges whether the old test was wrong by the specification, never by the fix. Where no
+   specification settles what the behaviour should be, that is the owner's fork (item 7), not
+   the reviewer's. Where the unit already owes a pass, it is the same pass. Adding a test is
+   not covered. The reason for both: a test written after the fix is written from the fix, and
+   showing that it fails without the fix does not tell the two apart, so both demonstrations
+   are owed. The same session may write both. Order keeps the test from asserting whatever the
+   fix's code happens to do; it does not keep the test from sharing the session's diagnosis.
+   Prose-only: nothing records the order, and no guard reads the diff for a changed test. The
+   commit body says the test was seen failing first and names any pre-existing test the unit
+   changed, a disclosure nothing consumes (item 8).
 
 ## Adversarial review protocol (MANDATORY for {{UNTESTED_GLUE_AREAS}} diffs)
 
@@ -1606,6 +1686,9 @@ predisposed to accept it. Scale the reviewer's model tier to the diff: small mec
 → light tier; large or glue-heavy → the strongest available. Self-review is the fallback only
 where no fresh context can be spawned. A unit set to make such a change owes this pass even
 when it ends without one; the reviewer then reviews its conclusion (Session discipline 10).
+A fix that changes, skips, loosens or deletes a test that existed before it owes this pass too,
+whatever areas its diff touches, at the strongest available tier and with no self-review
+fallback (Session discipline 12).
 
 Hunt these proven bug classes — each one a real shipped bug from this repo's ledger; append
 new classes as the ledger grows:
@@ -2692,7 +2775,8 @@ The ones worth real thought, because a future session will lean on them:
 - **verification limits** — what genuinely cannot be checked locally. Be honest; overstating
   coverage is worse than admitting a gap, because it stops the next reader checking by hand.
 - **untested glue areas** — the code your test suite structurally cannot see. This is where the
-  adversarial review pass is mandatory, so a wrong answer here is expensive.
+  adversarial review pass is mandatory, so a wrong answer here is expensive. (A fix that changes
+  an existing test owes a pass whatever it touches; that one is not yours to scope.)
 
 If you cannot answer one from the repository, ask rather than invent. An invented invariant is
 worse than a blank one, because it will be enforced.

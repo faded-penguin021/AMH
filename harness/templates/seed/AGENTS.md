@@ -111,6 +111,14 @@ could NOT be verified locally — disclosure of real actions, never implied cove
 - {{SEMANTIC_FIDELITY_RULE}}
 - Provenance comments on ported or spec-derived logic: `// {{PROVENANCE_SOURCE}}: <artifact> <locator>`.
 - {{FIXTURE_IMMUTABILITY_RULE}}
+- **A fix's test comes first, and the tests that already existed are not the fix's to change.**
+  Reproduce a defect in a test and watch it fail on the unfixed tree, for the reason the report
+  names, before writing the fix. A test that existed before the fix is changed, skipped,
+  loosened or deleted only as a decision of its own: the unit that does it owes a fresh-context
+  review pass with no self-review fallback, which judges the old test against the specification
+  and never against the fix. The fixture rule above may forbid the change outright, and then
+  it does. Prose-only: no guard checks either half. See `docs/RUNBOOK.md` → **Session
+  discipline** 12.
 - No new dependencies unless the change clearly warrants it.
 - {{TOOLCHAIN_FLOOR}}
 - Match existing code style and file/package layout.

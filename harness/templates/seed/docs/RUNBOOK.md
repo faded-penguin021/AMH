@@ -159,6 +159,33 @@ cut (version invariants; the owner does the tagging), etc.}}
    reader is the only check. Prose-only, and it must stay so — nothing in the artifacts tells
    an estimate from a measurement, and a required "measured:" field would be filled either
    way; the sentence stays a disclosure because nothing consumes it.
+12. **A fix's test is written before the fix, and existing tests are frozen for the fix.**
+   (a) For a defect, write the test that reproduces it and run it against the unfixed tree
+   before any fix is written. It must fail for the reason the report names: a failure on a
+   typo, a missing import or an unrelated assertion has reproduced nothing. Then write the fix.
+   The test committed is the test that was seen failing: one edited after the fix was written
+   is run against the unfixed tree again. The failing test is never committed on its own; the
+   unit ends green, with the test and the fix in one commit (item 3). Where a defect cannot be
+   reproduced in a test, the commit body says so and says what was done instead.
+   (b) A test that existed before the fix is not the fix's to change. Changing,
+   skipping, loosening or deleting one is a second decision, and "a test" includes what decides
+   whether it runs and what it accepts: fixtures and golden data, shared helpers, the runner's
+   exclusions and tolerances. A test changed to make way for a fix is covered whichever unit
+   changes it. That unit owes a fresh-context pass, run as the adversarial pass below with two
+   differences: the strongest available tier whatever the diff's size, and no self-review
+   fallback. Where no fresh context can be spawned, the test stays as it was and the question
+   goes to the Owner queue. The reviewer gets the old test, the new one, and the defect report
+   as it was received (or the reproduction, where the session found the defect itself), and
+   judges whether the old test was wrong by the specification, never by the fix. Where no
+   specification settles what the behaviour should be, that is the owner's fork (item 7), not
+   the reviewer's. Where the unit already owes a pass, it is the same pass. Adding a test is
+   not covered. The reason for both: a test written after the fix is written from the fix, and
+   showing that it fails without the fix does not tell the two apart, so both demonstrations
+   are owed. The same session may write both. Order keeps the test from asserting whatever the
+   fix's code happens to do; it does not keep the test from sharing the session's diagnosis.
+   Prose-only: nothing records the order, and no guard reads the diff for a changed test. The
+   commit body says the test was seen failing first and names any pre-existing test the unit
+   changed, a disclosure nothing consumes (item 8).
 
 ## Adversarial review protocol (MANDATORY for {{UNTESTED_GLUE_AREAS}} diffs)
 
@@ -169,6 +196,9 @@ predisposed to accept it. Scale the reviewer's model tier to the diff: small mec
 → light tier; large or glue-heavy → the strongest available. Self-review is the fallback only
 where no fresh context can be spawned. A unit set to make such a change owes this pass even
 when it ends without one; the reviewer then reviews its conclusion (Session discipline 10).
+A fix that changes, skips, loosens or deletes a test that existed before it owes this pass too,
+whatever areas its diff touches, at the strongest available tier and with no self-review
+fallback (Session discipline 12).
 
 Hunt these proven bug classes — each one a real shipped bug from this repo's ledger; append
 new classes as the ledger grows:

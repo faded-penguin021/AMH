@@ -114,7 +114,9 @@ written before the acceptance run, so the ladder verifies the tree that is commi
   template. Never remove the hook or its `onFailure` to get a shell back (**DD-040**).
 - **Acceptance:** `scripts/ladder.sh` green, including the fixture suite and both rail
   self-tests; the new fixture must FAIL against the old script — check by stashing the
-  behaviour change, or the fixture proves nothing.
+  behaviour change, or the fixture proves nothing. For a defect fix, the fixture is also
+  written and seen failing BEFORE the fix (**Session discipline** 13); that is a second
+  demonstration and does not replace this one.
 - **Record:** STATE changelog line; a concise ledger row for any durable bug class the change
   fixes, not its whole debugging narrative. Archive a larger narrative under `docs/history/`
   and point to it from the `docs/STATE.md` changelog.
@@ -389,6 +391,32 @@ written before the acceptance run, so the ladder verifies the tree that is commi
    and `git merge -s ours origin/<default>` records that with no file changed. If it prints
    anything, run an ordinary `git merge origin/<default>` and resolve it. Either way a plain push
    follows, and `git merge-base --is-ancestor origin/<default> HEAD` exiting 0 confirms it.
+13. **A fix's fixture is written before the fix, and existing fixtures are frozen for the
+   fix.** (a) For a defect in anything a suite here covers (the shipped suite, `scripts/tests/`,
+   `conformance/selftest.sh`), write the fixture that reproduces it and run the suite against
+   the unchanged code before any fix is written. It must fail for the reason the report names:
+   a failure on a typo or an unrelated assertion has reproduced nothing. Then write the fix.
+   The fixture committed is the fixture that was seen failing: one edited after the fix was
+   written is run against the unfixed code again, which is the stash check the playbooks
+   already require and this item does not replace. The failing fixture is never committed on
+   its own; the unit ends green, with the fixture and the fix in one commit (item 3). Where a
+   defect cannot be reproduced in a fixture, the commit body says so and says what was done
+   instead. (b) A fixture that existed before the fix is not the fix's to change. Changing,
+   skipping, loosening or deleting one is a second decision, and that includes its helpers and
+   anything that decides whether it runs. A fixture changed to make way for a fix is covered
+   whichever unit changes it. That unit owes the rule-review pass, which a guard-fixture diff
+   owes already and which this item extends to every suite named in (a). The reviewer gets the
+   old fixture, the new one, and the defect report as it was received (or the reproduction,
+   where the session found the defect itself), and judges whether the old fixture was wrong by
+   the rule it tests, never by the fix. Where the unit already owes that pass, it is the same
+   pass. Adding a fixture is not covered. The reason for both: a fixture written after the fix
+   is written from the fix, and the stash demonstration (**D-008**) does not tell the two
+   apart, because such a fixture fails without the fix too. The same session may write both.
+   Order keeps the fixture from asserting whatever the fix's code happens to do; it does not
+   keep the fixture from sharing the session's diagnosis. Prose-only: nothing records the
+   order, and no guard reads the diff for a changed fixture. The commit body says the fixture
+   was seen failing first and names any existing fixture the unit changed, a disclosure nothing
+   consumes (item 8, **DD-073**).
 
 ## Adversarial review protocol (MANDATORY for diffs the fixtures cannot see)
 
