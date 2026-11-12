@@ -6,6 +6,8 @@
 > decisions (§2, decision 2), has run. Its decisions are applied here and each finding has a row in
 > §8. Each later unit starts only on the owner's explicit approval of that unit, and N1 approves
 > none. **Every measurement in §3 is re-taken when the unit that acts on it starts.**
+> **Owner, 2026-11-10:** this plan is reviewed again, together with the command-guard gap plan, in
+> that plan's G1, with N1's mandate read for both; adoption is decided for the two together.
 
 The plan is provisional while it is live. Its durable outcomes go to Changelog lines and ledger
 rows. Code cites ledger rows and never this file, and no ledger row may cite this file's path.
