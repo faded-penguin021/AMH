@@ -584,6 +584,46 @@ d=$(snapshot doc_navigation_state_queue_pointer_missing)
 sed_in_place '/final chat message must:/d' "$d/docs/STATE.md"
 expect fail "doc-navigation: the Owner-queue pointer into Session discipline was deleted" "$d" doc-navigation.sh "missing navigation pointer in docs/STATE.md"
 
+# Host-rail coverage moved out of the constitution into its own runbook section, and two
+# pointers were left behind (DD-080). A relocated text the constitution no longer names is
+# repealed, so each way of losing the route has a fixture: the pointer, the heading, a second
+# heading, a pointer aimed at another section, and pointer and heading removed together.
+rails_ptr='what they miss** before you count on a rail'
+deletion_ptr='what they miss**. A deletion the guard denied'
+
+d=$(snapshot doc_navigation_rails_pointer_missing)
+sed_in_place '/Host rails and what they miss\*\* before you count on a rail/d' "$d/AGENTS.md"
+expect fail "doc-navigation: the host-rails pointer was deleted" "$d" doc-navigation.sh "$rails_ptr"
+
+d=$(snapshot doc_navigation_deletion_pointer_missing)
+sed_in_place '/Host rails and what they miss\*\*\. A deletion the guard denied/d' "$d/AGENTS.md"
+expect fail "doc-navigation: the deletion-rails pointer was deleted" "$d" doc-navigation.sh "$deletion_ptr"
+
+d=$(snapshot doc_navigation_rails_heading_missing)
+sed_in_place 's/^## Host rails and what they miss$/## Host rails/' "$d/docs/RUNBOOK.md"
+expect fail "doc-navigation: the host-rails heading was renamed" "$d" doc-navigation.sh "missing navigation heading in docs/RUNBOOK.md: ## Host rails and what they miss"
+
+d=$(snapshot doc_navigation_rails_heading_duplicate)
+printf '\n## Host rails and what they miss\n' >>"$d/docs/RUNBOOK.md"
+expect fail "doc-navigation: the host-rails heading was duplicated" "$d" doc-navigation.sh "duplicate navigation heading in docs/RUNBOOK.md: ## Host rails and what they miss"
+
+d=$(snapshot doc_navigation_rails_wrong_destination)
+sed_in_place 's/→ \*\*Host rails and what they miss\*\*\. A deletion/→ **Acceptance ladder**. A deletion/' "$d/AGENTS.md"
+expect fail "doc-navigation: the deletion-rails pointer names another section" "$d" doc-navigation.sh "$deletion_ptr"
+
+d=$(snapshot doc_navigation_rails_wrong_destination_working)
+sed_in_place 's/→ \*\*Host rails and what they miss\*\* before you count/→ **Acceptance ladder** before you count/' "$d/AGENTS.md"
+expect fail "doc-navigation: the host-rails pointer names another section" "$d" doc-navigation.sh "$rails_ptr"
+
+# Three assertions on one tree, so the case cannot pass on the heading alone while a pointer
+# deletion silently did nothing.
+d=$(snapshot doc_navigation_rails_pointer_and_heading_removed)
+sed_in_place '/Host rails and what they miss\*\*/d' "$d/AGENTS.md"
+sed_in_place '/^## Host rails and what they miss$/d' "$d/docs/RUNBOOK.md"
+expect fail "doc-navigation: host-rails pointers and heading removed together (heading)" "$d" doc-navigation.sh "missing navigation heading in docs/RUNBOOK.md: ## Host rails and what they miss"
+expect fail "doc-navigation: host-rails pointers and heading removed together (rails pointer)" "$d" doc-navigation.sh "$rails_ptr"
+expect fail "doc-navigation: host-rails pointers and heading removed together (deletion pointer)" "$d" doc-navigation.sh "$deletion_ptr"
+
 d=$(snapshot drift_script)
 printf '# local edit\n' >>"$d/scripts/redact.sh"
 expect fail "copy-drift: an edited shipped script" "$d" copy-drift.sh "drift:"

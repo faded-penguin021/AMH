@@ -30,9 +30,13 @@ Units 0–4.
 2. **Version semantics for each unit** (**Session discipline** 7(c)). H3 changes the adopter
    file layout and H4b changes what an adopter's agent can do, so each is at least MINOR and
    possibly MAJOR. **H4b answered by the owner on 2026-11-13: it folds into the 17.0.0 draft**
-   (**DD-079**).
+   (**DD-079**). **Answered for the whole plan on 2026-11-13, when H2 started: every unit goes to
+   17.0.0** (**DD-080**).
 3. **H2: which constitution content stays loaded every session.** `AGENTS.md` makes relocating a
    live rule a change to legislation, and makes a bulk relocation the owner's decision.
+   **Answered by the owner on 2026-11-13:** every binding item stays; the description and
+   rationale items of A042, A026 and A003 move to a task-triggered runbook section; the seed
+   waits for H3 (**DD-080**).
 4. **H3: the adopter file layout and how existing installs migrate** (§5, H3).
 5. **H4a: the platform matrix, and above all what native Windows gets.** Per Claude Code's
    sandboxing documentation (§8), native Windows runs commands unsandboxed, and **DD-038**
@@ -59,7 +63,8 @@ Units 0–4.
    pass. H4b's rule-review and adversarial checklists go to **one** combined blocking pass, so
    the bound of one pass per unit holds.
 9. **H2: what evidence is enough to move a rule at all.** H1 measures volume; byte reduction alone
-   is not incident evidence (§5, H2).
+   is not incident evidence (§5, H2). **Answered by the owner on 2026-11-13:** the always-loaded
+   text is too big, as the survey's principle 4 says; no incident was claimed (**DD-080**).
 10. **H8: whether to grant an incident-bar exception.** H0.5 parked it (§6).
 11. **H9: what to do about what it finds.** H9 measures and routes; a fix is a separate decision.
 
@@ -675,8 +680,16 @@ fi
     moot, since no credential isolation was selected. The probe list is the companion's §7 and
     this unit's acceptance; it is in the Owner queue.
 
-### H2 — keep in the constitution what every session needs; point at the rest
+### H2 — keep in the constitution what every session needs; point at the rest: done 2026-11-13
 
+- **Outcome.** The owner's answers of 2026-11-13: the problem is that the always-loaded text is
+  too big (§1 item 9); move the description and rationale items of A042, A026 and A003 into a
+  new task-triggered runbook section, keep every binding item, and leave the seed to H3 (§1
+  item 3); fold into 17.0.0 (§1 item 2). The mapping, where it departs from the selection (two
+  items stayed, one went to the rule-review protocol), each acceptance output, both reviews and
+  the matching seed passages are in
+  [`2026-11-01-harness-research-gaps-h2-relocation.md`](2026-11-01-harness-research-gaps-h2-relocation.md).
+  `AGENTS.md` went from 15,274 to 12,338 bytes (**DD-080**).
 - **Why:** principle 4. Conditional: it runs only if the owner selects exact obligations from
   H1's inventory and accepts the specific measured problem (§1 item 9). Byte reduction alone is not
   incident evidence.

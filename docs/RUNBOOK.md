@@ -601,6 +601,62 @@ The tripwire only *surfaces* that this protocol applies; reviewer attention is t
 enforcement. One level of meta only: the reviewer reports, the session triages, the human
 arbitrates. Nobody reviews the reviewer.
 
+**On the size of the constitution.** No byte cap governs `AGENTS.md`: the defect is kind, not
+size, and a cap over live legislation would only invite shaving rules to make room for kept
+narrative. What stands in is a reader, not a check — the `RULE_FILES` advisory is a local,
+WARN-only, uncommitted-diff-only courtesy that says the protocol applies; the reviewer is the
+enforcement.
+
+## Host rails and what they miss
+
+Read this before you count on a rail to stop a command, before your first push of a session,
+before your first bulk deletion of a session, when a hook or the host refuses a call, before your
+first command through a PowerShell tool, before you change an adapter, a hook or a guard, and at
+the start of a session on Windows or one started with a flag that changes which settings or hooks
+the host loads (`AGENTS.md` → **Working guidance** and **Hard boundaries**). It says what the rails cover and miss; it relaxes no rule in `AGENTS.md`.
+
+**The command rail.** An agent whose harness provides no pre-execution hook runs with **no
+command rail at all** — `scripts/command-guard.sh` is then a script nobody calls, and the written
+rules are the only layer. The one exception is the push: the git-native `pre-push` rail
+(`command-guard.sh --pre-push`, installed into `.git/hooks/pre-push` by `session-start.sh`) is
+invoked by git rather than by the agent, so it still guards the publication invariants for a
+hook-less agent — a guardrail `--no-verify` bypasses, not a boundary. It exists only where
+installed: `session-start.sh` never overwrites a foreign pre-push hook or writes one under
+`core.hooksPath`, and a fresh clone has none until that script runs. It judges refs, never a
+commit message or an identity.
+
+**Host modes and machine mode.** A host mode can take the hooks away for one session, and no AMH
+script checks for that either: Claude Code's `--safe-mode` and `--bare` skip the hooks its
+settings files define, and the CLAUDE.md that points at `AGENTS.md`, and `--restricted` ignores the
+project's settings file unless it is passed again with `--settings`, so a session started in any
+of them has no command rail, no output redaction and no session bootstrap, whatever
+`.claude/settings.json` says (**DD-053**). A machine-mode copy of the guard
+(`command-guard.sh --machine`, wired from a user-level settings file) may also judge your
+commands. It keeps only the permanent deletion denials, the credential rails and its refusals of
+a command it could not read, names itself in the first line of its refusal, and stands in for
+none of this repository's rails. Nothing here can see whether one is installed, and the host
+modes above skip it too (**DD-063**).
+
+**PowerShell, and the Claude adapter's hooks.** Where a host routes shell commands through a
+PowerShell tool, the command rail exists only if the adapter's matcher names that tool and the
+hook's own shell (bash) is present; the Claude adapter's matcher does, and PowerShell text then
+goes to the guard's PowerShell reader, a shorter list than the bash one, whose misses the guard's
+header names (**DD-039**). The Claude adapter anchors every hook at the project root and, on
+Claude Code 2.1.295 or later (an older build fails open as before), sets both PreToolUse hooks to
+refuse the call when the hook itself fails, so a guard that crashes, times out or cannot start
+blocks the call instead of letting it run (**DD-040**). On Windows that makes Git for Windows a
+hard requirement: without Git Bash every shell call and spawn is refused, and AMH is not usable.
+
+**The command guard's deletion rails.** `scripts/command-guard.sh` holds a literal TARGET list
+for four commands — an `rm -r -f`, a `git clean -f -d`, a `cmd /c` `rd /s` or `del /s`, or a
+PowerShell `Remove-Item -Recurse` (any alias), naming the filesystem root, a Windows drive root or
+a home directory, is blocked and does not clear on a rerun; a `cmd /c` recursive deletion whose
+text carries `\"` nested quotes is blocked the same way, whatever its path — and the git verbs
+armed only on an unknown target are silent on a literal path, except behind `xargs`, which adds
+operands of its own. An INLINE interpreter deletion (`python3 -c` naming `rmtree`, `unlink` and
+the rest of that list) buys one advisory a rerun clears, on the evidence of a word in a command
+line and never a reading of the program (**DD-019**).
+
 ## Incident: leaked credential
 
 Before an incident, know the rail's shape: `scripts/command-guard.sh` carries a consolidated

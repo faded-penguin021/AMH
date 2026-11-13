@@ -54,6 +54,8 @@ done <<'NAVIGATION'
 - Session execution, checkpoints, recovery, and owner forks: `docs/RUNBOOK.md` → **Session discipline**.|## Session discipline (BINDING for every session)
 - Verification and locally unverifiable coverage: `docs/RUNBOOK.md` → **Acceptance ladder**.|## Acceptance ladder
 - Compressing working memory: `docs/RUNBOOK.md` → **Working-memory compression**.|## Working-memory compression
+`docs/RUNBOOK.md` → **Host rails and what they miss** before you count on a rail to stop a|## Host rails and what they miss
+`docs/RUNBOOK.md` → **Host rails and what they miss**. A deletion the guard denied|## Host rails and what they miss
 `docs/RUNBOOK.md` → **Working-memory compression**, and they bind whether or not you follow|## Working-memory compression|docs/STATE.md
 `docs/RUNBOOK.md` → **Session discipline** 7.|## Session discipline (BINDING for every session)|docs/STATE.md
 NAVIGATION

@@ -26,11 +26,12 @@ Release state: `scripts/session-start.sh` probes the declared version's tag ever
 Live plans, each in `docs/plans/`, where a unit starts only on the owner's explicit approval of
 that unit:
 
-- `2026-11-01-harness-research-gaps.md`, adopted; H0, H0.5, H9, H1, the H9 fix and H4a done, and
-  H4b done as configuration with its live probes owed (Owner queue). Before a unit starts the
-  session says which decisions it needs and waits for the answers, and a fresh-context review is
-  pre-allowed for every unit (owner, 2026-11-09).
-  - [ ] H2, H3, H5, H6a, H6b (optional), H7 — not approved (H8 parked)
+- `2026-11-01-harness-research-gaps.md`, adopted; H0, H0.5, H9, H1, the H9 fix, H4a and H2
+  done, and H4b done as configuration with its live probes owed (Owner queue). Every unit rides
+  17.0.0 (owner, 2026-11-13). Before a unit starts the session says which decisions it needs and
+  waits for the answers, and a fresh-context review is pre-allowed for every unit (owner,
+  2026-11-09).
+  - [ ] H3, H5, H6a, H6b (optional), H7 — not approved (H8 parked)
 - `2026-11-04-spill-guard-borrowings.md`, adopted: S1, S2, S6a and S3 approved on 2026-11-10, to
   run in that order, each with its own review and its version settled when its behaviour is
   final (its §2, items 4 and 5); S4, S5, S6b and S6c deferred.
@@ -68,7 +69,8 @@ unjudged; measured only as the mechanism, on Linux. No Windows host here can tes
 and no one-line check here settles it.
 
 **OPEN — the research-gaps plan's remaining §1 decisions, including those H0.5 added.** Each is
-asked when the unit it belongs to is started: H2's evidence threshold, H3's layout and migration, and an H8 incident-bar exception. Its §7.1 also recommends a combined order across all three
+asked when the unit it belongs to is started: H3's layout and migration (H2 left the seed
+constitution's matching passages for it), and an H8 incident-bar exception. Its §7.1 also recommends a combined order across all three
 plans, which an item below owns.
 
 **OPEN — run H4b's live sandbox probes, on your own host or in a session you name (evidence:
@@ -138,6 +140,12 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-13 — **H2 of the research-gaps plan done: the host-rail and deletion-rail descriptions
+  moved from `AGENTS.md` to the new runbook section Host rails and what they miss,** every
+  binding sentence kept and the seed left for H3, on the owner's answers taken when it started;
+  `AGENTS.md` 15,274 → 12,338 bytes. The mapping and the acceptance outputs are in
+  `docs/plans/2026-11-01-harness-research-gaps-h2-relocation.md` (**DD-080**). Rides the 17.0.0
+  draft.
 - 2026-11-13 — **H4b of the research-gaps plan, as configuration: the Claude adapter turns on
   Claude Code's sandbox, and `adapter-set.sh` validates both adapters' sandbox configuration,**
   on the owner's answers taken when it started; every containment cell is unverified until the
