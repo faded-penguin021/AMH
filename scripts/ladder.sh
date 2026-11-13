@@ -101,7 +101,16 @@ skip() { printf '   skip  %s\n' "$1"; }
 # do not read one from the other.)
 note() { printf '   note  %s\n' "$1"; }
 
-TMP=$(mktemp -d)
+# Checked, and the run stops here rather than going on without it. Every rung below that writes
+# a scratch file builds its path from `$TMP`; with it empty they wrote to `/rows`, `/chain` and
+# the like, read back nothing, and the citation and secret rungs printed `ok` over defects they
+# never read — the ladder exited 0 over a planted credential (AMH ledger row DD072). No rung is
+# worth running on a path nobody made, so none is.
+if ! TMP=$(mktemp -d) || [ -z "$TMP" ] || [ ! -d "$TMP" ]; then
+	printf '   FAIL  no scratch directory could be created (mktemp -d) — this run checked NOTHING\n'
+	printf '\n✗ ladder red — no scratch directory, so no rung ran\n'
+	exit 1
+fi
 trap 'rm -rf "$TMP"' EXIT
 
 in_ci() { [ -n "${CI:-}" ]; }

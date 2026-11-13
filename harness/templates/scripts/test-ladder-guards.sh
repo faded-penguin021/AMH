@@ -13,7 +13,12 @@
 set -uo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-WORK=$(mktemp -d)
+# Checked: an empty WORK puts every fixture at the filesystem root, and the suite would go on
+# to report on trees it never built.
+if ! WORK=$(mktemp -d) || [ -z "$WORK" ] || [ ! -d "$WORK" ]; then
+	printf '%s: no scratch directory could be created — no fixture ran\n' "${0##*/}" >&2
+	exit 1
+fi
 trap 'rm -rf "$WORK"' EXIT
 
 export GIT_AUTHOR_NAME=amh-test GIT_AUTHOR_EMAIL=amh@test.invalid
@@ -1502,6 +1507,40 @@ else
 	report no "secret-shaped string is caught" "not flagged" "$out"
 	FIXTURE_ELAPSED_SECONDS=$elapsed
 	report no "secret scan is value-free" "(not reached)"
+fi
+
+# The ladder's own scratch directory could not be created. Every rung that writes there then
+# writes to a path built from the empty string, its reads find nothing, and the citation and
+# secret rungs printed `ok` over the defects planted below and the ladder exited 0 (AMH ledger
+# row DD072). The shim fails ONLY the first `mktemp` of the run, which is the ladder's own: with
+# every call failing, unrelated rungs go red and a fixture built that way passes against the
+# broken ladder. The plants are what make exit 0 a false pass rather than a clean tree.
+d=$(mk scratch_mktemp_fails)
+printf 'key = %s\n' "$(akia_token)" >"$d/scripts/deploy.sh"
+printf '# see D-099\n' >"$d/scripts/thing.sh"
+shim=$WORK/mktemp_first_fails
+mkdir -p "$shim"
+real_mktemp=$(command -v mktemp)
+{
+	printf '#!/usr/bin/env bash\n'
+	printf 'if [ ! -e %q ]; then : >%q; printf "mktemp: simulated failure\\n" >&2; exit 1; fi\n' \
+		"$shim/tripped" "$shim/tripped"
+	printf 'exec %q "$@"\n' "$real_mktemp"
+} >"$shim/mktemp"
+chmod +x "$shim/mktemp"
+out=$(cd "$d" && PATH="$shim:$PATH" CI=1 scripts/ladder.sh --guards-only 2>&1)
+rc=$?
+if [ ! -e "$shim/tripped" ]; then
+	report no "a ladder with no scratch directory checked NOTHING and says so" \
+		"the shim never ran, so nothing failed" "$out"
+elif [ "$rc" -ne 1 ]; then
+	report no "a ladder with no scratch directory checked NOTHING and says so" \
+		"expected exit 1, got $rc" "$out"
+elif ! grep -qF "checked NOTHING" <<<"$out"; then
+	report no "a ladder with no scratch directory checked NOTHING and says so" \
+		"exit 1, but the output never says the run checked nothing" "$out"
+else
+	report ok "a ladder with no scratch directory checked NOTHING and says so"
 fi
 
 # A CRLF worktree under a `sed` that is not byte-transparent — which is a stock Windows

@@ -26,7 +26,12 @@ sed_in_place() { # <sed-expression> <file>
 }
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
-WORK=$(mktemp -d)
+# Checked: an empty WORK puts every fixture at the filesystem root, and the suite would go on
+# to report on trees it never built.
+if ! WORK=$(mktemp -d) || [ -z "$WORK" ] || [ ! -d "$WORK" ]; then
+	printf '%s: no scratch directory could be created — no fixture ran\n' "${0##*/}" >&2
+	exit 1
+fi
 trap 'rm -rf "$WORK"' EXIT
 
 export GIT_AUTHOR_NAME=amh-test GIT_AUTHOR_EMAIL=amh@test.invalid
@@ -1115,6 +1120,46 @@ printf 'GDEF\000 {{%s}} \000glyf\n' PROJECT_NAME >"$d/harness/templates/seed/log
 EXPECT_PATH_PREFIX=$(grep_stdout_notice_shim ph_binary_tpl) || EXPECT_PATH_PREFIX=
 expect pass "placeholders: a binary template asset is not an undocumented placeholder" "$d" \
 	placeholder-integrity.sh
+EXPECT_PATH_PREFIX=
+
+# A guard whose scratch files could not be created. Both of these went on with an empty path:
+# the placeholder guard compared two empty lists and printed its green line over an
+# undocumented placeholder, and the ledger guard went red only because its writes to
+# `/head-tree` failed, which says nothing about the edit it was given (DD-072). Each now stops
+# and says it checked nothing. The plants make a pass a false one.
+mktemp_fails_shim() { # <name> -> prints a PATH directory whose mktemp always fails
+	local dir=$WORK/mktemp_fails_$1
+	mkdir -p "$dir"
+	printf '#!/usr/bin/env bash\nprintf "mktemp: simulated failure\\n" >&2\nexit 1\n' >"$dir/mktemp"
+	chmod +x "$dir/mktemp"
+	printf '%s' "$dir"
+}
+
+d=$(snapshot ph_no_scratch)
+printf '{{%s}}\n' LOCAL_PLANTED >"$d/harness/templates/seed/planted.md"
+EXPECT_PATH_PREFIX=$(mktemp_fails_shim ph) || EXPECT_PATH_PREFIX=
+expect fail "placeholders: no scratch file means the guard checked NOTHING, and says so" "$d" \
+	placeholder-integrity.sh "checked NOTHING"
+EXPECT_PATH_PREFIX=
+
+# The same, from a mktemp that reports success and prints no path: the exit status alone let
+# the empty names through to the green line.
+d=$(snapshot ph_empty_scratch)
+printf '{{%s}}\n' LOCAL_PLANTED >"$d/harness/templates/seed/planted.md"
+EXPECT_PATH_PREFIX=$WORK/mktemp_empty_ph
+mkdir -p "$EXPECT_PATH_PREFIX"
+printf '#!/usr/bin/env bash\nexit 0\n' >"$EXPECT_PATH_PREFIX/mktemp"
+chmod +x "$EXPECT_PATH_PREFIX/mktemp"
+expect fail "placeholders: a mktemp that succeeds with no path is no scratch file either" "$d" \
+	placeholder-integrity.sh "checked NOTHING"
+EXPECT_PATH_PREFIX=
+
+d=$(snapshot ledger_no_scratch)
+sed '0,/This repository is both the harness/s//This repository WAS both the harness/' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+EXPECT_PATH_PREFIX=$(mktemp_fails_shim ledger) || EXPECT_PATH_PREFIX=
+expect fail "ledger-append-only: no scratch directory means the guard checked NOTHING, and says so" \
+	"$d" ledger-append-only.sh "checked NOTHING"
 EXPECT_PATH_PREFIX=
 
 d=$(snapshot ver_bump)

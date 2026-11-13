@@ -40,12 +40,23 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   data-plane tier's old rule that a verb enters only on a public report of data loss is gone. No
   guard behaviour changed: the header and one comment in `command-guard.sh` now say why six
   data-plane verbs are still absent — not yet measured, rather than cleared.
+- **The ladder exits red when it cannot create its scratch directory.** Its `mktemp -d` was
+  unchecked, so when that one call failed every rung that writes a scratch file wrote to a path
+  built from the empty string, read back nothing, and reported clean: the citation and secret
+  rungs printed `ok` over a planted bad citation and a planted credential-shaped string, the
+  row-length and compression-landing rungs printed nothing, and the ladder exited 0, guards-only
+  and full. It now prints a FAIL saying the run checked nothing and exits 1 before any rung runs.
+  The shipped fixture suite checks its own `mktemp -d` the same way and gains a fixture that
+  fails only the ladder's call, over both plants.
 
 ### Upgrading
 
 Copy the 17.0.0 shipped scripts and manifest through the normal upgrade procedure. Of the
-scripts, only `command-guard.sh` changed, in comments alone, and the manifest changes with it.
-The command-guard change needs nothing else from you. Then apply the test-first rules by hand,
+scripts, `command-guard.sh` changed in comments alone, and `ladder.sh` and
+`test-ladder-guards.sh` changed as above; the manifest changes with them. Neither change needs
+anything else from you, but if a guard of your own under `scripts/guards/` takes an unchecked
+`mktemp`, it has the shape the ladder had: check the call and exit non-zero saying the guard
+checked nothing. Then apply the test-first rules by hand,
 because seeds are yours:
 
 1. Copy the "A fix's test comes first" bullet from **Coding conventions** in

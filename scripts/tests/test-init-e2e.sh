@@ -30,7 +30,12 @@ sed_in_place() { # <sed-expression> <file>
 }
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
-WORK=$(mktemp -d)
+# Checked: an empty WORK puts every fixture at the filesystem root, and the suite would go on
+# to report on trees it never built.
+if ! WORK=$(mktemp -d) || [ -z "$WORK" ] || [ ! -d "$WORK" ]; then
+	printf '%s: no scratch directory could be created — no fixture ran\n' "${0##*/}" >&2
+	exit 1
+fi
 trap 'rm -rf "$WORK"' EXIT
 export HOME="$WORK/home"
 mkdir -p "$HOME"

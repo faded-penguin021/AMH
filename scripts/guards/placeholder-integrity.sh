@@ -22,8 +22,16 @@ if [ ! -f "$DOC" ]; then
 	exit 1
 fi
 
-documented=$(mktemp)
-used=$(mktemp)
+# Checked: with these empty, both lists below were written to a path nobody made, read back as
+# empty, and compared equal — the green line over an undocumented placeholder (DD-072).
+documented=''
+used=''
+if ! documented=$(mktemp) || [ -z "$documented" ] || [ ! -f "$documented" ] ||
+	! used=$(mktemp) || [ -z "$used" ] || [ ! -f "$used" ]; then
+	printf 'placeholder-integrity: no temporary file could be created — this guard checked NOTHING\n'
+	[ -z "${documented:-}" ] || rm -f "$documented"
+	exit 1
+fi
 trap 'rm -f "$documented" "$used"' EXIT
 
 # Documented names: the leading `| \`NAME\` |` cell of each table row. Slash-separated
