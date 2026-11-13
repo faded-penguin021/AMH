@@ -29,8 +29,9 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
 - **The seed states both rules as fixed text.** Until now the seed runbook's bug-fix playbook
   slot only suggested "failing test first" and "never edit a fixture to pass", as an example an
   adopter could delete, and the review pass for a changed test did not exist. The seed
-  constitution now carries a bullet under **Coding conventions**, and the seed runbook carries
-  Session discipline item 12 and one sentence in the adversarial review protocol.
+  constitution now carries a bullet under **Coding conventions**, and the seed protocols file
+  (below) carries Session discipline item 12 and one sentence in the adversarial review
+  protocol.
 - **The incident bar no longer gates the command guard (P13).** Everywhere else a new guard still
   waits for a real incident. The command guard — the hook, machine mode and the pre-push rail —
   stops what cannot be undone, so a gap in it is closed on its merits: a **defect** (the guard
@@ -65,6 +66,30 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   banner shows them. The Codex adapter sets no sandbox key and relies on Codex's default. No
   platform has been probed in a live sandboxed session: what ships is configuration, and every
   containment cell is unverified.
+- **The procedures every session is bound by have their own seed, `docs/PROTOCOLS.md`,** split
+  out of the runbook: Session discipline, the adversarial and rule-review protocols, the
+  leaked-credential incident, the acceptance ladder and working-memory compression, verbatim
+  apart from their cross-references. `docs/RUNBOOK.md` keeps the module map, the change-type
+  playbooks, CI triage and self-adaptation. The seed constitution and state file point at the
+  new file for every one of those sections, so the constitution's mandatory reads are a stable
+  document that changes only under rule review rather than the whole runbook.
+  `amh.conf.example` adds `docs/PROTOCOLS.md` to `RULE_FILES`, and the Codex reviewer agent now
+  names the Rule-review protocol instead of the file that used to hold it.
+- **The `light` profile is removed, and `standard` is the default.** Light installed a
+  constitution that sent every session to a runbook and a ledger it never installed, and asked
+  the adopter to fold the runbook into the constitution by hand to cover the gap. Every install
+  now has the constitution, `docs/PROTOCOLS.md`, the runbook, the state file and the ledger;
+  `full` adds the archive tier. `amh-init.sh --profile light` is refused with a message naming
+  the removal, rather than quietly treated as `standard`, and the fold instruction is gone from
+  the adoption brief, the README and the harness's adaptation notes.
+- **The installer says when an install from before this release has not finished migrating.**
+  Its closing report names a constitution that never mentions `docs/PROTOCOLS.md`, a
+  constitution or runbook that still carries one of the six sections (or, from a light install,
+  folded playbooks), a `docs/PROTOCOLS.md` missing one of them, pointers in the constitution,
+  state file or runbook that still send a moved section to the runbook (in every shape the
+  seeds used), a `RULE_FILES` that does not list `docs/PROTOCOLS.md`, and a Codex reviewer agent
+  still sent to the runbook. It is advice: the exit status does not change, because every file it
+  reads is yours.
 
 ### Upgrading
 
@@ -73,20 +98,49 @@ scripts, `command-guard.sh` changed in comments alone, and `ladder.sh` and
 `test-ladder-guards.sh` changed as above; the manifest changes with them. Neither change needs
 anything else from you, but if a guard of your own under `scripts/guards/` takes an unchecked
 `mktemp`, it has the shape the ladder had: check the call and exit non-zero saying the guard
-checked nothing. Then apply the test-first rules by hand,
-because seeds are yours:
+checked nothing.
+
+**Move to `docs/PROTOCOLS.md` first; the steps after it copy from that file.** Re-run
+`amh-init.sh <target>` with no `--profile`, which now means `standard`. It writes
+`docs/PROTOCOLS.md`, and into a tree installed light it also writes `docs/RUNBOOK.md` and
+`docs/LEDGER.md`: that is the upgrade from light to standard. It keeps every file you already
+have, so the rest is by hand:
+
+A. If you edited any of the six sections — in your runbook, or folded into your constitution
+   from a light install — carry those edits into `docs/PROTOCOLS.md`. Then delete the six
+   sections from the runbook and the constitution, so each rule has one copy.
+B. From a light install that folded the playbooks into the constitution: move them into the
+   new runbook's **Change-type playbooks** section, replacing the scaffold's placeholder
+   playbook, and delete them from the constitution.
+C. Repoint every pointer that sends one of the six sections to the runbook — in the
+   constitution, the state file and the runbook itself — to `docs/PROTOCOLS.md`. The
+   shapes the seeds used are "RUNBOOK **Session discipline**", "`docs/RUNBOOK.md` → **Session
+   discipline** 12", "the incident playbook in `docs/RUNBOOK.md`", "`docs/RUNBOOK.md` →
+   **Working-memory compression**" and, in the runbook's doc index, "this runbook →
+   **Working-memory compression**". Copy the new wording from step 4 of the maintenance protocol
+   in `harness/templates/seed/AGENTS.md`, the two preambles of
+   `harness/templates/seed/docs/STATE.md` and `harness/templates/seed/docs/RUNBOOK.md`.
+D. Add `docs/PROTOCOLS.md` to `RULE_FILES` in `amh.conf`, after `AGENTS.md`. Without it an edit
+   to the protocols raises no legislation advisory.
+E. If you have `.codex/agents/amh-rule-reviewer.toml`, replace "already defined by
+   docs/RUNBOOK.md" with "the Rule-review protocol already defines".
+F. Re-run `amh-init.sh <target>`. Its closing report carries a "Migrate to docs/PROTOCOLS.md"
+   block for as long as anything above is left; the migration is done when the block is gone.
+   Stop passing `--profile light` anywhere you scripted it: it is now refused.
+
+Then apply the test-first rules by hand, because seeds are yours:
 
 1. Copy the "A fix's test comes first" bullet from **Coding conventions** in
    `harness/templates/seed/AGENTS.md` into your constitution, below your fixture-immutability
    rule if you have one. Its sentence "The fixture rule above may forbid the change outright"
    points at that rule; drop the sentence if you have none.
-2. Copy Session discipline item 12 from `harness/templates/seed/docs/RUNBOOK.md`. If your list
+2. Copy Session discipline item 12 from `harness/templates/seed/docs/PROTOCOLS.md`. If your list
    does not end at item 11, number it after your last item and change the "Session discipline
    12" references in the bullet from step 1 and in the sentence from step 3. Its own references
    to items 3, 7 and 8 are the checkpoint invariant, ask-don't-assume and the verification
    disclosure; renumber them if yours differ.
-3. Copy the last sentence of the first paragraph of the seed runbook's adversarial review
-   protocol into yours.
+3. Copy the last sentence of the first paragraph of the seed protocols file's adversarial
+   review protocol into yours.
 4. If `AGENTS.md` is your canonical file and `CLAUDE.md` only points at it, replace the "read
    AGENTS.md" sentence of your `CLAUDE.md` with both lines of `harness/templates/seed/CLAUDE.md`:
    the `@AGENTS.md` import and the fallback sentence for a build that does not resolve it. Keep
@@ -107,7 +161,10 @@ because seeds are yours:
 
 This rule is what makes the release MAJOR, on the precedent of 16.0.0: a session that wrote a
 fix and then its test, or changed an existing test to make a fix pass, was within the rules
-before and is not now. The owner has not yet confirmed that call for this release.
+before and is not now. The owner has not yet confirmed that call for this release. The
+removal of the `light` profile would be MAJOR on its own: a command line that worked before is
+refused now, and every install's layout gains a binding document its constitution must point
+at.
 
 ## 16.1.1 — 2026-11-09
 

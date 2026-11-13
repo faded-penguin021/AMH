@@ -215,9 +215,9 @@ PLAN_DIR=docs/plans
 # LEAVE the entries for files you do not have. An entry naming a file that does not exist
 # is inert — the tripwire matches paths in a diff, and a path that cannot appear never
 # matches — and it starts working by itself the day a larger install profile adds the file.
-# Pruning one buys nothing and silently narrows the scope: you would receive the runbook on
-# a later re-run with the tripwire no longer covering it, and nothing would say so. Narrowing
+# Pruning one buys nothing and silently narrows the scope: you would receive the file on a
+# later re-run with the tripwire no longer covering it, and nothing would say so. Narrowing
 # this list is a rule change either way, never housekeeping.
 #
 # Add each new agent adapter's config file here.
-RULE_FILES='AGENTS.md docs/RUNBOOK.md amh.conf scripts/ladder.sh scripts/test-ladder-guards.sh scripts/command-guard.sh scripts/redact.sh scripts/session-start.sh .claude/settings.json .codex/config.toml .codex/rules/amh.rules .codex/agents/amh-rule-reviewer.toml'
+RULE_FILES='AGENTS.md docs/PROTOCOLS.md docs/RUNBOOK.md amh.conf scripts/ladder.sh scripts/test-ladder-guards.sh scripts/command-guard.sh scripts/redact.sh scripts/session-start.sh .claude/settings.json .codex/config.toml .codex/rules/amh.rules .codex/agents/amh-rule-reviewer.toml'

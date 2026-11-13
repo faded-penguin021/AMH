@@ -135,12 +135,13 @@ That is the check worth watching, whether your agent ran it or you did. Get it g
 your first real session — an agent's first instruction is to trust the ladder, and one that
 arrives red teaches it not to.
 
-**How much lands is your call, and the default is small.** `--profile light` (the default)
-installs the constitution, the state file, one verification command and a `.gitattributes`; `--profile standard`
-adds the runbook and the ledger; `--profile full` adds the archive tier. The brief's first
-instruction is to ask you which you want rather than to assume the default. Escalating later is
-the same command with a larger profile — it adds the missing files and touches nothing you have
-written, so starting small costs nothing.
+**How much lands is your call.** `--profile standard` (the default) installs the constitution,
+`docs/PROTOCOLS.md` (the procedures every session is bound by), the runbook, the state file, the
+ledger, one verification command and a `.gitattributes`; `--profile full` adds the archive tier.
+The brief's first instruction is to ask you which you want rather than to assume the default.
+Escalating later is the same command with `--profile full` — it adds the missing file and touches
+nothing you have written. (There was a smaller `light` profile before 17.0.0; it is gone,
+because every constitution sends its sessions to the runbook and the ledger.)
 
 ## How it works
 
@@ -154,13 +155,14 @@ The harness is the accumulated answer to those, and every mechanism in it is nar
 
 | Mechanism | What it is | What it prevents | Profile(s) |
 |---|---|---|---|
-| **Constitution** (`AGENTS.md`) | The always-loaded operating prompt: principles, protocol, invariants. | A session inventing its own process. | light, standard, full |
-| **Working memory** (`docs/STATE.md`) | Current state, Owner queue, changelog. Size-banded with hysteresis. | Handoff by guesswork; an unbounded file nobody reads. | light, standard, full |
+| **Constitution** (`AGENTS.md`) | The always-loaded operating prompt: principles, protocol, invariants. | A session inventing its own process. | standard, full |
+| **Working memory** (`docs/STATE.md`) | Current state, Owner queue, changelog. Size-banded with hysteresis. | Handoff by guesswork; an unbounded file nobody reads. | standard, full |
 | **Permanent memory** (`docs/LEDGER.md`) | Append-only rows: what broke, why, and the generalisation. | Session N's shipped bug being rediscovered by session N+9. | standard, full |
+| **Protocols** (`docs/PROTOCOLS.md`) | The procedures every session is bound by: session discipline, the review protocols, the leaked-credential incident, the acceptance ladder, working-memory compression. | A rule that binds only the sessions that happened to open the right playbook. | standard, full |
 | **Runbook** (`docs/RUNBOOK.md`) | Playbooks for the recurring jobs. | Re-deriving a procedure badly, under time pressure. | standard, full |
-| **The ladder** (`scripts/ladder.sh`) | One verification entrypoint, run identically by the agent and by CI. | "It passes locally" — and green-by-omission. | light, standard, full |
-| **Rails** (`scripts/command-guard.sh`, `scripts/redact.sh`, `scripts/redact-tool-output.sh`) | A pre-execution command guard, a redaction filter that doubles as the repo's secret scan, and a post-execution hook that runs that filter over a tool result where the agent can rewrite one. | Force-pushes, `.env` reads, credentials in output. | light, standard, full |
-| **Review protocols** | Fresh-context adversarial passes, with a no-self-review rule. | A session grading its own homework. | light, standard, full |
+| **The ladder** (`scripts/ladder.sh`) | One verification entrypoint, run identically by the agent and by CI. | "It passes locally" — and green-by-omission. | standard, full |
+| **Rails** (`scripts/command-guard.sh`, `scripts/redact.sh`, `scripts/redact-tool-output.sh`) | A pre-execution command guard, a redaction filter that doubles as the repo's secret scan, and a post-execution hook that runs that filter over a tool result where the agent can rewrite one. | Force-pushes, `.env` reads, credentials in output. | standard, full |
+| **Review protocols** | Fresh-context adversarial passes, with a no-self-review rule. | A session grading its own homework. | standard, full |
 | **Archive tier** (`docs/history/`, `docs/plans/`) | Frozen archive of completed plans and active multi-session build plans. | Loss of historical context; inability to track and reference past decisions. | full |
 
 Nothing in the harness consumes a self-report. A checklist an agent ticks is not evidence;
@@ -308,21 +310,15 @@ Two honest costs, before you adopt:
 
 ## Start smaller than this
 
-Adopting all of it on day one is the common mistake. For a repo with light AI maintenance the
-**smallest useful subset** is three things:
+Adopting all of it on day one is the common mistake. The default install is the documents —
+a constitution, the protocols it binds every session to, a runbook, a state file and a ledger —
+plus a single verification command, and that is already the smallest tree in which every
+document the constitution names exists. What you grow into is the machinery around it.
 
-1. the constitution,
-2. a state file with an Owner queue,
-3. a single verification command.
-
-`--profile light`, the default, installs those three plus a pointer stub for your agent — so
-you already start here; what follows is how to grow out of it.
-
-Fold the runbook into the constitution while there are only a couple of playbooks; split it
-when they multiply. Add the ledger the first time you catch yourself re-explaining a past
-mistake to a fresh session. Add a guard the first time a rule is actually violated — a
-botched guard that passes when it should fail is worse than no guard, so each one lands with
-a fixture test proving it can fail.
+Write playbooks into the runbook as the recurring jobs show up, not before. Write a ledger row
+the first time you catch yourself re-explaining a past mistake to a fresh session. Add a guard
+the first time a rule is actually violated — a botched guard that passes when it should fail is
+worse than no guard, so each one lands with a fixture test proving it can fail.
 
 Start with `scripts/verify.sh` holding nothing but your verification commands; the shipped
 `ladder.sh` stays as delivered, and its guards activate on artifact presence, so the pieces you

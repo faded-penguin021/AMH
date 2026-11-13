@@ -14,6 +14,9 @@
 #      agent adapters alone,
 #   4. the init placeholder list and harness/PLACEHOLDERS.md cannot diverge in silence,
 #   5. every --profile installs its own seed set and produces a GREEN guards-only ladder there.
+#   6. the post-17.0.0 layout holds on fresh installs, and every pre-17.0.0 shape — standard,
+#      full, and light with its folds — reaches it by the documented hand migration, with the
+#      installer reporting what is left until it does.
 #
 # Repo-local: this script runs from the harness's source of truth. It is not shipped, and
 # an adopter never runs it.
@@ -653,11 +656,12 @@ expect_init_dies "an init placeholder missing from the document is fatal" \
 # =============================================================================
 # 5. Every profile installs its own seed set, and every one of them is green.
 #
-# The load-bearing case is `light`, and it is load-bearing for a claim the other two cannot
-# make: that assurance degrades by ARTIFACT PRESENCE rather than by a configured level. A repo
-# with no ledger must produce a ladder that skips the ledger rung and stays green — if it went
-# red instead, the profile would be a way to ship a broken tree, and the only honest fix would
-# be the runtime flag this design refuses (DA-001).
+# Two profiles since AMH 17.0.0: `standard`, the default, and `full`. The claim the removed
+# `light` profile used to carry here is still asserted below, on a standard tree whose owner
+# removed the ledger: assurance degrades by ARTIFACT PRESENCE rather than by a configured
+# level. A repo with no ledger must produce a ladder that skips the ledger rung and stays
+# green — if it went red instead, deleting a scaffold would be a way to ship a broken tree,
+# and the only honest fix would be the runtime flag this design refuses (DA-001).
 #
 # Absence is asserted as hard as presence: a profile that quietly installed everything would
 # satisfy every green-ladder assertion here while doing nothing it claims to do.
@@ -703,52 +707,51 @@ profile_case() { # <profile> <present-csv> <absent-csv>
 	fi
 }
 
-profile_case light \
-	'AGENTS.md CLAUDE.md .gitattributes docs/STATE.md scripts/verify.sh scripts/ladder.sh amh.conf' \
-	'docs/RUNBOOK.md docs/LEDGER.md docs/history/README.md'
+STANDARD_SET='AGENTS.md CLAUDE.md .gitattributes docs/STATE.md scripts/verify.sh scripts/ladder.sh amh.conf docs/PROTOCOLS.md docs/RUNBOOK.md docs/LEDGER.md'
+
+profile_case standard "$STANDARD_SET" 'docs/history/README.md'
 d=$PROFILE_DIR
 
-# ...and that green is the presence-derived kind, not the vacuous kind: the rung with nothing
-# to check must SAY it skipped. A silent pass is indistinguishable from a ladder that lost the
-# rung altogether (D-019).
-out=$(target_ladder "$d")
-if printf '%s' "$out" | grep -qF 'no ledger yet'; then
-	pass
-else
-	fail "a light repo's ladder reports the ledger rung as skipped rather than passing it" "$out"
-fi
-
-# The positive control again, under light. Everything a smaller profile drops is prose; if one
-# of them could also cost a guard, this is where that would surface.
+# The positive control again, under the smallest profile. Everything a smaller profile drops is
+# prose; if one of them could also cost a guard, this is where that would surface.
 printf 'key = %s\n' "$(akia_token)" >"$d/deploy.sh"
 out=$(target_ladder "$d")
 rc=$?
 if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'credential-shaped'; then
 	pass
 else
-	fail "a light instantiation still catches a planted credential" "exit $rc" "$out"
+	fail "a standard instantiation still catches a planted credential" "exit $rc" "$out"
 fi
 
-profile_case standard \
-	'AGENTS.md CLAUDE.md .gitattributes docs/STATE.md scripts/verify.sh scripts/ladder.sh amh.conf docs/RUNBOOK.md docs/LEDGER.md' \
-	'docs/history/README.md'
-
-# `full` has no seed left to be absent, so its absence list names the file the OTHER two
-# profiles decline. Passing an empty list would have made this call's absence half a loop that
-# runs zero times — an assertion that cannot fail, dressed as one that can.
-profile_case full \
-	'AGENTS.md CLAUDE.md .gitattributes docs/STATE.md scripts/verify.sh scripts/ladder.sh amh.conf docs/RUNBOOK.md docs/LEDGER.md docs/history/README.md' \
-	'docs/NOTHING_IS_DECLINED_AT_FULL.md'
-
-# The DEFAULT is `light`, and until this assertion existed nothing said so: every case above
-# passes --profile explicitly, and every case elsewhere in this file passes none but asserts
-# nothing about which seeds landed. Changing the default to `full` left the suite 30/30 green.
-d=$(target profile_default)
+# Presence-derived assurance (DA-001), on the shape that now reaches it: the owner removed the
+# ledger from a standard tree. The green must be the kind that SAYS it skipped. A silent pass
+# is indistinguishable from a ladder that lost the rung altogether (D-019).
+d=$(target profile_no_ledger)
 "$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
-if [ -f "$d/AGENTS.md" ] && [ ! -e "$d/docs/LEDGER.md" ] && [ ! -e "$d/docs/history/README.md" ]; then
+rm -f -- "$d/docs/LEDGER.md"
+out=$(target_ladder "$d")
+rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF 'no ledger yet'; then
 	pass
 else
-	fail "with no --profile the install is light"
+	fail "a tree without a ledger reports the ledger rung as skipped and stays green" "exit $rc" "$out"
+fi
+
+# `full` has no seed left to be absent, so its absence list names a file no profile installs.
+# Passing an empty list would have made this call's absence half a loop that runs zero times —
+# an assertion that cannot fail, dressed as one that can.
+profile_case full "$STANDARD_SET docs/history/README.md" 'docs/NOTHING_IS_DECLINED_AT_FULL.md'
+
+# The DEFAULT is `standard`, and it needs its own assertion: every case above passes --profile
+# explicitly, and every case elsewhere in this file passes none but asserts nothing about which
+# seeds landed. When the default was `light`, changing it to `full` left the suite 30/30 green.
+# Both halves, because a default of `full` also installs the binding document and the ledger.
+d=$(target profile_default)
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+if [ -f "$d/docs/PROTOCOLS.md" ] && [ -f "$d/docs/LEDGER.md" ] && [ ! -e "$d/docs/history/README.md" ]; then
+	pass
+else
+	fail "with no --profile the install is standard"
 fi
 
 # The brief is the only place the profile is written down — the whole design refuses to record
@@ -759,53 +762,71 @@ fi
 # shellcheck disable=SC2016 # the backticks are the brief's own markdown code span, matched
 # literally by grep -F. Expanding them would run the word as a command. Scoped to this one
 # condition rather than the file, so a genuine unexpanded expression elsewhere still reports.
-if grep -qF 'used the `light` profile' "$d/AMH-ADOPT.md" &&
+if grep -qF 'used the `standard` profile' "$d/AMH-ADOPT.md" &&
 	grep -qF 'used the `full` profile' "$WORK/profile_full/AMH-ADOPT.md"; then
 	pass
 else
 	fail "the brief states the profile the install actually used"
 fi
 
-# Escalation is a re-run, and it is the entire upgrade path between profiles: it must ADD the
-# declined seeds while leaving what the adopter has already written alone. Both halves, because
-# a re-run that clobbered the constitution would be the worse failure and would still satisfy
-# an "it added the ledger" assertion on its own.
-d=$(target profile_escalate)
-"$ROOT/scripts/amh-init.sh" --profile light "$d" >/dev/null 2>&1
-printf '\nAN ADOPTER SENTENCE THAT MUST SURVIVE\n' >>"$d/AGENTS.md"
-adopter_agents=$(cat "$d/AGENTS.md")
-out=$("$ROOT/scripts/amh-init.sh" --profile full "$d" 2>&1)
-if [ -f "$d/docs/LEDGER.md" ] && [ -f "$d/docs/RUNBOOK.md" ] && [ -f "$d/docs/history/README.md" ]; then
+# `light` is refused by NAME, before anything is written: a command line copied from an older
+# brief must learn that the profile is gone, not receive a standard tree while believing it
+# chose a smaller one. Asserting the empty target is what tells "refused" from "warned, then
+# installed anyway".
+d=$(target profile_light_removed)
+out=$("$ROOT/scripts/amh-init.sh" --profile light "$d" 2>&1)
+rc=$?
+if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'light profile was removed in AMH 17.0.0' &&
+	printf '%s' "$out" | grep -qF 'use --profile standard' && only_git "$d"; then
 	pass
 else
-	fail "re-running with a larger profile adds the seeds it declined before" "$out"
+	fail "--profile light is refused by name and writes nothing" "exit $rc" "$out"
 fi
-if [ "$(cat "$d/AGENTS.md")" = "$adopter_agents" ]; then
+
+# Escalation is a re-run, and it is the entire upgrade path between profiles: it must ADD the
+# declined seed while leaving what the adopter has already written alone. Both halves, because
+# a re-run that clobbered the constitution would be the worse failure and would still satisfy
+# an "it added the archive" assertion on its own.
+d=$(target profile_escalate)
+"$ROOT/scripts/amh-init.sh" --profile standard "$d" >/dev/null 2>&1
+printf '\nAN ADOPTER SENTENCE THAT MUST SURVIVE\n' >>"$d/AGENTS.md"
+printf '\nAN ADOPTER PROTOCOL SENTENCE THAT MUST SURVIVE\n' >>"$d/docs/PROTOCOLS.md"
+adopter_agents=$(cat "$d/AGENTS.md")
+adopter_protocols=$(cat "$d/docs/PROTOCOLS.md")
+out=$("$ROOT/scripts/amh-init.sh" --profile full "$d" 2>&1)
+if [ -f "$d/docs/history/README.md" ]; then
+	pass
+else
+	fail "re-running with a larger profile adds the seed it declined before" "$out"
+fi
+if [ "$(cat "$d/AGENTS.md")" = "$adopter_agents" ] &&
+	[ "$(cat "$d/docs/PROTOCOLS.md")" = "$adopter_protocols" ]; then
 	pass
 else
 	fail "escalating a profile does not clobber a word the adopter wrote"
 fi
 
 # The reverse of escalation, and the one that reaches every EXISTING adopter: `docs/UPGRADING.md`
-# documents a bare `amh-init.sh <target>` as the upgrade path, and the default is now the
-# smallest profile. A 1.8.0 adopter who has a runbook and a ledger must not be told those files
-# are "not in the light profile" — presence outranks the profile, so they are kept.
+# documents a bare `amh-init.sh <target>` as the upgrade path, and the default is not the
+# largest profile. A full adopter who has an archive must not be told it is "not in the
+# standard profile" — presence outranks the profile, so it is kept.
 #
 # The silent half is asserted too, and it is the one that would never have been noticed: a
 # declined file never enters the installed list, so gating before the presence test also drops
-# it from the unfilled-placeholder report — the seed runbook ships with real {{...}} slots, and
-# the adopter would have been told there was nothing left to fill in there.
+# it from the unfilled-placeholder report. The archive seed ships with no slot of its own, so
+# the adopter's copy is given one here — the report must still reach it.
 d=$(target downgrade_rerun)
 "$ROOT/scripts/amh-init.sh" --profile full "$d" >/dev/null 2>&1
+printf '\n{{%s}}\n' ARCHIVE_OWNER_SLOT >>"$d/docs/history/README.md"
 out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
-if [ -f "$d/docs/LEDGER.md" ] && [ -f "$d/docs/RUNBOOK.md" ] &&
-	! printf '%s' "$out" | grep -qF '(not in the light profile' &&
-	printf '%s' "$out" | grep -qF '0 not in the light profile'; then
+if [ -f "$d/docs/history/README.md" ] &&
+	! printf '%s' "$out" | grep -qF '(not in the standard profile' &&
+	printf '%s' "$out" | grep -qF '0 not in the standard profile'; then
 	pass
 else
 	fail "a plain re-run keeps seeds the adopter already has instead of declining them" "$out"
 fi
-if printf '%s' "$out" | grep -qF 'docs/RUNBOOK.md'; then
+if printf '%s' "$out" | grep -qE '^ +docs/history/README\.md$'; then
 	pass
 else
 	fail "a kept-but-out-of-profile seed still reaches the unfilled-placeholder report" "$out"
@@ -813,17 +834,12 @@ fi
 
 # A declined file is NAMED, not silently absent. Nothing in the target tree records the
 # profile, by design, so this output is the adopter's only account of what they did not get.
-#
-# The assertion runs to the END of the line, including which profile would supply the file.
-# Stopping at the filename leaves the ADVICE untested, and the advice is the part that can be
-# wrong while looking right: deleting the standard/full distinction made the ledger's line
-# read "add it with --profile full" — telling an adopter to install the archive tier to get a
-# ledger — with the whole suite green. Matching a token but not its position, D-007's shape,
-# in an assertion rather than a guard.
-out=$("$ROOT/scripts/amh-init.sh" --profile light "$(target profile_report)" 2>&1)
-if printf '%s' "$out" | grep -qF 'docs/LEDGER.md (not in the light profile — add it with --profile standard)' &&
-	printf '%s' "$out" | grep -qF 'docs/history/README.md (not in the light profile — add it with --profile full)' &&
-	printf '%s' "$out" | grep -qF '3 not in the light profile'; then
+# The assertion runs to the END of the line, including which profile would supply the file:
+# stopping at the filename leaves the ADVICE untested, and the advice is the part that can be
+# wrong while looking right (D-007's shape, in an assertion rather than a guard).
+out=$("$ROOT/scripts/amh-init.sh" --profile standard "$(target profile_report)" 2>&1)
+if printf '%s' "$out" | grep -qF 'docs/history/README.md (not in the standard profile — add it with --profile full)' &&
+	printf '%s' "$out" | grep -qF '1 not in the standard profile'; then
 	pass
 else
 	fail "the run names each declined seed, the profile that supplies it, and the tally" "$out"
@@ -833,10 +849,371 @@ fi
 # --merge-mode rule. Falling through to "install everything" would be the dangerous default.
 out=$("$ROOT/scripts/amh-init.sh" --profile heavy "$(target profile_bad)" 2>&1)
 rc=$?
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'must be light, standard or full'; then
+if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'must be standard or full'; then
 	pass
 else
 	fail "an unknown --profile is fatal at init" "exit $rc" "$out"
+fi
+
+# =============================================================================
+# 6. The layout after AMH 17.0.0, and how an install from before it gets there.
+#
+# docs/PROTOCOLS.md holds the six sections every session is bound by; docs/RUNBOOK.md keeps
+# the change-type playbooks. A seed is never re-synced, so an existing install migrates by
+# hand (harness/CHANGELOG.md, 17.0.0, Upgrading), and the installer's closing report is the
+# only thing that can say the migration is unfinished — the files involved are the adopter's.
+#
+# Every case asserts the end state the same way: the six sections each present exactly once in
+# docs/PROTOCOLS.md and identical to a fresh install's, none of them (and no folded playbooks)
+# left in the constitution or the runbook, and every `docs/<file>.md` → **<section>** pointer
+# in the four documents resolving to a file that exists and a heading it has. Presence of a
+# file or a heading alone does not pass.
+#
+# The historical installs are RECONSTRUCTED from the current seed by the inverse of the split
+# — the six sections back into the runbook (or folded into the constitution, as the removed
+# light profile's brief told adopters to do), the binding document deleted, its pointers sent
+# back to the runbook. They are not checked out from a released tag: this suite runs on a
+# checkout that may have no history, and a case that skipped when it had none would be the
+# silent-skip class. The reconstruction is close to, not identical with, a real 16.x tree.
+# =============================================================================
+
+MOVED='Session discipline|Adversarial review protocol|Rule-review protocol|Incident: leaked credential|Acceptance ladder|Working-memory compression'
+REF=$WORK/profile_default # a fresh standard install, from section 5
+
+# sed_in_place with an extended regular expression; the same temp-file-and-cat route.
+sed_ere_in_place() { # <sed-ere-expression> <file>
+	local tmp="${2}.amh-sed.$$"
+	sed -E "$1" "$2" >"$tmp" || {
+		rm -f "$tmp"
+		return 1
+	}
+	cat "$tmp" >"$2" && rm -f "$tmp"
+}
+
+# Prints the `## ` section whose heading starts with <prefix>, up to the next `## ` heading.
+section_of() { # <file> <prefix>
+	awk -v h="## $2" 'index($0, h) == 1 { p = 1; print; next } p && /^## / { exit } p' "$1"
+}
+
+# Deletes, in place, every `## ` section whose heading matches the extended regex.
+drop_sections() { # <file> <ere>
+	awk -v re="^## ($2)" '/^## / { skip = ($0 ~ re) } !skip' "$1" >"$1.tmp" && mv -- "$1.tmp" "$1"
+}
+
+# Sets LAYOUT_PROBLEMS: empty when the tree has the post-17.0.0 layout.
+# The runbook's playbooks are compared WHOLE against what they should be — a fresh install's,
+# or for a light install the playbooks its owner folded into the constitution — because a
+# heading with nothing under it is the "presence alone" H3's acceptance refuses.
+LAYOUT_PROBLEMS=''
+layout_check() { # <dir> [file holding the expected Change-type playbooks section]
+	local d=$1 expected=${2:-} sec n want IFS_SAVE=$IFS
+	LAYOUT_PROBLEMS=''
+	IFS='|'
+	for sec in $MOVED; do
+		IFS=$IFS_SAVE
+		n=$(grep -cE "^## $sec( |\$)" "$d/docs/PROTOCOLS.md" 2>/dev/null)
+		[ "${n:-0}" = 1 ] || LAYOUT_PROBLEMS="$LAYOUT_PROBLEMS [PROTOCOLS has $sec ${n:-0} times]"
+		[ "$(section_of "$d/docs/PROTOCOLS.md" "$sec")" = "$(section_of "$REF/docs/PROTOCOLS.md" "$sec")" ] ||
+			LAYOUT_PROBLEMS="$LAYOUT_PROBLEMS [PROTOCOLS: $sec is not the complete section]"
+		IFS='|'
+	done
+	IFS=$IFS_SAVE
+	[ "$(grep -c '^## Change-type playbooks' "$d/docs/RUNBOOK.md")" = 1 ] ||
+		LAYOUT_PROBLEMS="$LAYOUT_PROBLEMS [RUNBOOK has no single Change-type playbooks section]"
+	if [ -n "$expected" ]; then want=$(cat "$expected"); else want=$(section_of "$REF/docs/RUNBOOK.md" 'Change-type playbooks'); fi
+	[ "$(section_of "$d/docs/RUNBOOK.md" 'Change-type playbooks')" = "$want" ] ||
+		LAYOUT_PROBLEMS="$LAYOUT_PROBLEMS [RUNBOOK: the playbooks are not the expected ones, complete]"
+	! grep -qE "^## ($MOVED)( |\$)" "$d/docs/RUNBOOK.md" ||
+		LAYOUT_PROBLEMS="$LAYOUT_PROBLEMS [RUNBOOK still carries a moved section]"
+	! grep -qE "^## ($MOVED|Change-type playbooks)( |\$)" "$d/AGENTS.md" ||
+		LAYOUT_PROBLEMS="$LAYOUT_PROBLEMS [AGENTS.md still carries a moved section]"
+	grep -qF 'docs/PROTOCOLS.md' "$d/AGENTS.md" ||
+		LAYOUT_PROBLEMS="$LAYOUT_PROBLEMS [AGENTS.md never mentions docs/PROTOCOLS.md]"
+}
+
+# Sets POINTER_PROBLEMS: every backticked `docs/<file>.md`, and every `docs/<file>.md` →
+# **<section>** pointer, in the constitution, the state file, the runbook and the protocols,
+# names a file that exists and, for a pointer, a heading that file has. Line breaks and
+# blockquote markers are flattened first, so a pointer wrapped across lines is still read.
+POINTER_PROBLEMS=''
+pointer_check() { # <dir>
+	local d=$1 f ref path head
+	POINTER_PROBLEMS=''
+	for f in AGENTS.md docs/STATE.md docs/RUNBOOK.md docs/PROTOCOLS.md; do
+		[ -f "$d/$f" ] || { POINTER_PROBLEMS="$POINTER_PROBLEMS [$f missing]"; continue; }
+		# shellcheck disable=SC2016 # the backticks are Markdown code spans matched or written
+		# literally; nothing in them is meant to expand. Scoped to this loop.
+		while IFS= read -r ref; do
+			path=${ref#\`}
+			path=${path%%\`*}
+			[ -f "$d/$path" ] || { POINTER_PROBLEMS="$POINTER_PROBLEMS [$f -> $path: no such file]"; continue; }
+			case $ref in *'**'*) ;; *) continue ;; esac
+			head=${ref#*\*\*}
+			head=${head%\*\*}
+			grep -qF -- "## $head" "$d/$path" ||
+				POINTER_PROBLEMS="$POINTER_PROBLEMS [$f -> $path: no heading '$head']"
+		done < <(sed 's/^> \{0,1\}//' "$d/$f" | tr '\n' ' ' | tr -s ' ' |
+			grep -oE '`docs/[A-Za-z_]+\.md`( → \*\*[^*]+\*\*)?' || true)
+	done
+}
+
+# The hand migration as the 17.0.0 Upgrading subsection states it, done by script: steps B to
+# E. Carrying a local edit of a moved section into docs/PROTOCOLS.md is step A; these trees
+# have none. <fold> names whether the constitution carries folded playbooks to move first;
+# <state> and <config> leave the state file, or the two configuration steps, undone.
+hand_migrate() { # <dir> <fold:yes|no> <state:yes|no> [config:yes|no, default yes]
+	local d=$1 fold=$2 state=$3 config=${4:-yes} f files='AGENTS.md docs/RUNBOOK.md'
+	if [ "$fold" = yes ]; then
+		{
+			awk '/^## Change-type playbooks/ { exit } { print }' "$d/docs/RUNBOOK.md"
+			section_of "$d/AGENTS.md" 'Change-type playbooks'
+			awk '/^## Change-type playbooks/ { p = 1; next } p && /^## / { q = 1 } q' "$d/docs/RUNBOOK.md"
+		} >"$d/docs/RUNBOOK.md.tmp" && mv -- "$d/docs/RUNBOOK.md.tmp" "$d/docs/RUNBOOK.md"
+		drop_sections "$d/AGENTS.md" 'Change-type playbooks'
+	fi
+	drop_sections "$d/docs/RUNBOOK.md" "$MOVED"
+	drop_sections "$d/AGENTS.md" "$MOVED"
+	[ "$state" = yes ] && files="$files docs/STATE.md"
+	# shellcheck disable=SC2016 # the backticks are Markdown code spans matched or written
+	# literally; nothing in them is meant to expand. Scoped to this loop.
+	for f in $files; do
+		sed_ere_in_place 's#`docs/RUNBOOK\.md` → (\*{0,2})(Session|Adversarial|Rule-review|Incident:|Acceptance|Working-memory)#`docs/PROTOCOLS.md` → \1\2#g' "$d/$f"
+		sed_ere_in_place 's#docs/RUNBOOK\.md → (Working-memory compression)#docs/PROTOCOLS.md → \1#g' "$d/$f"
+		sed_ere_in_place 's#RUNBOOK \*\*Session discipline\*\*#`docs/PROTOCOLS.md` → **Session discipline**#g' "$d/$f"
+		sed_ere_in_place 's#the incident playbook in `docs/RUNBOOK\.md`#`docs/PROTOCOLS.md` → **Incident: leaked credential**#g' "$d/$f"
+		sed_ere_in_place 's#this runbook → \*\*(Working-memory compression)#`docs/PROTOCOLS.md` → **\1#g' "$d/$f"
+	done
+	[ "$config" = yes ] || return 0
+	sed_in_place "s#^RULE_FILES='AGENTS.md #RULE_FILES='AGENTS.md docs/PROTOCOLS.md #" "$d/amh.conf"
+	sed_in_place 's#the review classes already defined by docs/RUNBOOK.md#the review classes the Rule-review protocol already defines#' \
+		"$d/.codex/agents/amh-rule-reviewer.toml"
+}
+
+# A pre-17.0.0 standard or full install: the six sections inside the runbook, no binding
+# document, every pointer to them aimed at the runbook.
+make_historical_runbook() { # <dir>
+	local d=$1
+	{
+		awk '/^## When CI fails/ { exit } { print }' "$d/docs/RUNBOOK.md"
+		awk '/^## Session discipline/ { p = 1 } p' "$d/docs/PROTOCOLS.md"
+		printf '\n'
+		awk '/^## When CI fails/ { p = 1 } p' "$d/docs/RUNBOOK.md"
+	} >"$d/docs/RUNBOOK.md.tmp" && mv -- "$d/docs/RUNBOOK.md.tmp" "$d/docs/RUNBOOK.md"
+	rm -f -- "$d/docs/PROTOCOLS.md"
+	unpoint "$d"
+}
+
+# A pre-17.0.0 light install whose owner followed its brief: the protocols and the playbooks
+# folded into the constitution, no runbook, ledger or binding document.
+make_historical_light_folded() { # <dir>
+	local d=$1
+	{
+		printf '\n'
+		awk '/^## Session discipline/ { p = 1 } p' "$d/docs/PROTOCOLS.md"
+		printf '\n'
+		section_of "$d/docs/RUNBOOK.md" 'Change-type playbooks'
+		printf '\nFOLDED PLAYBOOK THE ADOPTER WROTE\n'
+	} >>"$d/AGENTS.md"
+	rm -f -- "$d/docs/PROTOCOLS.md" "$d/docs/RUNBOOK.md" "$d/docs/LEDGER.md"
+	unpoint "$d"
+}
+
+# Sends every pointer to the binding document back to the runbook, which is where a
+# pre-17.0.0 seed aimed them — the incident pointer and the doc-index row in their old words —
+# and undoes the two configuration changes a pre-17.0.0 install never had.
+unpoint() { # <dir>
+	local d=$1 f
+	# shellcheck disable=SC2016 # the backticks are Markdown code spans matched or written
+	# literally; nothing in them is meant to expand. Scoped to this loop.
+	for f in AGENTS.md docs/STATE.md docs/RUNBOOK.md; do
+		[ -f "$d/$f" ] || continue
+		sed_in_place 's#See `docs/PROTOCOLS.md` → \*\*Incident: leaked credential\*\*#See the incident playbook in `docs/RUNBOOK.md`#' "$d/$f"
+		sed_in_place 's#docs/PROTOCOLS\.md#docs/RUNBOOK.md#g' "$d/$f"
+	done
+	if [ -f "$d/docs/RUNBOOK.md" ]; then
+		# shellcheck disable=SC2016 # the backticks are Markdown code spans written literally.
+		sed_in_place 's#| `docs/RUNBOOK.md` → \*\*Working-memory compression\*\* |#| this runbook → **Working-memory compression** |#' "$d/docs/RUNBOOK.md"
+	fi
+	sed_in_place "s# docs/PROTOCOLS.md##" "$d/amh.conf"
+	sed_in_place 's#the review classes the Rule-review protocol already defines#the review classes already defined by docs/RUNBOOK.md#' \
+		"$d/.codex/agents/amh-rule-reviewer.toml"
+}
+
+# The full check of one tree: layout, pointers, an installer re-run that reports nothing to
+# migrate, and the tree's own ladder green.
+assert_migrated() { # <label> <dir> [expected-playbooks-file]
+	local label=$1 d=$2 out rc
+	layout_check "$d" "${3:-}"
+	if [ -z "$LAYOUT_PROBLEMS" ]; then pass; else fail "$label: the six sections live in docs/PROTOCOLS.md alone, complete" "$LAYOUT_PROBLEMS"; fi
+	pointer_check "$d"
+	if [ -z "$POINTER_PROBLEMS" ]; then pass; else fail "$label: every pointer destination resolves" "$POINTER_PROBLEMS"; fi
+	out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
+	if ! printf '%s' "$out" | grep -qF 'Migrate to docs/PROTOCOLS.md'; then pass; else fail "$label: a re-run reports nothing left to migrate" "$out"; fi
+	out=$(target_ladder "$d")
+	rc=$?
+	if [ "$rc" -eq 0 ]; then pass; else fail "$label: the tree's own ladder is green" "exit $rc" "$out"; fi
+}
+
+# The checks themselves must be able to fail, or every case below is decoration. A dangling
+# section pointer, a pointer to a file that is not there, a duplicated section and a truncated
+# one, each planted in a copy of a fresh install.
+d=$(target layout_negative)
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+# shellcheck disable=SC2016 # the backticks are Markdown code spans matched or written
+# literally; nothing in them is meant to expand.
+printf '\nSee `docs/PROTOCOLS.md` → **No such section** and `docs/NOPE.md`.\n' >>"$d/AGENTS.md"
+pointer_check "$d"
+case $POINTER_PROBLEMS in
+*"no heading 'No such section'"*"docs/NOPE.md: no such file"*) pass ;;
+*) fail "the pointer check fails on a dangling section pointer and a missing file" "$POINTER_PROBLEMS" ;;
+esac
+section_of "$d/docs/PROTOCOLS.md" 'Rule-review protocol' >>"$d/docs/RUNBOOK.md"
+sed_in_place '/^## Incident: leaked credential/,/^## /{/^1\. /d;}' "$d/docs/PROTOCOLS.md"
+layout_check "$d"
+case $LAYOUT_PROBLEMS in
+*'RUNBOOK still carries a moved section'*'Incident: leaked credential is not the complete section'*) ;;
+*'Incident: leaked credential is not the complete section'*'RUNBOOK still carries a moved section'*) ;;
+*) LAYOUT_PROBLEMS="UNDETECTED: $LAYOUT_PROBLEMS" ;;
+esac
+case $LAYOUT_PROBLEMS in
+UNDETECTED*) fail "the layout check fails on a duplicated section and a truncated one" "$LAYOUT_PROBLEMS" ;;
+*) pass ;;
+esac
+d=$(target layout_negative_playbooks)
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+awk '/^## Change-type playbooks/ { print; skip = 1; next } skip && /^## / { skip = 0 } !skip' \
+	"$d/docs/RUNBOOK.md" >"$d/docs/RUNBOOK.md.tmp" && mv -- "$d/docs/RUNBOOK.md.tmp" "$d/docs/RUNBOOK.md"
+layout_check "$d"
+case $LAYOUT_PROBLEMS in
+*'the playbooks are not the expected ones'*) pass ;;
+*) fail "the layout check fails on a playbooks heading with nothing under it" "$LAYOUT_PROBLEMS" ;;
+esac
+
+# Fresh installs, both profiles, already have the layout.
+assert_migrated "fresh standard" "$REF"
+assert_migrated "fresh full" "$WORK/profile_full"
+
+# A repeated install changes nothing and reports nothing.
+d=$(target layout_repeat)
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+before=$(cd "$d" && find AGENTS.md CLAUDE.md docs -type f | sort | xargs cat | cksum)
+out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
+after=$(cd "$d" && find AGENTS.md CLAUDE.md docs -type f | sort | xargs cat | cksum)
+if [ "$before" = "$after" ] && ! printf '%s' "$out" | grep -qF 'Migrate to'; then
+	pass
+else
+	fail "a repeated install leaves the prose untouched and reports nothing to migrate" "$out"
+fi
+
+# Historical standard and full installs: the re-run adds the binding document and keeps the
+# old runbook, so the tree briefly holds two authorities — and the report must say so, naming
+# the constitution that never mentions the new document. That is the case H3 names: a
+# retained old constitution that never references the binding document must not pass quietly.
+for p in standard full; do
+	d=$(target "historical_$p")
+	"$ROOT/scripts/amh-init.sh" --profile "$p" "$d" >/dev/null 2>&1
+	make_historical_runbook "$d"
+	out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
+	if [ -f "$d/docs/PROTOCOLS.md" ] &&
+		printf '%s' "$out" | grep -qF 'AGENTS.md never mentions docs/PROTOCOLS.md' &&
+		printf '%s' "$out" | grep -qF 'docs/RUNBOOK.md still has a section that now lives elsewhere: Acceptance ladder, Adversarial review protocol, Incident: leaked credential, Rule-review protocol, Session discipline, Working-memory compression' &&
+		printf '%s' "$out" | grep -qE 'docs/STATE\.md sends [0-9]+ pointer' &&
+		printf '%s' "$out" | grep -qF 'amh.conf: RULE_FILES does not list docs/PROTOCOLS.md' &&
+		printf '%s' "$out" | grep -qF '.codex/agents/amh-rule-reviewer.toml still sends its reviewer to docs/RUNBOOK.md'; then
+		pass
+	else
+		fail "historical $p: the upgrade writes docs/PROTOCOLS.md and reports the unfinished migration" "$out"
+	fi
+	hand_migrate "$d" no yes
+	assert_migrated "historical $p, migrated" "$d"
+done
+# ...and a migrated historical standard install still escalates cleanly.
+d=$WORK/historical_standard
+out=$("$ROOT/scripts/amh-init.sh" --profile full "$d" 2>&1)
+if [ -f "$d/docs/history/README.md" ] && ! printf '%s' "$out" | grep -qF 'Migrate to'; then
+	pass
+else
+	fail "a migrated historical install escalates to full with nothing to migrate" "$out"
+fi
+
+# A historical light install, folded as its brief said: a bare re-run is now an upgrade to
+# standard, adding the runbook, the ledger and the binding document, and the report names the
+# folded sections — the playbooks among them, which belong in the runbook now.
+d=$(target historical_light_folded)
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+make_historical_light_folded "$d"
+out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
+if [ -f "$d/docs/RUNBOOK.md" ] && [ -f "$d/docs/LEDGER.md" ] && [ -f "$d/docs/PROTOCOLS.md" ] &&
+	printf '%s' "$out" | grep -qF '1 not in the standard profile' &&
+	printf '%s' "$out" | grep -qF 'AGENTS.md never mentions docs/PROTOCOLS.md' &&
+	printf '%s' "$out" | grep -qF 'AGENTS.md still has a section that now lives elsewhere: Acceptance ladder, Adversarial review protocol, Change-type playbooks, Incident: leaked credential'; then
+	pass
+else
+	fail "historical light: a bare re-run upgrades to standard and reports the folded sections" "$out"
+fi
+# What the runbook must hold afterwards: the scaffold's playbooks as a fresh install has them,
+# plus the one the owner wrote — the folded copy itself still points at the runbook until the
+# migration's repointing step, so it is not the expectation.
+{
+	section_of "$REF/docs/RUNBOOK.md" 'Change-type playbooks'
+	printf '\nFOLDED PLAYBOOK THE ADOPTER WROTE\n'
+} >"$WORK/folded_playbooks.md"
+hand_migrate "$d" yes yes
+if grep -qF 'FOLDED PLAYBOOK THE ADOPTER WROTE' "$d/docs/RUNBOOK.md" &&
+	! grep -qF 'FOLDED PLAYBOOK THE ADOPTER WROTE' "$d/AGENTS.md"; then
+	pass
+else
+	fail "historical light: the adopter's folded playbook ends in the runbook, once"
+fi
+assert_migrated "historical light, migrated" "$d" "$WORK/folded_playbooks.md"
+
+# A migration left half done — constitution and runbook repointed, state file not — is still
+# reported, and the report names only what is left.
+d=$(target historical_partial)
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+make_historical_runbook "$d"
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+hand_migrate "$d" no no
+out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
+if printf '%s' "$out" | grep -qE 'docs/STATE\.md sends [0-9]+ pointer' &&
+	! printf '%s' "$out" | grep -qE '^ +(AGENTS\.md|docs/RUNBOOK\.md) '; then
+	pass
+else
+	fail "a half-done migration is reported, naming only the state file" "$out"
+fi
+
+# The old pointer forms that are not "RUNBOOK → section" — the incident sentence and the
+# runbook's doc-index row — and the two configuration steps: a migration that left only these
+# undone must still be reported, each by name, or the report going quiet would call it done.
+d=$(target historical_old_forms)
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+make_historical_runbook "$d"
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+hand_migrate "$d" no yes no
+# shellcheck disable=SC2016 # the backticks are Markdown code spans written literally.
+sed_in_place 's#See `docs/PROTOCOLS.md` → \*\*Incident: leaked credential\*\*#See the incident playbook in `docs/RUNBOOK.md`#' "$d/AGENTS.md"
+# shellcheck disable=SC2016 # the backticks are Markdown code spans written literally.
+sed_in_place 's#| `docs/PROTOCOLS.md` → \*\*Working-memory compression\*\* |#| this runbook → **Working-memory compression** |#' "$d/docs/RUNBOOK.md"
+out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
+if printf '%s' "$out" | grep -qF 'AGENTS.md sends 1 pointer(s) to the runbook' &&
+	printf '%s' "$out" | grep -qF 'docs/RUNBOOK.md sends 1 pointer(s) to the runbook' &&
+	printf '%s' "$out" | grep -qF 'amh.conf: RULE_FILES does not list docs/PROTOCOLS.md' &&
+	printf '%s' "$out" | grep -qF '.codex/agents/amh-rule-reviewer.toml still sends its reviewer'; then
+	pass
+else
+	fail "the old incident and doc-index pointer forms and both configuration steps are reported" "$out"
+fi
+
+# A binding document the adopter already had is kept, like any file of theirs, so it is its
+# COMPLETENESS the report checks, not its presence.
+d=$(target protocols_incomplete)
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+section_of "$REF/docs/PROTOCOLS.md" 'Session discipline' >"$d/docs/PROTOCOLS.md"
+out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
+if printf '%s' "$out" | grep -qF 'docs/PROTOCOLS.md has no section for: Adversarial review protocol, Rule-review protocol, Incident: leaked credential, Acceptance ladder, Working-memory compression'; then
+	pass
+else
+	fail "a kept, incomplete docs/PROTOCOLS.md is reported section by section" "$out"
 fi
 
 # Every seed file must be classified. An unclassified one is fatal, and the check is

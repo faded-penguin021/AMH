@@ -1,7 +1,7 @@
 # STATE — project state & session memory
 
 > **Length guard.** Thresholds are in `amh.conf`; the rules for compressing this file are
-> `docs/RUNBOOK.md` → **Working-memory compression**, and they bind whether or not you follow
+> `docs/PROTOCOLS.md` → **Working-memory compression**, and they bind whether or not you follow
 > this pointer. Read them before any edit that takes this file over the compression trigger.
 >
 > **Tree-relative.** That same section says what may be in `Current state` at all — the Changelog
@@ -26,12 +26,12 @@ Release state: `scripts/session-start.sh` probes the declared version's tag ever
 Live plans, each in `docs/plans/`, where a unit starts only on the owner's explicit approval of
 that unit:
 
-- `2026-11-01-harness-research-gaps.md`, adopted; H0, H0.5, H9, H1, the H9 fix, H4a and H2
-  done, and H4b done as configuration with its live probes owed (Owner queue). Every unit rides
+- `2026-11-01-harness-research-gaps.md`, adopted; H0, H0.5, H9, H1, the H9 fix, H4a, H2 and
+  H3 done, and H4b done as configuration with its live probes owed (Owner queue). Every unit rides
   17.0.0 (owner, 2026-11-13). Before a unit starts the session says which decisions it needs and
   waits for the answers, and a fresh-context review is pre-allowed for every unit (owner,
   2026-11-09).
-  - [ ] H3, H5, H6a, H6b (optional), H7 — not approved (H8 parked)
+  - [ ] H5, H6a, H6b (optional), H7 — not approved (H8 parked)
 - `2026-11-04-spill-guard-borrowings.md`, adopted: S1, S2, S6a and S3 approved on 2026-11-10, to
   run in that order, each with its own review and its version settled when its behaviour is
   final (its §2, items 4 and 5); S4, S5, S6b and S6c deferred.
@@ -53,7 +53,7 @@ Operational gotchas:
 > **Protected section.** Never delete it, and never silently drop items during compression.
 > Items leave only when done, answered or triaged — then delete the item and record the outcome
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
-> final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
+> final chat message must: `docs/PROTOCOLS.md` → **Session discipline** 7.
 
 **OPEN — decide whether to plan a fix for a quote inside backticks.** Found while building Unit 2:
 bash ends a backtick substitution at the first unescaped backtick, quotes or not, and every walker
@@ -69,9 +69,15 @@ unjudged; measured only as the mechanism, on Linux. No Windows host here can tes
 and no one-line check here settles it.
 
 **OPEN — the research-gaps plan's remaining §1 decisions, including those H0.5 added.** Each is
-asked when the unit it belongs to is started: H3's layout and migration (H2 left the seed
-constitution's matching passages for it), and an H8 incident-bar exception. Its §7.1 also recommends a combined order across all three
+asked when the unit it belongs to is started: whether P6 admits retiring a compensation (H5),
+and an H8 incident-bar exception. Its §7.1 also recommends a combined order across all three
 plans, which an item below owns.
+
+**OPEN — decide whether the seed constitution's rail and deletion-layer descriptions move out
+of it, as H2 moved this repository's.** H2 left them for H3 because a light install had no
+runbook to receive them; H3 removed light, so every install now has `docs/RUNBOOK.md`, but
+moving a live rule is the owner's call and H3 did not (**DD-081**). The passages are listed in
+`docs/plans/2026-11-01-harness-research-gaps-h2-relocation.md` §7. No command settles this.
 
 **OPEN — run H4b's live sandbox probes, on your own host or in a session you name (evidence:
 **DD-079**).** H4b shipped the Claude sandbox block as configuration only, and every cell is
@@ -140,6 +146,13 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-13 — **H3 of the research-gaps plan done: the procedures every session is bound by
+  move to `docs/PROTOCOLS.md`, in the seed and in this repository, and the `light` profile is
+  removed, `standard` becoming the default,** on the owner's answers taken when H3 started; the
+  installer reports an unfinished hand migration, and the documentation-navigation guard checks
+  each pointer against the file it names. Layout, migration and measurements are in
+  `docs/plans/2026-11-01-harness-research-gaps-h3-layout.md` (**DD-081**). Rides the 17.0.0
+  draft.
 - 2026-11-13 — **H2 of the research-gaps plan done: the host-rail and deletion-rail descriptions
   moved from `AGENTS.md` to the new runbook section Host rails and what they miss,** every
   binding sentence kept and the seed left for H3, on the owner's answers taken when it started;

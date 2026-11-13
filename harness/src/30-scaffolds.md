@@ -103,7 +103,16 @@ classifies a shrink that already happened.
 
 <!-- amh:include harness/templates/seed/docs/STATE.md -->
 
-### 3.3 `docs/RUNBOOK.md` — change-type playbooks
+### 3.3 `docs/PROTOCOLS.md` and `docs/RUNBOOK.md` — what binds every session, and the playbooks
+
+The two are one split, made so that the constitution's mandatory reads are a short, stable
+document rather than the whole runbook: `docs/PROTOCOLS.md` holds the procedures every session
+is bound by whatever its task — session discipline, the adversarial and rule-review protocols,
+the leaked-credential incident, the acceptance ladder and working-memory compression — and
+changes only under the rule-review protocol; `docs/RUNBOOK.md` holds the module map, the
+change-type playbooks and CI triage, which adapt with the work and route into the first.
+
+<!-- amh:include harness/templates/seed/docs/PROTOCOLS.md -->
 
 <!-- amh:include harness/templates/seed/docs/RUNBOOK.md -->
 

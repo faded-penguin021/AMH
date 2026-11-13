@@ -63,7 +63,7 @@ usage() {
 	cat <<'USAGE'
 usage: scripts/amh-init.sh [options] <target-repo>
 
-  --profile NAME            light | standard | full               (default: light)
+  --profile NAME            standard | full                       (default: standard)
   --default-branch NAME     branch agents must never push to      (default: main)
   --branch-prefix NAME      session-branch namespace              (default: session)
   --merge-mode MODE         branch-per-change | branch-train      (default: branch-per-change)
@@ -87,16 +87,19 @@ The profile selects which seed PROSE is installed, and nothing else. The shipped
 byte-identical for every profile, and no profile disables a guard — the ladder's rungs
 activate on artifact presence, so a repo without a ledger reports the ledger rung as skipped
 rather than failing. Nothing in the target tree records which profile was used: escalating is
-`--profile standard <target>`, which adds the missing seeds and, because everything already
+`--profile full <target>`, which adds the missing seed and, because everything already
 present is yours, changes nothing you have written.
 
-  light      constitution, working memory, one verification command, .gitattributes
-  standard   + the runbook and the append-only ledger
+  standard   constitution, protocols, runbook, working memory, the append-only ledger,
+             one verification command, .gitattributes
   full       + the frozen archive tier
+
+There is no `light` profile since AMH 17.0.0: a bare re-run of a tree installed light
+adds what `standard` has and the tree lacks.
 USAGE
 }
 
-PROFILE=light
+PROFILE=standard
 DEFAULT_BRANCH=main
 BRANCH_PREFIX=session
 MERGE_MODE_KEY=branch-per-change
@@ -372,11 +375,15 @@ origin_of() { # <variable>
 # typo'd profile that fell through to "install everything" would hand an adopter more process
 # than they asked for and say nothing, and one that fell through to "install nothing" would
 # hand them a tree with no constitution.
+#
+# `light` is refused by name rather than read as `standard`: a command line copied from an
+# older brief would otherwise believe it still chose a smaller install, and nothing would
+# tell it the tree it got has a runbook and a ledger.
 case $PROFILE in
-light) PROFILE_RANK=1 ;;
-standard) PROFILE_RANK=2 ;;
-full) PROFILE_RANK=3 ;;
-*) die "--profile must be light, standard or full, not '$PROFILE'" ;;
+standard) PROFILE_RANK=1 ;;
+full) PROFILE_RANK=2 ;;
+light) die "the light profile was removed in AMH 17.0.0 — every install now has the runbook, docs/PROTOCOLS.md and the ledger; use --profile standard (the default)" ;;
+*) die "--profile must be standard or full, not '$PROFILE'" ;;
 esac
 
 # The placeholders this script fills, as DATA rather than ten near-identical sed lines.
@@ -396,22 +403,22 @@ INIT_PLACEHOLDERS='AMH_VERSION PROFILE DEFAULT_BRANCH BRANCH_PREFIX MERGE_MODE_K
 # rather than at somebody's adoption (the D-025 shape). It runs first in the scan below, before
 # anything is written.
 #
-# The ordering is cumulative: `standard` installs everything `light` does, `full` everything
-# `standard` does. Nothing records the choice in the target tree — see the usage text.
+# The ordering is cumulative: `full` installs everything `standard` does. Nothing records the choice in the target tree — see the usage text.
 #
 # It reports through a global rather than stdout, deliberately: `die` inside a command
 # substitution kills only the subshell, so an unclassified file would print its diagnostic and
 # let the run carry on — a fatal check that is not fatal, which is worse than no check.
 SEED_RANK=0
-seed_min_rank() { # <rel> -> sets SEED_RANK to 1 (light), 2 (standard) or 3 (full)
+seed_min_rank() { # <rel> -> sets SEED_RANK to 1 (standard) or 2 (full)
 	case $1 in
-	# .gitattributes rides with `light`, the smallest profile, because the rungs it protects
+	# .gitattributes rides with `standard`, the smallest profile, because the rungs it protects
 	# are the ones every profile has: the secret scan and the manifest rung do not become
 	# optional at a smaller profile, and a CRLF worktree is what a Windows adopter gets by
-	# default (AMH ledger row DC030).
+	# default (AMH ledger row DC030). docs/PROTOCOLS.md rides there too: the constitution sends
+	# every session to it, so no profile may lack it.
 	AGENTS.md | CLAUDE.md | .gitattributes | docs/STATE.md | scripts/verify.sh) SEED_RANK=1 ;;
-	docs/RUNBOOK.md | docs/LEDGER.md) SEED_RANK=2 ;;
-	docs/history/README.md) SEED_RANK=3 ;;
+	docs/PROTOCOLS.md | docs/RUNBOOK.md | docs/LEDGER.md) SEED_RANK=1 ;;
+	docs/history/README.md) SEED_RANK=2 ;;
 	*) die "seed file has no profile classification: $1 (add it to seed_min_rank)" ;;
 	esac
 }
@@ -671,20 +678,20 @@ while IFS= read -r src; do
 	seed_min_rank "$rel"
 	# PRESENCE OUTRANKS THE PROFILE, and the order of these two tests is the whole point.
 	# docs/UPGRADING.md documents a bare `amh-init.sh <target>` as the upgrade path, and the
-	# default is now `light` — so gating first would tell a 1.8.0 adopter who has a runbook and
-	# a ledger that those files are "not in the light profile — add it with --profile
-	# standard", print a tally counting them as declined, and, silently, drop them from the
-	# unfilled-placeholder report while their real {{...}} slots sat there. A file that exists
-	# is the adopter's, whatever profile this run names: it falls through to the keep path
-	# below, which says so and counts it.
+	# default is not the largest profile — so gating first would tell an adopter who has an
+	# archive that it is "not in the standard profile — add it with --profile full", print a
+	# tally counting it as declined, and, silently, drop it from the unfilled-placeholder
+	# report while its real {{...}} slots sat there. That is the defect the profile
+	# mechanism's own review found, when the default was the since-removed `light` and the
+	# files at stake were a runbook and a ledger. A file that exists is the adopter's,
+	# whatever profile this run names: it falls through to the keep path below, which says
+	# so and counts it.
 	if [ "$SEED_RANK" -gt "$PROFILE_RANK" ] && [ ! -e "$TARGET/$rel" ]; then
 		# Named, not silently omitted: an adopter must be able to see what they did not get
 		# and the command that would give it to them. A file that is simply absent teaches
 		# nothing, and the profile is recorded nowhere else in their tree.
-		needs=full
-		[ "$SEED_RANK" = 2 ] && needs=standard
-		printf '   skip   %s (not in the %s profile — add it with --profile %s)\n' \
-			"$rel" "$PROFILE" "$needs"
+		printf '   skip   %s (not in the %s profile — add it with --profile full)\n' \
+			"$rel" "$PROFILE"
 		DECLINED=$((DECLINED + 1))
 		continue
 	fi
@@ -821,5 +828,75 @@ if [ -n "$remaining" ]; then
 	printf '   Nothing in your repo checks these — grep for {{ before you call it done.\n'
 else
 	printf '   no placeholders remain\n'
+fi
+
+# --- an install that predates docs/PROTOCOLS.md ----------------------------
+#
+# AMH 17.0.0 moved the procedures every session is bound by out of the runbook into
+# docs/PROTOCOLS.md. A re-run writes that file where it is absent, but by keep policy it never
+# touches the constitution, state file or runbook that still carry the old copy or point at
+# it — so after an upgrade the tree can hold two authorities for one rule, or a constitution
+# that never sends a session to the new one. The hand migration is the adopter's (this
+# checkout's harness/CHANGELOG.md, 17.0.0, Upgrading); this only says when it is unfinished.
+# It reports, never gates: the exit status does not change, because every file it reads is
+# the adopter's to edit and a red installer run cannot edit them.
+#
+# Pointers are matched on the file with its line breaks flattened, so one wrapped across two
+# lines (`docs/RUNBOOK.md` → **Session / discipline**) is still seen. Three shapes, each one a
+# seed used before 17.0.0: a runbook path or the word RUNBOOK before a moved section's name, the
+# constitution's "the incident playbook in `docs/RUNBOOK.md`", and the runbook's own doc-index
+# row "this runbook → **Working-memory compression**". The two configuration steps of the hand
+# migration are checked as well, because the report going quiet is what the Upgrading notes
+# call done: RULE_FILES must list docs/PROTOCOLS.md, and a Codex reviewer agent must not send
+# its reviewer to the runbook for the review classes.
+MOVED_SECTIONS='Session discipline|Adversarial review protocol|Rule-review protocol|Incident: leaked credential|Acceptance ladder|Working-memory compression'
+migrate=''
+if [ -f "$TARGET/docs/PROTOCOLS.md" ]; then
+	if [ -f "$TARGET/AGENTS.md" ] && ! grep -qF 'docs/PROTOCOLS.md' "$TARGET/AGENTS.md"; then
+		migrate="${migrate}   AGENTS.md never mentions docs/PROTOCOLS.md, so no session is sent to it$NL"
+	fi
+	# A docs/PROTOCOLS.md the adopter already had is kept like any other file, so it is the
+	# destination's completeness that is checked here, not its presence.
+	missing=''
+	IFS='|' read -r -a moved <<<"$MOVED_SECTIONS"
+	for sec in "${moved[@]}"; do
+		grep -qE "^#{1,6}[[:space:]]+$sec([[:space:]]|\$)" "$TARGET/docs/PROTOCOLS.md" ||
+			missing="${missing:+$missing, }$sec"
+	done
+	[ -n "$missing" ] &&
+		migrate="${migrate}   docs/PROTOCOLS.md has no section for: $missing$NL"
+	# The constitution is also checked for a folded "Change-type playbooks" section: the
+	# light-profile brief told adopters to fold the playbooks in with the protocols, and those
+	# belong in the runbook now that every install has one.
+	for rel in AGENTS.md docs/RUNBOOK.md; do
+		[ -f "$TARGET/$rel" ] || continue
+		heads=$MOVED_SECTIONS
+		[ "$rel" = AGENTS.md ] && heads="$heads|Change-type playbooks"
+		dup=$(grep -E "^#{1,6}[[:space:]]+($heads)([[:space:]]|\$)" "$TARGET/$rel" |
+			sed -E 's/^#+[[:space:]]+//' | sed -E "s/^($heads).*/\\1/" |
+			sort -u | paste -sd, - | sed 's/,/, /g' || true)
+		[ -n "$dup" ] &&
+			migrate="${migrate}   $rel still has a section that now lives elsewhere: $dup$NL"
+	done
+	for rel in AGENTS.md docs/STATE.md docs/RUNBOOK.md; do
+		[ -f "$TARGET/$rel" ] || continue
+		n=$(tr '\n' ' ' <"$TARGET/$rel" | tr -s ' ' |
+			grep -oE "RUNBOOK(\\.md)?\`? ?(→ ?)?\\*{0,2}($MOVED_SECTIONS)|incident playbook in \`?docs/RUNBOOK\\.md|this runbook ?→ ?\\*{0,2}($MOVED_SECTIONS)" |
+			wc -l | tr -d ' ')
+		[ "$n" -gt 0 ] &&
+			migrate="${migrate}   $rel sends $n pointer(s) to the runbook for a section docs/PROTOCOLS.md now holds$NL"
+	done
+	if [ -f "$TARGET/amh.conf" ] &&
+		! grep -E '^RULE_FILES=' "$TARGET/amh.conf" | grep -qE "(['\" ])docs/PROTOCOLS\.md(['\" ])"; then
+		migrate="${migrate}   amh.conf: RULE_FILES does not list docs/PROTOCOLS.md, so an edit to it raises no legislation advisory$NL"
+	fi
+	if [ -f "$TARGET/.codex/agents/amh-rule-reviewer.toml" ] &&
+		grep -qF 'already defined by docs/RUNBOOK.md' "$TARGET/.codex/agents/amh-rule-reviewer.toml"; then
+		migrate="${migrate}   .codex/agents/amh-rule-reviewer.toml still sends its reviewer to docs/RUNBOOK.md for the review classes$NL"
+	fi
+fi
+if [ -n "$migrate" ]; then
+	printf '\n Migrate to docs/PROTOCOLS.md by hand — %s/harness/CHANGELOG.md, 17.0.0, Upgrading:\n' "$ROOT"
+	printf '%s' "$migrate"
 fi
 printf '\n   Then: scripts/ladder.sh\n'

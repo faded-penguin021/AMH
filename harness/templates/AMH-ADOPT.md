@@ -30,29 +30,27 @@ verification set can be green. Step 3 says how to check that half by hand.
 
 **This install used the `{{PROFILE}}` profile.** The profile chose which scaffolds landed in
 your tree, and nothing else: the shipped scripts are byte-identical at every profile, and no
-guard is switched off by any of them. The three:
+guard is switched off by any of them. The two:
 
 | Profile | What it installs | Right when |
 |---|---|---|
-| **light** — the default | constitution, working memory with an Owner queue, one verification command | mistakes are cheap and quickly noticed |
-| **standard** | + the runbook, + the append-only ledger | mistakes cost developer time; more than one session will touch this repo |
-| **full** | + the frozen archive tier (`docs/history/`) | mistakes cost trust or correctness |
+| **standard** — the default | constitution; `docs/PROTOCOLS.md`, the procedures every session is bound by; the runbook, for the change-type playbooks; working memory with an Owner queue; the append-only ledger; one verification command | most repos |
+| **full** | + the frozen archive tier (`docs/history/`) | something has been, or will be, retired whole and needs a home |
 
-The default is `light` because adopting every scaffold on day one is the common mistake — the
-harness's cost should scale with what a mistake costs *here*, not with repo size. But the
-default is not a decision anyone made about *this* repo, so **ask the owner before you fill
-anything in**, and present the three with their costs.
+The default is `standard` because it is the smallest install in which every document the
+constitution sends a session to exists. But the default is not a decision anyone made about
+*this* repo, so **ask the owner before you fill anything in**, and present the two.
 
-Say that growing later is cheap: adding the ledger the first time you re-explain a past mistake
-to a fresh session is exactly when it earns its keep, and the same is true of every guard.
+Say that growing later is cheap: adding the archive the first time a document is retired whole
+is exactly when it earns its keep, and the same is true of every guard.
 
 **To escalate**, re-run the installer from the harness checkout the owner used:
 
 ```sh
-/path/to/amh/scripts/amh-init.sh --profile standard .
+/path/to/amh/scripts/amh-init.sh --profile full .
 ```
 
-That adds the missing seeds and touches nothing you have written — every seed file is written
+That adds the missing seed and touches nothing you have written — every seed file is written
 only when absent, and a file you already have is kept whatever profile the run names.
 
 **Two things about that, both of which will bite otherwise.** First, the line above saying
@@ -73,19 +71,14 @@ block and do not guess silently. Keep what the installer wrote, record the quest
 **Owner queue → Open questions** in `docs/STATE.md`, and carry on. That queue is the harness's
 standing channel for exactly this, and the owner reads it at the start of the next session.
 
-**Reconcile the prose for whatever you end up with.** The seed constitution is written assuming
-the runbook, the ledger and the archive all exist, because a template cannot know which
-profile it will be read under. Under `light` it points at two files you do not have, and a
-constitution citing a document that is not there teaches the next session to distrust it. So:
-
-- fold the guidance the runbook would have carried — the playbooks, session discipline, the
-  review protocols — into the constitution, rather than leaving a dangling pointer;
-- delete the sentences about the ledger, or install it;
-- delete the sentences about `docs/history/` unless you took `full`.
-
-Under `standard`, only the last of those applies. This is prose work, not deletion work: what
-the removed file *said* still binds, and the smaller tree is supposed to say it in fewer
-places.
+**Reconcile the prose only for what the owner removes.** At either profile, every document
+the seed constitution, `docs/PROTOCOLS.md` and the runbook send a session to is installed, and
+the archive is named only as "if this repository has the archive tier". So there is nothing to
+fold and nothing dangling to delete — unless the owner has a scaffold removed. Then every
+sentence that points at it is rewritten in the same change: a constitution citing a document
+that is not there teaches the next session to distrust it. This is prose work, not deletion
+work: what the removed file *said* still binds, and the smaller tree has to say it somewhere
+that exists.
 
 ## 2. Know which files are yours and which are not
 

@@ -338,7 +338,7 @@ sequential work inside the unit, not fan-out, and the session still triages ever
 itself.
 
 Apply the same fresh-context review to changes of the harness's own binding rules — the
-constitution, runbook protocols, guard semantics, permission rails. A bad rule manufactures
+constitution, the protocols document, guard semantics, permission rails. A bad rule manufactures
 defects in every future session that obeys it, and the authoring context is maximally anchored
 on a rule it just designed. Rule diffs get a rule-specific checklist (contradiction with an
 existing binding rule, prose/guard lockstep drift, Goodhart-ability, enforcement asymmetry,

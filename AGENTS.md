@@ -46,7 +46,7 @@ the rule-review protocol.
    settings) as current truth — point at the live probe, route it to the Owner queue, or keep it as
    an observation scoped in the sentence to when it was seen. Over the compression trigger, follow
    **Working-memory compression** before editing; that section carries both rules in full. Improve the runbook in the same change if its procedure proved insufficient.
-6. With every file change of the unit made — the state file included — follow `docs/RUNBOOK.md`
+6. With every file change of the unit made — the state file included — follow `docs/PROTOCOLS.md`
    → **Acceptance ladder** and review the command's actual output. The tree the ladder verified is
    then the tree you commit.
 7. Commit with an honest verification disclosure. Then run `scripts/ladder.sh --guards-only`
@@ -56,8 +56,9 @@ the rule-review protocol.
    did not happen: fetch the reference it names and re-run, or say plainly that it did not run.
    Then push the permitted `BRANCH_PREFIX/<codename>` session branch.
 
-The procedures named in `docs/RUNBOOK.md` are binding. Follow **Session discipline** every
-session; use **Change-type playbooks** for the task; apply **Rule-review protocol** when the
+The procedures in `docs/PROTOCOLS.md` and the playbooks in `docs/RUNBOOK.md` are binding.
+Follow **Session discipline** every session; use **Change-type playbooks** for the task; apply
+**Rule-review protocol** when the
 diff changes binding rules or guard semantics, or the unit was set to (**Session
 discipline** 10). `RULE_FILES` is a tripwire, not a complete
 definition of that scope.
@@ -72,7 +73,7 @@ definition of that scope.
   its enumerated reader list (`python3 -c "open('.env')"` above all), wrappers it does not strip,
   constructed commands and heredocs reach past it. That block is the authority on which is
   which; do not infer coverage in either direction from this line. This rule binds you whether
-  or not a script can see the shape you chose. If exposure occurs, follow `docs/RUNBOOK.md` →
+  or not a script can see the shape you chose. If exposure occurs, follow `docs/PROTOCOLS.md` →
   **Incident: leaked credential**.
 - Never force-push or push to the branch named by `DEFAULT_BRANCH`. Push only the configured
   session branch; the owner merges.
@@ -111,12 +112,12 @@ definition of that scope.
 
 ## Progressive disclosure
 
-- Secret handling and incidents: `docs/RUNBOOK.md` → **Incident: leaked credential**.
-- Session execution, checkpoints, recovery, and owner forks: `docs/RUNBOOK.md` → **Session discipline**.
+- Secret handling and incidents: `docs/PROTOCOLS.md` → **Incident: leaked credential**.
+- Session execution, checkpoints, recovery, and owner forks: `docs/PROTOCOLS.md` → **Session discipline**.
 - Change procedures: `docs/RUNBOOK.md` → **Change-type playbooks**.
-- Binding-rule changes: `docs/RUNBOOK.md` → **Rule-review protocol**.
-- Verification and locally unverifiable coverage: `docs/RUNBOOK.md` → **Acceptance ladder**.
-- Compressing working memory: `docs/RUNBOOK.md` → **Working-memory compression**.
+- Binding-rule changes: `docs/PROTOCOLS.md` → **Rule-review protocol**.
+- Verification and locally unverifiable coverage: `docs/PROTOCOLS.md` → **Acceptance ladder**.
+- Compressing working memory: `docs/PROTOCOLS.md` → **Working-memory compression**.
 - Current values, branch policy, rule-file scope, thresholds, and extension configuration:
   `amh.conf`.
 - Durable rationale, deviations, and discoveries: `docs/LEDGER.md` and the live ledger volume

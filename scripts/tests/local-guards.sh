@@ -557,7 +557,7 @@ printf '# COMMENTED_OUT_KEY=x\n' >>"$d/harness/templates/amh.conf.example"
 expect pass "config-schema: a commented key in the example is not a requirement" "$d" config-schema.sh
 
 d=$(snapshot doc_navigation_missing)
-sed_in_place 's/^## Acceptance ladder$/## Verification ladder/' "$d/docs/RUNBOOK.md"
+sed_in_place 's/^## Acceptance ladder$/## Verification ladder/' "$d/docs/PROTOCOLS.md"
 expect fail "doc-navigation: a binding heading was renamed" "$d" doc-navigation.sh "missing navigation heading"
 
 d=$(snapshot doc_navigation_duplicate)
@@ -572,6 +572,29 @@ d=$(snapshot doc_navigation_session_pointer_missing)
 sed_in_place '/^- Session execution, checkpoints, recovery, and owner forks:/d' "$d/AGENTS.md"
 sed_in_place 's/Follow \*\*Session discipline\*\* every/Follow the runbook every/' "$d/AGENTS.md"
 expect fail "doc-navigation: Session discipline routing was removed" "$d" doc-navigation.sh "missing navigation pointer"
+
+# The binding sections split between docs/PROTOCOLS.md and the runbook (DD-081), so each
+# heading is looked for in the file its pointer names, and found in the other one is a second
+# authority. Each way a section can end up on the wrong side of the split has a fixture.
+d=$(snapshot doc_navigation_section_moved_back)
+sed_in_place '/^## Session discipline (BINDING for every session)$/d' "$d/docs/PROTOCOLS.md"
+printf '\n## Session discipline (BINDING for every session)\n' >>"$d/docs/RUNBOOK.md"
+expect fail "doc-navigation: a protocols section moved back into the runbook (missing)" "$d" doc-navigation.sh "missing navigation heading in docs/PROTOCOLS.md: ## Session discipline (BINDING for every session)"
+expect fail "doc-navigation: a protocols section moved back into the runbook (other file)" "$d" doc-navigation.sh "duplicate navigation heading in docs/RUNBOOK.md: ## Session discipline (BINDING for every session) (its pointer names docs/PROTOCOLS.md)"
+
+d=$(snapshot doc_navigation_section_in_both)
+printf '\n## Rule-review protocol (MANDATORY for binding-rule and guard diffs)\n' >>"$d/docs/RUNBOOK.md"
+expect fail "doc-navigation: a protocols section also in the runbook" "$d" doc-navigation.sh "duplicate navigation heading in docs/RUNBOOK.md: ## Rule-review protocol (MANDATORY for binding-rule and guard diffs) (its pointer names docs/PROTOCOLS.md)"
+
+d=$(snapshot doc_navigation_runbook_section_in_protocols)
+printf '\n## Host rails and what they miss\n' >>"$d/docs/PROTOCOLS.md"
+expect fail "doc-navigation: a runbook section also in the protocols" "$d" doc-navigation.sh "duplicate navigation heading in docs/PROTOCOLS.md: ## Host rails and what they miss (its pointer names docs/RUNBOOK.md)"
+
+d=$(snapshot doc_navigation_pointer_sent_back)
+# shellcheck disable=SC2016 # the backticks are Markdown code spans matched or written
+# literally; nothing in them is meant to expand.
+sed_in_place 's#`docs/PROTOCOLS.md` → \*\*Acceptance ladder\*\*\.#`docs/RUNBOOK.md` → **Acceptance ladder**.#' "$d/AGENTS.md"
+expect fail "doc-navigation: a constitution pointer sent back to the runbook" "$d" doc-navigation.sh "missing navigation pointer in AGENTS.md: - Verification and locally unverifiable coverage: \`docs/PROTOCOLS.md\` → **Acceptance ladder**."
 
 # The state file's rule preambles moved into the runbook and left pointers behind. DB-029
 # recorded the first such pointer as prose only; these two fixtures are why the second and

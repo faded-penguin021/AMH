@@ -225,7 +225,7 @@ its key in `amh.conf`. Tuning a rung there is the extension point working as des
 owner decision and the same record. With no key, report the guard upstream. Only if the owner
 decides the repository cannot wait does it take the one exception above: delete the guard from
 your copy of `ladder.sh`, record *why* and whose decision it was — in your ledger, or under
-**Decided non-items** in `docs/STATE.md` on a profile with no ledger — and understand that you
+**Decided non-items** in `docs/STATE.md` in a tree with no ledger — and understand that you
 now carry a fork, with a merge on every upgrade.
 
 That fork is also exactly what the integrity rung reports, so it will not be quiet about it.

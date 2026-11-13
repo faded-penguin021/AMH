@@ -37,7 +37,12 @@ Units 0–4.
    **Answered by the owner on 2026-11-13:** every binding item stays; the description and
    rationale items of A042, A026 and A003 move to a task-triggered runbook section; the seed
    waits for H3 (**DD-080**).
-4. **H3: the adopter file layout and how existing installs migrate** (§5, H3).
+4. **H3: the adopter file layout and how existing installs migrate** (§5, H3). **Answered by
+   the owner on 2026-11-13, when H3 started:** option (a), named `docs/PROTOCOLS.md`; existing
+   installs migrate by hand from the release's Upgrading notes; this repository's runbook gets
+   the same split; and the `light` profile is removed, so a light install that upgrades becomes
+   standard (**DD-081**). The companion `docs/plans/2026-11-01-harness-research-gaps-h3-layout.md`
+   holds the layout, the reading-obligation comparison and the migration.
 5. **H4a: the platform matrix, and above all what native Windows gets.** Per Claude Code's
    sandboxing documentation (§8), native Windows runs commands unsandboxed, and **DD-038**
    happened on native Windows PowerShell 5.1. H0.5 widened the options into a host-specific list,
@@ -722,7 +727,7 @@ fi
   - These checks cannot prove an agent actually retrieves the rule, and the unit says so.
 - **Not a byte cap** (**DB-038**). No rung judges the result, and no size target is set.
 
-### H3 — the light profile keeps the constitution a map, without an upgrade trap
+### H3 — the light profile keeps the constitution a map, without an upgrade trap: done 2026-11-13
 
 - **Why:** principle 4. Conditional on H1 and the owner's layout decision. Light is the default
   profile, yet it tells adopters to fold the runbook into the always-loaded file (§2). The

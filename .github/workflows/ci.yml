@@ -176,7 +176,7 @@ jobs:
           target=$(mktemp -d)
           trap 'rm -rf "$target"' EXIT
           git -C "$target" init -q
-          scripts/amh-init.sh --profile light "$target"
+          scripts/amh-init.sh --profile standard "$target"
           test -x "$target/scripts/ladder.sh"
           test ! -e "$target/scripts/command-guard.sh.amh-init.tmp"
 
@@ -257,7 +257,7 @@ jobs:
           git -C "$target" config core.autocrlf true
           git -C "$target" config user.email amh-ci@example.invalid
           git -C "$target" config user.name amh-ci
-          scripts/amh-init.sh --profile light "$target" >/dev/null
+          scripts/amh-init.sh --profile standard "$target" >/dev/null
           git -C "$target" add -A
           git -C "$target" commit -qm 'adopt AMH'
 

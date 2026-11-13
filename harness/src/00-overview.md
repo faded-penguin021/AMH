@@ -6,8 +6,8 @@ diagnosable as the harness evolves.
 
 This is an operating harness for **any** repository maintained by agentic AI sessions — any
 agent, any model vendor — with a human in the loop. It is deliberately agent-agnostic: the
-behaviour lives in a constitution file, a state file, a runbook, an append-only ledger and a
-handful of shell scripts, and each agent gets a thin adapter that wires them up.
+behaviour lives in a constitution file, a protocols file, a state file, a runbook, an
+append-only ledger and a handful of shell scripts, and each agent gets a thin adapter that wires them up.
 
 It has three parts:
 
@@ -17,7 +17,7 @@ It has three parts:
   target repo's always-loaded agent-instructions file. This is what the agent reads every
   session.
 - **Part 3 — Scaffolds.** The supporting artifacts the constitution refers to: state file,
-  runbook, ledger, the guard and rail scripts, session bootstrap, and permission rails.
+  protocols, runbook, ledger, the guard and rail scripts, session bootstrap, and permission rails.
 
 Placeholders use `{{DOUBLE_BRACES}}`. Instantiate them for the target repo and delete anything
 that genuinely does not apply — but read Part 1 first: most pieces earn their keep only in

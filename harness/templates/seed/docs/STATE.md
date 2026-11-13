@@ -6,13 +6,13 @@ but capacity-bounded — the cap is what forces compaction, and compaction is wh
 session's first read cheap.
 
 Keep this file's permanent content to the pointers below. The rules that govern it live in
-docs/RUNBOOK.md → Working-memory compression, because rules that change only under the
+docs/PROTOCOLS.md → Working-memory compression, because rules that change only under the
 rule-review protocol would otherwise spend the budget the cap exists to protect — and cannot
 be compressed to make room, since folding a live rule is repeal.
 -->
 
 > **Length guard.** Thresholds are in `amh.conf`; the rules for compressing this file are
-> `docs/RUNBOOK.md` → **Working-memory compression**, and they bind whether or not you follow
+> `docs/PROTOCOLS.md` → **Working-memory compression**, and they bind whether or not you follow
 > this pointer. Fold completed narrative when its stage completes; retain only current state,
 > unresolved owner items, immediate operational gotchas and concise changelog pointers.
 >
@@ -48,7 +48,7 @@ probe, in the Owner queue, or scoped as a dated observation — not here as fact
 > — then delete the item and record the outcome as a Changelog line or a ledger row.
 >
 > How to test an item before restating it, and why every session's final chat message must:
-> `docs/RUNBOOK.md` → **Session discipline** 7.
+> `docs/PROTOCOLS.md` → **Session discipline** 7.
 >
 > The form, with the resolution spelled out so the next session is not guessing at it:
 >

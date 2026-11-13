@@ -63,11 +63,11 @@ so never edit the bundle by hand. Run `build-dist.sh` and let the drift guard co
 Changing `AGENTS.md`, this file, the runbook's protocols **and its rule sections**, guard
 semantics *or their fixtures*,
 the rail scripts, the session bootstrap, ledger preambles, permission rails, or anything under
-`harness/src/` or `templates/` requires the rule-review protocol in `RUNBOOK.md`: one fresh-context reviewer, at
+`harness/src/` or `templates/` requires the rule-review protocol in `docs/PROTOCOLS.md`: one fresh-context reviewer, at
 the strongest tier available, **regardless of diff size**, blocking, and exactly one pass. A
 three-line rule edit can carry a semantic bomb; the size of a legislation diff predicts nothing
 about its blast radius. A unit set to make such a change owes the pass even when it ends without
-one (`RUNBOOK.md` → Session discipline 10).
+one (`docs/PROTOCOLS.md` → Session discipline 10).
 
 There is **no self-review fallback**. A contributor who cannot get a fresh-context read parks
 the change rather than approving their own rule edit — but "cannot" means *capability*, no
