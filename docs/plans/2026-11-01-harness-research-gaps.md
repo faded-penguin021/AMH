@@ -55,7 +55,10 @@ Units 0–4.
    carries the sandbox; it is on for fresh installs, with an upgrading note that has an existing
    adopter's agent ask the user; and bubblewrap, socat and the seccomp filter are approved as
    optional host tools (**DD-078**).
-6. **H5: whether P6 admits retiring a capability compensation at all.**
+6. **H5: whether P6 admits retiring a capability compensation at all.** **Left open by the owner
+   on 2026-11-13, when H5 started:** it is decided when a specific retirement is proposed, and
+   H5's classification is its input (**DD-082**). For H5's owed pass the owner chose one
+   gpt-6-astra review at high effort.
 7. **H6a, H6b and H7: the owner launches subject runs** (**DB-024**), picks the models, and
    decides whether H6b is worth building at all.
 8. **One fresh-context reviewer, at the strongest available tier, for each legislation unit:
@@ -766,7 +769,7 @@ fi
   playbooks, and no conflicting duplicate authority after the documented hand migration. File or
   heading presence alone does not pass. Then the full ladder is green.
 
-### H5 — separate the enduring invariants from the compensations
+### H5 — separate the enduring invariants from the compensations: done 2026-11-13
 
 - **Why:** principle 5, and lesson 2.
 - **Do:** A measurement and classification unit only. Start from H1's item inventory and the
@@ -788,6 +791,23 @@ fi
   - script checks establish coverage and citation resolution only, and a reader judges whether the
     provenance supports the classification;
   - the full ladder is green.
+- **Result (2026-11-13, at `c0d0b74`).** The classification is in
+  [`2026-11-01-harness-research-gaps-h5-classification.md`](2026-11-01-harness-research-gaps-h5-classification.md),
+  with its checker. The checker reads that file's own tables, so replaying it re-checks them.
+  H1's inventory was re-taken first, because H2 and H3 had changed its inputs. Measured by the
+  checker:
+  - **Coverage:** 325 binding items across `AGENTS.md`, the seed constitution and both
+    **Session discipline** sections. 177 are classified directly: 103 invariants, 51
+    compensations and 23 mixed. 148 point at a row stating the same obligation: 140 seed rows
+    and 8 reference Session discipline rows.
+  - **Compensating and mixed rows:** 74 classified directly. For 37 of them the search
+    identified no artifact-level failure condition; that bounds the search, not the world. 15
+    trace to no ledger row.
+  - **Review:** the owed gpt-6-astra pass, at high effort, failed the first draft on nine
+    findings. They included binding sentences excluded as rationale, classes against the
+    file's own test, and a checker that accepted a duplicated anchor. All nine were applied
+    (companion §8).
+  - **Retired:** nothing. A retirement and any change to P6 stay the owner's call.
 
 ### H6a — owner-launched replication of the existing scenarios across models
 

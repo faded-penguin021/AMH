@@ -26,12 +26,12 @@ Release state: `scripts/session-start.sh` probes the declared version's tag ever
 Live plans, each in `docs/plans/`, where a unit starts only on the owner's explicit approval of
 that unit:
 
-- `2026-11-01-harness-research-gaps.md`, adopted; H0, H0.5, H9, H1, the H9 fix, H4a, H2 and
-  H3 done, and H4b done as configuration with its live probes owed (Owner queue). Every unit rides
+- `2026-11-01-harness-research-gaps.md`, adopted; H0, H0.5, H9, H1, the H9 fix, H4a, H2, H3
+  and H5 done, and H4b done as configuration with its live probes owed (Owner queue). Every unit rides
   17.0.0 (owner, 2026-11-13). Before a unit starts the session says which decisions it needs and
   waits for the answers, and a fresh-context review is pre-allowed for every unit (owner,
   2026-11-09).
-  - [ ] H5, H6a, H6b (optional), H7 — not approved (H8 parked)
+  - [ ] H6a, H6b (optional), H7 — not approved (H8 parked)
 - `2026-11-04-spill-guard-borrowings.md`, adopted: S1, S2, S6a and S3 approved on 2026-11-10, to
   run in that order, each with its own review and its version settled when its behaviour is
   final (its §2, items 4 and 5); S4, S5, S6b and S6c deferred.
@@ -68,10 +68,11 @@ command whose body the guard used to misread and refuse (**DD-059**).
 unjudged; measured only as the mechanism, on Linux. No Windows host here can test the proposed fix,
 and no one-line check here settles it.
 
-**OPEN — the research-gaps plan's remaining §1 decisions, including those H0.5 added.** Each is
-asked when the unit it belongs to is started: whether P6 admits retiring a compensation (H5),
-and an H8 incident-bar exception. Its §7.1 also recommends a combined order across all three
-plans, which an item below owns.
+**OPEN — the research-gaps plan's remaining §1 decisions, including those H0.5 added.** Whether
+P6 admits retiring a compensation: left open on 2026-11-13, when H5 started, until a specific
+retirement is proposed, with H5's classification as its input (**DD-082**). An H8 incident-bar
+exception is asked if H8 is reopened. The plan's §7.1 also recommends a combined order across
+all three plans, which an item below owns. No command settles this.
 
 **OPEN — decide whether the seed constitution's rail and deletion-layer descriptions move out
 of it, as H2 moved this repository's.** H2 left them for H3 because a light install had no
@@ -145,6 +146,12 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-13 — **H5 of the research-gaps plan done: every binding obligation in both
+  constitutions and both Session discipline sections classified as invariant, compensation or
+  mixed,** with provenance and a failure condition for each compensation, in
+  `docs/plans/2026-11-01-harness-research-gaps-h5-classification.md`. Nothing retired; the owner
+  left the P6 question open (**DD-082**).
 
 - 2026-11-13 — **H3 of the research-gaps plan done: the procedures every session is bound by
   move to `docs/PROTOCOLS.md`, in the seed and in this repository, and the `light` profile is
