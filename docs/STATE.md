@@ -26,10 +26,9 @@ Release state: `scripts/session-start.sh` probes the declared version's tag ever
 Live plans, each in `docs/plans/`, where a unit starts only on the owner's explicit approval of
 that unit:
 
-- `2026-11-01-harness-research-gaps.md`, adopted; H0, H0.5 and H9 done. Before a unit starts the
+- `2026-11-01-harness-research-gaps.md`, adopted; H0, H0.5, H9 and H1 done. Before a unit starts the
   session says which decisions it needs and waits for the answers, and a fresh-context review is
   pre-allowed for every unit (owner, 2026-11-09).
-  - [ ] H1 — approved by the owner on 2026-11-13
   - [ ] H9 fix — exit red where the scratch path is created (**DD-072**); approved on 2026-11-13
     as the unit after H1
   - [ ] H4a, H4b, H2, H3, H5, H6a, H6b (optional), H7 — not approved (H8 parked)
@@ -130,6 +129,10 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-13 — **H1 of the research-gaps plan done: what each session must read, item by item,**
+  in `docs/plans/2026-11-01-harness-research-gaps-h1-inventory.md`, which re-checks itself on replay. Its finding for H3: a
+  light install is told to read a runbook and ledger it never gets (**DD-075**).
 
 - 2026-11-13 — **The incident bar no longer gates the command guard:** the owner's answer of
   2026-11-10, legislated in P13 for `command-guard.sh` in every mode, the scope the owner chose

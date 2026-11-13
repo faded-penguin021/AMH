@@ -450,7 +450,7 @@ fi
   the realism limit and two wording fixes. The 26-case script above was then replayed from this
   text.
 
-### H1 — inventory what each session must read, item by item (docs-only, measurement)
+### H1 — inventory what each session must read, item by item (docs-only, measurement): done 2026-11-13
 
 - **Why:** principle 4. The evidence so far is external, and this repository has no recorded
   incident (§2).
@@ -475,6 +475,26 @@ fi
   shown, and mixed-block splits are inspected independently of the extractor. Equality with the
   extractor's own set of identities is not enough, because both can omit the same obligation.
   Per-context byte totals and unknowns are reproducible from the kept command and input revision.
+- **Result (2026-11-13, at `9ea4cee`).** The inventory is in
+  [`2026-11-01-harness-research-gaps-h1-inventory.md`](2026-11-01-harness-research-gaps-h1-inventory.md),
+  with its extractor, checker and measurement script. The checker reads that file's own tables,
+  so replaying it re-checks the classification. Measured, not estimated:
+  - **Bytes injected or mandatory per session:** 40,084 at the reference instance under Claude
+    Code and 39,654 under Codex. An adopter is at 25,461 or 25,031 at the light profile and
+    37,764 or 37,334 at standard or full. Codex's load of `AGENTS.md` is documented, not
+    observed here.
+  - **Item counts:** `AGENTS.md` splits into 73 binding items, 15 coverage descriptions, 3
+    rationale items and 24 map items. The seed splits into 91, 23, 7 and 19, plus 13
+    placeholders. Every nonblank line is reconciled. A fresh-context review of the draft failed
+    it, on obligations left bundled and six mistyped items, and its findings are applied (the
+    companion's §5).
+  - **The finding H3 inherits:** at the default light profile, the seed constitution still makes
+    `docs/RUNBOOK.md` → **Session discipline**, a playbook, the incident playbook and the ledger
+    mandatory or phase-bound reads, and none of them is installed (**DD-075**). The inventory
+    decides nothing about that.
+  - **Unknowns:** Codex's project-document load and limit, SessionStart output on start modes
+    other than startup, truncation of long instruction files, and how much of a mandatory read
+    an agent performs.
 
 ### H4a — specify the containment the sandbox can actually provide (docs-only, design)
 
