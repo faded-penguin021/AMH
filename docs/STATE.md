@@ -26,10 +26,10 @@ Release state: `scripts/session-start.sh` probes the declared version's tag ever
 Live plans, each in `docs/plans/`, where a unit starts only on the owner's explicit approval of
 that unit:
 
-- `2026-11-01-harness-research-gaps.md`, adopted; H0, H0.5, H9, H1 and the H9 fix done. Before a unit starts the
+- `2026-11-01-harness-research-gaps.md`, adopted; H0, H0.5, H9, H1, the H9 fix and H4a done. Before a unit starts the
   session says which decisions it needs and waits for the answers, and a fresh-context review is
   pre-allowed for every unit (owner, 2026-11-09).
-  - [ ] H4a, H4b, H2, H3, H5, H6a, H6b (optional), H7 — not approved (H8 parked)
+  - [ ] H4b, H2, H3, H5, H6a, H6b (optional), H7 — not approved (H8 parked)
 - `2026-11-04-spill-guard-borrowings.md`, adopted: S1, S2, S6a and S3 approved on 2026-11-10, to
   run in that order, each with its own review and its version settled when its behaviour is
   final (its §2, items 4 and 5); S4, S5, S6b and S6c deferred.
@@ -67,7 +67,8 @@ unjudged; measured only as the mechanism, on Linux. No Windows host here can tes
 and no one-line check here settles it.
 
 **OPEN — the research-gaps plan's remaining §1 decisions, including those H0.5 added.** Each is
-asked when the unit it belongs to is started: the Windows, scope and dependency choices (H4a), H2's
+asked when the unit it belongs to is started: H4b's design defaults, `credentials` entries, Codex
+reading and version (H4a's companion, its §11), H2's
 evidence threshold, H3's layout and migration, and an H8 incident-bar exception. Its §7.1 also recommends a combined order across all three
 plans, which an item below owns.
 
@@ -128,6 +129,10 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-13 — **H4a of the research-gaps plan done: the sandbox containment design,** in
+  `docs/plans/2026-11-01-harness-research-gaps-h4a-containment.md`, on the owner's answers taken
+  when it started: Claude Code on native Windows keeps no sandbox and says so, and nothing is
+  claimed contained before H4b's probes (**DD-078**).
 - 2026-11-13 — **`CLAUDE.md` is now `@AGENTS.md` plus a one-line fallback, root and seed,** so
   Claude Code loads the constitution as an import rather than a read it may skip; a headless
   canary test confirmed the import (**DD-077**). Rides the 17.0.0 draft.

@@ -40,7 +40,11 @@ Units 0–4.
    carries the sandbox, whether
    the sandbox is on by default or opt-in for adopters, and whether any host dependency it needs
    (such as the optional seccomp filter on Linux and WSL2) is approved ("Add no dependency
-   without owner approval").
+   without owner approval"). **Answered by the owner on 2026-11-13, when H4a started:** native
+   Windows under Claude Code gets no sandbox and the docs say so; the project settings file
+   carries the sandbox; it is on for fresh installs, with an upgrading note that has an existing
+   adopter's agent ask the user; and bubblewrap, socat and the seccomp filter are approved as
+   optional host tools (**DD-078**).
 6. **H5: whether P6 admits retiring a capability compensation at all.**
 7. **H6a, H6b and H7: the owner launches subject runs** (**DB-024**), picks the models, and
    decides whether H6b is worth building at all.
@@ -496,7 +500,7 @@ fi
     other than startup, truncation of long instruction files, and how much of a mandatory read
     an agent performs.
 
-### H4a — specify the containment the sandbox can actually provide (docs-only, design)
+### H4a — specify the containment the sandbox can actually provide (docs-only, design): done 2026-11-13
 
 - **Why:** principle 9, and lesson 4.
 - **Do:** Read each host's current sandbox documentation and write the following into this
@@ -573,6 +577,29 @@ fi
   design or a no-change conclusion. H4b's later pass cannot substitute for it.
 - **Acceptance:** every cell of the matrix names its source, as a documentation section or a
   probe, or says unverified.
+- **Result (2026-11-13, at `cd36199`).** The design is in
+  [`2026-11-01-harness-research-gaps-h4a-containment.md`](2026-11-01-harness-research-gaps-h4a-containment.md),
+  on the owner's answers to §1 item 5 (its §1). Reported by the vendors' pages, fetched that
+  day and checksummed there; observed only by read-only probes on a Docker container on a WSL2
+  kernel, which is not a WSL2 distribution:
+  - **Claude Code** sandboxes Bash, PowerShell and Monitor commands on macOS, Linux and WSL2, and
+    runs them unsandboxed when the sandbox cannot start unless `failIfUnavailable` is set. The
+    design leaves that key unset, because setting it stops Claude Code starting on native Windows,
+    so H4b must make the silent fallback visible. A project file sets defaults that a local
+    file outranks; the adapter's existing `Read` and `Edit` denies merge into the sandbox. The
+    proposed block is `enabled`, `allowUnsandboxedCommands: false` and
+    `autoAllowBashIfSandboxed: false`.
+  - **Codex** sandboxes by default, so its adapter pins no key: one would collide with a user's
+    `default_permissions` profile. H4b validates that the shipped file loosens nothing.
+  - **DD-038's path is not contained**, by the owner's Windows choice, and no cell is claimed
+    contained before H4b's live probes. The design names what the sandbox would break in AMH's
+    own workflow (hook installation, `git merge` over protected files, credential-reading tools,
+    SSH push) for H4b to probe.
+  - **The review:** gpt-6-astra `-e high`, verdict REVISE, 14 findings (4 P1), each replayed
+    against the fetched pages and applied (the companion's §14).
+  - **Left for H4b's approval:** the six design defaults in the companion's §11, whether to add
+    `credentials` entries, the reading that leaves Codex's own Windows sandbox alone, and H4b's
+    version semantics (§1 item 2).
 
 ### H4b — wire the host sandbox into both first-class adapters, per H4a
 
