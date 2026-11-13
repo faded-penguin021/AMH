@@ -128,6 +128,9 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-13 — **`CLAUDE.md` is now `@AGENTS.md` plus a one-line fallback, root and seed,** so
+  Claude Code loads the constitution as an import rather than a read it may skip; a headless
+  canary test confirmed the import (**DD-077**). Rides the 17.0.0 draft.
 - 2026-11-13 — **The H9 fix: the ladder, and the placeholder and ledger guards, exit red saying
   they checked nothing when their scratch path cannot be made** (**DD-076**). Rides the 17.0.0
   draft.

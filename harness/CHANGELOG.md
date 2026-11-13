@@ -48,6 +48,12 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   and full. It now prints a FAIL saying the run checked nothing and exits 1 before any rung runs.
   The shipped fixture suite checks its own `mktemp -d` the same way and gains a fixture that
   fails only the ladder's call, over both plants.
+- **The seed `CLAUDE.md` imports `AGENTS.md` instead of asking the agent to read it.** It was a
+  stub telling Claude Code to "read AGENTS.md in full", a read the agent could skip or do in
+  part. It is now `@AGENTS.md` on a line of its own, which Claude Code resolves when it loads the
+  file, plus one sentence for a build that does not. Other agents never read `CLAUDE.md`, so
+  nothing changes for them, and `AGENTS.md` stays the one canonical text. A Claude Code session
+  started with `--safe-mode` or `--bare` still loads no `CLAUDE.md` at all.
 
 ### Upgrading
 
@@ -70,6 +76,11 @@ because seeds are yours:
    disclosure; renumber them if yours differ.
 3. Copy the last sentence of the first paragraph of the seed runbook's adversarial review
    protocol into yours.
+4. If `AGENTS.md` is your canonical file and `CLAUDE.md` only points at it, replace the "read
+   AGENTS.md" sentence of your `CLAUDE.md` with both lines of `harness/templates/seed/CLAUDE.md`:
+   the `@AGENTS.md` import and the fallback sentence for a build that does not resolve it. Keep
+   anything else your `CLAUDE.md` says that `AGENTS.md` does not, though under the single-source
+   rule there should be nothing.
 
 This rule is what makes the release MAJOR, on the precedent of 16.0.0: a session that wrote a
 fix and then its test, or changed an existing test to make a fix pass, was within the rules
