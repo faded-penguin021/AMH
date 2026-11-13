@@ -125,7 +125,11 @@ written before the acceptance run, so the ladder verifies the tree that is commi
 
 - **When:** a rule has actually been violated. Not before — guards accrete one at a time,
   each earning its place after a real incident. Speculative guards are how a harness turns
-  into ceremony (P3, P20).
+  into ceremony (P3, P20). **The command guard is the one exception** (P13, **DD-074**): a
+  shape that `command-guard.sh` misses, in any of its modes, is closed without waiting for the
+  loss, as a defect fixed like a bug or as a widening gated by a measurement of what ordinary
+  work it would newly refuse. That work follows **Change a shipped script**, not this playbook;
+  this exception does not reach any other rail.
 - **Read first:** `scripts/ladder.sh`'s guard section for the house style.
 - **Touch:** a repo-specific guard goes in `scripts/guards/<name>.sh`. Three verdicts: exit 0
   passes, exit 2 whose MERGED output (stdout and stderr together, which is what the ladder

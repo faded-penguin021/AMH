@@ -283,9 +283,10 @@ full ladder.
   prose must not imply a check no script performs, and each rule says which layer holds it.
   **D-010** is its row. P3 is the likely home.
 - **M8b — the incident bar.** It decides more proposals than any numbered principle and has
-  no number. This is where the owner's answer of 2026-11-10 would be written down, which is
-  the Owner-queue item on legislating it: a defect in what a rail already claims is a bug; a
-  widening is gated by what it newly refuses; anything else waits for an incident.
+  no number. The owner's answer of 2026-11-10 is now written down for the command guard only,
+  in P13 (**DD-074**): a defect in what it already claims is a bug, and a widening is gated by
+  what it newly refuses. Whether that rule reaches any other rail stays M8b's question; the
+  owner declined to widen it on 2026-11-13.
 - **M8c — a check has three answers.** Clean, dirty and did-not-look, and the third never
   prints as the first. It is in P9's release line, **DC-002**, `scripts/guards/path-refs.sh`,
   the session banner and **DD-072**, and is stated as a principle nowhere.

@@ -76,14 +76,15 @@ something another plan declined, and say so where they do it (G9, G10).
    place.
 
    **Left open by that answer, and the owner's:**
-   - Three texts still say the opposite. `docs/RUNBOOK.md` → **Add a guard** opens with "a
-     rule has actually been violated. Not before". The guard header's data-plane bullet admits
-     a verb on a public report (**DC-027**). The research-gaps plan's lesson 1 keeps the bar.
-     Amending them is legislation, a rule-review unit of its own, and not something this plan
-     changes by citing a chat message. Until then each unit's ledger row names the owner's
-     call as its basis.
-   - How far the answer reaches into the other plans. The cc-safety-net plan defers N9 and N6b
-     on that bar and N8 on **DD-018**. This plan moves none of them.
+   - Three texts said the opposite: `docs/RUNBOOK.md` → **Add a guard**, the guard header's
+     data-plane bullet (**DC-027**) and the research-gaps plan's lesson 1. **Legislated
+     2026-11-13** in a rule-review unit of its own: P13 now carries the exception, those three
+     texts and `CONTRIBUTING.md` point at it, and **DD-074** records it. A unit's ledger row
+     cites **DD-074** as its basis. The scope is `command-guard.sh` in every mode — the hook,
+     machine mode and the pre-push rail — and no other rail (owner, 2026-11-13).
+   - How far the answer reaches into the other plans. The cc-safety-net plan deferred N9 and N6b
+     on that bar and N8 on **DD-018**. The 2026-11-13 unit struck the bar as N9's and N6b's
+     basis and promoted neither: G1 decides them (owner, 2026-11-13). N8 is unchanged.
 4. **Order against the other plans.** S6a rewrites the prefix loops G8 and G9 also read. S1
    rewrites the reason text several units add to. N3 and N4 widen the reader and store lists
    that G12 widens, and N5 edits the destructive git arms beside G9. Recommended: S1 and S6a

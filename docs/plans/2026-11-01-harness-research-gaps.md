@@ -131,7 +131,10 @@ is evidence about AMH itself.
 
 ## 4. Four lessons the units are built on
 
-1. **Keep AMH's incident bar; it is the survey's own best finding.** A unit with an AMH incident
+1. **Keep AMH's incident bar; it is the survey's own best finding** — everywhere except the
+   command guard, which the owner exempted on 2026-11-10 and P13 now exempts (**DD-074**): a gap
+   in it is fixed as a defect or gated, as a widening, by a measurement of what it would newly
+   refuse. No unit of this plan changes the command guard. A unit with an AMH incident
    behind it may change rules or guards. A unit backed only by outside evidence measures first,
    and anything it finds still goes to the owner. Items with neither are parked (§6).
 2. **Classify obligations, not containers.** One mechanism or one Session discipline item

@@ -31,11 +31,21 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   adopter could delete, and the review pass for a changed test did not exist. The seed
   constitution now carries a bullet under **Coding conventions**, and the seed runbook carries
   Session discipline item 12 and one sentence in the adversarial review protocol.
+- **The incident bar no longer gates the command guard (P13).** Everywhere else a new guard still
+  waits for a real incident. The command guard — the hook, machine mode and the pre-push rail —
+  stops what cannot be undone, so a gap in it is closed on its merits: a **defect** (the guard
+  not doing what its own text says) is fixed as a bug, and a **widening** (a new list member or a
+  new surface) names what the shape destroys or exposes and measures, before it ships, what
+  ordinary work it would newly refuse or advise. That measurement replaces the incident, and the
+  data-plane tier's old rule that a verb enters only on a public report of data loss is gone. No
+  guard behaviour changed: the header and one comment in `command-guard.sh` now say why six
+  data-plane verbs are still absent — not yet measured, rather than cleared.
 
 ### Upgrading
 
-Copy the 17.0.0 shipped scripts and manifest through the normal upgrade procedure; no script
-changed, and the manifest changes only in its version header. Then apply the rules by hand,
+Copy the 17.0.0 shipped scripts and manifest through the normal upgrade procedure. Of the
+scripts, only `command-guard.sh` changed, in comments alone, and the manifest changes with it.
+The command-guard change needs nothing else from you. Then apply the test-first rules by hand,
 because seeds are yours:
 
 1. Copy the "A fix's test comes first" bullet from **Coding conventions** in

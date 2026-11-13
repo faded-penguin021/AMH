@@ -286,10 +286,13 @@
 #     cleared prompt read as a judgement about the script, and it says it for any kind reached
 #     through `run`/`run-script`, not just the ones on the name list: `npm run dropdb` gets the
 #     same disclosure, because the guard read a script name there too.
-#     WHAT IS STILL OUTSIDE, and why it is not an oversight: a verb enters this tier when a
-#     public report shows it destroying data, and a web search for reported incidents naming
-#     `alembic downgrade base`, `manage.py flush`, `redis-cli flushall`, `mysql -e`, `mongosh
-#     --eval` or `drizzle-kit drop` returned none, so they stay out (AMH ledger row DC027).
+#     WHAT IS STILL OUTSIDE, and why: `alembic downgrade base`, `manage.py flush`, `redis-cli
+#     flushall`, `mysql -e`, `mongosh --eval` and `drizzle-kit drop` are not advised. They were
+#     kept out when a verb entered this tier only on a public report of it destroying data, and
+#     a web search for such reports returned none (AMH ledger row DC027). That bar no longer
+#     gates this guard (AMH ledger row DD074): a verb now enters once what it destroys is shown
+#     and what ordinary work it would newly advise is measured, and no change has done that for
+#     these yet. Their absence is unmeasured, not a finding that they are safe.
 #     `psql -f script.sql` and a migration run from application code stay out for the older
 #     reason — the verb is not in the command text at all. And one reported shape is outside any
 #     list a command scanner could hold: the PocketOS wipe was a `curl` GraphQL call carrying a
@@ -6146,8 +6149,10 @@ is_destructive_segment() {
 		#
 		# `push:pg`, `push:mysql` and `push:sqlite` are the older per-dialect spellings of the
 		# same command. `generate`, `migrate`, `check`, `up` and `studio` are the everyday ones
-		# and are not advised; `drop` is deliberately absent, because no public report shows it
-		# destroying stored data and this tier's list is earned by reports (AMH ledger row DC027).
+		# and are not advised. `drop` is absent: it was kept out while this tier's list was
+		# earned by public reports and none showed it destroying stored data (AMH ledger row
+		# DC027), and under the bar that replaced that one (AMH ledger row DD074) no change has
+		# yet shown what it destroys or measured what it would newly advise.
 		#
 		# The four spellings are ENUMERATED and the kind is built from a literal, never from the
 		# word. A `push:*` glob put command text into the kind, and the kind is the one part of a
@@ -8815,8 +8820,9 @@ EOF'
 	st_allowed 'drizzle-kit migrate'
 	st_allowed 'drizzle-kit studio'
 	st_allowed 'drizzle-kit check'
-	# Deliberately absent from the arm: no public report shows it destroying stored data, and
-	# this tier's list is earned by reports rather than by resemblance.
+	# Absent from the arm: it was kept out while this tier's list was earned by public reports
+	# (AMH ledger row DC027), and no change has yet measured it under the bar that replaced
+	# that one (AMH ledger row DD074). This pins today's behaviour, not a finding that it is safe.
 	st_allowed 'drizzle-kit drop'
 	# The name is matched WHOLE. A script whose name merely CONTAINS one of the list is a
 	# different script — the D007 class in the arm most exposed to it, since a script name is

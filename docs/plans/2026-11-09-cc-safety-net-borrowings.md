@@ -8,6 +8,9 @@
 > none. **Every measurement in §3 is re-taken when the unit that acts on it starts.**
 > **Owner, 2026-11-10:** this plan is reviewed again, together with the command-guard gap plan, in
 > that plan's G1, with N1's mandate read for both; adoption is decided for the two together.
+> **Amended 2026-11-13 without a new revision:** the incident bar no longer gates the command
+> guard (P13, **DD-074**), so N9's and N6b's deferrals have lost that basis. Neither is promoted
+> here; G1 decides both (owner, 2026-11-13).
 
 The plan is provisional while it is live. Its durable outcomes go to Changelog lines and ledger
 rows. Code cites ledger rows and never this file, and no ledger row may cite this file's path.
@@ -70,7 +73,7 @@ call.
 | Deleting outside the working tree (`rm.recursive-force-outside-cwd`) | H4a's "legitimate access outside the working tree" item | Not taken (§5). |
 | How an agent behaves after a refusal (cc-safety-net's `evals/` test something else; §5) | H7 (refused deletions leave no prohibited effect) and H6a (replication across models) | Nothing. |
 | Checking that a hook is installed or fired; an audit log | Decided non-items **DA-022**, **DA-024** and **DA-025**, which H7 also cites | Not taken (§5). |
-| Outside evidence and the incident bar | Research-gaps lesson 1 | Applied, not restated. N2 measures and sends what it finds to the owner. N9 waits for incidents. |
+| Outside evidence and the incident bar | Research-gaps lesson 1 | Applied, not restated. N2 measures and sends what it finds to the owner. N9 waited for incidents; since **DD-074** that bar does not gate the command guard, and G1 decides N9. |
 
 **One file-level overlap.** H4b and N4 both edit the Claude adapter, its template and
 `scripts/guards/adapter-set.sh`. Whichever lands second rebases onto the other (§2, decision 3).
@@ -703,6 +706,10 @@ push.
 - an incident or class justification the owner accepts.
 
 An uncovered platform alone does not reopen it: that establishes exposure, not incident provenance.
+
+**Amended 2026-11-13:** the incident half of the second condition no longer applies to the command
+guard (**DD-074**). What gates a widening there is a measurement of what it would newly refuse.
+N6b is not promoted here; G1 decides what opens it now (owner, 2026-11-13).
 Nor is H4a's completion a prerequisite.
 
 **The design kept for that case.**
@@ -738,6 +745,11 @@ to delete it, and it is ALLOW today.
 
 **The rule.** A verb enters the destructive or data-plane tier only when a public report shows it
 destroying data (**DC-027**).
+
+**That rule no longer stands (amended 2026-11-13).** **DD-074** replaced it: a verb now enters once
+what it destroys is shown and what ordinary work it would newly refuse or advise is measured. The
+deferral below rested on the old rule, so it has lost its basis. N9 is not promoted here; G1
+decides whether it becomes a proposed unit (owner, 2026-11-13).
 
 **Notes.**
 - The literal-target `git reset --hard` is silent by design, not by oversight. It also needs the

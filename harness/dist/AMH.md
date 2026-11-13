@@ -445,7 +445,24 @@ is dangerous, and the safe next move. This is not motivational prose bolted onto
 a correctness mechanism for untrustworthy agents with lossy attention, and it earns its keep
 under P0 when it prevents repeated owner correction without claiming coverage the guard does
 not have. Keep the set narrow, incident-earned and artifact-triggered, because restating every
-rule makes none salient.
+rule makes none salient — with the one exception the next paragraph makes.
+
+**The command guard does not wait for an incident.** Everywhere else in this harness, new
+machinery is earned by a real incident (P3, P20). The shipped command guard — the pre-execution
+hook, its machine mode and its pre-push rail, all one script — is the exception, because what it
+exists to stop cannot be undone: nobody should have to delete a drive root or read a `.env`
+before a rail may refuse it. A gap in it is closed on its merits, and gaps come in two kinds
+that cost differently. A **defect** — the guard not doing what its own text, or a ledger row it
+cites, says it does — is a bug and is fixed as one. A **widening** — a new member of a list, or a
+rail on a surface the guard did not judge — spends the false-positive budget the pattern rules
+below protect. So it names what the new shape destroys or exposes and where that was read or
+measured; states what ordinary work it would newly refuse or advise; and measures that before it
+ships, by running the guard over the everyday commands that share the shape, with the command
+and its input kept where a reviewer can replay them. That measurement is the gate, in the
+incident's place, and it does not lift the narrowness above: a rail that cries wolf is skimmed.
+Both steps are prose-only; the fresh-context review pass (P12) is the only check. Every other
+rail — adapter deny rules, output redaction, verification guards, doc-fact guards — keeps the
+incident bar.
 
 Hard-won pattern rules for such a guard: judge only each simple-command segment's LEADING
 command, so quoted text that merely *contains* a forbidden command (commit messages, doc
