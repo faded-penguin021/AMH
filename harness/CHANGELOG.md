@@ -54,6 +54,17 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   file, plus one sentence for a build that does not. Other agents never read `CLAUDE.md`, so
   nothing changes for them, and `AGENTS.md` stays the one canonical text. A Claude Code session
   started with `--safe-mode` or `--bare` still loads no `CLAUDE.md` at all.
+- **The Claude Code adapter turns on Claude Code's own shell sandbox** for fresh installs, as a
+  layer under every AMH rail: a top-level `sandbox` block with `enabled: true`,
+  `allowUnsandboxedCommands: false` (no retry outside it) and `autoAllowBashIfSandboxed: false`
+  (being sandboxed approves nothing, so the prompts stay as they were). Native Windows has no
+  sandbox under Claude Code and the README says so. Where the sandbox cannot start — Linux or
+  WSL2 without `bubblewrap` and `socat` — Claude Code runs commands unsandboxed and says nothing;
+  `failIfUnavailable` stays unset because it would stop Claude Code starting on native Windows,
+  and `amh.conf.example` now suggests listing `bwrap socat` in `REQUIRED_TOOLS` so the session
+  banner shows them. The Codex adapter sets no sandbox key and relies on Codex's default. No
+  platform has been probed in a live sandboxed session: what ships is configuration, and every
+  containment cell is unverified.
 
 ### Upgrading
 
@@ -81,6 +92,18 @@ because seeds are yours:
    the `@AGENTS.md` import and the fallback sentence for a build that does not resolve it. Keep
    anything else your `CLAUDE.md` says that `AGENTS.md` does not, though under the single-source
    rule there should be nothing.
+5. **Ask the user whether they want Claude Code's sandbox; do not add it unasked.** Your
+   `.claude/settings.json` is yours, so the upgrade does not touch it. Tell the user what it
+   changes before they answer: shell commands can no longer write outside the working tree and
+   the temporary directory, reach the network except through the host's proxy, which asks
+   before each new host in the default permission mode, or write
+   `.git/hooks`, `.git/config` and the `.claude` settings files; `git push` over SSH fails inside
+   it; a `git merge` that must replace a protected file fails with `unable to unlink old` and has
+   to be run in the user's own terminal; and on Linux and WSL2 it needs `bubblewrap` and `socat`
+   or it silently does nothing. Only on a yes, add the top-level `sandbox` block from
+   `harness/templates/configs/claude-settings.json` to `.claude/settings.json`, keeping
+   everything the file already holds and without printing its contents. On Linux or WSL2, also
+   offer to add `bwrap socat` to `REQUIRED_TOOLS` in `amh.conf`. Codex needs nothing.
 
 This rule is what makes the release MAJOR, on the precedent of 16.0.0: a session that wrote a
 fix and then its test, or changed an existing test to make a fix pass, was within the rules

@@ -26,10 +26,11 @@ Release state: `scripts/session-start.sh` probes the declared version's tag ever
 Live plans, each in `docs/plans/`, where a unit starts only on the owner's explicit approval of
 that unit:
 
-- `2026-11-01-harness-research-gaps.md`, adopted; H0, H0.5, H9, H1, the H9 fix and H4a done. Before a unit starts the
+- `2026-11-01-harness-research-gaps.md`, adopted; H0, H0.5, H9, H1, the H9 fix and H4a done, and
+  H4b done as configuration with its live probes owed (Owner queue). Before a unit starts the
   session says which decisions it needs and waits for the answers, and a fresh-context review is
   pre-allowed for every unit (owner, 2026-11-09).
-  - [ ] H4b, H2, H3, H5, H6a, H6b (optional), H7 — not approved (H8 parked)
+  - [ ] H2, H3, H5, H6a, H6b (optional), H7 — not approved (H8 parked)
 - `2026-11-04-spill-guard-borrowings.md`, adopted: S1, S2, S6a and S3 approved on 2026-11-10, to
   run in that order, each with its own review and its version settled when its behaviour is
   final (its §2, items 4 and 5); S4, S5, S6b and S6c deferred.
@@ -67,10 +68,18 @@ unjudged; measured only as the mechanism, on Linux. No Windows host here can tes
 and no one-line check here settles it.
 
 **OPEN — the research-gaps plan's remaining §1 decisions, including those H0.5 added.** Each is
-asked when the unit it belongs to is started: H4b's design defaults, `credentials` entries, Codex
-reading and version (H4a's companion, its §11), H2's
-evidence threshold, H3's layout and migration, and an H8 incident-bar exception. Its §7.1 also recommends a combined order across all three
+asked when the unit it belongs to is started: H2's evidence threshold, H3's layout and migration, and an H8 incident-bar exception. Its §7.1 also recommends a combined order across all three
 plans, which an item below owns.
+
+**OPEN — run H4b's live sandbox probes, on your own host or in a session you name (evidence:
+**DD-079**).** H4b shipped the Claude sandbox block as configuration only, and every cell is
+unverified: no sandbox can start on the host that built it. The probes are the plan's H4b
+acceptance (b) to (d), (f) and (g), with the list in the H4a companion's §7: an in-tree write
+passes and an out-of-tree one is refused, each with a positive control; network; on WSL2 a
+harmless Windows-program launch; startup without `bwrap`; worktrees, temporary files, git and
+the session bootstrap; the full ladder inside the sandbox; and an old adapter left untouched by
+the Upgrading step. A follow-up then claims only the cells that pass. Check on a candidate host:
+`command -v bwrap socat && unshare -Ur true` — success there means the sandbox can at least start.
 
 **OPEN — run G1, one gpt-6-astra `-e high` review of both command-guard plans,
 `docs/plans/2026-11-10-command-guard-gap-review.md` and
@@ -129,6 +138,10 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-13 — **H4b of the research-gaps plan, as configuration: the Claude adapter turns on
+  Claude Code's sandbox, and `adapter-set.sh` validates both adapters' sandbox configuration,**
+  on the owner's answers taken when it started; every containment cell is unverified until the
+  live probes in the Owner queue run (**DD-079**). Rides the 17.0.0 draft.
 - 2026-11-13 — **H4a of the research-gaps plan done: the sandbox containment design,** in
   `docs/plans/2026-11-01-harness-research-gaps-h4a-containment.md`, on the owner's answers taken
   when it started: Claude Code on native Windows keeps no sandbox and says so, and nothing is

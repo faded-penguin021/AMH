@@ -563,5 +563,230 @@ else
 	fi
 fi
 
+# The host sandboxes (DD-079). CONFIGURATION VALIDATION, NOT RUNTIME ATTESTATION: everything below
+# reads the shipped files and nothing else, so a pass says what those files ask for, never that a
+# sandbox started, enforced anything, or is the configuration a session actually resolves. A local
+# settings file, a user or managed one, `--settings` and a missing bubblewrap all change that
+# without touching a byte read here, and no probe of a live session is evidence this guard holds.
+#
+# Claude Code: the project file asks for EXACTLY the shipped sandbox, and nothing that widens it.
+# Every key the host accepts under `sandbox` either loosens it or changes what the owner decided,
+# and each is silent: `enabled: false` turns it off, `allowUnsandboxedCommands: true` reopens the
+# retry outside it, `autoAllowBashIfSandboxed: true` approves a command for being sandboxed, and
+# `excludedCommands`, `filesystem`, `network` and the weaker-isolation and socket switches widen
+# what a sandboxed command reaches. `failIfUnavailable: true` tightens on paper and stops Claude
+# Code starting on native Windows, which the owner chose not to do (DD-078). A misspelled key is
+# ignored by the host, so it reads as configured while meaning nothing.
+#
+# Permission rules feed the sandbox too, so a byte-exact block is not enough: an `Edit(...)` or
+# `Write(...)` allow rule grants sandboxed writes, a `Read(...)` allow can reopen a denied read,
+# a `WebFetch(...)` allow adds a domain, `additionalDirectories` adds working directories and
+# `defaultMode` decides who approves — `bypassPermissions` approves everything unasked. The shipped
+# file sets none of them, and this refuses each.
+#
+# Read with a tokenizer, not by lines, because the earlier line reading passed configurations the
+# host loads differently: a block indented like a top-level key while nested under `permissions`,
+# and a key spelled with a JSON escape (`"\u0073andbox"`), which decodes to a second `sandbox` that
+# JSON lets govern. The tokenizer follows strings, escapes and nesting and prints every key's path
+# and every scalar's raw text, so scope, order, layout and CRLF stop mattering. The path joins keys
+# with \034, a control character no JSON string may hold raw, because a dot would let the literal
+# key "sandbox.enabled" pose as nesting. It decodes nothing, so an escaped KEY is refused outright,
+# and so is an escaped allow value, which would decode to a rule refused in plain spelling; no AMH
+# entry needs either. A file it cannot follow to a balanced end, and a scanner that fails, are
+# UNVERIFIED, never passed.
+# shellcheck disable=SC2016 # an awk program, not shell
+JSON_PATHS='
+function path(   s, j) { s = ""; for (j = 1; j <= d; j++) s = s (j > 1 ? "\034" : "") k[j]; return s }
+function scalar() { if (tok != "") { print "VAL\t" path() "\t" tok; tok = "" } }
+{
+	sub(/\r$/, "")
+	n = length($0)
+	for (i = 1; i <= n; i++) {
+		c = substr($0, i, 1)
+		if (ins) {
+			if (esc) { esc = 0; s = s c; continue }
+			if (c == "\\") { esc = 1; bs = 1; s = s c; continue }
+			if (c != "\"") { s = s c; continue }
+			ins = 0
+			if (t[d] == "o" && want) { k[d] = s; want = 0; print "KEY\t" path() "\t" bs }
+			else print "VAL\t" path() "\t\"" s "\"\t" bs
+			continue
+		}
+		if (c == " " || c == "\t") { scalar(); continue }
+		if (c == "\"") { scalar(); ins = 1; s = ""; bs = 0; continue }
+		if (c == "{") { d++; t[d] = "o"; k[d] = ""; want = 1; continue }
+		if (c == "[") { d++; t[d] = "a"; k[d] = "[]"; continue }
+		if (c == "}" || c == "]") { scalar(); d--; if (d < 0) bad = 1; continue }
+		if (c == ",") { scalar(); if (t[d] == "o") want = 1; continue }
+		if (c == ":") { scalar(); continue }
+		tok = tok c
+	}
+	scalar()
+}
+END { if (ins || d != 0 || bad) print "BROKEN" }
+'
+claude_sandbox=0
+for declaration in "${ADAPTERS[@]}"; do
+	case $declaration in
+	*claude-settings.json*) ;;
+	*) continue ;;
+	esac
+	for settings in "${declaration%|*}" "${declaration#*|}"; do
+		[ -f "$settings" ] || continue
+		findings=$(awk "$JSON_PATHS" "$settings" | awk -F'\t' '
+			$1 == "BROKEN" { broken = 1 }
+			$1 == "KEY" { keys++ }
+			function shown(p) { gsub(/\034/, ".", p); return p }
+			$1 == "KEY" && $3 == 1 { print "ESCAPED\t" shown($2) }
+			$1 == "KEY" && $2 == "sandbox" { top++ }
+			$1 == "KEY" && index($2, "sandbox\034") == 1 { kids++ }
+			$1 == "VAL" && index($2, "sandbox\034") == 1 { v[$2] = $3 }
+			$1 == "KEY" && ($2 == "permissions\034additionalDirectories" || $2 == "permissions\034defaultMode") { print "WIDEN\t" shown($2) }
+			$1 == "VAL" && $2 == "permissions\034allow\034[]" && $3 ~ /^"(Edit|Write|Read|WebFetch)(\(|"$)/ { t = $3; sub(/^"/, "", t); sub(/[("].*/, "", t); print "ALLOW\t" t }
+			$1 == "VAL" && $2 == "permissions\034allow\034[]" && $4 == 1 { print "ESCVAL" }
+			END {
+				if (broken) print "BROKEN"
+				else if (keys == 0) print "EMPTY"
+				else if (top != 1) print "COUNT\t" top + 0
+				else if (kids != 3 || v["sandbox\034enabled"] != "true" ||
+					v["sandbox\034allowUnsandboxedCommands"] != "false" ||
+					v["sandbox\034autoAllowBashIfSandboxed"] != "false") print "SHAPE"
+				print "DONE"
+			}
+		')
+		# Both scanners must SUCCEED and the consumer must reach its last line: a scanner that dies
+		# prints nothing, and nothing is exactly what a clean file prints (DC-002's fail-closed rule).
+		scan_rc=$?
+		if [ "$scan_rc" -ne 0 ] || [ "${findings##*$'\n'}" != DONE ]; then
+			note "$settings: the sandbox scanner failed (exit $scan_rc) or stopped before its end, so the sandbox configuration is UNVERIFIED, not present (DD-079)"
+			continue
+		fi
+		findings=${findings%DONE}
+		if [ -z "$findings" ]; then
+			claude_sandbox=$((claude_sandbox + 1))
+			continue
+		fi
+		while IFS=$'\t' read -r kind detail; do
+			case $kind in
+			'') ;;
+			BROKEN) note "$settings: the sandbox check could not follow this file to a balanced end — an unclosed string, object or array — so the sandbox configuration is UNVERIFIED, not present (DD-079)" ;;
+			EMPTY) note "$settings: checked NOTHING for the sandbox — the tokenizer read not one key, so this guard either reads an empty file or has stopped reading the one it checks (DD-079)" ;;
+			ESCAPED) note "$settings: the key $detail is written with a JSON escape. This guard decodes nothing, and \"\\u0073andbox\" is a second \"sandbox\" that JSON lets govern, so an escaped key is refused outright; no AMH key needs one (DD-079)" ;;
+			COUNT) note "$settings: $detail top-level \"sandbox\" key(s), where the adapter ships exactly one — none leaves the host sandbox off, a block nested under another key turns nothing on, and with two JSON keeps the last (DD-079)" ;;
+			SHAPE) note "$settings: the \"sandbox\" block is not exactly {\"enabled\": true, \"allowUnsandboxedCommands\": false, \"autoAllowBashIfSandboxed\": false}. Every other key loosens it, approves commands for being sandboxed, reopens the unsandboxed retry, or — failIfUnavailable — stops Claude Code starting on native Windows; a misspelled key is ignored by the host and reads as configured (DD-079)" ;;
+			WIDEN) note "$settings: sets $detail, which the shipped adapter never sets — additionalDirectories adds working directories, and defaultMode decides who approves, bypassPermissions approving everything unasked (DD-079)" ;;
+			ESCVAL) note "$settings: permissions.allow carries an allow value written with a JSON escape. This guard decodes nothing, and \"\\u0052ead(//**)\" is the Read rule a plain spelling would be refused for, so an escaped allow value is refused outright (DD-079)" ;;
+			ALLOW) note "$settings: permissions.allow carries a $detail rule, and permission rules feed the sandbox: an Edit or Write allow grants sandboxed writes, a Read allow can reopen a denied read, a WebFetch allow adds a domain. The shipped adapter allows only Bash commands (DD-079)" ;;
+			esac
+		done <<<"$findings"
+	done
+done
+
+# Codex: AMH relies on Codex's default sandbox and pins none of it, because a pinned key could
+# override the user's own policy or collide with their `default_permissions` profile (DD-079). So
+# the shipped config may hold its three hook tables and nothing else. An allow-list, not a list of
+# known loosening keys: `sandbox_mode = "danger-full-access"`, `[sandbox_workspace_write]` with
+# `network_access` or `writable_roots`, a `default_permissions` profile, `[permissions.*]` network
+# and domain rules (which bind only while a proxy runs, `network.enabled` alone opening direct
+# networking), `approval_policy`, `[windows] sandbox` and `[features]` all fail here without being
+# named, and so does the key nobody has thought of yet, dotted, quoted or inline. Every line outside
+# a comment must be a hook table header, a matcher, the hook list's opening or closing line, or one
+# inline command entry. It fails CLOSED on layout: the same hooks written in another TOML spelling
+# (CRLF, quoted table names, `matcher="..."`) fail here as they fail the hook checks above, and the
+# fix is the shipped spelling, never a wider pattern.
+codex_sandbox=0
+for declaration in "${ADAPTERS[@]}"; do
+	case $declaration in
+	*codex-config.toml*) ;;
+	*) continue ;;
+	esac
+	for config in "${declaration%|*}" "${declaration#*|}"; do
+		[ -f "$config" ] || continue
+		stray=$(awk '
+			/^[[:space:]]*(#|$)/ { next }
+			/^\[\[hooks\.(SessionStart|PreToolUse|PostToolUse)\]\]$/ { read++; next }
+			/^matcher = "[^"]*"$/ || /^hooks = \[$/ || /^\]$/ { read++; next }
+			/^  \{ type = "command", command = .*\},$/ { read++; next }
+			{ printf "%s%s", (bad ? " " : ""), NR; bad++ }
+			END { if (read == 0 && bad == 0) print "EMPTY"; else if (bad) print ""; print "DONE" }
+		' "$config")
+		# Line NUMBERS only: a rejected line is unknown text, and it could carry a credential.
+		scan_rc=$?
+		if [ "$scan_rc" -ne 0 ] || [ "${stray##*$'\n'}" != DONE ]; then
+			note "$config: the Codex sandbox scanner failed (exit $scan_rc) or stopped before its end, so whether this file sets a sandbox key is UNVERIFIED (DD-079)"
+			continue
+		fi
+		stray=${stray%DONE}
+		stray=${stray%$'\n'}
+		if [ "$stray" = EMPTY ]; then
+			note "$config: checked NOTHING for Codex sandbox keys — not one line was read, so this guard either reads an empty file or has stopped reading the one it checks (DD-079)"
+		elif [ -n "$stray" ]; then
+			note "$config: carries line(s) outside its three hook tables — AMH relies on Codex's default sandbox and ships no sandbox, permission, network, approval, feature or Windows key, since any of them can loosen it or collide with the user's default_permissions profile (DD-079): line(s) $stray"
+		else
+			codex_sandbox=$((codex_sandbox + 1))
+		fi
+	done
+done
+
+# The rule reviewer is the one place the adapters DO pin a Codex sandbox: a review agent that can
+# write is not the read-only second opinion the Rule-review protocol asks for. Exactly one
+# `sandbox_mode` key, and it is read-only. Read as TOML keys, not as text: a mention in a comment
+# is not an assignment, and the line `sandbox_mode = "read-only"` inside the multi-line
+# `developer_instructions` string is instruction text, not a key. So the reader skips comments,
+# follows `"""` and `'''` strings to their end, and then requires every remaining line to be a
+# bare key at the left margin. A quoted or escaped key (`"sandbox_mode"`), a dotted key, an
+# indented line and a table header are refused rather than read, since each can carry a second
+# sandbox_mode this reader would not see.
+reviewer_sandbox=0
+for declaration in "${ADAPTERS[@]}"; do
+	case $declaration in
+	*amh-rule-reviewer.toml*) ;;
+	*) continue ;;
+	esac
+	for agent in "${declaration%|*}" "${declaration#*|}"; do
+		[ -f "$agent" ] || continue
+		# A multi-line string opens only where a VALUE begins with its delimiter: a triple quote inside
+		# an ordinary string, `description = "x '''"`, opens nothing, and treating it as an opening hid
+		# the real assignments after it. A string still open at the end is refused, never read past.
+		scan=$(awk '
+			function opens(v,   q) {
+				q = substr(v, 1, 3)
+				if (q != "\"\"\"" && q != "'"'''"'") return ""
+				# A string that opens and closes on the same line leaves nothing open.
+				return (index(substr(v, 4), q) ? "" : q)
+			}
+			{ sub(/\r$/, "") }
+			ml != "" { if (index($0, ml)) ml = ""; next }
+			/^[[:space:]]*(#|$)/ { next }
+			!/^[A-Za-z0-9_-]+[[:space:]]*=/ { unread++; next }
+			{
+				key = $0; sub(/[[:space:]]*=.*/, "", key)
+				val = $0; sub(/^[^=]*=[[:space:]]*/, "", val)
+				if (key == "sandbox_mode") {
+					modes++
+					if (val ~ /^("read-only"|'"'read-only'"')([[:space:]]*#.*)?$/) pinned++
+				}
+				ml = opens(val)
+			}
+			END { print modes + 0, pinned + 0, unread + 0, (ml != "" ? 1 : 0) }
+		' "$agent")
+		scan_rc=$?
+		if [ "$scan_rc" -ne 0 ] || ! [[ $scan =~ ^[0-9]+\ [0-9]+\ [0-9]+\ [01]$ ]]; then
+			note "$agent: the reviewer sandbox scanner failed (exit $scan_rc) or printed no verdict, so the reviewer's sandbox_mode is UNVERIFIED, not read-only (DD-079)"
+			continue
+		fi
+		read -r modes pinned unread open <<<"$scan"
+		if [ "$open" -ne 0 ]; then
+			note "$agent: a multi-line string opens and never closes, so everything after its opening is UNVERIFIED — a second sandbox_mode could sit there unread (DD-079)"
+		elif [ "$unread" -ne 0 ]; then
+			note "$agent: $unread line(s) are not a bare top-level key, a comment or the body of a multi-line string — a table header, an indented, dotted, quoted or escaped key — so whether a second sandbox_mode sits there is UNVERIFIED. This guard reads a reviewer made of bare top-level keys (DD-079)"
+		elif [ "$modes" -ne 1 ] || [ "$pinned" -ne 1 ]; then
+			note "$agent: the reviewer must carry exactly one sandbox_mode key, and it read-only — found $modes such key(s), $pinned of them read-only. A reviewer that can write is not a read-only second opinion (DD-079)"
+		else
+			reviewer_sandbox=$((reviewer_sandbox + 1))
+		fi
+	done
+done
+
 [ "$fails" -eq 0 ] || exit 1
-printf 'first-class adapter set is complete across sources, reference paths, installation and legislation; %s Claude command hook(s) across %s file(s) pin shell=bash, %s file(s) anchor every Claude hook at the project root and refuse calls when a command guard fails, %s Claude command guard(s) match Bash|PowerShell, %s Claude and %s Codex adapter(s) wire the PostToolUse redaction rail for every tool, %s Claude file(s) deny the editing tools the git pre-push hook, and the machine-mode template carries its exact hook and every adapter credential Read rail\n' "$claude_hooks" "$claude_files" "$claude_anchor_files" "$claude_pre" "$claude_post" "$codex_post" "$claude_hookfile"
+printf 'first-class adapter set is complete across sources, reference paths, installation and legislation; %s Claude command hook(s) across %s file(s) pin shell=bash, %s file(s) anchor every Claude hook at the project root and refuse calls when a command guard fails, %s Claude command guard(s) match Bash|PowerShell, %s Claude and %s Codex adapter(s) wire the PostToolUse redaction rail for every tool, %s Claude file(s) deny the editing tools the git pre-push hook, the machine-mode template carries its exact hook and every adapter credential Read rail, and as configuration validation, not runtime attestation, %s Claude file(s) request exactly the shipped sandbox block, %s Codex file(s) set no key outside their hook tables, and %s reviewer file(s) pin sandbox_mode read-only\n' "$claude_hooks" "$claude_files" "$claude_anchor_files" "$claude_pre" "$claude_post" "$codex_post" "$claude_hookfile" "$claude_sandbox" "$codex_sandbox" "$reviewer_sandbox"

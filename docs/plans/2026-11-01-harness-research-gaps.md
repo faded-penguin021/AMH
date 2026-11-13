@@ -29,7 +29,8 @@ Units 0–4.
    plan's Phase A shipped and tagged 16.0.0, so nothing here rides that draft.
 2. **Version semantics for each unit** (**Session discipline** 7(c)). H3 changes the adopter
    file layout and H4b changes what an adopter's agent can do, so each is at least MINOR and
-   possibly MAJOR.
+   possibly MAJOR. **H4b answered by the owner on 2026-11-13: it folds into the 17.0.0 draft**
+   (**DD-079**).
 3. **H2: which constitution content stays loaded every session.** `AGENTS.md` makes relocating a
    live rule a change to legislation, and makes a bulk relocation the owner's decision.
 4. **H3: the adopter file layout and how existing installs migrate** (§5, H3).
@@ -601,7 +602,7 @@ fi
     `credentials` entries, the reading that leaves Codex's own Windows sandbox alone, and H4b's
     version semantics (§1 item 2).
 
-### H4b — wire the host sandbox into both first-class adapters, per H4a
+### H4b — wire the host sandbox into both first-class adapters, per H4a: done 2026-11-13 as configuration, live probes owed
 
 - **Why:** H4a, as the owner decided it. **DD-038** and **DD-063** support containing the
   deletion class.
@@ -644,6 +645,35 @@ fi
     row and the commit body.
   - Live probes are observed by the owner or a named session and are not CI evidence. The
     disclosure says so.
+- **Result (2026-11-13, at `ec959cf`): shipped as configuration; the live probes are owed.**
+  The owner's answers, taken when it started: (1) ship the configuration, the guard and its
+  fixtures now, call every cell unverified, and let a follow-up claim only the cells a live probe
+  passes, on the owner's own host or a session the owner names; (2) the five design defaults of
+  the companion's §11, as proposed; (3) no `credentials` entries for now, reopened on an incident
+  or on outside findings or proof; (4) Codex's own sandbox left alone; (5) it folds into the
+  17.0.0 draft, whatever that draft is ruled; (6) the owed pass is gpt-6.1-sol at `-e high`
+  (**DD-079**).
+  - **Done:** the Claude block in the template and this repo's copy; `adapter-set.sh` extended
+    and labelled configuration validation; acceptance (a) as fixtures in
+    `scripts/tests/local-guards.sh`, each seen failing against the committed guard; the README
+    section **The host's sandbox**; the 17.0.0 Upgrading step; `bwrap socat` in this repo's
+    `REQUIRED_TOOLS` rather than in `session-start.sh`, which names no vendor's tools (P14).
+  - **Mapped mutations.** "Fallback allowed" is the shipped Claude state by the owner's choice,
+    so its fixture is `failIfUnavailable` set either way, a change of decision the guard
+    reports; for Codex it is `[windows] sandbox` and `features.prefer_mxc`. "Disabled filesystem
+    isolation" cannot be set from a project file (the companion's §5), and is refused anyway.
+  - **The reviews.** A mid-unit gpt-6.1-sol `ask` at `-e medium` found the first guard reading by
+    layout (4 P1, 5 P2): indentation taken for JSON scope, an escaped key, the reviewer pin
+    readable inside a string, and permission rules that widen the sandbox beside an exact block;
+    the Claude check became a tokenizer. The owed pass, gpt-6.1-sol `rules` at `-e high` over both
+    checklists, then found 5 P1, each replayed and fixed with a fixture seen failing first: a
+    literal dotted key, an escaped allow value, a triple quote inside an ordinary TOML string, a
+    crashed scanner reading as a pass, and a Codex diagnostic echoing the rejected line. Citation
+    validity and agent-agnosticism were clean.
+  - **Not done:** (b) to (g). This host has no `bwrap` or `socat` and cannot create a user
+    namespace (`unshare -Ur`: "Operation not permitted"), so no sandbox could start here; (e) is
+    moot, since no credential isolation was selected. The probe list is the companion's §7 and
+    this unit's acceptance; it is in the Owner queue.
 
 ### H2 — keep in the constitution what every session needs; point at the rest
 

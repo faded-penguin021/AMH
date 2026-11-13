@@ -409,6 +409,17 @@ rebased, or cut from a newer commit than HEAD.
   — rails, redaction, or prose-only — and state each layer's bounds with it: a redaction hook
   sees successful tool calls only, cannot unsay what the tool already wrote to the transcript,
   and catches the enumerated shapes and nothing else.
+- **The host's own sandbox** (where the host has one): a layer under every rail above, never a
+  replacement for one. The Claude Code adapter turns on Claude Code's shell sandbox in the
+  project file with no retry outside it and no approval for being sandboxed, so the prompts stay
+  as they were. Three bounds go with it. Native Windows has none, by the owner's choice, so the
+  command guard and the prose are the only layers there. Where it cannot start, on Linux or WSL2
+  without `bubblewrap` and `socat`, the host runs commands unsandboxed and says nothing, because
+  failing instead would stop Claude Code starting on native Windows. And a project file sets
+  defaults that a local, `--settings` or managed file outranks. The Codex adapter pins no sandbox
+  key and relies on Codex's default, since a pinned key could collide with the user's own
+  permission profile. A guard can validate what the shipped files ask for; whether a sandbox
+  started and enforced anything is a live probe, and no file proves it.
 - **Server-side:** the owner mirrors the hardest rails at the host — branch protection on the
   default branch (PRs required; force-push and deletion blocked) and secret-scanning push
   protection. The adapter's deny rules bind only agents that load them; the server binds every

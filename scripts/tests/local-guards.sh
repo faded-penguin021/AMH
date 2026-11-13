@@ -1047,6 +1047,281 @@ printf '\n[[hooks.PostToolUse]]\nmatcher = ".*"\nhooks = []\n' >>"$d/.codex/conf
 expect fail "adapter-set: a narrowed Codex rail beside another table's all-tools matcher" "$d" adapter-set.sh \
 	"UNVERIFIED, not all-tools"
 
+# The host sandboxes (DD-079): configuration validation, so every case is a file the host would
+# load looser than the shipped one, and each would pass a guard that read nothing here. Each
+# mutates ONE copy — template or reference, alternating — so a check reading only one of them is
+# caught. `sandbox_line` inserts lines straight after a line matched exactly (leading space kept).
+sandbox_line() { # sandbox_line <file> <exact-line> <text-to-insert-after-it>
+	SB_AT=$2 SB_ADD=$3 awk '{ print } $0 == ENVIRON["SB_AT"] { print ENVIRON["SB_ADD"] }' "$1" >"$1.amh-awk" &&
+		cat "$1.amh-awk" >"$1" && rm -f "$1.amh-awk"
+}
+CT=harness/templates/configs/claude-settings.json
+CR=.claude/settings.json
+SB_ENABLED='    "enabled": true,'
+SB_BLOCK_MSG='"sandbox" block is not exactly'
+
+d=$(snapshot adapter_sandbox_off)
+sed_in_place 's/^    "enabled": true,$/    "enabled": false,/' "$d/$CT"
+expect fail "adapter-set: the Claude sandbox is turned off" "$d" adapter-set.sh "$SB_BLOCK_MSG"
+
+d=$(snapshot adapter_sandbox_gone)
+sed_in_place '/^  "sandbox": {$/,/^  },$/d' "$d/$CR"
+expect fail "adapter-set: the Claude sandbox block is removed" "$d" adapter-set.sh '0 top-level "sandbox" key(s)'
+
+d=$(snapshot adapter_sandbox_retry_on)
+sed_in_place 's/"allowUnsandboxedCommands": false,/"allowUnsandboxedCommands": true,/' "$d/$CR"
+expect fail "adapter-set: the unsandboxed retry is allowed" "$d" adapter-set.sh "$SB_BLOCK_MSG"
+
+d=$(snapshot adapter_sandbox_autoallow)
+sed_in_place 's/"autoAllowBashIfSandboxed": false$/"autoAllowBashIfSandboxed": true/' "$d/$CT"
+expect fail "adapter-set: sandboxed commands run unprompted" "$d" adapter-set.sh "$SB_BLOCK_MSG"
+
+# Each key the host accepts inside the block, added as its own line: a widened write path, a
+# widened network allowlist, disabled filesystem isolation, exclusions, permissive sockets, weaker
+# nested isolation, a misspelled key, a duplicate key (JSON keeps the last), and `failIfUnavailable`,
+# which is the fallback switch — the owner chose to keep the fallback (DD-078), so setting it either
+# way is a change of decision the guard reports rather than a loosening it ignores.
+n=0
+for extra in \
+	'    "filesystem": { "allowWrite": ["~"] },' \
+	'    "network": { "allowedDomains": ["*"] },' \
+	'    "filesystem": { "disabled": true },' \
+	'    "excludedCommands": ["rm", "git"],' \
+	'    "network": { "allowAllUnixSockets": true },' \
+	'    "enableWeakerNestedSandbox": true,' \
+	'    "enabeld": true,' \
+	'    "enabled": false,' \
+	'    "failIfUnavailable": true,' \
+	'    "failIfUnavailable": false,'; do
+	n=$((n + 1))
+	d=$(snapshot "adapter_sandbox_extra_$n")
+	if [ $((n % 2)) -eq 0 ]; then target=$CR; else target=$CT; fi
+	sandbox_line "$d/$target" "$SB_ENABLED" "$extra"
+	expect fail "adapter-set: an added sandbox key loosens or changes the block ($extra)" "$d" adapter-set.sh "$SB_BLOCK_MSG"
+done
+
+# A key written on the opening line is invisible to a reader that only checks the lines below.
+d=$(snapshot adapter_sandbox_key_on_open)
+sed_in_place 's/^  "sandbox": {$/  "sandbox": { "excludedCommands": ["*"],/' "$d/$CT"
+expect fail "adapter-set: a key on the sandbox block's opening line" "$d" adapter-set.sh "$SB_BLOCK_MSG"
+
+# A second block after the first: JSON keeps the last, so the off switch governs.
+d=$(snapshot adapter_sandbox_duplicate)
+sandbox_line "$d/$CR" '    "autoAllowBashIfSandboxed": false' '  },
+  "sandbox": { "enabled": false'
+expect fail "adapter-set: a second, later sandbox block" "$d" adapter-set.sh '2 top-level "sandbox" key(s)'
+
+# The wrong scope: the same exact block nested under "permissions" is not the sandbox setting.
+d=$(snapshot adapter_sandbox_nested)
+sed_in_place '/^  "sandbox": {$/,/^  },$/d' "$d/$CT"
+sandbox_line "$d/$CT" '  "permissions": {' '    "sandbox": {
+    "enabled": true,
+    "allowUnsandboxedCommands": false,
+    "autoAllowBashIfSandboxed": false
+    },'
+expect fail "adapter-set: the sandbox block nested under permissions" "$d" adapter-set.sh '0 top-level "sandbox" key(s)'
+
+# Additional directories and escalation, which sit outside the block and still reach the sandbox.
+d=$(snapshot adapter_sandbox_additional_dirs)
+sandbox_line "$d/$CR" '  "permissions": {' '    "additionalDirectories": ["/"],'
+expect fail "adapter-set: additional directories widen the sandbox's reach" "$d" adapter-set.sh 'sets permissions.additionalDirectories'
+
+d=$(snapshot adapter_sandbox_bypass)
+sandbox_line "$d/$CT" '  "permissions": {' '    "defaultMode": "bypassPermissions",'
+expect fail "adapter-set: an escalation mode approves everything" "$d" adapter-set.sh 'sets permissions.defaultMode'
+
+# Restored to a correct shape somewhere else: the same block moved to the END of the file, after
+# "hooks", is what the host loads, and must pass. A check that pinned the block's position rather
+# than its scope and content would fail this.
+d=$(snapshot adapter_sandbox_moved_last)
+sed_in_place '/^  "sandbox": {$/,/^  },$/d' "$d/$CR"
+sed_in_place "\$d" "$d/$CR"
+sed_in_place "\$s/^  }\$/  },/" "$d/$CR"
+printf '  "sandbox": {\n    "enabled": true,\n    "allowUnsandboxedCommands": false,\n    "autoAllowBashIfSandboxed": false\n  }\n}\n' >>"$d/$CR"
+expect pass "adapter-set: the exact sandbox block at the end of the file" "$d" adapter-set.sh
+
+# The bypasses a line reader passed (Sol's mid-unit review of H4b). The block nested under
+# "permissions" but indented like a top-level key: indentation is not JSON scope.
+d=$(snapshot adapter_sandbox_nested_flush)
+sed_in_place '/^  "sandbox": {$/,/^  },$/d' "$d/$CR"
+sandbox_line "$d/$CR" '  "permissions": {' '  "sandbox": {
+    "enabled": true,
+    "allowUnsandboxedCommands": false,
+    "autoAllowBashIfSandboxed": false
+  },'
+expect fail "adapter-set: the sandbox block nested under permissions at top-level indentation" "$d" adapter-set.sh \
+	'0 top-level "sandbox" key(s)'
+
+# An escaped key decodes to a second "sandbox", after "hooks", and JSON lets the last one govern.
+d=$(snapshot adapter_sandbox_escaped_duplicate)
+sed_in_place "\$d" "$d/$CT"
+sed_in_place "\$s/^  }\$/  },/" "$d/$CT"
+printf '  "\\u0073andbox": {"enabled": false}\n}\n' >>"$d/$CT"
+expect fail "adapter-set: an escaped second sandbox key" "$d" adapter-set.sh 'written with a JSON escape'
+
+d=$(snapshot adapter_sandbox_escaped_mode)
+# By sed, not sandbox_line: mawk decodes `\u` escapes in ENVIRON, so the helper would write the
+# plain key and this case would test the other check.
+sed_in_place 's/^  "permissions": {$/&\n    "\\u0064efaultMode": "bypassPermissions",/' "$d/$CR"
+expect fail "adapter-set: an escaped defaultMode" "$d" adapter-set.sh 'written with a JSON escape'
+
+# Permission rules that feed the sandbox, beside a byte-exact block.
+n=0
+for rule in '"Edit(//tmp/outside/**)",' '"WebFetch(domain:example.com)",' '"Write(//**)",' '"Read(//**)",'; do
+	n=$((n + 1))
+	d=$(snapshot "adapter_sandbox_allow_$n")
+	if [ $((n % 2)) -eq 0 ]; then target=$CR; else target=$CT; fi
+	sandbox_line "$d/$target" '    "allow": [' "      $rule"
+	expect fail "adapter-set: an allow rule widens the sandbox (${rule%,})" "$d" adapter-set.sh 'permission rules feed the sandbox'
+done
+
+# The bypasses the owed review of H4b found in the tokenizer. A key with a literal dot is not
+# nesting: "sandbox.enabled" beside an empty "sandbox" leaves the real block empty (F1).
+d=$(snapshot adapter_sandbox_dotted_keys)
+sed_in_place '/^  "sandbox": {$/,/^  },$/c\
+  "sandbox": {},\
+  "sandbox.enabled": true,\
+  "sandbox.allowUnsandboxedCommands": false,\
+  "sandbox.autoAllowBashIfSandboxed": false,' "$d/$CR"
+expect fail "adapter-set: literal dotted keys beside an empty sandbox block" "$d" adapter-set.sh "$SB_BLOCK_MSG"
+
+# An escaped allow VALUE decodes to the rule a plain one spells (F2).
+d=$(snapshot adapter_sandbox_allow_escaped)
+sed_in_place 's/^    "allow": \[$/&\n      "\\u0052ead(\/\/**)",/' "$d/$CT"
+expect fail "adapter-set: an escaped Read allow rule" "$d" adapter-set.sh 'allow value written with a JSON escape'
+
+# A scanner that fails is a red run, never a pass (F4). The shim fails exactly the awk program
+# that carries the named text and passes every other call to the real awk.
+SB_AWK=$(command -v awk)
+for scanner in 'keys == 0' 'read == 0 && bad == 0' 'function opens'; do
+	d=$(snapshot "adapter_sandbox_scanner_${scanner%% *}")
+	mkdir -p "$d/.shim"
+	printf '#!/bin/sh\ncase "$*" in *"%s"*) exit 42 ;; esac\nexec "%s" "$@"\n' "$scanner" "$SB_AWK" >"$d/.shim/awk"
+	chmod +x "$d/.shim/awk"
+	EXPECT_PATH_PREFIX="$d/.shim"
+	expect fail "adapter-set: a sandbox scanner that fails ($scanner)" "$d" adapter-set.sh 'scanner failed'
+	EXPECT_PATH_PREFIX=
+done
+
+# Correct configurations in another layout must still pass: the block on one line, and its members
+# reordered. A check of one serialization rather than of the configuration fails both.
+d=$(snapshot adapter_sandbox_one_line)
+sed_in_place '/^  "sandbox": {$/,/^  },$/c\
+  "sandbox": {"autoAllowBashIfSandboxed": false, "enabled": true, "allowUnsandboxedCommands": false},' "$d/$CT"
+expect pass "adapter-set: the sandbox block on one line, reordered" "$d" adapter-set.sh
+
+# Codex: no key outside the three hook tables, by allow-list. Each case is a key the host loads
+# that loosens its default sandbox, or the fallback and Windows switches, or proxy-off domain rules
+# (which bind only while a proxy runs; network.enabled alone opens direct networking).
+XT=harness/templates/configs/codex-config.toml
+XR=.codex/config.toml
+n=0
+for extra in \
+	'sandbox_mode = "danger-full-access"' \
+	'default_permissions = ":danger-full-access"' \
+	'approval_policy = "never"' \
+	'windows = { sandbox = "unelevated" }' \
+	'[sandbox_workspace_write]
+network_access = true' \
+	'[sandbox_workspace_write]
+writable_roots = ["/"]' \
+	'[windows]
+sandbox = "unelevated"' \
+	'[features]
+prefer_mxc = true' \
+	'[permissions.amh.network]
+enabled = true
+domains = { "example.com" = "allow" }'; do
+	n=$((n + 1))
+	d=$(snapshot "adapter_codex_sandbox_key_$n")
+	if [ $((n % 2)) -eq 0 ]; then target=$XR; else target=$XT; fi
+	case $extra in
+	'['*) printf '\n%s\n' "$extra" >>"$d/$target" ;;
+	# A bare key must come before the first table or TOML assigns it to that table.
+	*) { printf '%s\n' "$extra"; cat "$d/$target"; } >"$d/codex.amh" && cat "$d/codex.amh" >"$d/$target" ;;
+	esac
+	expect fail "adapter-set: the Codex adapter sets a sandbox, approval or network key (${extra%%$'\n'*})" "$d" adapter-set.sh \
+		"outside its three hook tables"
+done
+
+# A key slipped INTO a hook table is a line of that table, and the allow-list still reads it.
+d=$(snapshot adapter_codex_sandbox_key_in_table)
+sed_in_place 's/^matcher = "\^Bash\$"$/matcher = "^Bash$"\nsandbox_mode = "danger-full-access"/' "$d/$XR"
+expect fail "adapter-set: a sandbox key inside a Codex hook table" "$d" adapter-set.sh "outside its three hook tables"
+
+# Comments and blank lines are not keys: a correct file with more of both still passes.
+d=$(snapshot adapter_codex_sandbox_comments_only)
+printf '\n# sandbox_mode = "danger-full-access" is what this file must never say\n\n' >>"$d/$XT"
+expect pass "adapter-set: a Codex comment naming a sandbox key" "$d" adapter-set.sh
+
+# The reviewer's read-only pin.
+RT=harness/templates/configs/codex-agents/amh-rule-reviewer.toml
+RR=.codex/agents/amh-rule-reviewer.toml
+d=$(snapshot adapter_reviewer_writable)
+sed_in_place 's/^sandbox_mode = "read-only"$/sandbox_mode = "workspace-write"/' "$d/$RT"
+expect fail "adapter-set: the rule reviewer can write" "$d" adapter-set.sh "exactly one sandbox_mode key"
+
+d=$(snapshot adapter_reviewer_duplicate_mode)
+printf 'sandbox_mode = "danger-full-access"\n' >>"$d/$RR"
+expect fail "adapter-set: a second reviewer sandbox_mode" "$d" adapter-set.sh "found 2 such key(s)"
+
+d=$(snapshot adapter_reviewer_mode_in_table)
+sed_in_place '/^sandbox_mode = "read-only"$/d' "$d/$RR"
+printf '\n[mcp_servers.x]\nsandbox_mode = "read-only"\n' >>"$d/$RR"
+expect fail "adapter-set: the reviewer's read-only line sits under a table" "$d" adapter-set.sh "not a bare top-level key"
+
+# The read-only line moved into the instructions string, with an escaped key doing the governing:
+# text inside a multi-line string is not a key, and an escaped key is not read as one.
+d=$(snapshot adapter_reviewer_pin_in_string)
+sed_in_place 's/^sandbox_mode = "read-only"$/"\\u0073andbox_mode" = "danger-full-access"/' "$d/$RT"
+sed_in_place 's/^developer_instructions = """$/developer_instructions = """\nsandbox_mode = "read-only"/' "$d/$RT"
+expect fail "adapter-set: the reviewer pin is instruction text beside an escaped key" "$d" adapter-set.sh "not a bare top-level key"
+
+d=$(snapshot adapter_reviewer_pin_only_in_string)
+sed_in_place '/^sandbox_mode = "read-only"$/d' "$d/$RR"
+sed_in_place 's/^developer_instructions = """$/developer_instructions = """\nsandbox_mode = "read-only"/' "$d/$RR"
+expect fail "adapter-set: the reviewer pin only inside the instructions string" "$d" adapter-set.sh "found 0 such key(s)"
+
+d=$(snapshot adapter_reviewer_indented_table)
+printf '  [other]\nsandbox_mode = "danger-full-access"\n' >>"$d/$RT"
+expect fail "adapter-set: an indented table header in the reviewer" "$d" adapter-set.sh "not a bare top-level key"
+
+# A triple quote inside an ordinary string opens nothing; only one that BEGINS a value does (F3).
+# Python's TOML parser reads this reviewer as workspace-write.
+d=$(snapshot adapter_reviewer_quote_in_string)
+cat >"$d/$RR" <<'TOML'
+name = "amh-rule-reviewer"
+description = "description '''"
+sandbox_mode = "workspace-write"
+developer_instructions = """
+'''
+sandbox_mode = "read-only"
+note = """
+TOML
+expect fail "adapter-set: a triple quote inside an ordinary reviewer string" "$d" adapter-set.sh "0 of them read-only"
+
+d=$(snapshot adapter_reviewer_unclosed_string)
+printf 'extra = """\nsandbox_mode = "danger-full-access"\n' >>"$d/$RT"
+expect fail "adapter-set: a reviewer string that never closes" "$d" adapter-set.sh "never closes"
+
+# A rejected Codex line is reported by number, never echoed: it could carry a credential (F5).
+d=$(snapshot adapter_codex_sandbox_no_echo)
+{ printf 'review_probe = "%s_%s"\n' PUBLIC_DIAGNOSTIC SENTINEL; cat "$d/$XR"; } >"$d/codex.amh" && cat "$d/codex.amh" >"$d/$XR"
+expect fail "adapter-set: a stray Codex line is reported" "$d" adapter-set.sh "line(s) 1"
+# Captured first: under pipefail the guard's own exit 1 would make a matching grep read as a miss.
+sb_out=$(cd "$d" && bash scripts/guards/adapter-set.sh 2>&1)
+if printf '%s' "$sb_out" | grep -qF 'PUBLIC_DIAGNOSTIC_SENTINEL'; then
+	FAILED=$((FAILED + 1))
+	printf '  FAIL adapter-set: a stray Codex line is echoed into the diagnostic\n' >&2
+else
+	PASSED=$((PASSED + 1))
+fi
+
+# A comment naming the key, and a trailing comment on the pin, are not second assignments.
+d=$(snapshot adapter_reviewer_comments)
+sed_in_place 's/^sandbox_mode = "read-only"$/# sandbox_mode stays read-only\nsandbox_mode = '"'"'read-only'"'"' # inspect only/' "$d/$RR"
+expect pass "adapter-set: comments beside a single-quoted reviewer pin" "$d" adapter-set.sh
+
 
 d=$(snapshot drift_dist)
 printf 'hand edit\n' >>"$d/harness/dist/AMH.md"

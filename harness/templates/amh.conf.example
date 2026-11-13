@@ -36,7 +36,9 @@ RELEASE_TAG_PREFIX=
 # probed with `type -P` and reported `observed` or `unavailable` — a real probe, so a real
 # answer about this environment. Only the name is printed, never the resolved path. (`type -P`
 # and not `command -v`: the latter resolves builtins, functions and aliases before it looks at
-# PATH, so it reports `printf` as observed on a machine holding no binaries at all.)
+# PATH, so it reports `printf` as observed on a machine holding no binaries at all.) On Linux or
+# WSL2 with Claude Code's sandbox, add `bwrap socat`: without them it runs every command
+# unsandboxed and says nothing, and this line is then the only place that absence shows.
 # ADAPTER_FILES is a space-separated list of the agent-adapter files this repository ships.
 # Each is reported `configured` when present and `unknown` when absent — NEVER `observed`
 # and never `unavailable`. Present means this repo REQUESTS an integration; nothing can see

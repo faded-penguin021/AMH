@@ -21,7 +21,9 @@ In familiar terms:
 - **A “prove it” command** (`scripts/ladder.sh`) runs the real checks before work is accepted.
 - **Seatbelts** (`scripts/command-guard.sh`, `scripts/redact.sh`, `scripts/redact-tool-output.sh`)
   block known-dangerous command shapes and redact or detect credentials, before execution and
-  after it. They reduce risk; they are not a security sandbox.
+  after it. They reduce risk; they are not a security sandbox. The Claude Code adapter also
+  turns on that host's own sandbox, a separate layer whose limits are in
+  [The host's sandbox](#the-hosts-sandbox).
 
 It is agent-agnostic on purpose. The behaviour lives in ordinary files any capable coding
 agent can read, with thin adapters for supported tools. This repository ships the harness and
@@ -251,6 +253,37 @@ Know its limits before you rely on it:
 - **Only Claude Code has a fragment.** The mode reads the same hook payload as the project guard,
   so another agent with user-level pre-execution hooks could wire it too, but nobody has tested
   that.
+
+### The host's sandbox
+
+AMH's rails are not a security sandbox. The hosts have one of their own, and AMH asks for it
+rather than replacing it:
+
+- **Claude Code.** A fresh install's `.claude/settings.json` turns on Claude Code's shell
+  sandbox: `enabled`, no retry outside it (`allowUnsandboxedCommands: false`), and no approval
+  for being sandboxed (`autoAllowBashIfSandboxed: false`), so the permission prompts stay as they
+  were. Every AMH rail stays; the sandbox is a layer under them. It covers Bash, PowerShell and
+  Monitor commands on macOS, Linux and WSL2. It does not cover hooks (AMH's own included), the
+  file and web tools, MCP servers, or, in most sessions, commands you type with `!`.
+- **Native Windows has no sandbox.** On native Windows, Claude Code runs shell commands with no
+  sandbox, so the command guard and these rules are the only layers there. The guard's machine
+  mode is a rail, not containment. To get the sandbox on a Windows machine, run Claude Code
+  inside WSL2, with the seccomp filter installed if Windows programs must not be launchable from
+  a sandboxed command.
+- **It falls back silently.** Where the sandbox cannot start, as on Linux or WSL2 without
+  `bubblewrap` and `socat`, Claude Code runs commands unsandboxed and says nothing. AMH leaves
+  `failIfUnavailable` unset because it would stop Claude Code starting on native Windows. Add
+  `bwrap socat` to `REQUIRED_TOOLS` in `amh.conf` and the session banner shows whether they are
+  on `PATH` — which is not proof that the sandbox started. `bubblewrap`, `socat` and the seccomp
+  filter are optional host tools; AMH itself still needs only bash, git and coreutils.
+- **A project file sets defaults.** The local settings file beside it, `--settings` and managed
+  settings outrank it, and `--restricted` ignores it.
+- **Codex** sandboxes by default. AMH's Codex adapter sets no sandbox key, so it relies on
+  Codex's default and on whatever policy you configured, and does not enforce either.
+- **Nothing here is observed yet.** `scripts/guards/adapter-set.sh` checks that the shipped files
+  ask for exactly this and nothing looser. That is configuration validation, not a test of a
+  running session. No platform has yet been probed in a live sandboxed session, so every cell —
+  macOS, Linux, WSL2, under either host — is unverified until one is.
 
 ## Who it is for
 
