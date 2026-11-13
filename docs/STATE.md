@@ -26,12 +26,13 @@ Release state: `scripts/session-start.sh` probes the declared version's tag ever
 Live plans, each in `docs/plans/`, where a unit starts only on the owner's explicit approval of
 that unit:
 
-- `2026-11-01-harness-research-gaps.md`, adopted; H0, H0.5, H9, H1, the H9 fix, H4a, H2, H3
-  and H5 done, and H4b done as configuration with its live probes owed (Owner queue). Every unit rides
+- `2026-11-01-harness-research-gaps.md`, adopted; H0, H0.5, H9, H1, the H9 fix, H4a, H2, H3,
+  H5 and H7 done, and H4b done as configuration with its live probes owed (Owner queue). Every unit rides
   17.0.0 (owner, 2026-11-13). Before a unit starts the session says which decisions it needs and
   waits for the answers, and a fresh-context review is pre-allowed for every unit (owner,
   2026-11-09).
-  - [ ] H6a, H6b (optional), H7 — not approved (H8 parked)
+  - [ ] H6b — approved 2026-11-13, to follow H7
+  - [ ] H6a — waits on the owner's runs (Owner queue); H8 parked
 - `2026-11-04-spill-guard-borrowings.md`, adopted: S1, S2, S6a and S3 approved on 2026-11-10, to
   run in that order, each with its own review and its version settled when its behaviour is
   final (its §2, items 4 and 5); S4, S5, S6b and S6c deferred.
@@ -90,6 +91,10 @@ the session bootstrap; the full ladder inside the sandbox; and an old adapter le
 the Upgrading step. A follow-up then claims only the cells that pass. Check on a candidate host:
 `command -v bwrap socat && unshare -Ur true` — success there means the sandbox can at least start.
 
+**OPEN — say whether you can launch H6a's subject runs.** The launch recipe was given on
+2026-11-13: `conformance/runners/local-clone.sh --keep` per scenario and run, in a throwaway
+container, with each run's log, model and settings handed back. No command settles this.
+
 **OPEN — run G1, one gpt-6-astra `-e high` review of both command-guard plans,
 `docs/plans/2026-11-10-command-guard-gap-review.md` and
 `docs/plans/2026-11-09-cc-safety-net-borrowings.md`; then decide whether to adopt them, together,
@@ -147,6 +152,9 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-13 — **H7 of the research-gaps plan done: conformance scenario
+  `03-refused-deletion`, seeded on DD-038,** judging the refused path, an outside sentinel and
+  the rail by final state only; never run against an agent (**DD-083**).
 - 2026-11-13 — **H5 of the research-gaps plan done: every binding obligation in both
   constitutions and both Session discipline sections classified as invariant, compensation or
   mixed,** with provenance and a failure condition for each compensation, in
