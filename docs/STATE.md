@@ -97,6 +97,8 @@ are narrowed, not removed, only after the probe settles which fix is right; the 
 is not fixed, and a network push to a real remote, positive control first, is probed instead.
 The owner runs the probe script in one more throwaway box (ubuntu:24.04, non-root, `--init`,
 `seccomp=unconfined`, a token minted for it alone); no session touches the box or the token.
+The script is `docs/plans/2026-11-01-harness-research-gaps-h4b-probe.sh`; its header says how
+to run it, and it returns one `send-<UTC>.tar.gz` for a session to read and record.
 
 **OPEN — run G1, one gpt-6-astra `-e high` review of both command-guard plans,
 `docs/plans/2026-11-10-command-guard-gap-review.md` and
@@ -156,6 +158,8 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-15 — **H4b follow-up: the probe script for the owner's box,**
+  `docs/plans/2026-11-01-harness-research-gaps-h4b-probe.sh`, run here only in its `--check` mode.
 - 2026-11-15 — **H4b follow-up (a): `path-refs.sh` skips and names an untracked file it cannot
   read, and fails on a tracked one,** the ladder's failure inside the sandbox (**DD-089**).
 - 2026-11-15 — **Owner: an H4b follow-up approved, and the three DD-088 failures block the

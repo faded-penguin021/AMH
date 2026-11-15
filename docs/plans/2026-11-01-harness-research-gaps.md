@@ -711,6 +711,16 @@ fi
   an optional stage after the owner removes the package as root; the probe adds acceptance (c)'s
   worktrees, temporary files, git and bootstrap, records the WSL2 cell as unverified, and leaves
   (f) to a session here after (b).
+  - **Done:** (a), as **DD-089**; the probe script,
+    `2026-11-01-harness-research-gaps-h4b-probe.sh` beside this plan. The H4a companion's §5
+    records that an unlisted host is allowed without a prompt under `bypassPermissions`, the mode
+    the H6 runs used, so the script pushes under `bypassPermissions`, `default` and `dontAsk`. A
+    gpt-6.1-sol `ask` at medium effort found 15 defects in its first version, among them token
+    fragments surviving a cut made before redaction, raw stderr in the package, a failed
+    read-back recorded as a refusal, and verdicts not gated on a sandboxed, transcript-shown
+    run; all were fixed before commit. Only its `--check` mode has run, since no sandbox starts
+    here.
+  - **Owed:** the owner's run, then (b) on its results and their ledger rows.
 
 ### H2 — keep in the constitution what every session needs; point at the rest: done 2026-11-13
 
