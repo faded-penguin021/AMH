@@ -28,9 +28,9 @@ that unit:
 
 - `2026-11-01-harness-research-gaps.md`, adopted; H0, H0.5, H9, H1, the H9 fix, H4a, H2, H3,
   H5, H7, H6b and H6a done, H8 parked, and H4b done as configuration with its live probes owed
-  (Owner queue). An H4b follow-up is approved (owner, 2026-11-15), in this order: fix
-  `path-refs.sh` and commit; write one probe script for the owner's box; stop; then, on its
-  results, narrow the `//proc` deny rules and record the results as ledger rows. Every unit rides
+  (Owner queue). An H4b follow-up is approved (owner, 2026-11-15): `path-refs.sh` fixed, the
+  probe script written and run once by the owner, its results recorded (**DD-090**–**DD-093**);
+  the `//proc` change waits on the owner's answers, and the next owner-box run is the last. Every unit rides
   17.0.0 (owner, 2026-11-13). Before a unit starts the session says which decisions it needs and
   waits for the answers, and a fresh-context review is pre-allowed for every unit (owner,
   2026-11-09).
@@ -77,8 +77,8 @@ exception is asked if H8 is reopened. The plan's §7.1 also recommends a combine
 all three plans, which an item below owns. No command settles this.
 
 **OPEN — run H4b's live sandbox probes, on your own host or in a session you name (evidence:
-**DD-079**).** H4b shipped the Claude sandbox block as configuration only, and no cell has
-passed: no sandbox can start on the host that built it. The probes are the plan's H4b
+**DD-079**).** H4b shipped the Claude sandbox block as configuration only; the first cells to pass did so
+in the owner's box on 2026-11-15 (**DD-092**), and none is claimed yet. The probes are the plan's H4b
 acceptance (b) to (d), (f) and (g), with the list in the H4a companion's §7: an in-tree write
 passes and an out-of-tree one is refused, each with a positive control; network; on WSL2 a
 harmless Windows-program launch; startup without `bwrap`; worktrees, temporary files, git and
@@ -91,14 +91,16 @@ starts the sandbox. There the H6b runs saw three failures to decide on (**DD-088
 `//proc` deny rules refused every command at about 4,400 processes (about 450 by estimate), a
 push to a local remote outside the tree failed, and the full ladder was red on a placeholder.
 Owner, 2026-11-15: those three block tagging 17.0.0, and if they cannot be fixed in time 17.0.0
-ships with the sandbox block off and says so. `path-refs.sh` is fixed first (**DD-089**, not yet
-run inside the sandbox); the `//proc` rules
-are narrowed, not removed, only after the probe settles which fix is right; the out-of-tree push
-is not fixed, and a network push to a real remote, positive control first, is probed instead.
-The owner runs the probe script in one more throwaway box (ubuntu:24.04, non-root, `--init`,
-`seccomp=unconfined`, a token minted for it alone); no session touches the box or the token.
-The script is `docs/plans/2026-11-01-harness-research-gaps-h4b-probe.sh`; its header says how
-to run it, and it returns one `send-<UTC>.tar.gz` for a session to read and record.
+ships with the sandbox block off and says so; the `//proc` rules are narrowed, not removed, once
+a probe settles the fix. The probe ran once (**DD-090**–**DD-093**,
+`docs/plans/2026-11-01-harness-research-gaps-h4b-results.md`), and the next run is the owner's
+last. Four decisions, each with the session's recommendation, which a gpt-6-astra consultation
+shared: (1) `//proc`: only dropping both `//` rules stopped the growth, the vanished-PID failure was
+seen under the shipped rules, and narrowing still binds, by extrapolation at about 2,900, so amend "not removed" to allow
+it, or ship the block off; (2) one unit for DD-093's fixed `/tmp` paths, the guard's markers
+moving together with `session-start.sh`'s clearing, each fixture seen failing first, and `xz`
+provisioned in the box, not skipped; (3) worktree creation recorded as a limit, no write
+allowance; (4) the last run as the companion's §4 drafts it, probe repaired first.
 
 **OPEN — run G1, one gpt-6-astra `-e high` review of both command-guard plans,
 `docs/plans/2026-11-10-command-guard-gap-review.md` and
@@ -158,6 +160,8 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-15 — **H4b follow-up: the owner's probe run read and recorded,** after `7edb27f`
+  fixed the probe's prompt and tree trust (**DD-090**–**DD-093**).
 - 2026-11-15 — **H4b follow-up: the probe script for the owner's box,**
   `docs/plans/2026-11-01-harness-research-gaps-h4b-probe.sh`, run here only in its `--check` mode.
 - 2026-11-15 — **H4b follow-up (a): `path-refs.sh` skips and names an untracked file it cannot

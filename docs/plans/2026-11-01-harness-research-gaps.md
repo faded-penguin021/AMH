@@ -720,7 +720,17 @@ fi
     read-back recorded as a refusal, and verdicts not gated on a sandboxed, transcript-shown
     run; all were fixed before commit. Only its `--check` mode has run, since no sandbox starts
     here.
-  - **Owed:** the owner's run, then (b) on its results and their ledger rows.
+  - **The owner's run, 2026-11-15:** run `20261115T183650Z` at `7edb27f`, after a first attempt
+    the script's own two defects voided; its results are in
+    `2026-11-01-harness-research-gaps-h4b-results.md` beside this plan and in **DD-090** to
+    **DD-093**. Only dropping both `//proc` rules stopped the growth, the shipped rules also
+    failed a command on a vanished PID, the Read-tool cells did not settle, the out-of-tree write
+    was refused, a linked worktree could not be created, and the full ladder was red on fixed
+    `/tmp` paths and three bootstrap fixtures, none of it `path-refs.sh`'s.
+  - **Owed:** the owner's answers to the decisions in the H4b Owner-queue item, since dropping
+    both rules is removal and the owner ruled narrowing; then the candidate, the ladder fixes
+    and the probe repairs, and the last owner-box run, as the results companion's §4 drafts
+    it (owner, 2026-11-15: the next run is the last); then (f) here.
 
 ### H2 — keep in the constitution what every session needs; point at the rest: done 2026-11-13
 
