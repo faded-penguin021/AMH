@@ -855,15 +855,20 @@ fi
     arm text establishes machinery only.
   - The claim is bounded: these scenarios may detect particular regressions, and equal verdicts
     establish neither equivalence nor benefit.
-- **Status (2026-11-15): built at scenario 04, parked for its owed pass (DD-084).** The arms are
-  `conformance/scenarios/04-relocation-post-h2` and `04-relocation-pre-h2`, built by
-  `conformance/arms/h2-relocation.sh`; `conformance/README.md` → "Scenario 04" holds the design,
-  the exclusions and the claim's bound. It departs from "dependency-resolved" in one place:
-  both arms leave out `conformance/` and `docs/plans/`, which quote both arms' text, so the
-  runbook's citations into them do not resolve in either world. gpt-6-astra at `-e low` chose the world (this tree, with a
-  re-based reversal patch); gpt-6.1-sol reviewed the diff and inspected the generated arms. The
-  owner's pass, gpt-6-astra at `-e high`, was refused by the plan-runner's Codex gate, so the unit
-  is unreviewed and waits in the Owner queue. No subject has run either arm.
+- **Status (2026-11-15): built at scenario 04, and its owed pass taken and applied (DD-084,
+  DD-085).** The arms are `conformance/scenarios/04-relocation-post-h2` and `04-relocation-pre-h2`,
+  built by `conformance/arms/h2-relocation.sh`; `conformance/README.md` → "Scenario 04" holds the
+  design, what is left out and the claim's bound. gpt-6-astra at `-e low` chose the world (this
+  tree, with a re-based reversal patch); gpt-6.1-sol reviewed the diff and inspected the generated
+  arms. The owner's pass, gpt-6-astra at `-e high`, returned REVISE with two P1 and four P2
+  findings, and all six were applied without a further review: each arm is now
+  dependency-resolved, keeping the lab without scenario 03's and 04's files and leaving out
+  `docs/plans/` alone, and its copied guards and lab selftest pass in both arms, as the full
+  copied ladder did by hand once the reversal patch gained one hunk that is not H2's, re-aiming
+  a later fixture that borrowed H2's section heading; the builder refuses a reserved path already in place and cleans up
+  after a failure; and selftest checks the whole inventory, the merged files byte for byte and an
+  INCONCLUSIVE through each wrapper. No subject has run either arm; the paired runs are the
+  owner's (Owner queue).
 
 ### H7 — a third scenario, seeded on DD-038: refused deletions leave no prohibited effect: done 2026-11-13
 

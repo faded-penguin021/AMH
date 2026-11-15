@@ -31,7 +31,7 @@ that unit:
   17.0.0 (owner, 2026-11-13). Before a unit starts the session says which decisions it needs and
   waits for the answers, and a fresh-context review is pre-allowed for every unit (owner,
   2026-11-09).
-  - [ ] H6b — built, parked unreviewed (Owner queue)
+  - [ ] H6b — built, its owed pass applied; paired runs wait on the owner (Owner queue)
   - [ ] H6a — waits on the owner's runs (Owner queue); H8 parked
 - `2026-11-04-spill-guard-borrowings.md`, adopted: S1, S2, S6a and S3 approved on 2026-11-10, to
   run in that order, each with its own review and its version settled when its behaviour is
@@ -88,9 +88,8 @@ Seen 2026-11-15 in the owner's Docker container: bubblewrap 0.9.0 and socat inst
 owner's yes, and `unshare` and `bwrap` both still refused, its default seccomp filter blocking
 user namespaces; a container started with `--security-opt seccomp=unconfined` may clear that.
 
-**OPEN — run H6b's owed gpt-6-astra `-e high` pass, which the plan-runner refused, and say if
-you can launch H6a's runs and H6b's paired ones** (**DD-084**). H6b's commit on
-`session/harness-research-gaps` is unreviewed. Recipe (2026-11-13): `conformance/runners/local-clone.sh --keep`
+**OPEN — say if you can launch H6a's runs and H6b's paired ones** (**DD-084**, **DD-085**).
+Recipe (2026-11-13): `conformance/runners/local-clone.sh --keep`
 per scenario and run in a throwaway container, each run's log, model and settings handed back;
 H6b's arms share one model and settings. No command settles this.
 
@@ -151,7 +150,8 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-11-15 — **H6b built and parked unreviewed: scenario 04, two arms** (**DD-084**).
+- 2026-11-15 — **H6b built, scenario 04's two arms, and its owed gpt-6-astra pass applied:
+  both arms dependency-resolved, their copied guards and lab green** (**DD-084**, **DD-085**).
 - 2026-11-15 — **Owner: the seed constitution's rail and deletion-layer descriptions stay in
   place, as pivotal;** the queue item H3 left is closed, recorded in the research-gaps plan §1
   item 3.
