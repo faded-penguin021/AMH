@@ -53,7 +53,9 @@
 #     other than this script's AND with a bwrap process seen under that Claude call. Anything
 #     less is INCONCLUSIVE, never a pass or a refusal.
 #   - It deletes nothing but files it created, and signals only processes it started, checked by
-#     their command line before each signal. Probe branches pushed to the remote are listed, never
+#     their command line before each signal. Outside its own folder it changes one thing: each
+#     probe tree is marked trusted in the box user's ~/.claude.json (never under --check), since
+#     Claude Code ignores an untrusted tree's permissions.allow entries. Probe branches pushed to the remote are listed, never
 #     deleted.
 
 set -uo pipefail
@@ -193,6 +195,25 @@ if variant != "V0-shipped":
         f.write("\n")
 PY
 
+# trust.py <claude.json> <tree> : the tree's trust dialog counts as accepted; writes in place
+# atomically, keeps the file's mode, prints nothing from the file.
+cat >"$TOOLS/trust.py" <<'PY'
+import json, os, sys
+path, tree = sys.argv[1], sys.argv[2]
+try:
+    with open(path, encoding="utf-8") as f:
+        d = json.load(f)
+except (OSError, ValueError) as e:
+    sys.exit("trust: cannot read the Claude Code config (%s); has Claude Code been logged in?" % type(e).__name__)
+d.setdefault("projects", {}).setdefault(tree, {})["hasTrustDialogAccepted"] = True
+tmp = path + ".amh-probe.tmp"
+with open(tmp, "w", encoding="utf-8") as f:
+    json.dump(d, f, indent=2, ensure_ascii=False)
+    f.write("\n")
+os.chmod(tmp, os.stat(path).st_mode & 0o7777)
+os.replace(tmp, path)
+PY
+
 # One tab-separated line per tool call and tool result, never truncated here (keep() shortens
 # AFTER redaction); never the init event's body.
 cat >"$TOOLS/summarize.py" <<'PY'
@@ -259,6 +280,12 @@ make_tree() {
 	printf '/.probe/\n' >>"$d/.git/info/exclude"
 	mkdir -p "$d/.probe"
 	python3 -I "$TOOLS/variant.py" "$d/.claude/settings.json" "$variant" "${PROBE_HOST:-}" 2>>"$RAW/setup.err" || return 1
+	# An untrusted workspace has its .claude/settings.json permissions.allow entries ignored, so
+	# the shipped settings would not be what is probed. Mark the tree trusted, as the owner's own
+	# checkout is; never under --check, which may run on a real host.
+	if [ "$CHECK" != true ]; then
+		python3 -I "$TOOLS/trust.py" "${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json" "$d" 2>>"$RAW/setup.err" || return 1
+	fi
 	printf '%s' "$d"
 }
 
@@ -328,7 +355,9 @@ claude_call() {
 		(
 			cd "$tree" || exit 1
 			# The Bash tool's own cap is 10 minutes unless raised; the full ladder may need more.
-			PATH=${path_override:-$PATH} BASH_MAX_TIMEOUT_MS=1800000 exec timeout 2400 claude "${args[@]}" "$prompt"
+			# `--` ends the options: --tools and --allowedTools take a list, and without it they
+			# swallow the prompt as one more entry (claude then exits 1, "Input must be provided").
+			PATH=${path_override:-$PATH} BASH_MAX_TIMEOUT_MS=1800000 exec timeout 2400 claude "${args[@]}" -- "$prompt"
 		) >"$RAW/$label.jsonl" 2>"$RAW/$label.stderr" &
 		local cpid=$! watcher rc
 		watch_bwrap "$RAW/$label.bwrap" "$cpid" &
