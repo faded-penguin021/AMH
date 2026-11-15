@@ -36,7 +36,8 @@ Units 0–4.
    live rule a change to legislation, and makes a bulk relocation the owner's decision.
    **Answered by the owner on 2026-11-13:** every binding item stays; the description and
    rationale items of A042, A026 and A003 move to a task-triggered runbook section; the seed
-   waits for H3 (**DD-080**).
+   waits for H3 (**DD-080**). **For the seed, answered by the owner on 2026-11-15:** its rail
+   and deletion-layer descriptions stay where they are, because they are pivotal.
 4. **H3: the adopter file layout and how existing installs migrate** (§5, H3). **Answered by
    the owner on 2026-11-13, when H3 started:** option (a), named `docs/PROTOCOLS.md`; existing
    installs migrate by hand from the release's Upgrading notes; this repository's runbook gets
@@ -63,7 +64,9 @@ Units 0–4.
    decides whether H6b is worth building at all. **Answered in part by the owner on
    2026-11-13:** H7 approved, with one gpt-6-astra review at high effort as its owed pass; H6b
    to be built after H7; H6a waits until the owner says whether they can launch its runs, for
-   which the session gave the recipe (**DD-083**).
+   which the session gave the recipe (**DD-083**). **H6b's owed pass, chosen by the owner on
+   2026-11-15:** one gpt-6-astra review at high effort; its post-H2 arm keeps the seed's rail
+   and deletion-layer descriptions in place (item 3).
 8. **One fresh-context reviewer, at the strongest available tier, for each legislation unit:
    H2, H3, H4b, H5, H6b, H7 and H8.** **Answered by the owner on 2026-11-09, and widened: a
    fresh-context review is pre-allowed for every unit**, so a unit whose "Pass owed" line says none
@@ -178,6 +181,8 @@ is evidence about AMH itself.
 ## 5. The units: H0, H0.5, H9, H1, H4a, H4b, H2, H3, H5, H6a, H6b, H7
 
 **Order: H0.5 → H9 → H1 → H4a → H4b → H2 → H3 → H5 → H6a → optional H6b → H7.** H8 is parked (§6).
+The owner approved H6b to follow H7 while H6a waits on the owner's runs (§1 item 7), so H6b is
+the next unit and H6a comes after it.
 H1 does not block H4a, a blocked owner choice does not stall an independent unit, and every unit
 still needs its own approval. The order across this plan and the other two is the owner's (§7, F18).
 For H2, H5, H6b, H7 and any reopened H8, the strongest-tier rule-review pass adds adversarial
