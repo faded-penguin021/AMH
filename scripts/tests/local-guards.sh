@@ -2070,6 +2070,49 @@ printf 'cites `AAA-first-in-listing.md`\n' >"$d/doc.md"
 expect pass "path-refs: an early match on a long listing is not a missing file" "$d" path-refs.sh \
 	'1 path reference(s) resolve across 2 file(s)'
 
+# (ix) A markdown file the guard cannot READ. The listing names untracked files on purpose, as
+#      the secret scan's does, and Claude Code's sandbox puts unreadable placeholders in the
+#      tree — `.claude/loop.md` among them — which every sandboxed ladder run then failed on
+#      (DD-088). Outside the sandbox the same file was worse than a failure: each grep wrote
+#      `Permission denied` to stderr and the guard printed its green count over a file it never
+#      read. So an untracked file that cannot be read is skipped and NAMED, because a session
+#      that cannot read a file cannot commit it either, while a tracked one is a failure: it is
+#      in the tree being verified, and nothing about it was checked. `chmod 000` is the only
+#      portable way to pose the state, and root reads through it, so a root run skips these
+#      cases aloud rather than passing them over a file that was readable after all.
+d=$(snapshot refs_unreadable_untracked)
+mkdir -p "$d/.claude"
+# shellcheck disable=SC2016 # literal backticks: a broken citation the skip must not judge.
+printf 'See `docs/NOTHING_HERE.md`.\n' >"$d/.claude/loop.md"
+chmod 000 "$d/.claude/loop.md"
+if cat "$d/.claude/loop.md" >/dev/null 2>&1; then
+	printf '  SKIP 3 path-refs unreadable-file case(s): this user reads a mode-000 file, so the state cannot be posed\n' >&2
+else
+	expect pass "path-refs: an untracked file it cannot read is skipped and named" "$d" path-refs.sh \
+		'1 untracked file(s) could not be read and were not scanned: .claude/loop.md'
+	chmod 644 "$d/.claude/loop.md"
+	d=$(snapshot refs_unreadable_tracked)
+	printf 'Nothing cited here.\n' >"$d/readable-then-not.md"
+	(cd "$d" && git add readable-then-not.md && git commit -qm tracked)
+	chmod 000 "$d/readable-then-not.md"
+	expect fail "path-refs: a tracked file it cannot read is a failure" "$d" path-refs.sh \
+		'could not read tracked file readable-then-not.md'
+	chmod 644 "$d/readable-then-not.md"
+	# Whether a file is tracked is asked without a pathspec. A `:(literal)` pathspec is read as
+	# part of the NAME under GIT_LITERAL_PATHSPECS=1, so the lookup missed and a tracked file was
+	# skipped as untracked. The same variable turns the listing's `'*.md'` into a literal name,
+	# which a directory called `*.md` then matches: that is how the case reaches the lookup.
+	d=$(guard_only_tree refs_unreadable_tracked_literal_pathspecs)
+	mkdir -p "$d/*.md"
+	printf 'Nothing cited.\n' >"$d/*.md/good.md"
+	printf 'Nothing cited.\n' >"$d/*.md/hidden.md"
+	(cd "$d" && git add -A && git commit -qm literal)
+	chmod 000 "$d/*.md/hidden.md"
+	GIT_LITERAL_PATHSPECS=1 expect fail "path-refs: literal pathspecs cannot pass a tracked file off as untracked" \
+		"$d" path-refs.sh 'could not read tracked file *.md/hidden.md'
+	chmod 644 "$d/*.md/hidden.md"
+fi
+
 # --- scripts/bootstrap.sh ----------------------------------------------------
 # Not a guard, so it gets its own runner rather than `expect`. It is repo-local for the
 # same reason the guards above are: session-start.sh is the shipped, agent-neutral boot

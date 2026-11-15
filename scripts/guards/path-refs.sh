@@ -28,6 +28,8 @@ scanned=0
 historical_ledger_paths=0
 unclassified=0
 unclassified_detail=''
+unreadable=0
+unreadable_detail=''
 
 # A ledger ROW is immutable; the file it names is not. Those are different objects, and
 # conflating them is what made a completed plan undeletable (DC-039, DD-003): the row's text
@@ -267,11 +269,30 @@ md_files=$(mktemp) || {
 	printf 'path-refs: no temporary file could be created — this guard checked NOTHING\n'
 	exit 1
 }
-trap 'rm -f "$md_files"' EXIT
+tracked_files=$(mktemp) || {
+	rm -f "$md_files"
+	printf 'path-refs: no temporary file could be created — this guard checked NOTHING\n'
+	exit 1
+}
+trap 'rm -f "$md_files" "$tracked_files"' EXIT
 git ls-files -co --exclude-standard -z '*.md' >"$md_files"
 rc=$?
 [ "$rc" -eq 0 ] || listing_failed markdown "$rc"
 [ -s "$md_files" ] || listing_empty markdown
+# What is TRACKED, for telling an unreadable file that is in the tree being verified from one
+# the sandbox left there. A listing with no pathspec, compared by exact string below: a
+# `:(literal)` pathspec is read as part of the name under GIT_LITERAL_PATHSPECS=1, which made a
+# tracked file report as untracked and be skipped.
+git ls-files -c -z >"$tracked_files"
+rc=$?
+[ "$rc" -eq 0 ] || listing_failed tracked "$rc"
+is_tracked() { # is_tracked <path> -> 0 tracked, 1 not
+	local t
+	while IFS= read -r -d '' t; do
+		[ "$t" = "$1" ] && return 0
+	done <"$tracked_files"
+	return 1
+}
 
 # harness/dist is generated (dist-drift owns it); harness/templates and harness/src
 # describe an ADOPTER's tree, where the paths are meant to resolve there, not here.
@@ -297,6 +318,30 @@ while IFS= read -r -d '' f; do
 	case $f in
 	harness/dist/* | harness/templates/* | harness/src/* | docs/plans/* | docs/history/*) continue ;;
 	esac
+	# A file this guard cannot READ is checked by none of the greps below: each one wrote
+	# `Permission denied` to stderr and the loop went on, so the count printed green over a
+	# document nobody read — D-019's shape, a failure quieter than the pass. It is read once
+	# here, whole, so a failed open and a failed read land in the same branch.
+	#
+	# The listing names untracked files on purpose, the secret scan's convention, so that a
+	# document not yet added is still checked. What it cannot read splits on that line. An
+	# UNTRACKED one is skipped and named on every exit, never silently: Claude Code's sandbox
+	# leaves unreadable placeholders in the tree, `.claude/loop.md` among them, and every
+	# sandboxed ladder run failed on one (DD-088); a session that cannot read a file cannot
+	# commit it either. A TRACKED one is a failure, because it is part of the tree being
+	# verified and nothing about it was checked. Only a file that EXISTS is asked: one deleted
+	# from the worktree but still in the index has nothing to read, and it keeps the handling it
+	# had before this check.
+	if [ -e "$f" ] && ! cat -- "$f" >/dev/null 2>&1; then
+		if is_tracked "$f"; then
+			printf 'path-refs: could not read tracked file %s — it was checked for NOTHING\n' "$f"
+			fails=$((fails + 1))
+		else
+			unreadable=$((unreadable + 1))
+			unreadable_detail="$unreadable_detail $f"
+		fi
+		continue
+	fi
 	scanned=$((scanned + 1))
 	dir=$(dirname "$f")
 
@@ -439,8 +484,20 @@ done <"$md_files"
 # reason it gives is this one: a renamed directory or a changed layout looks exactly like a
 # clean sweep from outside. Counting CITATIONS instead would be wrong — a document that cites
 # nothing legitimately resolves zero — so what is counted is files that survived the `case`.
+# The files skipped as unreadable above, named on every exit below: a skip that vanished on the
+# red or the warning path would report a tree nobody read as settled.
+unreadable_note=''
+[ "$unreadable" -eq 0 ] ||
+	unreadable_note=$(printf '%d untracked file(s) could not be read and were not scanned:%s' \
+		"$unreadable" "$unreadable_detail")
+
 if [ "$scanned" -eq 0 ]; then
-	printf 'path-refs: all %d markdown file(s) listed are outside the scan — this guard checked NOTHING\n' "$listed"
+	if [ "$unreadable" -eq 0 ]; then
+		printf 'path-refs: all %d markdown file(s) listed are outside the scan — this guard checked NOTHING\n' "$listed"
+	else
+		printf 'path-refs: none of the %d markdown file(s) listed was scanned — %s — this guard checked NOTHING\n' \
+			"$listed" "$unreadable_note"
+	fi
 	exit 1
 fi
 
@@ -450,6 +507,7 @@ if [ "$fails" -ne 0 ]; then
 	[ "$unclassified" -eq 0 ] ||
 		printf 'path-refs: %d further committed ledger reference(s) could NOT be classified —%s\n' \
 			"$unclassified" "$unclassified_detail"
+	[ -z "$unreadable_note" ] || printf 'path-refs: %s\n' "$unreadable_note"
 	exit 1
 fi
 
@@ -460,10 +518,11 @@ fi
 # proof. The warn text is one line, and it is the first thing this guard prints — the ladder
 # reads the merged output's first line as the warning verbatim.
 if [ "$unclassified" -gt 0 ]; then
-	printf 'WARN path-refs: %d committed ledger reference(s) whose target is missing could NOT be classified from this checkout —%s. Neither reachable history nor the %s baseline shows the commit that introduced the citing row, so whether the path resolved when the row was authored is UNKNOWN, not proven either way. A full-history checkout (CI uses fetch-depth 0) answers it; %d other path reference(s) resolved across %d file(s), with %d historical ledger path drift exemption(s).\n' \
+	printf 'WARN path-refs: %d committed ledger reference(s) whose target is missing could NOT be classified from this checkout —%s. Neither reachable history nor the %s baseline shows the commit that introduced the citing row, so whether the path resolved when the row was authored is UNKNOWN, not proven either way. A full-history checkout (CI uses fetch-depth 0) answers it; %d other path reference(s) resolved across %d file(s), with %d historical ledger path drift exemption(s).%s\n' \
 		"$unclassified" "$unclassified_detail" "$baseline_description" \
-		"$checked" "$scanned" "$historical_ledger_paths"
+		"$checked" "$scanned" "$historical_ledger_paths" "${unreadable_note:+ $unreadable_note.}"
 	exit 2
 fi
 
-printf '%s path reference(s) resolve across %d file(s); %d historical ledger path drift exemption(s)\n' "$checked" "$scanned" "$historical_ledger_paths"
+printf '%s path reference(s) resolve across %d file(s); %d historical ledger path drift exemption(s)%s\n' \
+	"$checked" "$scanned" "$historical_ledger_paths" "${unreadable_note:+; $unreadable_note}"

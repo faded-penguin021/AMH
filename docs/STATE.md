@@ -28,7 +28,9 @@ that unit:
 
 - `2026-11-01-harness-research-gaps.md`, adopted; H0, H0.5, H9, H1, the H9 fix, H4a, H2, H3,
   H5, H7, H6b and H6a done, H8 parked, and H4b done as configuration with its live probes owed
-  (Owner queue). Every unit rides
+  (Owner queue). An H4b follow-up is approved (owner, 2026-11-15), in this order: fix
+  `path-refs.sh` and commit; write one probe script for the owner's box; stop; then, on its
+  results, narrow the `//proc` deny rules and record the results as ledger rows. Every unit rides
   17.0.0 (owner, 2026-11-13). Before a unit starts the session says which decisions it needs and
   waits for the answers, and a fresh-context review is pre-allowed for every unit (owner,
   2026-11-09).
@@ -88,6 +90,13 @@ seccomp filter; the owner's throwaway box, started with `--security-opt seccomp=
 starts the sandbox. There the H6b runs saw three failures to decide on (**DD-088**): the
 `//proc` deny rules refused every command at about 4,400 processes (about 450 by estimate), a
 push to a local remote outside the tree failed, and the full ladder was red on a placeholder.
+Owner, 2026-11-15: those three block tagging 17.0.0, and if they cannot be fixed in time 17.0.0
+ships with the sandbox block off and says so. `path-refs.sh` is fixed first (**DD-089**, not yet
+run inside the sandbox); the `//proc` rules
+are narrowed, not removed, only after the probe settles which fix is right; the out-of-tree push
+is not fixed, and a network push to a real remote, positive control first, is probed instead.
+The owner runs the probe script in one more throwaway box (ubuntu:24.04, non-root, `--init`,
+`seccomp=unconfined`, a token minted for it alone); no session touches the box or the token.
 
 **OPEN — run G1, one gpt-6-astra `-e high` review of both command-guard plans,
 `docs/plans/2026-11-10-command-guard-gap-review.md` and
@@ -110,7 +119,8 @@ plan's §7.1, and it did not change that plan's standing here.
 merged (evidence: **DD-073**).** Drafted as MAJOR 17.0.0, because the owner ruled the two
 session-discipline rules of 16.0.0 MAJOR (**DD-050**) and this is a third of that kind. The other
 reading is MINOR 16.2.0, a new principle an adopter may take or leave; choosing it means changing
-the five version copies and the changelog's Upgrading wording. Recommendation: MAJOR, to match
+the five version copies and the changelog's Upgrading wording. The three H4b failures of
+**DD-088** also block the tag (owner, 2026-11-15; the H4b item). Recommendation: MAJOR, to match
 that ruling. The README's clone command names the drafted tag.
 Check: `git ls-remote --tags origin 'amh-v17.0.0' 'amh-v16.2.0'` — no output means neither is
 tagged.
@@ -146,6 +156,10 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-15 — **H4b follow-up (a): `path-refs.sh` skips and names an untracked file it cannot
+  read, and fails on a tracked one,** the ladder's failure inside the sandbox (**DD-089**).
+- 2026-11-15 — **Owner: an H4b follow-up approved, and the three DD-088 failures block the
+  17.0.0 tag;** the answers are in the H4b Owner-queue item and the plan's H4b section.
 - 2026-11-15 — **H6a and H6b run by the owner's host session: scenario 01 6/6 PASS and 02 3
   PASS, 3 FAIL on two models, scenario 04 3/3 PASS in each arm,** recorded in
   `docs/plans/2026-11-01-harness-research-gaps-h6-runs.md` (**DD-086**–**DD-088**).
@@ -154,53 +168,15 @@ rows — this section is a pointer index, not a narrative.
 - 2026-11-15 — **Owner: the seed constitution's rail and deletion-layer descriptions stay in
   place, as pivotal;** the queue item H3 left is closed, recorded in the research-gaps plan §1
   item 3.
-- 2026-11-13 — **H7 of the research-gaps plan done: conformance scenario
-  `03-refused-deletion`, seeded on DD-038,** judging the refused path, an outside sentinel and
-  the rail by final state only; never run against an agent (**DD-083**).
-- 2026-11-13 — **H5 of the research-gaps plan done: every binding obligation in both
-  constitutions and both Session discipline sections classified as invariant, compensation or
-  mixed,** with provenance and a failure condition for each compensation, in
-  `docs/plans/2026-11-01-harness-research-gaps-h5-classification.md`. Nothing retired; the owner
-  left the P6 question open (**DD-082**).
-
-- 2026-11-13 — **H3 of the research-gaps plan done: the procedures every session is bound by
-  move to `docs/PROTOCOLS.md`, in the seed and in this repository, and the `light` profile is
-  removed, `standard` becoming the default,** on the owner's answers taken when H3 started; the
-  installer reports an unfinished hand migration, and the documentation-navigation guard checks
-  each pointer against the file it names. Layout, migration and measurements are in
-  `docs/plans/2026-11-01-harness-research-gaps-h3-layout.md` (**DD-081**). Rides the 17.0.0
-  draft.
-- 2026-11-13 — **H2 of the research-gaps plan done: the host-rail and deletion-rail descriptions
-  moved from `AGENTS.md` to the new runbook section Host rails and what they miss,** every
-  binding sentence kept and the seed left for H3, on the owner's answers taken when it started;
-  `AGENTS.md` 15,274 → 12,338 bytes. The mapping and the acceptance outputs are in
-  `docs/plans/2026-11-01-harness-research-gaps-h2-relocation.md` (**DD-080**). Rides the 17.0.0
-  draft.
-- 2026-11-13 — **H4b of the research-gaps plan, as configuration: the Claude adapter turns on
-  Claude Code's sandbox, and `adapter-set.sh` validates both adapters' sandbox configuration,**
-  on the owner's answers taken when it started; every containment cell is unverified until the
-  live probes in the Owner queue run (**DD-079**). Rides the 17.0.0 draft.
-- 2026-11-13 — **H4a of the research-gaps plan done: the sandbox containment design,** in
-  `docs/plans/2026-11-01-harness-research-gaps-h4a-containment.md`, on the owner's answers taken
-  when it started: Claude Code on native Windows keeps no sandbox and says so, and nothing is
-  claimed contained before H4b's probes (**DD-078**).
-- 2026-11-13 — **`CLAUDE.md` is now `@AGENTS.md` plus a one-line fallback, root and seed,** so
-  Claude Code loads the constitution as an import rather than a read it may skip; a headless
-  canary test confirmed the import (**DD-077**). Rides the 17.0.0 draft.
-- 2026-11-13 — **The H9 fix: the ladder, and the placeholder and ledger guards, exit red saying
-  they checked nothing when their scratch path cannot be made** (**DD-076**). Rides the 17.0.0
-  draft.
-
-- 2026-11-13 — **H1 of the research-gaps plan done: what each session must read, item by item,**
-  in `docs/plans/2026-11-01-harness-research-gaps-h1-inventory.md`, which re-checks itself on replay. Its finding for H3: a
-  light install is told to read a runbook and ledger it never gets (**DD-075**).
-
-- 2026-11-13 — **The incident bar no longer gates the command guard:** the owner's answer of
-  2026-11-10, legislated in P13 for `command-guard.sh` in every mode, the scope the owner chose
-  (**DD-074**). No guard behaviour changed; it rides the 17.0.0 draft.
-
-- 2026-11-13 — **The owner approved H1, and after it the fix H9 recommended (**DD-072**),** which
-  answers the Owner-queue item on whether to fix it.
+- 2026-11-13 — **The research-gaps plan's 2026-11-13 units, folded:** the owner's approval of H1
+  and the H9 fix, the incident bar lifted from the command guard, H1, the H9 fix, `CLAUDE.md` as
+  an `@AGENTS.md` import, H4a, H4b as configuration, H2, H3, H5 and H7, each recorded in the
+  plan's §5 (**DD-072** to **DD-083**), and in its companions
+  `docs/plans/2026-11-01-harness-research-gaps-h1-inventory.md`,
+  `docs/plans/2026-11-01-harness-research-gaps-h2-relocation.md`,
+  `docs/plans/2026-11-01-harness-research-gaps-h3-layout.md`,
+  `docs/plans/2026-11-01-harness-research-gaps-h4a-containment.md` and
+  `docs/plans/2026-11-01-harness-research-gaps-h5-classification.md`. All ride the 17.0.0 draft.
 
 - 2026-07-25 through 2026-11-12 — **Everything before that, folded.** Founding through the
   17.0.0 draft (**DD-001** to **DD-073**, **DC-020** to **DC-044**, and the volumes before them;

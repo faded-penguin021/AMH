@@ -695,6 +695,22 @@ fi
     namespace (`unshare -Ur`: "Operation not permitted"), so no sandbox could start here; (e) is
     moot, since no credential isolation was selected. The probe list is the companion's §7 and
     this unit's acceptance; it is in the Owner queue.
+- **Follow-up, approved by the owner on 2026-11-15 on the evidence of DD-087 and DD-088.** The
+  owner's answers: (1) the three DD-088 failures block tagging 17.0.0, and if they cannot be fixed
+  in time 17.0.0 ships with the sandbox block off and says so; (2) in this order: (a) fix
+  `path-refs.sh`, which exits 2 inside the sandbox on an unreadable placeholder, with a fixture
+  seen failing first and the rule review; (b) narrow the `//proc` deny rules in the adapter and
+  its template, narrowing over removal, only after a probe settles which fix is right; (c) leave
+  the refused push to an out-of-tree local remote unfixed and probe a network push to a real
+  remote instead, its positive control first, so an unreachable remote is inconclusive rather
+  than a refusal; (3) the owner runs one probe script in a throwaway box and no session touches
+  the box or its token. Taken on the session's recommendations, the same day: `path-refs.sh`
+  keeps reading untracked files, as the secret scan does, skips and names an untracked file it
+  cannot read, and fails on a tracked one or a failed read; the probe adds a probe-only variant
+  that allows the remote's host; startup without `bwrap` is probed by hiding it from `PATH`, with
+  an optional stage after the owner removes the package as root; the probe adds acceptance (c)'s
+  worktrees, temporary files, git and bootstrap, records the WSL2 cell as unverified, and leaves
+  (f) to a session here after (b).
 
 ### H2 — keep in the constitution what every session needs; point at the rest: done 2026-11-13
 
