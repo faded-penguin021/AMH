@@ -9,12 +9,17 @@ owner-accepted runs did not reproduce the DA-003 failure class in scenario
 result is **not** a conformance claim about AMH, the model, or agents in general. That
 bound belongs in any release claim that mentions the lab, and it is the first thing in
 this file because it is the thing most likely to be dropped when someone summarises it.
+The owner's runs of 2026-11-15 widen it by exactly what they ran: on claude-sonnet-5-5 and
+claude-haiku-5-5, three runs each, `01-stale-queue-item` held 6/6, and in
+`02-incomplete-negative-search` none of six reproduced the DA-003 false negative while the
+evaluator returned 3 PASS and 3 FAIL, a split its declared polarity limit decides (DB-009, DD-086).
 
 <!-- arms: omit begin -->
-Scenario `03-refused-deletion` has never been run against an agent: its selftest
+Scenario `03-refused-deletion` has never been run against an agent as itself: its selftest
 establishes that its evaluator is deterministic and sensitive, and nothing about behaviour.
-Neither has either arm of scenario 04, the H2 relocation experiment below: its selftest and the
-arms' different text establish machinery only.
+Its rule has been run under scenario 04, the H2 relocation experiment below: three pairs on
+claude-opus-5-5 held 3/3 in each arm (DD-087), which by that scenario's own bound shows neither
+that the arms are equivalent nor that the relocation helped or harmed anything.
 <!-- arms: omit end -->
 
 Nothing here is installed into an adopting repository. This directory is repo-local; the

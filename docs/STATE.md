@@ -27,12 +27,11 @@ Live plans, each in `docs/plans/`, where a unit starts only on the owner's expli
 that unit:
 
 - `2026-11-01-harness-research-gaps.md`, adopted; H0, H0.5, H9, H1, the H9 fix, H4a, H2, H3,
-  H5 and H7 done, and H4b done as configuration with its live probes owed (Owner queue). Every unit rides
+  H5, H7, H6b and H6a done, H8 parked, and H4b done as configuration with its live probes owed
+  (Owner queue). Every unit rides
   17.0.0 (owner, 2026-11-13). Before a unit starts the session says which decisions it needs and
   waits for the answers, and a fresh-context review is pre-allowed for every unit (owner,
   2026-11-09).
-  - [ ] H6b — built, its owed pass applied; paired runs wait on the owner (Owner queue)
-  - [ ] H6a — waits on the owner's runs (Owner queue); H8 parked
 - `2026-11-04-spill-guard-borrowings.md`, adopted: S1, S2, S6a and S3 approved on 2026-11-10, to
   run in that order, each with its own review and its version settled when its behaviour is
   final (its §2, items 4 and 5); S4, S5, S6b and S6c deferred.
@@ -76,22 +75,19 @@ exception is asked if H8 is reopened. The plan's §7.1 also recommends a combine
 all three plans, which an item below owns. No command settles this.
 
 **OPEN — run H4b's live sandbox probes, on your own host or in a session you name (evidence:
-**DD-079**).** H4b shipped the Claude sandbox block as configuration only, and every cell is
-unverified: no sandbox can start on the host that built it. The probes are the plan's H4b
+**DD-079**).** H4b shipped the Claude sandbox block as configuration only, and no cell has
+passed: no sandbox can start on the host that built it. The probes are the plan's H4b
 acceptance (b) to (d), (f) and (g), with the list in the H4a companion's §7: an in-tree write
 passes and an out-of-tree one is refused, each with a positive control; network; on WSL2 a
 harmless Windows-program launch; startup without `bwrap`; worktrees, temporary files, git and
 the session bootstrap; the full ladder inside the sandbox; and an old adapter left untouched by
 the Upgrading step. A follow-up then claims only the cells that pass. Check on a candidate host:
 `command -v bwrap socat && unshare -Ur true` — success there means the sandbox can at least start.
-Seen 2026-11-15 in the owner's Docker container: bubblewrap 0.9.0 and socat installed on the
-owner's yes, and `unshare` and `bwrap` both still refused, its default seccomp filter blocking
-user namespaces; a container started with `--security-opt seccomp=unconfined` may clear that.
-
-**OPEN — say if you can launch H6a's runs and H6b's paired ones** (**DD-084**, **DD-085**).
-Recipe (2026-11-13): `conformance/runners/local-clone.sh --keep`
-per scenario and run in a throwaway container, each run's log, model and settings handed back;
-H6b's arms share one model and settings. No command settles this.
+Seen 2026-11-15: in this dev container `unshare` and `bwrap` stay refused under the default
+seccomp filter; the owner's throwaway box, started with `--security-opt seccomp=unconfined`,
+starts the sandbox. There the H6b runs saw three failures to decide on (**DD-088**): the
+`//proc` deny rules refused every command at about 4,400 processes (about 450 by estimate), a
+push to a local remote outside the tree failed, and the full ladder was red on a placeholder.
 
 **OPEN — run G1, one gpt-6-astra `-e high` review of both command-guard plans,
 `docs/plans/2026-11-10-command-guard-gap-review.md` and
@@ -150,6 +146,9 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-15 — **H6a and H6b run by the owner's host session: scenario 01 6/6 PASS and 02 3
+  PASS, 3 FAIL on two models, scenario 04 3/3 PASS in each arm,** recorded in
+  `docs/plans/2026-11-01-harness-research-gaps-h6-runs.md` (**DD-086**–**DD-088**).
 - 2026-11-15 — **H6b built, scenario 04's two arms, and its owed gpt-6-astra pass applied:
   both arms dependency-resolved, their copied guards and lab green** (**DD-084**, **DD-085**).
 - 2026-11-15 — **Owner: the seed constitution's rail and deletion-layer descriptions stay in

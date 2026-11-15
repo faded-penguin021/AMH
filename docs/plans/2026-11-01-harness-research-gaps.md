@@ -829,6 +829,9 @@ fi
   baselines, the exact scenario, model and settings, and PASS, FAIL and INCONCLUSIVE counts. A
   sentence repeating claimed counts is not the experiment. The conformance README's claim widens by
   exactly what was run and no further.
+- **Status (2026-11-15): done (DD-086).** The owner's host session ran 01 and 02 three times each
+  on claude-sonnet-5-5 and claude-haiku-5-5; the record is
+  `docs/plans/2026-11-01-harness-research-gaps-h6-runs.md`.
 
 ### H6b — OPTIONAL: an instruction-set experiment for H2's relocation
 
@@ -867,8 +870,10 @@ fi
   copied ladder did by hand once the reversal patch gained one hunk that is not H2's, re-aiming
   a later fixture that borrowed H2's section heading; the builder refuses a reserved path already in place and cleans up
   after a failure; and selftest checks the whole inventory, the merged files byte for byte and an
-  INCONCLUSIVE through each wrapper. No subject has run either arm; the paired runs are the
-  owner's (Owner queue).
+  INCONCLUSIVE through each wrapper. **Paired runs done 2026-11-15 (DD-087):** three pairs on
+  claude-opus-5-5, 3/3 PASS in each arm, after a first batch voided by the box itself; the
+  record is `docs/plans/2026-11-01-harness-research-gaps-h6-runs.md`, and what they showed about
+  H4b's sandbox is DD-088.
 
 ### H7 — a third scenario, seeded on DD-038: refused deletions leave no prohibited effect: done 2026-11-13
 
