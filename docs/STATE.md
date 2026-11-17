@@ -96,7 +96,14 @@ ships with the sandbox block off and says so. The probe ran once (**DD-090**–*
 Owner, 2026-11-17 (**DD-094**): the `//proc` rules may be removed; DD-093's `/tmp` paths are a
 unit of their own; worktree creation is recorded as a limit; the last run follows the
 companion's §4, probe repaired first, built and driven by a session on the owner's host with
-tokens the owner mints. Next: the `//proc` unit, the `/tmp` unit, the probe repairs, then the run.
+tokens the owner mints. The `//proc` rules are dropped from both adapter copies (**DD-095**).
+Next: the `/tmp` unit, the probe repairs, then the run.
+
+**OPEN — decide whether the machine-mode fragment drops its `//proc` rules too (evidence:
+**DD-095**).** It keeps `Read(//proc/*/environ)` and `Read(//proc/**/environ)`, since it sets no
+sandbox of its own. User-level deny rules may also feed a project's sandbox when both load, which
+would bring back DD-090's per-process cost there; that is inference, unmeasured. The last box run
+could measure it. Recommendation: measure it in that run, then decide. No check settles this.
 
 **OPEN — run G1, one gpt-6-astra `-e high` review of both command-guard plans,
 `docs/plans/2026-11-10-command-guard-gap-review.md` and
@@ -150,6 +157,10 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-17 — **H4b follow-up: the root-anchored `/proc` deny rules dropped from the Claude
+  adapter,** and `adapter-set.sh` now fails one with a wildcard; the "host says nothing" prose is
+  corrected (**DD-095**).
 
 - 2026-11-17 — **The owner answered the four H4b decisions and ruled the train MAJOR 17.0.0,**
   each on the session's recommendation; the version item is answered and the tag is queued

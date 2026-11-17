@@ -38,7 +38,8 @@ RELEASE_TAG_PREFIX=
 # and not `command -v`: the latter resolves builtins, functions and aliases before it looks at
 # PATH, so it reports `printf` as observed on a machine holding no binaries at all.) On Linux or
 # WSL2 with Claude Code's sandbox, add `bwrap socat`: without them it runs every command
-# unsandboxed and says nothing, and this line is then the only place that absence shows.
+# unsandboxed with at most a warning on stderr, and this line is then the one place that
+# absence shows in the session banner.
 # ADAPTER_FILES is a space-separated list of the agent-adapter files this repository ships.
 # Each is reported `configured` when present and `unknown` when absent — NEVER `observed`
 # and never `unavailable`. Present means this repo REQUESTS an integration; nothing can see

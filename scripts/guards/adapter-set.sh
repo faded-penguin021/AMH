@@ -459,13 +459,18 @@ for declaration in "${ADAPTERS[@]}"; do
 		else
 			claude_hookfile=$((claude_hookfile + 1))
 		fi
-		# The root-anchored spellings of the /proc rails: a single leading slash in a settings file
-		# does not name the filesystem root, so without these the rail may reach nothing (DD-070).
-		if [ "$deny_keys" -eq 1 ] && [ -n "$deny" ]; then
-			for rule in '"Read(//proc/*/environ)"' '"Read(//proc/**/environ)"'; do
-				printf '%s\n' "$deny" | sed 's/^[[:space:]]*//; s/,$//' | grep -qxF -- "$rule" && continue
-				note "$settings: permissions.deny does not carry $rule — a single leading slash does not name the filesystem root, so the /proc rail may never reach /proc (DD-070)"
-			done
+		# No root-anchored /proc rule with a wildcard (DD-095). Both files must carry the sandbox
+		# block (checked below), and with it on Claude Code expands such a rule into bwrap arguments
+		# for every running process, until bwrap's limit refuses every shell command (DD-088,
+		# DD-090). A glob character (`*`, `?`, `[`) makes it a wildcard, and any run of two or more
+		# slashes anchors it at the root. A literal path passes, on the inference, unmeasured, that it
+		# costs one mount rather than one per process. Read as text across the whole file, so no
+		# array, layout or `\/` escape hides one; a `\u` escape still does, and this catches a
+		# rule copied back, not one written to get past it. Inside the `$comment` string the rules
+		# are named in backticks, which this never matches.
+		proc_rules=$(grep -oE '"Read\(([\]?/){2,}proc[\]?/[^"]*[][*?][^"]*\)"' "$settings")
+		if [ -n "$proc_rules" ]; then
+			note "$settings: carries a root-anchored /proc rule with a wildcard ($(printf '%s' "$proc_rules" | tr '\n' ' ' | sed 's/ $//')). With the sandbox block on, Claude Code expands it into bwrap arguments for every running process, and past bwrap's limit every shell command is refused (DD-090, DD-095)"
 		fi
 	done
 done

@@ -854,16 +854,46 @@ sed_in_place 's|^  "hooks": {$|  "hooks": {\
 expect fail "adapter-set: a second PreToolUse array in the machine template" "$d" adapter-set.sh \
 	'2 "PreToolUse" key(s) found'
 
-# The root-anchored /proc rails (DD-070), in either copy.
-d=$(snapshot adapter_claude_proc_rail_gone_template)
-sed_in_place '/"Read(\/\/proc\/\*\/environ)",/d' "$d/harness/templates/configs/claude-settings.json"
-expect fail "adapter-set: the template dropped a root-anchored /proc rail" "$d" adapter-set.sh \
-	'does not carry "Read(//proc/*/environ)"'
+# No root-anchored /proc rule with a wildcard, in either copy (DD-095): beside the sandbox block it
+# expands into bwrap arguments for every running process. Each is inserted after the single-slash
+# rail, which stays.
+d=$(snapshot adapter_claude_proc_wildcard_back_template)
+sed_in_place 's|^      "Read(/proc/\*\*/environ)",$|&\
+      "Read(//proc/*/environ)",|' "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: the template carries a root-anchored /proc wildcard again" "$d" adapter-set.sh \
+	'carries a root-anchored /proc rule with a wildcard ("Read(//proc/*/environ)")'
 
-d=$(snapshot adapter_claude_proc_rail_gone_reference)
-sed_in_place '/"Read(\/\/proc\/\*\*\/environ)",/d' "$d/.claude/settings.json"
-expect fail "adapter-set: the reference copy dropped a root-anchored /proc rail" "$d" adapter-set.sh \
-	'does not carry "Read(//proc/**/environ)"'
+d=$(snapshot adapter_claude_proc_wildcard_back_reference)
+sed_in_place 's|^      "Read(/proc/\*\*/environ)",$|&\
+      "Read(//proc/**/environ)",|' "$d/.claude/settings.json"
+expect fail "adapter-set: the reference copy carries a root-anchored /proc wildcard again" "$d" adapter-set.sh \
+	'carries a root-anchored /proc rule with a wildcard ("Read(//proc/**/environ)")'
+
+# The same rule with JSON's `\/` escape decodes to the same path, so it is the same rule.
+d=$(snapshot adapter_claude_proc_wildcard_escaped)
+sed_in_place 's|^      "Read(/proc/\*\*/environ)",$|&\
+      "Read(\\/\\/proc\\/*\\/environ)",|' "$d/.claude/settings.json"
+expect fail "adapter-set: a root-anchored /proc wildcard spelled with JSON escapes" "$d" adapter-set.sh \
+	'carries a root-anchored /proc rule with a wildcard'
+
+# A `?` glob and a third leading slash make the same per-process rule.
+d=$(snapshot adapter_claude_proc_wildcard_question)
+sed_in_place 's|^      "Read(/proc/\*\*/environ)",$|&\
+      "Read(///proc/?/environ)",|' "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: a root-anchored /proc rule with a ? glob" "$d" adapter-set.sh \
+	'carries a root-anchored /proc rule with a wildcard ("Read(///proc/?/environ)")'
+
+# A literal root-anchored path passes (by inference one mount, not one per process). The pass is
+# vacuous if the anchor line moved and nothing was inserted, so the insertion is checked first.
+d=$(snapshot adapter_claude_proc_literal_ok)
+sed_in_place 's|^      "Read(/proc/\*\*/environ)",$|&\
+      "Read(//proc/self/environ)",|' "$d/.claude/settings.json"
+if grep -qxF '      "Read(//proc/self/environ)",' "$d/.claude/settings.json"; then
+	expect pass "adapter-set: a literal root-anchored /proc path is not a wildcard" "$d" adapter-set.sh
+else
+	FAILED=$((FAILED + 1))
+	printf '  FAIL adapter-set: the literal /proc fixture inserted nothing; its anchor line moved\n' >&2
+fi
 
 # The machine-mode template (DD-063): a user-level fragment no ladder can see once it is installed,
 # so each way of shipping it wrong fails here. A hook without `--machine` would install the full

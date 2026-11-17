@@ -272,8 +272,9 @@ rather than replacing it:
   mode is a rail, not containment. To get the sandbox on a Windows machine, run Claude Code
   inside WSL2, with the seccomp filter installed if Windows programs must not be launchable from
   a sandboxed command.
-- **It falls back silently.** Where the sandbox cannot start, as on Linux or WSL2 without
-  `bubblewrap` and `socat`, Claude Code runs commands unsandboxed and says nothing. AMH leaves
+- **It falls back with at most a warning.** Where the sandbox cannot start, as on Linux or WSL2
+  without `bubblewrap` and `socat`, Claude Code runs commands unsandboxed; 2.1.325 was seen
+  saying so only in a `Sandbox disabled` warning on stderr, which stops nothing. AMH leaves
   `failIfUnavailable` unset because it would stop Claude Code starting on native Windows. Add
   `bwrap socat` to `REQUIRED_TOOLS` in `amh.conf` and the session banner shows whether they are
   on `PATH` — which is not proof that the sandbox started. `bubblewrap`, `socat` and the seccomp

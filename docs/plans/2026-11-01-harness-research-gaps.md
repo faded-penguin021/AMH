@@ -727,7 +727,9 @@ fi
     failed a command on a vanished PID, the Read-tool cells did not settle, the out-of-tree write
     was refused, a linked worktree could not be created, and the full ladder was red on fixed
     `/tmp` paths and three bootstrap fixtures, none of it `path-refs.sh`'s.
-  - **Owed:** the candidate, the ladder fixes and the probe repairs, and the last owner-box run,
+  - **Done, 2026-11-17:** the candidate, both `//proc` rules dropped from the adapter and its
+    template, with `adapter-set.sh` now failing their return (**DD-095**).
+  - **Owed:** the ladder fixes and the probe repairs, and the last owner-box run,
     as the results companion's §4 drafts it (owner, 2026-11-15: the next run is the last); then
     (f) here. The owner answered the four decisions on 2026-11-17, each as recommended
     (**DD-094**): removal of the `//proc` rules allowed, the `/tmp` fixes a unit of their own,

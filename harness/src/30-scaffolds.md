@@ -328,7 +328,8 @@ rebased, or cut from a newer commit than HEAD.
 - **Deny (hard rails):** `git push --force` in all spellings; any push targeting the default
   branch directly; environment and secret dumps in the spellings a deny rule can express —
   `env`, `printenv`, the builtin dump forms (`set`, `export -p`, `declare -x`), reads of
-  `.env`-style files and of `/proc/<pid>/environ`, and reads of private keys under their
+  `.env`-style files and of `/proc/<pid>/environ` (on Claude Code with its sandbox on, only in
+  a spelling that may reach nothing: see that adapter's comment), and reads of private keys under their
   conventional names (`id_rsa` and its siblings — never the `.pub` half, which is meant to be
   read). Stop at names with no benign population: `.pem` and `.key` are container extensions
   rather than secret markers, so a rule denying them denies reading a public certificate, and
@@ -423,7 +424,7 @@ rebased, or cut from a newer commit than HEAD.
   project file with no retry outside it and no approval for being sandboxed, so the prompts stay
   as they were. Three bounds go with it. Native Windows has none, by the owner's choice, so the
   command guard and the prose are the only layers there. Where it cannot start, on Linux or WSL2
-  without `bubblewrap` and `socat`, the host runs commands unsandboxed and says nothing, because
+  without `bubblewrap` and `socat`, the host runs commands unsandboxed with at most a warning, because
   failing instead would stop Claude Code starting on native Windows. And a project file sets
   defaults that a local, `--settings` or managed file outranks. The Codex adapter pins no sandbox
   key and relies on Codex's default, since a pinned key could collide with the user's own

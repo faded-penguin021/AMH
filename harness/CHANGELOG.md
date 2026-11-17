@@ -60,12 +60,23 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   `allowUnsandboxedCommands: false` (no retry outside it) and `autoAllowBashIfSandboxed: false`
   (being sandboxed approves nothing, so the prompts stay as they were). Native Windows has no
   sandbox under Claude Code and the README says so. Where the sandbox cannot start — Linux or
-  WSL2 without `bubblewrap` and `socat` — Claude Code runs commands unsandboxed and says nothing;
+  WSL2 without `bubblewrap` and `socat` — Claude Code runs commands unsandboxed, and 2.1.325 was
+  seen saying so only in a `Sandbox disabled` warning on stderr;
   `failIfUnavailable` stays unset because it would stop Claude Code starting on native Windows,
   and `amh.conf.example` now suggests listing `bwrap socat` in `REQUIRED_TOOLS` so the session
   banner shows them. The Codex adapter sets no sandbox key and relies on Codex's default. No
   platform has been probed in a live sandboxed session: what ships is configuration, and every
   containment cell is unverified.
+- **The Claude Code adapter drops the two root-anchored `/proc` deny rules 16.1.1 added,**
+  `Read(//proc/*/environ)` and `Read(//proc/**/environ)`. With the sandbox on, Claude Code
+  expands each into bwrap arguments for every running process: in a throwaway box they refused
+  every shell command at a few thousand processes, and one command failed when a process exited
+  mid-expansion. A sandboxed command was seen in its own PID namespace, and Claude Code's Read
+  tool was seen refusing `/proc/<pid>/environ` by itself, once, on one version; the single-slash
+  pair stays. `scripts/guards/adapter-set.sh`, which required both rules, now fails a
+  root-anchored `/proc` deny rule with a wildcard in either Claude file. The machine-mode
+  fragment keeps its `//proc` rules; whether they reach a project's sandbox when both load is
+  unmeasured.
 - **The procedures every session is bound by have their own seed, `docs/PROTOCOLS.md`,** split
   out of the runbook: Session discipline, the adversarial and rule-review protocols, the
   leaked-credential incident, the acceptance ladder and working-memory compression, verbatim
@@ -154,14 +165,20 @@ Then apply the test-first rules by hand, because seeds are yours:
    `.git/hooks`, `.git/config` and the `.claude` settings files; `git push` over SSH fails inside
    it; a `git merge` that must replace a protected file fails with `unable to unlink old` and has
    to be run in the user's own terminal; and on Linux and WSL2 it needs `bubblewrap` and `socat`
-   or it silently does nothing. Only on a yes, add the top-level `sandbox` block from
+   or it does nothing beyond a warning on stderr. Only on a yes, add the top-level `sandbox` block from
    `harness/templates/configs/claude-settings.json` to `.claude/settings.json`, keeping
-   everything the file already holds and without printing its contents. On Linux or WSL2, also
+   everything the file already holds and without printing its contents. In the same change,
+   remove `Read(//proc/*/environ)` and `Read(//proc/**/environ)` from `permissions.deny` if 16.1.1's
+   note had you add them: with the sandbox on they expand per running process, and past bwrap's
+   limit every shell command is refused. If the user also installed the machine-mode fragment,
+   say that it keeps the same two rules at user level and that whether they reach the project's
+   sandbox is unmeasured; if sandboxed commands then fail with a bwrap error, remove them there
+   too, on the user's yes. On Linux or WSL2, also
    offer to add `bwrap socat` to `REQUIRED_TOOLS` in `amh.conf`. Codex needs nothing.
 
 This rule is what makes the release MAJOR, on the precedent of 16.0.0: a session that wrote a
 fix and then its test, or changed an existing test to make a fix pass, was within the rules
-before and is not now. The owner has not yet confirmed that call for this release. The
+before and is not now. The owner confirmed that call for this release on 2026-11-17. The
 removal of the `light` profile would be MAJOR on its own: a command line that worked before is
 refused now, and every install's layout gains a binding document its constitution must point
 at.
