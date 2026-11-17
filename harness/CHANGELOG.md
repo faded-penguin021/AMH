@@ -77,6 +77,12 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   root-anchored `/proc` deny rule with a wildcard in either Claude file. The machine-mode
   fragment keeps its `//proc` rules; whether they reach a project's sandbox when both load is
   unmeasured.
+- **The command guard's one-time advisory markers move to `TMPDIR` when it names an absolute,
+  writable directory**, and `/tmp` otherwise; `--advisory-report`, `--spawn-report` and
+  `session-start.sh` look in both, because a hook outside a host sandbox may see no `TMPDIR`
+  where a process inside it sees one. Inside a host sandbox `/tmp` can be read-only while
+  `TMPDIR` stays writable, and a marker the guard could not write let the advisory's command
+  through unseen. The shipped suite's no-hasher fixture now keeps `TMPDIR` through its `env -i`.
 - **The procedures every session is bound by have their own seed, `docs/PROTOCOLS.md`,** split
   out of the runbook: Session discipline, the adversarial and rule-review protocols, the
   leaked-credential incident, the acceptance ladder and working-memory compression, verbatim

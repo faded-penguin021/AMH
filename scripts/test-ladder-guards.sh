@@ -2012,6 +2012,75 @@ else
 	report no "session-start rearms the one-time destructive advisory" "rc=$rc" "$out"
 fi
 
+# The markers live under TMPDIR when it is set, and the bootstrap clears them there. A host
+# sandbox can leave /tmp read-only while TMPDIR stays writable, and a marker that cannot be written
+# lets the advisory through unseen (AMH ledger row DD093).
+d=$(mk ss_advisory_marker_under_tmpdir)
+td="$WORK/ss_tmpdir_markers"
+mkdir -p "$td"
+out=$(cd "$d" && TMPDIR="$td" scripts/command-guard.sh --command 'rm -rf tmp/build' 2>&1)
+rc=$?
+n=$(find "$td" -maxdepth 1 -name 'amh-command-guard-*-advisory-*' | wc -l | tr -d ' ')
+slug=$(cd "$d" && pwd)
+slug=${slug//\//_}
+slug=${slug// /_}
+marker_name="amh-command-guard-destructive-advisory-${UID:-unknown}-$slug"
+if [ "$rc" -eq 2 ] && [ "$n" -ge 1 ] && [ ! -e "/tmp/$marker_name" ]; then
+	report ok "the advisory marker is written under TMPDIR, and not under /tmp"
+else
+	report no "the advisory marker is written under TMPDIR, and not under /tmp" "rc=$rc, markers under TMPDIR: $n, under /tmp: $([ -e "/tmp/$marker_name" ] && echo 1 || echo 0)" "$out"
+fi
+# The clearing half plants its own marker, named as the guard names one, so it cannot pass on a
+# directory that was empty all along.
+planted="$td/$marker_name"
+: >"$planted"
+(cd "$d" && TMPDIR="$td" env -u AMH_REMOTE bash scripts/session-start.sh >/dev/null 2>&1)
+if [ ! -e "$planted" ]; then
+	report ok "session-start clears the markers under TMPDIR"
+else
+	report no "session-start clears the markers under TMPDIR" "the planted marker is still there"
+fi
+
+# The two fixtures below need a writable /tmp, the fallback they test; under a sandbox that
+# leaves /tmp read-only they are reported as not run, by name, rather than passed.
+if [ -w /tmp ]; then
+	# A TMPDIR that is missing or unwritable falls back to /tmp, so the advisory still fires: a marker
+	# the guard cannot write would let the command through unseen.
+	d=$(mk ss_advisory_tmpdir_missing)
+	out=$(cd "$d" && TMPDIR="$WORK/no/such/dir" scripts/command-guard.sh --command 'rm -rf tmp/build' 2>&1)
+	rc=$?
+	if [ "$rc" -eq 2 ] && grep -qF "This destructive filesystem command" <<<"$out"; then
+		report ok "a missing TMPDIR still gets the advisory"
+	else
+		report no "a missing TMPDIR still gets the advisory" "rc=$rc" "$out"
+	fi
+	(cd "$d" && env -u TMPDIR -u AMH_REMOTE bash scripts/session-start.sh >/dev/null 2>&1)
+
+	# A hook outside a host sandbox may see no TMPDIR while the bootstrap or the ladder inside it sees
+	# one, so the readers look in /tmp as well as in TMPDIR: a marker the hook wrote under /tmp is
+	# reported and cleared from a process that has TMPDIR set.
+	d=$(mk ss_advisory_tmp_seen_from_tmpdir)
+	(cd "$d" && env -u TMPDIR scripts/command-guard.sh --command 'rm -rf tmp/build' >/dev/null 2>&1)
+	out=$(cd "$d" && TMPDIR="$td" scripts/command-guard.sh --advisory-report 2>&1)
+	if grep -qF 'tmp/build' <<<"$out"; then
+		report ok "a marker under /tmp is reported from a process with TMPDIR set"
+	else
+		report no "a marker under /tmp is reported from a process with TMPDIR set" "report was: [$out]"
+	fi
+	slug=$(cd "$d" && pwd)
+	slug=${slug//\//_}
+	slug=${slug// /_}
+	(cd "$d" && TMPDIR="$td" env -u AMH_REMOTE bash scripts/session-start.sh >/dev/null 2>&1)
+	if [ ! -e "/tmp/amh-command-guard-destructive-advisory-${UID:-unknown}-$slug" ]; then
+		report ok "session-start with TMPDIR set clears a marker under /tmp"
+	else
+		report no "session-start with TMPDIR set clears a marker under /tmp" "the /tmp marker is still there"
+		(cd "$d" && env -u TMPDIR -u AMH_REMOTE bash scripts/session-start.sh >/dev/null 2>&1)
+	fi
+else
+	report ok "NOT RUN: the /tmp fallback and /tmp-marker fixtures (/tmp is not writable here)"
+fi
+
 # The `.resumed` sibling rearms too. The bootstrap's pattern stopped at the slug, so it deleted
 # the advisory state and left the ledger of what a session went ahead with — and both reports
 # built on that file then spanned every session sharing the container. Hook mode is required:
@@ -2773,7 +2842,7 @@ else
 	if [ -e "$SHIM/sha256sum" ] || [ -e "$SHIM/shasum" ]; then
 		report no "the no-hasher fixture really has no hasher" "the shim PATH contains one"
 	else
-		out=$(cd "$d" && env -i PATH="$SHIM" CI=1 HOME="$WORK" bash scripts/ladder.sh --guards-only 2>&1)
+		out=$(cd "$d" && env -i PATH="$SHIM" CI=1 HOME="$WORK" TMPDIR="${TMPDIR:-/tmp}" bash scripts/ladder.sh --guards-only 2>&1)
 		rc=$?
 		if [ "$rc" -ne 0 ]; then
 			report no "no hashing tool is not fatal" "expected exit 0, got $rc" "$out"

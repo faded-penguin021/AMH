@@ -60,7 +60,7 @@ say() { printf '%s\n' "$*"; }
 # extra step. The rest of the name is quoted, so only the category slot globs — a repository
 # path containing a glob character stays a literal rather than widening the pattern. That slot
 # is a greedy `*` that does not cross `/`, so the widest reach is another repository's file of
-# exactly this shape under /tmp, and erasing one of those is harmless: an advisory that rearms
+# exactly this shape under /tmp or TMPDIR, and erasing one of those is harmless: an advisory that rearms
 # early blocks one extra command and explains why, which is the direction this file is allowed
 # to fail in. Erasing one too FEW removes a rail in silence, which is why the pattern is wide.
 #
@@ -90,7 +90,8 @@ say() { printf '%s\n' "$*"; }
 # repository whose path embeds this exact shape stays reachable. Contrived, and not a reason to
 # widen — but the absolute would be false.
 reset_command_guard_advisories() {
-	local slug uid f had_globignore old_globignore noglob=0
+	local slug uid f dir had_globignore old_globignore noglob=0
+	local -a dirs=(/tmp)
 	case $- in *f*) noglob=1 ;; esac
 	set +f
 	had_globignore=${GLOBIGNORE+x}
@@ -99,9 +100,18 @@ reset_command_guard_advisories() {
 	slug=${ROOT//\//_}
 	slug=${slug// /_}
 	uid=${UID:-unknown}
-	for f in /tmp/amh-command-guard-*-advisory-"$uid"-"$slug" \
-		/tmp/amh-command-guard-*-advisory-"$uid"-"$slug".resumed; do
-		[ -e "$f" ] && rm -f -- "$f" 2>/dev/null
+	# Both places the command guard may have written: /tmp, and TMPDIR when it names an absolute
+	# directory (its advisory_state_dir). A hook that saw no TMPDIR wrote to /tmp even when this
+	# process sees one, so both are cleared; a directory that cannot be written fails quietly.
+	dir=${TMPDIR:-}
+	case $dir in /*) ;; *) dir= ;; esac
+	while [ "$dir" != "${dir%/}" ]; do dir=${dir%/}; done
+	[ -n "$dir" ] && [ "$dir" != /tmp ] && dirs+=("$dir")
+	for dir in "${dirs[@]}"; do
+		for f in "$dir"/amh-command-guard-*-advisory-"$uid"-"$slug" \
+			"$dir"/amh-command-guard-*-advisory-"$uid"-"$slug".resumed; do
+			[ -e "$f" ] && rm -f -- "$f" 2>/dev/null
+		done
 	done
 	if [ -n "$had_globignore" ]; then GLOBIGNORE=$old_globignore; else unset GLOBIGNORE; fi
 	[ "$noglob" = 1 ] && set -f

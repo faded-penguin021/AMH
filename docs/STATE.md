@@ -97,7 +97,15 @@ Owner, 2026-11-17 (**DD-094**): the `//proc` rules may be removed; DD-093's `/tm
 unit of their own; worktree creation is recorded as a limit; the last run follows the
 companion's §4, probe repaired first, built and driven by a session on the owner's host with
 tokens the owner mints. The `//proc` rules are dropped from both adapter copies (**DD-095**).
-Next: the `/tmp` unit, the probe repairs, then the run.
+DD-093's fixed `/tmp` paths are gone (**DD-096**). Next: the probe repairs, then the run.
+
+**OPEN — decide whether a one-time advisory whose marker cannot be written should fire
+anyway (evidence: **DD-096**).** Older than the `/tmp` unit: the guard treats "I could not record
+the marker" as "nothing to advise", so a command that should get the advisory passes with exit 0.
+The `/tmp` unit made it rarer (a missing or unwritable `TMPDIR` now falls back to `/tmp`), not
+gone. Firing instead fails closed, but where no marker can ever be written the same command is
+then refused on every attempt, as the no-digest arm already is (**DD-071**). Recommendation: fire
+it, matching that arm. No one-line check settles this.
 
 **OPEN — decide whether the machine-mode fragment drops its `//proc` rules too (evidence:
 **DD-095**).** It keeps `Read(//proc/*/environ)` and `Read(//proc/**/environ)`, since it sets no
@@ -157,6 +165,9 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-17 — **H4b follow-up: no fixed `/tmp` path left in the ladder,** the guard's markers
+  and their clearing in `TMPDIR`; seen red first with `/tmp` read-only (**DD-096**).
 
 - 2026-11-17 — **H4b follow-up: the root-anchored `/proc` deny rules dropped from the Claude
   adapter,** and `adapter-set.sh` now fails one with a wildcard; the "host says nothing" prose is

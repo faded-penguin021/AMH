@@ -1697,8 +1697,38 @@ names_credential_store() {
 # allowed through to the normal rails so false positives do not brick the agent.
 #
 # Session identity is not portable across agent vendors, so the default state is a
-# per-repository, per-category file under /tmp. Tests may override either category's
-# file explicitly; DOTENV_ADVISORY_STATE remains supported for compatibility.
+# per-repository, per-category file in advisory_state_dir: TMPDIR when it names an absolute,
+# writable directory, /tmp otherwise. A host sandbox can leave /tmp read-only while TMPDIR stays
+# writable, and a TMPDIR that is missing or unwritable must not leave the marker unwritable too
+# (AMH ledger row DD093). A process may see no TMPDIR where another sees one, a hook outside the
+# sandbox against a ladder inside it, so every reader looks in both (advisory_state_files), and
+# scripts/session-start.sh clears both. Tests may override either category's file explicitly;
+# DOTENV_ADVISORY_STATE remains supported for compatibility.
+advisory_state_dir() {
+	local dir=${TMPDIR:-}
+	case $dir in /*) ;; *) dir= ;; esac
+	while [ "$dir" != "${dir%/}" ]; do dir=${dir%/}; done
+	if [ -n "$dir" ] && [ -d "$dir" ] && [ -w "$dir" ]; then
+		printf '%s' "$dir"
+	else
+		printf '/tmp'
+	fi
+}
+
+# advisory_state_files <name> : the state file, then its /tmp sibling when the file is the
+# default one and sits elsewhere. An overridden file (the *_ADVISORY_STATE variables) has none.
+advisory_state_files() {
+	local own base
+	own=$(advisory_state_file "$1") || return 1
+	printf '%s
+' "$own"
+	base=${own##*/}
+	[ "$own" = "$(advisory_state_dir)/$base" ] || return 0
+	[ "$own" = "/tmp/$base" ] && return 0
+	printf '%s
+' "/tmp/$base"
+}
+
 advisory_state_file() { # advisory_state_file <name>
 	local name=$1 slug uid
 	case $name in
@@ -1713,7 +1743,7 @@ advisory_state_file() { # advisory_state_file <name>
 	slug=${ROOT//\//_}
 	slug=${slug// /_}
 	uid=${UID:-unknown}
-	printf '/tmp/amh-command-guard-%s-advisory-%s-%s' "$name" "$uid" "$slug"
+	printf '%s/amh-command-guard-%s-advisory-%s-%s' "$(advisory_state_dir)" "$name" "$uid" "$slug"
 }
 
 needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
@@ -9828,16 +9858,16 @@ git push --force origin main
 # a session that deleted nothing.
 advisory_report() {
 	local state advised
-	state=$(advisory_state_file destructive) || return 0
-	[ -n "$state" ] || return 0
-	[ -e "$state" ] || return 0
-	while IFS= read -r advised; do
-		[ -n "$advised" ] || continue
-		if [ -e "$state.resumed" ] && LC_ALL=C grep -qxF -- "$advised" "$state.resumed" 2>/dev/null; then
-			continue
-		fi
-		printf '%s\n' "$advised"
-	done <"$state"
+	while IFS= read -r state; do
+		if [ -z "$state" ] || [ ! -e "$state" ]; then continue; fi
+		while IFS= read -r advised; do
+			[ -n "$advised" ] || continue
+			if [ -e "$state.resumed" ] && LC_ALL=C grep -qxF -- "$advised" "$state.resumed" 2>/dev/null; then
+				continue
+			fi
+			printf '%s\n' "$advised"
+		done <"$state"
+	done < <(advisory_state_files destructive 2>/dev/null) | awk '!seen[$0]++'
 	return 0
 }
 
@@ -9871,11 +9901,12 @@ run_pretask() {
 # gate, CI step or decision procedure may read it as evidence of a check (P3, AMH ledger row
 # D014).
 spawn_report() {
-	local state count
-	state=$(advisory_state_file subagent) || return 0
-	[ -n "$state" ] || return 0
-	[ -e "$state.resumed" ] || return 0
-	count=$(LC_ALL=C grep -c '' "$state.resumed" 2>/dev/null) || return 0
+	local state count=0 n
+	while IFS= read -r state; do
+		if [ -z "$state" ] || [ ! -e "$state.resumed" ]; then continue; fi
+		n=$(LC_ALL=C grep -c '' "$state.resumed" 2>/dev/null) || continue
+		count=$((count + n))
+	done < <(advisory_state_files subagent 2>/dev/null)
 	[ "$count" -gt 0 ] || return 0
 	printf '%s\n' "$count"
 	return 0
