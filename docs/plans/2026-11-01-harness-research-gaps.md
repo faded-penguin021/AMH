@@ -727,10 +727,11 @@ fi
     failed a command on a vanished PID, the Read-tool cells did not settle, the out-of-tree write
     was refused, a linked worktree could not be created, and the full ladder was red on fixed
     `/tmp` paths and three bootstrap fixtures, none of it `path-refs.sh`'s.
-  - **Owed:** the owner's answers to the decisions in the H4b Owner-queue item, since dropping
-    both rules is removal and the owner ruled narrowing; then the candidate, the ladder fixes
-    and the probe repairs, and the last owner-box run, as the results companion's §4 drafts
-    it (owner, 2026-11-15: the next run is the last); then (f) here.
+  - **Owed:** the candidate, the ladder fixes and the probe repairs, and the last owner-box run,
+    as the results companion's §4 drafts it (owner, 2026-11-15: the next run is the last); then
+    (f) here. The owner answered the four decisions on 2026-11-17, each as recommended
+    (**DD-094**): removal of the `//proc` rules allowed, the `/tmp` fixes a unit of their own,
+    worktree creation a recorded limit, and the run driven by a session on the owner's host.
 
 ### H2 — keep in the constitution what every session needs; point at the rest: done 2026-11-13
 

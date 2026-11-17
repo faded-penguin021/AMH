@@ -30,7 +30,7 @@ that unit:
   H5, H7, H6b and H6a done, H8 parked, and H4b done as configuration with its live probes owed
   (Owner queue). An H4b follow-up is approved (owner, 2026-11-15): `path-refs.sh` fixed, the
   probe script written and run once by the owner, its results recorded (**DD-090**–**DD-093**);
-  the `//proc` change waits on the owner's answers, and the next owner-box run is the last. Every unit rides
+  the owner answered the H4b decisions on 2026-11-17 (**DD-094**), and the next box run is the last. Every unit rides
   17.0.0 (owner, 2026-11-13). Before a unit starts the session says which decisions it needs and
   waits for the answers, and a fresh-context review is pre-allowed for every unit (owner,
   2026-11-09).
@@ -91,16 +91,12 @@ starts the sandbox. There the H6b runs saw three failures to decide on (**DD-088
 `//proc` deny rules refused every command at about 4,400 processes (about 450 by estimate), a
 push to a local remote outside the tree failed, and the full ladder was red on a placeholder.
 Owner, 2026-11-15: those three block tagging 17.0.0, and if they cannot be fixed in time 17.0.0
-ships with the sandbox block off and says so; the `//proc` rules are narrowed, not removed, once
-a probe settles the fix. The probe ran once (**DD-090**–**DD-093**,
-`docs/plans/2026-11-01-harness-research-gaps-h4b-results.md`), and the next run is the owner's
-last. Four decisions, each with the session's recommendation, which a gpt-6-astra consultation
-shared: (1) `//proc`: only dropping both `//` rules stopped the growth, the vanished-PID failure was
-seen under the shipped rules, and narrowing still binds, by extrapolation at about 2,900, so amend "not removed" to allow
-it, or ship the block off; (2) one unit for DD-093's fixed `/tmp` paths, the guard's markers
-moving together with `session-start.sh`'s clearing, each fixture seen failing first, and `xz`
-provisioned in the box, not skipped; (3) worktree creation recorded as a limit, no write
-allowance; (4) the last run as the companion's §4 drafts it, probe repaired first.
+ships with the sandbox block off and says so. The probe ran once (**DD-090**–**DD-093**,
+`docs/plans/2026-11-01-harness-research-gaps-h4b-results.md`), and the next run is the last.
+Owner, 2026-11-17 (**DD-094**): the `//proc` rules may be removed; DD-093's `/tmp` paths are a
+unit of their own; worktree creation is recorded as a limit; the last run follows the
+companion's §4, probe repaired first, built and driven by a session on the owner's host with
+tokens the owner mints. Next: the `//proc` unit, the `/tmp` unit, the probe repairs, then the run.
 
 **OPEN — run G1, one gpt-6-astra `-e high` review of both command-guard plans,
 `docs/plans/2026-11-10-command-guard-gap-review.md` and
@@ -119,15 +115,10 @@ Whether to reconsider a `find` arm for the permanent targets, which **DD-018** c
 reach the spill-guard and research-gaps plans; H0.5's recommended order is in the research-gaps
 plan's §7.1, and it did not change that plan's standing here.
 
-**OPEN — decide whether the test-first rule is MAJOR or MINOR, then tag once this train is
-merged (evidence: **DD-073**).** Drafted as MAJOR 17.0.0, because the owner ruled the two
-session-discipline rules of 16.0.0 MAJOR (**DD-050**) and this is a third of that kind. The other
-reading is MINOR 16.2.0, a new principle an adopter may take or leave; choosing it means changing
-the five version copies and the changelog's Upgrading wording. The three H4b failures of
-**DD-088** also block the tag (owner, 2026-11-15; the H4b item). Recommendation: MAJOR, to match
-that ruling. The README's clone command names the drafted tag.
-Check: `git ls-remote --tags origin 'amh-v17.0.0' 'amh-v16.2.0'` — no output means neither is
-tagged.
+**OPEN — tag `amh-v17.0.0` once this train is merged.** The owner ruled the test-first rule
+MAJOR on 2026-11-17 (**DD-094**). The three H4b failures of **DD-088** block the tag (owner,
+2026-11-15; the H4b item). Tagging is an owner step. The README's clone command names the drafted
+tag. Check: `git ls-remote --tags origin amh-v17.0.0` — no output means it is still open.
 
 **OPEN — decide whether to build a guard for a fix that changes an existing test (evidence:
 **DD-073**).** The rule is prose-only. A diff shows a modified or deleted test file, so a WARN-only
@@ -159,6 +150,10 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-17 — **The owner answered the four H4b decisions and ruled the train MAJOR 17.0.0,**
+  each on the session's recommendation; the version item is answered and the tag is queued
+  (**DD-094**).
 
 - 2026-11-15 — **H4b follow-up: the owner's probe run read and recorded,** after `7edb27f`
   fixed the probe's prompt and tree trust (**DD-090**–**DD-093**).
