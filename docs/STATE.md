@@ -27,7 +27,8 @@ Live plans, each in `docs/plans/`, where a unit starts only on the owner's expli
 that unit:
 
 - `2026-11-01-harness-research-gaps.md`, adopted: every unit done except H8, parked, and H4b's
-  live probes (Owner queue). Before a unit starts the session names the decisions it needs and
+  follow-up, whose live probes ran on 2026-11-18 and whose claims and acceptance (f) are owed
+  (Owner queue). Before a unit starts the session names the decisions it needs and
   waits for the answers; a fresh-context review is pre-allowed for every unit (owner, 2026-11-09).
 - `2026-11-04-spill-guard-borrowings.md`, adopted: S1, S2, S6a and S3 approved on 2026-11-10, to
   run in that order, each with its own review and its version settled when its behaviour is
@@ -66,21 +67,20 @@ compensation stays open until one is proposed, with H5's classification as input
 an H8 incident-bar exception is asked if H8 reopens; the combined order is the item below. No
 check settles it.
 
-**OPEN — run H4b's last live probe run (**DD-079**).** The probes are the plan's H4b acceptance
-(b) to (d), (f) and (g), the H4a companion's §7 list; the first run's results and the last run's
-content are in `docs/plans/2026-11-01-harness-research-gaps-h4b-results.md` (**DD-090** to
-**DD-093**, its §4). The owner's answers of 2026-11-17 (**DD-094**) are applied (**DD-095** to
-**DD-097**), and the probe is repaired to that §4 (**DD-098**). Next: a session on the owner's host
-builds the box (`--security-opt seccomp=unconfined`, `xz` installed) and runs the probe at the
-commit carrying it, with owner-minted Claude Code and GitHub tokens (one throwaway repository) in
-files passed in unread; a follow-up then claims only the cells that pass. The three **DD-088**
-failures block the 17.0.0 tag; unfixed, 17.0.0 ships with the sandbox block off and says so (owner,
-2026-11-15).
-Check on the box: `command -v bwrap socat xz && unshare -Ur true`.
+**OPEN — decide whether H4b's last box run clears the three **DD-088** failures that block the
+17.0.0 tag (**DD-099** to **DD-102**).** Run on 2026-11-18, results in
+`docs/plans/2026-11-01-harness-research-gaps-h4b-results.md` §5. The scale failure does not
+reproduce on the shipped adapter, which stays flat while the control fails; the full ladder is
+green inside the sandbox; a push to a real remote lands under `bypassPermissions` or with its
+host allowed and is refused by the proxy under `default` and `dontAsk` otherwise. Unfixed, 17.0.0
+ships with the sandbox block off and says so (owner, 2026-11-15). Recommendation: cleared. Then a
+follow-up claims only the cells that passed, and acceptance (f) runs here; the Read tool on
+`/proc`, linked worktrees and the WSL2 cell stay unverified or limits. No check settles it.
 
 **OPEN — decide whether the machine-mode fragment drops its `//proc` rules too (**DD-095**).**
-Owner, 2026-11-18: measure it in the last box run first, as the probe's C-machine-user cells do
-(**DD-098**). No check settles it.
+Measured on 2026-11-18 as the owner asked: merged into the user settings, they reach a project's
+sandbox and cost about 6 bwrap arguments per running process, as project rules do (**DD-100**).
+Recommendation: drop them. No check settles it.
 
 **OPEN — run G1, one gpt-6-astra `-e high` review of both command-guard plans,
 `docs/plans/2026-11-10-command-guard-gap-review.md` and
@@ -130,6 +130,8 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-18 — **H4b follow-up: the last owner-box run, two runs at `7d44ff5`, recorded**
+  (**DD-099** to **DD-102**, `2026-11-01-harness-research-gaps-h4b-results.md` §5).
 - 2026-11-18 — **H4b follow-up: `2026-11-01-harness-research-gaps-h4b-probe.sh` repaired for the
   last box run** (**DD-098**).
 - 2026-11-18 — **Owner: an advisory whose marker cannot be written fires** (**DD-097**).

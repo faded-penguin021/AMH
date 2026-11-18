@@ -731,9 +731,17 @@ fi
     template, with `adapter-set.sh` now failing their return (**DD-095**).
   - **Done, 2026-11-17:** the ladder fixes for DD-093's fixed `/tmp` paths, seen red first with
     `/tmp` read-only (**DD-096**); `xz` and the placeholder `mknod` stay with the box run.
-  - **Owed:** the probe repairs, and the last owner-box run,
-    as the results companion's §4 drafts it (owner, 2026-11-15: the next run is the last); then
-    (f) here. The owner answered the four decisions on 2026-11-17, each as recommended
+  - **Done, 2026-11-18:** the probe repairs (**DD-098**), and the last owner-box run, driven by a
+    session on the owner's host: two runs at `7d44ff5`, the second for the network cells after the
+    first's token could not reach the throwaway repository (**DD-099** to **DD-102**, the results
+    companion's §5). The candidate stays flat at 279 bwrap arguments to about 4,515 processes
+    while the control fails there; the full ladder is green inside the sandbox; out-of-tree writes
+    and unallowed pushes outside `bypassPermissions` are refused; linked worktrees fail; the
+    machine-mode fragment's `//proc` rules reach a project's sandbox from the user settings; the
+    Read tool on `/proc` and the WSL2 cell stay unverified.
+  - **Owed:** the follow-up that claims only the cells that passed (README, ledger row, commit
+    body), (f) here, and the owner's decisions the run feeds: whether DD-088's tag block is
+    cleared, and whether the machine-mode fragment drops its `//proc` rules. The owner answered the four decisions on 2026-11-17, each as recommended
     (**DD-094**): removal of the `//proc` rules allowed, the `/tmp` fixes a unit of their own,
     worktree creation a recorded limit, and the run driven by a session on the owner's host.
 

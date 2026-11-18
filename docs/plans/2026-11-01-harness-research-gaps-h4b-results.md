@@ -1,8 +1,9 @@
-# H4b follow-up — the owner-box probe run of 2026-11-15, and what the last run must hold
+# H4b follow-up — the owner-box probe runs of 2026-11-15 and 2026-11-18
 
 Companion to `2026-11-01-harness-research-gaps.md` §5 H4b, its follow-up bullet. Evidence rows:
-**DD-090** to **DD-093**. This file records one run and the plan for the next; it decides
-nothing, and the decisions it needs are in `docs/STATE.md` → Owner queue, the H4b item.
+**DD-090** to **DD-093** for the first run, **DD-099** to **DD-102** for the last. This file
+records both, and the plan the last one followed (§4); it decides nothing, and the decisions it
+needs are in `docs/STATE.md` → Owner queue.
 
 ## 1. The run
 
@@ -157,3 +158,102 @@ tree that still carries a root-anchored `/proc` rule. It adds two things the lis
 sweep's control, the candidate with both `//proc` rules put back, so a flat count is read against
 the growth this Claude Code version shows; and the owner's question of 2026-11-18, whether the
 machine-mode fragment's `//proc` rules reach a project's sandbox from the user settings.
+
+## 5. The last run, 2026-11-18
+
+- Two runs of the probe at `7d44ff5`, old ref `4c295c5`, stage `all`, by a session on the
+  owner's host in a box it built: ubuntu:24.04, uid 1001, `--init`, `seccomp=unconfined`, WSL2
+  kernel 6.18.33.2, 8 CPUs; Claude Code 2.1.327, model claude-sonnet-5-5, bubblewrap 0.9.0, `xz`
+  and `shellcheck` installed, `unshare -Ur true` succeeding. Both tokens were minted by the owner
+  and passed in as files the session never read; the network cells pushed to a throwaway GitHub
+  repository (**DD-099**).
+- Run `20261118T164432Z` is complete except for its network cells: the token could not reach the
+  repository (403 on the control push), so its four sandboxed push cells read INCONCLUSIVE. The
+  owner added the repository to the same token, and run `20261118T172111Z` followed with nothing
+  else changed. Its table is below; every non-network verdict is the same in both runs, and the
+  two `//proc` variants' counts differ by at most 39 arguments.
+- The send-back archives, held by the owner outside any repository, are
+  `send-20261118T164432Z.tar.gz` (141 entries, sha256
+  `fcce081d3454a84014985f94ee064164527fd2565ea7f094c77d2ad7b33d70ad`) and
+  `send-20261118T172111Z.tar.gz` (140 entries, sha256
+  `72323328da691093ad04427a75ea9570a2aac106d7131458cd6c8b0df874766f`). Each passed the probe's
+  own fragment scan for the GitHub token, and both, extracted, passed the same scan for both
+  tokens; the raw transcripts stayed in the box, which the owner's teardown removes.
+
+### 5.1 The results table of run 20261118T172111Z, as the probe wrote it
+
+| cell | variant | verdict | detail |
+|---|---|---|---|
+| bwrap-args | C-shipped/base | 279 | processes=15 tasks=15 samples=200 proc_args=4 via_fd=no launch=ok done=yes; ran sandboxed |
+| pid-namespace | C-shipped | OWN | pid1=3 visible_pids=6 self_environ_open=ok |
+| bwrap-args | C-shipped/procs | 279 | processes=318 tasks=318 samples=169 proc_args=4 via_fd=no launch=ok done=yes; ran sandboxed |
+| bwrap-args | C-shipped/threads | 279 | processes=48 tasks=318 samples=182 proc_args=4 via_fd=no launch=ok done=yes; ran sandboxed |
+| bwrap-args | C-shipped/churn/1 | 279 | processes=23 tasks=19 samples=215 proc_args=4 via_fd=no launch=ok done=yes; ran sandboxed |
+| bwrap-args | C-shipped/churn/2 | 279 | processes=21 tasks=19 samples=214 proc_args=4 via_fd=no launch=ok done=yes; ran sandboxed |
+| bwrap-args | C-shipped/churn/3 | 279 | processes=23 tasks=19 samples=214 proc_args=4 via_fd=no launch=ok done=yes; ran sandboxed |
+| bwrap-args | C-shipped/scale | 279 | processes=4518 tasks=4518 samples=80 proc_args=4 via_fd=no launch=ok done=yes; ran sandboxed |
+| bwrap-args-per-process | C-shipped | 0.00 | from 279 args at 15 processes to 279 at 318; bwrap's limit is 9000 |
+| bwrap-args-per-task | C-shipped | 0.00 | from 279 args at 15 tasks to 279 at 318; bwrap's limit is 9000 |
+| bwrap-args | R-root-rules/base | 471 | processes=18 tasks=18 samples=178 proc_args=73 via_fd=no launch=ok done=yes; ran sandboxed |
+| bwrap-args | R-root-rules/procs | 2277 | processes=318 tasks=318 samples=156 proc_args=675 via_fd=no launch=ok done=yes; ran sandboxed |
+| bwrap-args | R-root-rules/threads | 1464 | processes=48 tasks=318 samples=159 proc_args=404 via_fd=no launch=ok done=yes; ran sandboxed |
+| bwrap-args | R-root-rules/churn/1 | 480 | processes=23 tasks=19 samples=200 proc_args=76 via_fd=no launch=ok done=yes; ran sandboxed |
+| bwrap-args | R-root-rules/churn/2 | 480 | processes=20 tasks=19 samples=202 proc_args=76 via_fd=no launch=ok done=yes; ran sandboxed |
+| bwrap-args | R-root-rules/churn/3 | 477 | processes=21 tasks=19 samples=202 proc_args=75 via_fd=no launch=ok done=yes; ran sandboxed |
+| bwrap-args | R-root-rules/scale | none | processes=4518 tasks=4518 samples=0 proc_args=0 via_fd=no launch=error done=; the cell wrote no output |
+| bwrap-args-per-process | R-root-rules | 6.02 | from 471 args at 18 processes to 2277 at 318; bwrap's limit is 9000 |
+| bwrap-args-per-task | R-root-rules | 3.31 | from 471 args at 18 tasks to 1464 at 318; bwrap's limit is 9000 |
+| bwrap-args | C-machine-user/base | 474 | processes=18 tasks=18 samples=172 proc_args=74 via_fd=no launch=ok done=yes; ran sandboxed |
+| bwrap-args | C-machine-user/procs | 2271 | processes=318 tasks=318 samples=154 proc_args=673 via_fd=no launch=ok done=yes; ran sandboxed |
+| bwrap-args-per-process | C-machine-user | 5.99 | from 474 args at 18 processes to 2271 at 318; bwrap's limit is 9000 |
+| read-tool | C-shipped ordinary-file | READABLE | see artifacts/read-C-shipped-0.summary |
+| read-tool | C-shipped /proc/<pid>/environ | INCONCLUSIVE | see artifacts/read-C-shipped-1.summary |
+| read-tool | C-shipped /proc/<pid>/task/<tid>/environ | INCONCLUSIVE | see artifacts/read-C-shipped-2.summary |
+| read-tool | R-root-rules ordinary-file | READABLE | see artifacts/read-R-root-rules-0.summary |
+| read-tool | R-root-rules /proc/<pid>/environ | INCONCLUSIVE | see artifacts/read-R-root-rules-1.summary |
+| read-tool | R-root-rules /proc/<pid>/task/<tid>/environ | DENIED | see artifacts/read-R-root-rules-2.summary |
+| in-tree-write | C-shipped | ok | independently: file-present |
+| out-tree-write | C-shipped | refused | independently: file absent; the control wrote there first |
+| tmp-write | C-shipped | ok | TMPDIR set inside: yes |
+| git-commit | C-shipped | ok | independently: 1 new commit(s) on the branch |
+| worktree-commit | C-shipped | failed | independently: 75 commit(s) on session/amh-probe-wt |
+| prewt-commit | C-shipped | failed | independently: 74 commit(s) on session/amh-probe-prewt |
+| advisory-lifecycle | C-shipped | WORKS | first rc=2, markers=8, rerun rc=0, reported=yes, after session-start rc=2; expected 2, >=1, 0, yes, 2 |
+| session-start | C-shipped | rc=0 | run inside the sandbox; see artifacts/contain-session-start.log |
+| network-push | control-outside-sandbox | PUSHED | branch session/amh-probe-20261118T172111Z-control, read back from the remote |
+| network-push | C-shipped bypass | REACHED | push_rc=0 ls_remote_rc=0 ls_remote_noauth_rc=128; on the remote: yes |
+| network-push | C-shipped default | REFUSED | push_rc=128 ls_remote_rc=128 ls_remote_noauth_rc=128; on the remote: no |
+| network-push | C-shipped dontAsk | REFUSED | push_rc=128 ls_remote_rc=128 ls_remote_noauth_rc=128; on the remote: no |
+| network-push | C-allow-host default | REACHED | push_rc=0 ls_remote_rc=0 ls_remote_noauth_rc=128; on the remote: yes |
+| old-path-refs | 4c295c5 | rc=0 | .claude/loop.md inside: crw-rw-rw- character special file 0 |
+| full-ladder | control-outside-sandbox | GREEN | ladder_rc=0 secs=829; see artifacts/ladder-control.log |
+| full-ladder | C-shipped | GREEN | ladder_rc=0 secs=876 path_refs_rc=0; see artifacts/ladder.log |
+| no-bwrap-path | C-shipped | UNSANDBOXED | the out-of-tree write landed; the sandbox mentioned in stderr or a tool result: yes (stderr: Sandbox disabled) |
+
+### 5.2 What the runs settle, and what they leave
+
+Measured, each in both runs unless named:
+
+1. **DD-088's scale failure does not reproduce on the candidate** (**DD-100**): 279 bwrap
+   arguments from 9 to about 4,515 processes, flat under threads and churn. The control fails at
+   that load, Claude Code refusing the call with "Sandbox profile has 27434 bwrap arguments and
+   bwrap accepts at most 9000".
+2. **DD-090's race was not seen** in three churn calls per variant per run: not reproduced,
+   which does not show it gone.
+3. **The machine-mode fragment's `//proc` rules reach a project's sandbox from the user
+   settings** and cost what the control's do, about 6 arguments per process (**DD-100**). This is
+   the measurement the owner asked for before deciding whether the fragment drops them.
+4. **The full ladder is green inside the sandbox** (**DD-102**), and outside it as the control.
+5. **Containment** (**DD-102**): an out-of-tree write is refused after its positive control; in-tree
+   writes, `TMPDIR`, git commit, the bootstrap and the command guard's advisory lifecycle work.
+   Linked worktrees fail, both a new one and one created before the session: `.git/worktrees/`
+   is read-only inside the sandbox.
+6. **Network** (**DD-102**, run 20261118T172111Z only): the push reaches GitHub under
+   `bypassPermissions` and, with its host allowed, under `default`; the proxy refuses it under
+   `default` and `dontAsk` without that allowance.
+7. **Without `bwrap`** Claude Code prints "Sandbox disabled" and the command runs unsandboxed;
+   the root stage was not needed.
+
+Left unsettled: the Read tool on `/proc` for the candidate, since the model never called Read on
+either path (**DD-101**); the WSL2 Windows-program cell, not probed; and acceptance (f), which
+stays with a session here. By acceptance (g), none of those is claimed.
