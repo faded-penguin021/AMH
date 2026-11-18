@@ -150,3 +150,10 @@ proposed this content, which this session adopts as the draft:
 
 Acceptance (f), the retained old adapter and the Upgrading step, stays with a session here
 after the adapter change, as the follow-up bullet already says.
+
+On 2026-11-18 the probe script was repaired to items 1 to 9 above (DD-098). Item 2 needed no
+variant of its own: since DD-095 the shipped adapter is the candidate, and the probe now refuses a
+tree that still carries a root-anchored `/proc` rule. It adds two things the list did not name: the
+sweep's control, the candidate with both `//proc` rules put back, so a flat count is read against
+the growth this Claude Code version shows; and the owner's question of 2026-11-18, whether the
+machine-mode fragment's `//proc` rules reach a project's sandbox from the user settings.

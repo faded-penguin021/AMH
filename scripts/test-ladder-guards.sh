@@ -2014,7 +2014,8 @@ fi
 
 # The markers live under TMPDIR when it is set, and the bootstrap clears them there. A host
 # sandbox can leave /tmp read-only while TMPDIR stays writable, and a marker that cannot be written
-# lets the advisory through unseen (AMH ledger row DD093).
+# makes the advisory fire on every attempt, a rerun never clearing it (AMH ledger rows DD093,
+# DD097).
 d=$(mk ss_advisory_marker_under_tmpdir)
 td="$WORK/ss_tmpdir_markers"
 mkdir -p "$td"
@@ -2044,15 +2045,20 @@ fi
 # The two fixtures below need a writable /tmp, the fallback they test; under a sandbox that
 # leaves /tmp read-only they are reported as not run, by name, rather than passed.
 if [ -w /tmp ]; then
-	# A TMPDIR that is missing or unwritable falls back to /tmp, so the advisory still fires: a marker
-	# the guard cannot write would let the command through unseen.
+	# A TMPDIR that is missing or unwritable falls back to /tmp, so the advisory stays one-time: a
+	# marker the guard cannot write would make it fire on every attempt.
 	d=$(mk ss_advisory_tmpdir_missing)
+	# The first attempt alone cannot tell the fallback from its failure, since an unwritable marker
+	# fires too (AMH ledger row DD097): the rerun must pass, and nothing may say the write failed.
 	out=$(cd "$d" && TMPDIR="$WORK/no/such/dir" scripts/command-guard.sh --command 'rm -rf tmp/build' 2>&1)
 	rc=$?
-	if [ "$rc" -eq 2 ] && grep -qF "This destructive filesystem command" <<<"$out"; then
-		report ok "a missing TMPDIR still gets the advisory"
+	out2=$(cd "$d" && TMPDIR="$WORK/no/such/dir" scripts/command-guard.sh --command 'rm -rf tmp/build' 2>&1)
+	rc2=$?
+	if [ "$rc" -eq 2 ] && grep -qF "This destructive filesystem command" <<<"$out" &&
+		[ "$rc2" -eq 0 ] && ! grep -qF "could not write the marker" <<<"$out$out2"; then
+		report ok "a missing TMPDIR still gets the advisory, once"
 	else
-		report no "a missing TMPDIR still gets the advisory" "rc=$rc" "$out"
+		report no "a missing TMPDIR still gets the advisory, once" "rc=$rc rerun rc=$rc2" "$out" "$out2"
 	fi
 	(cd "$d" && env -u TMPDIR -u AMH_REMOTE bash scripts/session-start.sh >/dev/null 2>&1)
 

@@ -1829,6 +1829,13 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 	[ "$MACHINE_MODE" -eq 0 ] || return 1
 	state=$(advisory_state_file "$name")
 	[ -n "$state" ] || return 1
+	# A marker that cannot be written FIRES the advisory, and says why, instead of passing the
+	# command: "I could not record it" is not "nothing to advise". It used to be read that way,
+	# and a read-only /tmp inside a host sandbox turned every one-time advisory off (AMH ledger
+	# rows DD096, DD097). Where no marker can ever be written the same command is then refused
+	# on every attempt, as the no-digest arm already is (AMH ledger row DD071): loud, the
+	# direction an advisory may fail (owner, 2026-11-18).
+	ADVISORY_UNRECORDED=0
 	if [ "$name" = destructive ]; then
 		# Rearm per TARGET SET, not per category — the one place this rail's state
 		# deliberately diverges from the other two.
@@ -1849,7 +1856,7 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 			# the line. No gate reads it, and none may (P3, AMH ledger row DC004).
 			if [ "$HOOK_INVOCATION" -eq 1 ] &&
 				{ [ ! -e "$state.resumed" ] || ! LC_ALL=C grep -qxF -- "$sig" "$state.resumed" 2>/dev/null; }; then
-				printf '%s\n' "$sig" >>"$state.resumed" 2>/dev/null || :
+				printf '%s\n' "$sig" 2>/dev/null >>"$state.resumed" || :
 			fi
 			return 1
 		fi
@@ -1858,7 +1865,7 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# session, and the bootstrap deletes the file; not worth a second mechanism.
 		# An `xargs` deletion with no digest to key it on is never recorded, so it never matches
 		# and re-fires on every attempt (see `record_destructive_targets`).
-		[ "${DESTRUCTIVE_UNKEYABLE:-0}" -eq 1 ] || printf '%s\n' "$sig" >>"$state" 2>/dev/null || return 1
+		[ "${DESTRUCTIVE_UNKEYABLE:-0}" -eq 1 ] || printf '%s\n' "$sig" 2>/dev/null >>"$state" || ADVISORY_UNRECORDED=1
 	elif [ "$name" = interpreter ] || [ "$name" = hookfile ]; then
 		# The hook-file tier rearms the same way, per command text: removing the hook at minute
 		# two must not buy silence for moving it aside at minute forty.
@@ -1883,7 +1890,7 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 			if [ -e "$state" ] && LC_ALL=C grep -qxF -- "$sig" "$state" 2>/dev/null; then
 				return 1
 			fi
-			printf '%s\n' "$sig" >>"$state" 2>/dev/null || return 1
+			printf '%s\n' "$sig" 2>/dev/null >>"$state" || ADVISORY_UNRECORDED=1
 		else
 			ADVISORY_UNKEYABLE=1
 		fi
@@ -1903,18 +1910,23 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# turn three times over, with a line recorded for each. Nothing reads that file as
 		# evidence of anything (P3): it says a prompt fired and a spawn went ahead, never
 		# that anyone thought about it.
+		# Here the marker's write is its REMOVAL: one that cannot be cleared would let every later
+		# spawn pass unadvised, so it fires like any unwritable marker (AMH ledger row DD097).
 		if [ -e "$state" ]; then
-			rm -f -- "$state" 2>/dev/null || :
-			if [ "$HOOK_INVOCATION" -eq 1 ]; then
-				when=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null) || when='unknown-time'
-				printf '%s spawn proceeded past the advisory\n' "$when" >>"$state.resumed" 2>/dev/null || :
+			if rm -f -- "$state" 2>/dev/null && [ ! -e "$state" ]; then
+				if [ "$HOOK_INVOCATION" -eq 1 ]; then
+					when=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null) || when='unknown-time'
+					printf '%s spawn proceeded past the advisory\n' "$when" 2>/dev/null >>"$state.resumed" || :
+				fi
+				return 1
 			fi
-			return 1
+			ADVISORY_UNRECORDED=1
+		else
+			: 2>/dev/null >"$state" || ADVISORY_UNRECORDED=1
 		fi
-		: >"$state" 2>/dev/null || return 1
 	else
 		[ -e "$state" ] && return 1
-		: >"$state" 2>/dev/null || return 1
+		: 2>/dev/null >"$state" || ADVISORY_UNRECORDED=1
 	fi
 	case $name in
 	dotenv)
@@ -2082,6 +2094,16 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 	if { [ "$name" = interpreter ] || [ "$name" = hookfile ]; } && [ "${ADVISORY_UNKEYABLE:-0}" -eq 1 ]; then
 		# shellcheck disable=SC2016 # the backticked tool names must print literally.
 		ADVISORY_REASON="$ADVISORY_REASON"' No digest tool (`sha256sum`, `shasum` or `cksum`) was found to key this command on, so this advisory fires on every attempt and a rerun will not clear it: install one, or ask the owner.'
+	fi
+	# Last of all, for every tier: it overrides each tier's "rerun to proceed". The path is not
+	# printed; it carries this repository's location, and the directory is what can be fixed.
+	if [ "${ADVISORY_UNRECORDED:-0}" -eq 1 ]; then
+		# shellcheck disable=SC2016 # the backticked names must print literally.
+		ADVISORY_REASON="$ADVISORY_REASON"' The guard could not write the marker that records this advisory (in `TMPDIR` when that is an absolute, writable directory, else in `/tmp`), so it fires on every attempt and a rerun will not clear it: make one of those writable for this process, or ask the owner.'
+		case $name in
+		dotenv) DOTENV_ADVISORY_REASON=$ADVISORY_REASON ;;
+		keymaterial) KEYMATERIAL_ADVISORY_REASON=$ADVISORY_REASON ;;
+		esac
 	fi
 	return 0
 }
@@ -7163,6 +7185,73 @@ st_tier_unkeyable() { # st_tier_unkeyable <fail|empty> <command>
 	if [ -n "$old_h_set" ]; then HOOKFILE_ADVISORY_STATE=$old_h; else unset HOOKFILE_ADVISORY_STATE; fi
 }
 
+# A marker the guard cannot write must FIRE the advisory on every attempt and say why; it used to
+# pass the command with nothing said (AMH ledger rows DD096, DD097). The marker is pointed into a
+# directory that does not exist, so the write fails for the reason a read-only /tmp gives it.
+# <var> names the tier's state override; `subagent` is driven through `needs_one_time_advisory`,
+# as its own fixtures are, since no command text reaches that tier.
+st_tier_unrecorded() { # st_tier_unrecorded <STATE_VAR> <command>
+	local var=$1 cmd=$2 dir old_set old_state n fired reason
+	dir=$(mktemp -d "${TMPDIR:-/tmp}/amh-unrecorded-test.XXXXXX") || exit 1
+	old_set=$(eval "printf '%s' \"\${$var+x}\"")
+	old_state=$(eval "printf '%s' \"\${$var:-}\"")
+	printf -v "$var" '%s' "$dir/missing/marker"
+	for n in 1 2; do
+		if [ "$var" = SUBAGENT_ADVISORY_STATE ]; then
+			ADVISORY_REASON=''
+			if needs_one_time_advisory subagent ''; then fired=1; else fired=0; fi
+			reason=$ADVISORY_REASON
+		else
+			if st_check "$cmd"; then fired=0; else fired=1; fi
+			reason=$BLOCK_REASON
+		fi
+		if [ "$fired" -eq 0 ]; then
+			printf 'SELF-TEST FAIL: with its marker unwritable (%s) this advisory must fire on every attempt (attempt %s): %s\n' "$var" "$n" "$cmd" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+		else
+			case $reason in
+			*'could not write the marker'*) ;;
+			*)
+				printf 'SELF-TEST FAIL: an advisory with an unwritable marker did not say why it re-fires (%s): %s\n   reason given: %s\n' "$var" "$cmd" "$reason" >&2
+				ST_FAILS=$((ST_FAILS + 1))
+				;;
+			esac
+		fi
+	done
+	rmdir -- "$dir" 2>/dev/null || :
+	if [ -n "$old_set" ]; then printf -v "$var" '%s' "$old_state"; else unset "$var"; fi
+}
+
+# The subagent tier's marker is CLEARED to let a spawn through, so the write that can fail there
+# is the removal: an outstanding marker that will not go must fire, not pass every later spawn
+# (AMH ledger row DD097). A non-empty directory in the marker's place makes `rm -f` fail on
+# every host and for every user, root included, where a read-only directory would not.
+st_subagent_uncleared() {
+	local dir old_set old_state n
+	dir=$(mktemp -d "${TMPDIR:-/tmp}/amh-uncleared-test.XXXXXX") || exit 1
+	mkdir -p -- "$dir/marker/keep" || exit 1
+	old_set=${SUBAGENT_ADVISORY_STATE+x}
+	old_state=${SUBAGENT_ADVISORY_STATE:-}
+	SUBAGENT_ADVISORY_STATE=$dir/marker
+	for n in 1 2; do
+		ADVISORY_REASON=''
+		if ! needs_one_time_advisory subagent ''; then
+			printf 'SELF-TEST FAIL: an outstanding subagent marker that cannot be cleared let the spawn pass (attempt %s)\n' "$n" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+		else
+			case $ADVISORY_REASON in
+			*'could not write the marker'*) ;;
+			*)
+				printf 'SELF-TEST FAIL: an uncleared subagent marker fired without saying why (attempt %s)\n' "$n" >&2
+				ST_FAILS=$((ST_FAILS + 1))
+				;;
+			esac
+		fi
+	done
+	rmdir -- "$dir/marker/keep" "$dir/marker" "$dir" 2>/dev/null || :
+	if [ -n "$old_set" ]; then SUBAGENT_ADVISORY_STATE=$old_state; else unset SUBAGENT_ADVISORY_STATE; fi
+}
+
 # With no digest tool an `xargs` deletion has no key, so it must be advised on EVERY attempt and
 # say why. The digest function is replaced for the duration, not the PATH, because a self-test
 # cannot assume which tools a host's PATH holds or where.
@@ -7994,6 +8083,13 @@ printenv'
 	st_tier_unkeyable empty 'python3 -c "shutil.rmtree(d)"'
 	st_tier_unkeyable fail 'rm .git/hooks/pre-push'
 	st_tier_unkeyable empty 'rm .git/hooks/pre-push'
+	st_tier_unrecorded DOTENV_ADVISORY_STATE 'python3 -c "open('"'"'.env'"'"')"'
+	st_tier_unrecorded KEYMATERIAL_ADVISORY_STATE 'cat server.pem'
+	st_tier_unrecorded DESTRUCTIVE_ADVISORY_STATE 'rm -rf tmp/build'
+	st_tier_unrecorded INTERPRETER_ADVISORY_STATE 'python3 -c "shutil.rmtree(d)"'
+	st_tier_unrecorded HOOKFILE_ADVISORY_STATE 'rm .git/hooks/pre-push'
+	st_tier_unrecorded SUBAGENT_ADVISORY_STATE ''
+	st_subagent_uncleared
 	st_interpreter_signature_is_opaque 'python3 -c "T=\"sk-live-FIXTURE\"; shutil.rmtree(d)"' 'sk-live-FIXTURE'
 	# A multi-line program: one signature line, or the rerun can never clear it — `printf %q`
 	# renders an embedded newline as a backslash-newline on bash before 4.4, which this file

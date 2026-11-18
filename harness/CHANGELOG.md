@@ -83,6 +83,11 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   where a process inside it sees one. Inside a host sandbox `/tmp` can be read-only while
   `TMPDIR` stays writable, and a marker the guard could not write let the advisory's command
   through unseen. The shipped suite's no-hasher fixture now keeps `TMPDIR` through its `env -i`.
+- **A one-time advisory whose marker cannot be written now fires instead of passing,** in every
+  tier, and says so: the command is refused on every attempt until `TMPDIR` or `/tmp` is writable
+  for the guard's process, as an unkeyable advisory already is. It used to treat "could not
+  record the marker" as "nothing to advise" and exit 0. A failed marker write also no longer
+  prints the marker's path on stderr.
 - **The procedures every session is bound by have their own seed, `docs/PROTOCOLS.md`,** split
   out of the runbook: Session discipline, the adversarial and rule-review protocols, the
   leaked-credential incident, the acceptance ladder and working-memory compression, verbatim
