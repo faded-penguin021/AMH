@@ -21,7 +21,9 @@ In familiar terms:
 - **A “prove it” command** (`scripts/ladder.sh`) runs the real checks before work is accepted.
 - **Seatbelts** (`scripts/command-guard.sh`, `scripts/redact.sh`, `scripts/redact-tool-output.sh`)
   block known-dangerous command shapes and redact or detect credentials, before execution and
-  after it. They reduce risk; they are not a security sandbox.
+  after it. They reduce risk; they are not a security sandbox. The Claude Code adapter also
+  turns on that host's own sandbox, a separate layer whose limits are in
+  [The host's sandbox](#the-hosts-sandbox).
 
 It is agent-agnostic on purpose. The behaviour lives in ordinary files any capable coding
 agent can read, with thin adapters for supported tools. This repository ships the harness and
@@ -61,7 +63,7 @@ Install the latest stable release of the Agentic Maintenance Harness (AMH) into 
 
 Run:
 
-    git clone --depth 1 --branch amh-v16.1.1 https://github.com/faded-penguin021/AMH.git /tmp/amh
+    git clone --depth 1 --branch amh-v17.0.0 https://github.com/faded-penguin021/AMH.git /tmp/amh
     /tmp/amh/scripts/amh-init.sh .
 
 Once the harness has been instantiated, read `AMH-ADOPT.md` and follow it completely.
@@ -133,12 +135,13 @@ That is the check worth watching, whether your agent ran it or you did. Get it g
 your first real session — an agent's first instruction is to trust the ladder, and one that
 arrives red teaches it not to.
 
-**How much lands is your call, and the default is small.** `--profile light` (the default)
-installs the constitution, the state file, one verification command and a `.gitattributes`; `--profile standard`
-adds the runbook and the ledger; `--profile full` adds the archive tier. The brief's first
-instruction is to ask you which you want rather than to assume the default. Escalating later is
-the same command with a larger profile — it adds the missing files and touches nothing you have
-written, so starting small costs nothing.
+**How much lands is your call.** `--profile standard` (the default) installs the constitution,
+`docs/PROTOCOLS.md` (the procedures every session is bound by), the runbook, the state file, the
+ledger, one verification command and a `.gitattributes`; `--profile full` adds the archive tier.
+The brief's first instruction is to ask you which you want rather than to assume the default.
+Escalating later is the same command with `--profile full` — it adds the missing file and touches
+nothing you have written. (There was a smaller `light` profile before 17.0.0; it is gone,
+because every constitution sends its sessions to the runbook and the ledger.)
 
 ## How it works
 
@@ -152,14 +155,15 @@ The harness is the accumulated answer to those, and every mechanism in it is nar
 
 | Mechanism | What it is | What it prevents | Profile(s) |
 |---|---|---|---|
-| **Constitution** (`AGENTS.md`) | The always-loaded operating prompt: principles, protocol, invariants. | A session inventing its own process. | light, standard, full |
-| **Working memory** (`docs/STATE.md`) | Current state, Owner queue, changelog. Size-banded with hysteresis. | Handoff by guesswork; an unbounded file nobody reads. | light, standard, full |
+| **Constitution** (`AGENTS.md`) | The always-loaded operating prompt: principles, protocol, invariants. | A session inventing its own process. | standard, full |
+| **Working memory** (`docs/STATE.md`) | Current state, Owner queue, changelog. Size-banded with hysteresis. | Handoff by guesswork; an unbounded file nobody reads. | standard, full |
 | **Permanent memory** (`docs/LEDGER.md`) | Append-only rows: what broke, why, and the generalisation. | Session N's shipped bug being rediscovered by session N+9. | standard, full |
+| **Protocols** (`docs/PROTOCOLS.md`) | The procedures every session is bound by: session discipline, the review protocols, the leaked-credential incident, the acceptance ladder, working-memory compression. | A rule that binds only the sessions that happened to open the right playbook. | standard, full |
 | **Runbook** (`docs/RUNBOOK.md`) | Playbooks for the recurring jobs. | Re-deriving a procedure badly, under time pressure. | standard, full |
-| **The ladder** (`scripts/ladder.sh`) | One verification entrypoint, run identically by the agent and by CI. | "It passes locally" — and green-by-omission. | light, standard, full |
-| **Rails** (`scripts/command-guard.sh`, `scripts/redact.sh`, `scripts/redact-tool-output.sh`) | A pre-execution command guard, a redaction filter that doubles as the repo's secret scan, and a post-execution hook that runs that filter over a tool result where the agent can rewrite one. | Force-pushes, `.env` reads, credentials in output. | light, standard, full |
-| **Review protocols** | Fresh-context adversarial passes, with a no-self-review rule. | A session grading its own homework. | light, standard, full |
-| **Archive tier** (`docs/history/`, `docs/plans/`) | Frozen archive of completed plans and active multi-session build plans. | Loss of historical context; inability to track and reference past decisions. | full |
+| **The ladder** (`scripts/ladder.sh`) | One verification entrypoint, run identically by the agent and by CI. | "It passes locally" — and green-by-omission. | standard, full |
+| **Rails** (`scripts/command-guard.sh`, `scripts/redact.sh`, `scripts/redact-tool-output.sh`) | A pre-execution command guard, a redaction filter that doubles as the repo's secret scan, and a post-execution hook that runs that filter over a tool result where the agent can rewrite one. | Force-pushes, `.env` reads, credentials in output. | standard, full |
+| **Review protocols** | Fresh-context adversarial passes, with a no-self-review rule. | A session grading its own homework. | standard, full |
+| **Archive tier** (`docs/history/`) | Frozen archive of completed plans. `docs/plans/`, for active multi-session build plans, is yours to create when you need one; no profile installs it. | Loss of historical context; inability to track and reference past decisions. | full |
 
 Nothing in the harness consumes a self-report. A checklist an agent ticks is not evidence;
 the ladder is.
@@ -252,6 +256,63 @@ Know its limits before you rely on it:
   so another agent with user-level pre-execution hooks could wire it too, but nobody has tested
   that.
 
+### The host's sandbox
+
+AMH's rails are not a security sandbox. The hosts have one of their own, and AMH asks for it
+rather than replacing it:
+
+- **Claude Code.** The `.claude/settings.json` the installer writes turns on Claude Code's shell
+  sandbox: `enabled`, no retry outside it (`allowUnsandboxedCommands: false`), and no approval
+  for being sandboxed (`autoAllowBashIfSandboxed: false`), so the permission prompts stay as they
+  were. Every AMH rail stays; the sandbox is a layer under them. It covers Bash, PowerShell and
+  Monitor commands on macOS, Linux and WSL2. It does not cover hooks (AMH's own included), the
+  file and web tools, MCP servers, or, in most sessions, commands you type with `!`. The
+  installer writes that file only where none exists: a repository that already has one keeps
+  it unchanged, so the installer adds no `sandbox` block to it, and the 17.0.0 entry of
+  `harness/CHANGELOG.md` → **Upgrading**, step 5, has the agent ask the user whether to add it.
+- **Native Windows has no sandbox.** On native Windows, Claude Code runs shell commands with no
+  sandbox, so the command guard and these rules are the only layers there. The guard's machine
+  mode is a rail, not containment. To get the sandbox on a Windows machine, run Claude Code
+  inside WSL2, with the seccomp filter installed if Windows programs must not be launchable from
+  a sandboxed command.
+- **It falls back with at most a warning.** Where the sandbox cannot start, as on Linux or WSL2
+  without `bubblewrap` and `socat`, Claude Code runs commands unsandboxed; 2.1.325 was seen
+  saying so only in a `Sandbox disabled` warning on stderr, which stops nothing. AMH leaves
+  `failIfUnavailable` unset because it would stop Claude Code starting on native Windows. Add
+  `bwrap socat` to `REQUIRED_TOOLS` in `amh.conf` and the session banner shows whether they are
+  on `PATH` — which is not proof that the sandbox started. `bubblewrap`, `socat` and the seccomp
+  filter are optional host tools; AMH itself still needs only bash, git and coreutils.
+- **A project file sets defaults.** The local settings file beside it, `--settings` and managed
+  settings outrank it, and `--restricted` ignores it.
+- **Codex** sandboxes by default. AMH's Codex adapter sets no sandbox key, so it relies on
+  Codex's default and on whatever policy you configured, and does not enforce either.
+- **One host was probed live, and only what it showed is claimed.**
+  `scripts/guards/adapter-set.sh` checks that the shipped files ask for exactly this and nothing
+  looser, which is configuration validation, not a test of a running session. The live probe ran
+  Claude Code 2.1.327 with `bubblewrap` 0.9.0 in a throwaway Ubuntu 24.04 container, started with
+  `seccomp=unconfined` on a WSL2 kernel, twice on 2026-11-18. Inside the sandbox there:
+  - each command ran in its own PID namespace;
+  - a write outside the working tree was refused, after the same write had landed outside the
+    sandbox;
+  - writes inside the tree, writes to `TMPDIR` and a `git commit` worked;
+  - the session bootstrap, the command guard's one-time advisory and the full ladder all worked;
+  - in the second run, against one GitHub repository, a `git push` over HTTPS to a host nobody
+    had allowed was refused in the `default` and `dontAsk` permission modes, and reached the remote
+    under `bypassPermissions` or once the host was allowed (the first run's token could not reach
+    that repository, so it settled nothing);
+  - the shipped rules held at 279 `bwrap` arguments up to about 4,500 running processes.
+
+  With `bwrap` hidden from `PATH`, the same command ran unsandboxed, behind the `Sandbox disabled`
+  warning. The evidence is in this repository's ledger, `docs/LEDGER_D.md`, rows DD-100 and
+  DD-102.
+- **A linked worktree is a limit.** `.git/worktrees/` is read-only inside the sandbox, so a
+  sandboxed command cannot create a linked worktree or commit in one made beforehand. Run that
+  work in your own terminal.
+- **Everything else is unverified.** That covers macOS, Linux outside a container and with its
+  own kernel, and Codex's sandbox. It covers whether a sandboxed command on WSL2 can launch a
+  Windows program, and whether Claude Code's Read tool honours the `/proc` rails, since the probed
+  model never called it on them. It also covers any other Claude Code or `bubblewrap` version.
+
 ## Who it is for
 
 **It fits** a repository with a single human owner, maintained by agent sessions that run one
@@ -275,21 +336,15 @@ Two honest costs, before you adopt:
 
 ## Start smaller than this
 
-Adopting all of it on day one is the common mistake. For a repo with light AI maintenance the
-**smallest useful subset** is three things:
+Adopting all of it on day one is the common mistake. The default install is the documents —
+a constitution, the protocols it binds every session to, a runbook, a state file and a ledger —
+plus a single verification command, and that is already the smallest tree in which every
+document the constitution names exists. What you grow into is the machinery around it.
 
-1. the constitution,
-2. a state file with an Owner queue,
-3. a single verification command.
-
-`--profile light`, the default, installs those three plus a pointer stub for your agent — so
-you already start here; what follows is how to grow out of it.
-
-Fold the runbook into the constitution while there are only a couple of playbooks; split it
-when they multiply. Add the ledger the first time you catch yourself re-explaining a past
-mistake to a fresh session. Add a guard the first time a rule is actually violated — a
-botched guard that passes when it should fail is worse than no guard, so each one lands with
-a fixture test proving it can fail.
+Write playbooks into the runbook as the recurring jobs show up, not before. Write a ledger row
+the first time you catch yourself re-explaining a past mistake to a fresh session. Add a guard
+the first time a rule is actually violated — a botched guard that passes when it should fail is
+worse than no guard, so each one lands with a fixture test proving it can fail.
 
 Start with `scripts/verify.sh` holding nothing but your verification commands; the shipped
 `ladder.sh` stays as delivered, and its guards activate on artifact presence, so the pieces you

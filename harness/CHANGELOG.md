@@ -11,6 +11,301 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 17.0.0 — 2026-11-12
+
+- **A fix's test is written before the fix, and the tests that already existed are not the fix's
+  to change (new principle P21).** An agent that writes a fix and then its test writes the test
+  from the fix. Such a test passes by construction and repeats whatever the fix got wrong, and
+  showing that it fails without the fix does not expose it, because it fails without the fix too.
+  Two rules now say so. First, a defect's reproducing test is run against the unfixed tree and
+  seen to fail, for the reason the report names, before the fix is written; a test edited after
+  the fix is run against the unfixed tree again. Second, a test that existed before the fix is
+  changed, skipped, loosened or deleted only as a decision of its own. The unit that does it
+  owes a fresh-context review pass at the strongest available tier, with no self-review
+  fallback, and the reviewer judges the old test against the specification and never against
+  the fix. Where no fresh context can be spawned, the test stays as it was and the owner
+  decides. The same agent may still write both the test and the fix. Both rules are prose-only:
+  no guard ships, and nothing records the order in which a test and a fix were written.
+- **The seed states both rules as fixed text.** Until now the seed runbook's bug-fix playbook
+  slot only suggested "failing test first" and "never edit a fixture to pass", as an example an
+  adopter could delete, and the review pass for a changed test did not exist. The seed
+  constitution now carries a bullet under **Coding conventions**, and the seed protocols file
+  (below) carries Session discipline item 12 and one sentence in the adversarial review
+  protocol.
+- **The incident bar no longer gates the command guard (P13).** Everywhere else a new guard still
+  waits for a real incident. The command guard — the hook, machine mode and the pre-push rail —
+  stops what cannot be undone, so a gap in it is closed on its merits: a **defect** (the guard
+  not doing what its own text says) is fixed as a bug, and a **widening** (a new list member or a
+  new surface) names what the shape destroys or exposes and measures, before it ships, what
+  ordinary work it would newly refuse or advise. That measurement replaces the incident, and the
+  data-plane tier's old rule that a verb enters only on a public report of data loss is gone. No
+  guard behaviour changed: the header and one comment in `command-guard.sh` now say why six
+  data-plane verbs are still absent — not yet measured, rather than cleared.
+- **The ladder exits red when it cannot create its scratch directory.** Its `mktemp -d` was
+  unchecked, so when that one call failed every rung that writes a scratch file wrote to a path
+  built from the empty string, read back nothing, and reported clean: the citation and secret
+  rungs printed `ok` over a planted bad citation and a planted credential-shaped string, the
+  row-length and compression-landing rungs printed nothing, and the ladder exited 0, guards-only
+  and full. It now prints a FAIL saying the run checked nothing and exits 1 before any rung runs.
+  The shipped fixture suite checks its own `mktemp -d` the same way and gains a fixture that
+  fails only the ladder's call, over both plants.
+- **The seed `CLAUDE.md` imports `AGENTS.md` instead of asking the agent to read it.** It was a
+  stub telling Claude Code to "read AGENTS.md in full", a read the agent could skip or do in
+  part. It is now `@AGENTS.md` on a line of its own, which Claude Code resolves when it loads the
+  file, plus one sentence for a build that does not. Other agents never read `CLAUDE.md`, so
+  nothing changes for them, and `AGENTS.md` stays the one canonical text. A Claude Code session
+  started with `--safe-mode` or `--bare` still loads no `CLAUDE.md` at all.
+- **The Claude Code adapter turns on Claude Code's own shell sandbox** wherever the installer
+  writes `.claude/settings.json`, which it does only where none exists, as a layer under every
+  AMH rail: a top-level `sandbox` block with `enabled: true`,
+  `allowUnsandboxedCommands: false` (no retry outside it) and `autoAllowBashIfSandboxed: false`
+  (being sandboxed approves nothing, so the prompts stay as they were). Native Windows has no
+  sandbox under Claude Code and the README says so. Where the sandbox cannot start — Linux or
+  WSL2 without `bubblewrap` and `socat` — Claude Code runs commands unsandboxed, and 2.1.325 was
+  seen saying so only in a `Sandbox disabled` warning on stderr;
+  `failIfUnavailable` stays unset because it would stop Claude Code starting on native Windows,
+  and `amh.conf.example` now suggests listing `bwrap socat` in `REQUIRED_TOOLS` so the session
+  banner shows them. The Codex adapter sets no sandbox key and relies on Codex's default. One host
+  was probed live, Claude Code 2.1.327 in a Linux container on a WSL2 kernel: the README's
+  **The host's sandbox** claims only the cells that passed there, records linked worktrees as a
+  limit, and leaves every other platform and cell unverified.
+- **The Claude Code adapter drops the two root-anchored `/proc` deny rules 16.1.1 added,**
+  `Read(//proc/*/environ)` and `Read(//proc/**/environ)`. With the sandbox on, Claude Code
+  expands each into bwrap arguments for every running process: in a throwaway box they refused
+  every shell command at a few thousand processes, and one command failed when a process exited
+  mid-expansion. A sandboxed command was seen in its own PID namespace, and Claude Code's Read
+  tool was seen refusing `/proc/<pid>/environ` by itself, once, on one version; the single-slash
+  pair stays. `scripts/guards/adapter-set.sh`, which required both rules, now fails a
+  root-anchored `/proc` deny rule with a wildcard in either Claude file. The machine-mode
+  fragment drops the same two rules, and the same check now covers it: merged into the user
+  settings, they were measured reaching a project's sandbox at the same per-process cost.
+- **The command guard's one-time advisory markers move to `TMPDIR` when it names an absolute,
+  writable directory**, and `/tmp` otherwise; `--advisory-report`, `--spawn-report` and
+  `session-start.sh` look in both, because a hook outside a host sandbox may see no `TMPDIR`
+  where a process inside it sees one. Inside a host sandbox `/tmp` can be read-only while
+  `TMPDIR` stays writable, and a marker the guard could not write let the advisory's command
+  through unseen. The two reports treat both places as one record, reading a directory reached
+  by two spellings once, and an explicit state-file override as the only file. The shipped
+  suite's no-hasher fixture now keeps `TMPDIR` through its `env -i`.
+- **A one-time advisory whose marker cannot be written now fires instead of passing,** in every
+  tier, and says so: the command is refused on every attempt until `TMPDIR` or `/tmp` is writable
+  for the guard's process, as an unkeyable advisory already is. It used to treat "could not
+  record the marker" as "nothing to advise" and exit 0. A failed marker write also no longer
+  prints the marker's path on stderr. For the `.env` and key-material tiers, anything at the
+  marker's path that is not a regular file is such a marker too.
+- **The procedures every session is bound by have their own seed, `docs/PROTOCOLS.md`,** split
+  out of the runbook: Session discipline, the adversarial and rule-review protocols, the
+  leaked-credential incident, the acceptance ladder and working-memory compression, verbatim
+  apart from their cross-references. `docs/RUNBOOK.md` keeps the module map, the change-type
+  playbooks, CI triage and self-adaptation. The seed constitution and state file point at the
+  new file for every one of those sections, so the constitution's mandatory reads are a stable
+  document that changes only under rule review rather than the whole runbook.
+  `amh.conf.example` adds `docs/PROTOCOLS.md` to `RULE_FILES`, and the Codex reviewer agent now
+  names the Rule-review protocol instead of the file that used to hold it.
+- **The `light` profile is removed, and `standard` is the default.** Light installed a
+  constitution that sent every session to a runbook and a ledger it never installed, and asked
+  the adopter to fold the runbook into the constitution by hand to cover the gap. Every install
+  now has the constitution, `docs/PROTOCOLS.md`, the runbook, the state file and the ledger;
+  `full` adds the archive tier. `amh-init.sh --profile light` is refused with a message naming
+  the removal, rather than quietly treated as `standard`, and the fold instruction is gone from
+  the adoption brief, the README and the harness's adaptation notes.
+- **The installer says when an install from before this release has not finished migrating.**
+  Its closing report names a constitution that never mentions `docs/PROTOCOLS.md`, a
+  constitution or runbook that still carries one of the six sections (or, from a light install,
+  folded playbooks), a `docs/PROTOCOLS.md` missing one of them, pointers in the constitution,
+  state file or runbook that still send a moved section to the runbook (in every shape the
+  seeds used), a `RULE_FILES` that does not cover `docs/PROTOCOLS.md`, and a Codex reviewer agent
+  still sent to the runbook. `RULE_FILES` is read as the ladder reads it — its effective value
+  once `amh.conf` has run, an entry covering everything under it — so a `docs` entry counts and
+  a later reassignment that drops the file does not. It is advice: the exit status does not change, because every file it
+  reads is yours.
+- **Three shipped checks no longer read a match as a miss when `grep -q` exits early under
+  `pipefail`.** `grep -q` exits at its first match; a writer with output still pending then
+  fails on the closed pipe, and `pipefail` made that failure the check's answer. The ladder's
+  local advisory could warn that a branch left the state file unchanged when the file was listed
+  early among more changed paths than a pipe holds. Its redaction control could pass a broken
+  filter that printed the test token ahead of a long tail, which is the secret scan's fail-open
+  direction, and its baseline control could refuse a working one. `session-start.sh` could print
+  a count it failed to take as `x` newer commits instead of saying it could not count. Each now
+  matches with `case`, which needs no pipe and no temporary file. Nothing is owed beyond the
+  normal script copy.
+
+### Upgrading
+
+This train also carries changes to the AMH repository's own conformance scenarios, guards and
+tests; they ship nothing, so nothing below asks anything of you for them.
+
+Copy the 17.0.0 shipped scripts and manifest through the normal upgrade procedure. Four scripts
+changed against 16.1.1, and the manifest changes with them:
+
+- `command-guard.sh` keeps its one-time advisory markers under `TMPDIR` when that names an
+  absolute, writable directory, and under `/tmp` otherwise. `--advisory-report` and
+  `--spawn-report` read the place their own process would write and `/tmp` as well, and read a
+  `TMPDIR` that is `/tmp` by another spelling, such as a symlink to it, once: the first lists the
+  deletions advised in either place minus those resumed in either, each once, so a deletion
+  resumed under one is not reported abandoned from the other, and the second sums the resumed
+  spawns without counting one directory twice. An explicit `*_ADVISORY_STATE` override, with
+  its `.resumed` companion, is the only state either report reads, even when it names a file
+  directly under `TMPDIR`, and a newline in it no longer splits it into two paths. The `.env`
+  and key-material advisories take only a regular file for a spent marker: a directory or a
+  dangling symlink at its path now fires the advisory as unusable state, where it used to pass
+  every later command unadvised, and the unwritable-marker text says that an occupied marker
+  path is the owner's to clear. An advisory
+  whose marker cannot be written, or a subagent marker that cannot be cleared, now fires on every
+  attempt and says why, instead of passing; a failed marker write no longer prints the marker's
+  path on stderr; and its self-test gains a fixture for each tier's unwritable marker. Its header
+  and one comment also say why six data-plane verbs are still absent.
+- `session-start.sh` clears the command guard's markers under an absolute `TMPDIR` as well as
+  under `/tmp`. A directory holding a marker it cannot remove gets a banner warning that names
+  it as `/tmp` or `TMPDIR`, printing neither the marker nor `TMPDIR`'s value, since a marker left
+  there is an advisory the session may never see; the exit status stays 0. One comment now calls a tree without a runbook an incomplete or
+  legacy install, since every profile installs one. Its failed-count check matches with `case`,
+  not a pipe into `grep -q`.
+- `ladder.sh` exits red, before any rung runs, when it cannot create its scratch directory. Its
+  state-file advisory and both redaction controls match with `case`, not a pipe into
+  `grep -q`.
+- `test-ladder-guards.sh` checks its own `mktemp -d`, keeps `TMPDIR` through the no-hasher
+  fixture's `env -i`, and gains fixtures for the ladder's scratch directory, for the markers
+  under `TMPDIR` and `/tmp`, for `session-start.sh` clearing both, for its warning about a
+  marker it cannot clear, and for the four advisory-state edges above: the override, the union,
+  the one directory reached by two spellings and the marker that is not a regular file. A fixture this host cannot run, such as the `/tmp` fallback ones under
+  a read-only `/tmp`, is now reported as `skip` and counted apart, so its closing line reads
+  `N passed, M failed, K skipped` and the pass total counts only assertions that ran. Its
+  output checks match a here-string rather than `printf | grep -q`, and three fixtures feed
+  more than two pipe buffers with the match first: a state file listed first among 200 KiB of
+  changed paths, a pass-through filter with a long tail, and a failed working-memory count
+  ahead of 200 KiB of others.
+
+None of these needs anything else from you, but if a guard of your own under `scripts/guards/`
+takes an unchecked `mktemp`, it has the shape the ladder had: check the call and exit non-zero
+saying the guard checked nothing.
+
+**Every `amh-init.sh` run in this upgrade overwrites the shipped scripts and the manifest,**
+step F's included, and so does one made in place of the copy. If your ledger or state file
+records a deliberate fork of a shipped script, re-apply it and delete `scripts/MANIFEST.sha256`
+again after step F's run, the last one, not only after the copy that `docs/UPGRADING.md`
+describes.
+
+**Before the first `amh-init.sh` run of this upgrade — the copy in `docs/UPGRADING.md` step 4
+included, if you make it that way — check whether `.claude/settings.json` exists.** If it does
+not, the run installs this release's Claude Code adapter, which turns the sandbox on, so ask the
+user step 5's question below before you run it. After the run, keep the installed file on a yes;
+on a no, or with no way to ask, remove its top-level `sandbox` block straight away, before any
+other step, and change nothing else in it. If the file exists, the run keeps it, and step 5
+applies as written.
+
+**Move to `docs/PROTOCOLS.md` first; the steps after it copy from that file.** Re-run
+`amh-init.sh <target>` with no `--profile`, which now means `standard`. It writes
+`docs/PROTOCOLS.md`, and into a tree installed light it also writes `docs/RUNBOOK.md` and
+`docs/LEDGER.md`: that is the upgrade from light to standard. It keeps every seed and
+configuration file you already have, so the rest is by hand:
+
+A. If you edited any of the six sections — in your runbook, or folded into your constitution
+   from a light install — carry those edits into `docs/PROTOCOLS.md`. If a `docs/PROTOCOLS.md`
+   existed before the run, the run kept it: check that it holds all six sections first. Then
+   delete the six sections from the runbook and the constitution, so each rule has one copy.
+B. From a light install, undo what 16.1.1's adoption brief had you do for the files light lacked,
+   now that the runbook and the ledger exist. If you folded the playbooks into the constitution,
+   move them into the new runbook's **Change-type playbooks** section, replacing the scaffold's
+   placeholder playbook, and delete them from the constitution. Then copy back from
+   `harness/templates/seed/AGENTS.md` whatever your constitution lacks of: steps 3 and 4 of the
+   maintenance protocol, which open the matching playbook in `docs/RUNBOOK.md` and bind the work
+   to `docs/PROTOCOLS.md` → **Session discipline**; the ledger sentences of the **Ground truth**
+   note; the **Long-term memory** paragraph; the blockquote that routes history to the live
+   ledger volume; and the **Invariants that still bind** section, with your own shortlist in
+   place of its placeholder.
+C. Repoint every pointer that sends one of the six sections to the runbook — in the
+   constitution, the state file and the runbook itself — to `docs/PROTOCOLS.md`. The
+   shapes the seeds used are "RUNBOOK **Session discipline**", "`docs/RUNBOOK.md` → **Session
+   discipline** 12", "the incident playbook in `docs/RUNBOOK.md`", "`docs/RUNBOOK.md` →
+   **Working-memory compression**" and, in the runbook's doc index, "this runbook →
+   **Working-memory compression**". Copy the new wording from step 4 of the maintenance protocol
+   in `harness/templates/seed/AGENTS.md`, the two preambles of
+   `harness/templates/seed/docs/STATE.md` and `harness/templates/seed/docs/RUNBOOK.md`.
+D. Add `docs/PROTOCOLS.md` to `RULE_FILES` in `amh.conf`, after `AGENTS.md`. Without it an edit
+   to the protocols raises no legislation advisory.
+E. If you have `.codex/agents/amh-rule-reviewer.toml`, replace "already defined by
+   docs/RUNBOOK.md" with "the Rule-review protocol already defines".
+F. Re-run `amh-init.sh <target>`. Its closing report carries a "Migrate to docs/PROTOCOLS.md"
+   block while it still finds something above left undone. The block is a diagnostic, not
+   proof of completion: it looks only for the headings, pointers and settings it knows, so its
+   absence does not show that your edits arrived. Compare each section you had customized, in
+   the old runbook or constitution, with its destination in `docs/PROTOCOLS.md` or the runbook,
+   and finish when every edit is there. Stop passing `--profile light` anywhere you scripted it:
+   it is now refused.
+
+Then apply the test-first rules by hand, because seeds are yours:
+
+1. Copy the "A fix's test comes first" bullet from **Coding conventions** in
+   `harness/templates/seed/AGENTS.md` into your constitution, below your fixture-immutability
+   rule if you have one. Its sentence "The fixture rule above may forbid the change outright"
+   points at that rule; drop the sentence if you have none.
+2. If your **Session discipline** has no item headed "A fix's test is written before the fix,
+   and existing tests are frozen for the fix" — a `docs/PROTOCOLS.md` the run above wrote fresh
+   has it — copy that item, item 12, from `harness/templates/seed/docs/PROTOCOLS.md`, numbered
+   after your last item. Whichever number the item ends up with, use it for the "Session
+   discipline 12" references in the bullet from step 1 and in the sentence from step 3. Its own
+   references to items 3, 7 and 8 are the checkpoint invariant, ask-don't-assume and the
+   verification disclosure; renumber them if yours differ.
+3. If your adversarial review protocol does not already say that a fix that changes, skips,
+   loosens or deletes an existing test owes the review pass — a freshly written
+   `docs/PROTOCOLS.md` does — copy that sentence, the last of the seed protocols file's first
+   paragraph there, into yours.
+4. If `AGENTS.md` is your canonical file and `CLAUDE.md` only points at it, replace the "read
+   AGENTS.md" sentence of your `CLAUDE.md` with both lines of `harness/templates/seed/CLAUDE.md`:
+   the `@AGENTS.md` import and the fallback sentence for a build that does not resolve it. Keep
+   anything else your `CLAUDE.md` says that `AGENTS.md` does not, though under the single-source
+   rule there should be nothing.
+5. **Ask the user whether they want Claude Code's sandbox; do not leave it added unasked.** Your
+   `.claude/settings.json` is yours, so the upgrade does not touch it, unless the run above
+   installed it, when you asked this before that run (above). Tell the user what it changes
+   before they answer, as Claude Code's documentation and this adapter's deny rules describe it:
+   shell commands can no longer write outside the working tree and the temporary directory, reach
+   the network except through the host's proxy, which asks before each new host in the default
+   permission mode, or write `.git/hooks`, `.git/config` and the `.claude` settings files;
+   `git push` over SSH fails inside it; a `git merge` that must replace a protected file fails
+   with `unable to unlink old` and has to be run in the user's own terminal; and on Linux and
+   WSL2 it needs `bubblewrap` and `socat` or it does nothing beyond a warning on stderr. Then
+   tell them what was observed rather than read, from the README's **The host's sandbox**: on one
+   live host, Claude Code 2.1.327 in a Linux container on a WSL2 kernel, a write outside the tree
+   and an HTTPS push to a host nobody had allowed were refused in the default permission mode,
+   and a sandboxed command could not create a linked worktree or commit in one made beforehand,
+   because `.git/worktrees/` is read-only inside it. Everything else is unverified — macOS, Linux
+   outside a container, other versions, Codex's sandbox — and native Windows has no sandbox at
+   all. Only on a yes, add the top-level `sandbox` block from
+   `harness/templates/configs/claude-settings.json` to `.claude/settings.json`, keeping
+   everything the file already holds and without printing its contents; if the file already has a
+   top-level `sandbox` object, set the block's three keys inside it instead, keep its other keys,
+   and tell the user about any of the three it already set otherwise. In the same change, remove
+   `Read(//proc/*/environ)` and `Read(//proc/**/environ)` from `permissions.deny` if the file
+   carries them, as a 16.1.1 install does and as 16.1.1's note had an older one add them: with
+   the sandbox on they expand per running process, and past bwrap's limit every shell command is
+   refused. On Linux or WSL2, also offer to add `bwrap socat` to `REQUIRED_TOOLS` in `amh.conf`.
+   Codex needs nothing.
+6. **If the machine-mode fragment is installed, offer to remove its two root-anchored `/proc`
+   rules; do not remove them unasked.** This release's fragment no longer carries
+   `Read(//proc/*/environ)` or `Read(//proc/**/environ)`, and `docs/UPGRADING.md`'s merge only
+   adds, so a refreshed install keeps them. In `~/.claude/settings.json` they reach the sandbox
+   of every project that turns one on, this one or any other, and expand there per running
+   process as a project's own did. Ask whatever the user answered in step 5, and whether or not
+   they refreshed the fragment. Only on a yes, remove exactly those two entries from
+   `permissions.deny` in `~/.claude/settings.json` with a program that never shows the file, and
+   change nothing else; the single-slash
+   `Read(/proc/*/environ)` and `Read(/proc/**/environ)` stay. With no way to ask, change nothing
+   outside this repository and say so in your final report.
+7. **Correct the ledger preamble's pointer claim.** A ledger seeded before this release says
+   "The guard checks pointer form, not whether the chosen verb is honest", and no shipped guard
+   does. If no guard of your own under `scripts/guards/` checks it, replace that sentence with
+   the two that now stand there in `harness/templates/seed/docs/LEDGER.md`, in every volume
+   whose preamble carries it. A preamble is not a row, so this edits no row.
+
+This rule is what makes the release MAJOR, on the precedent of 16.0.0: a session that wrote a
+fix and then its test, or changed an existing test to make a fix pass, was within the rules
+before and is not now. The owner confirmed that call for this release on 2026-11-17. The
+removal of the `light` profile would be MAJOR on its own: a command line that worked before is
+refused now, and every install's layout gains a binding document its constitution must point
+at.
+
 ## 16.1.1 — 2026-11-09
 
 - **Two command-guard advisories no longer go silent on a host with no hashing tool.** The

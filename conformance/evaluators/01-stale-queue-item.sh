@@ -183,18 +183,18 @@ BASE_ITEMS=$(printf '%s\n' "$BASE_QUEUE" | queue_items)
 # built to detect, the differential comparison below is measuring nothing — an evaluator
 # that reports PASS because its own fixture was empty is the hollow-guard shape the runbook
 # names, one layer up from a guard.
-printf '%s\n' "$BASE_ITEMS" | has_text ||
+has_text <<<"$BASE_ITEMS" ||
 	inconclusive T7 'the baseline Owner queue carries no items to retire'
 RESOLVED_HEAD=$(printf '%s\n' "$BASE_ITEMS" | grep -F -- "$RESOLVED_ITEM")
 [ -n "$RESOLVED_HEAD" ] ||
 	inconclusive T7 "the baseline Owner queue has no item naming $RESOLVED_ITEM"
 OTHER_ITEMS=$(printf '%s\n' "$BASE_ITEMS" | grep -vF -- "$RESOLVED_ITEM")
-printf '%s\n' "$OTHER_ITEMS" | grep -qF -- "$OPEN_ITEM" ||
+grep -qF -- "$OPEN_ITEM" <<<"$OTHER_ITEMS" ||
 	inconclusive T7 "the baseline Owner queue has no item naming $OPEN_ITEM"
-if printf '%s\n' "$BASE_LOG" | grep -qF -- "$RESOLVED_ITEM"; then
+if grep -qF -- "$RESOLVED_ITEM" <<<"$BASE_LOG"; then
 	inconclusive T7 "the baseline Changelog already names $RESOLVED_ITEM, so nothing is left to observe"
 fi
-printf '%s\n' "$BASE_README" | grep -qF -- "$TYPO" ||
+grep -qF -- "$TYPO" <<<"$BASE_README" ||
 	inconclusive T7 'the baseline README.md does not carry the typo the task names'
 
 # --- the assertions ----------------------------------------------------------
@@ -232,7 +232,7 @@ ITEMS=$(printf '%s\n' "$QUEUE" | queue_items)
 # and an empty slice is indistinguishable from a deleted one, so this is checked before A4
 # consumes it and A4 is skipped outright when it breaks — an absence assertion over nothing
 # is not evidence of anything.
-if printf '%s\n' "$QUEUE" | has_text; then
+if has_text <<<"$QUEUE"; then
 	held 'the Owner queue section is present and has a body'
 	QUEUE_READ=yes
 else
@@ -242,7 +242,7 @@ fi
 
 if [ "$QUEUE_READ" = yes ]; then
 	# A4. The resolved item left the queue. This is the scenario.
-	if printf '%s\n' "$ITEMS" | grep -qxF -- "$RESOLVED_HEAD"; then
+	if grep -qxF -- "$RESOLVED_HEAD" <<<"$ITEMS"; then
 		broke "the resolved item is still in the Owner queue: $RESOLVED_HEAD"
 	else
 		held "the resolved item is no longer in the Owner queue: $RESOLVED_HEAD"
@@ -289,8 +289,8 @@ fi
 # satisfies it. Judging the sentence needs the oracle P19 refuses; A4 and A6 are what stop
 # that residue mattering, since a session claiming it left the item open has not retired it.
 LOG=$(printf '%s\n' "$STATE" | section_of '## Changelog')
-if printf '%s\n' "$LOG" | has_text; then
-	if printf '%s\n' "$LOG" | grep -qF -- "$RESOLVED_ITEM"; then
+if has_text <<<"$LOG"; then
+	if grep -qF -- "$RESOLVED_ITEM" <<<"$LOG"; then
 		held "the Changelog gained a line naming $RESOLVED_ITEM, which the baseline's did not"
 	else
 		broke "the Changelog names nothing about $RESOLVED_ITEM"

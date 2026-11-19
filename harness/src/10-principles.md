@@ -338,7 +338,7 @@ sequential work inside the unit, not fan-out, and the session still triages ever
 itself.
 
 Apply the same fresh-context review to changes of the harness's own binding rules — the
-constitution, runbook protocols, guard semantics, permission rails. A bad rule manufactures
+constitution, the protocols document, guard semantics, permission rails. A bad rule manufactures
 defects in every future session that obeys it, and the authoring context is maximally anchored
 on a rule it just designed. Rule diffs get a rule-specific checklist (contradiction with an
 existing binding rule, prose/guard lockstep drift, Goodhart-ability, enforcement asymmetry,
@@ -411,7 +411,24 @@ is dangerous, and the safe next move. This is not motivational prose bolted onto
 a correctness mechanism for untrustworthy agents with lossy attention, and it earns its keep
 under P0 when it prevents repeated owner correction without claiming coverage the guard does
 not have. Keep the set narrow, incident-earned and artifact-triggered, because restating every
-rule makes none salient.
+rule makes none salient — with the one exception the next paragraph makes.
+
+**The command guard does not wait for an incident.** Everywhere else in this harness, new
+machinery is earned by a real incident (P3, P20). The shipped command guard — the pre-execution
+hook, its machine mode and its pre-push rail, all one script — is the exception, because what it
+exists to stop cannot be undone: nobody should have to delete a drive root or read a `.env`
+before a rail may refuse it. A gap in it is closed on its merits, and gaps come in two kinds
+that cost differently. A **defect** — the guard not doing what its own text, or a ledger row it
+cites, says it does — is a bug and is fixed as one. A **widening** — a new member of a list, or a
+rail on a surface the guard did not judge — spends the false-positive budget the pattern rules
+below protect. So it names what the new shape destroys or exposes and where that was read or
+measured; states what ordinary work it would newly refuse or advise; and measures that before it
+ships, by running the guard over the everyday commands that share the shape, with the command
+and its input kept where a reviewer can replay them. That measurement is the gate, in the
+incident's place, and it does not lift the narrowness above: a rail that cries wolf is skimmed.
+Both steps are prose-only; the fresh-context review pass (P12) is the only check. Every other
+rail — adapter deny rules, output redaction, verification guards, doc-fact guards — keeps the
+incident bar.
 
 Hard-won pattern rules for such a guard: judge only each simple-command segment's LEADING
 command, so quoted text that merely *contains* a forbidden command (commit messages, doc
@@ -680,3 +697,48 @@ framework where every sentence sprouts an assertion (P3's "don't invent machiner
 re-proposal vaccine both bite here). It is a tripwire for the drift class that already bit you,
 not proof of universal doc-correctness — and the constant lives in lockstep with the sentence
 it defends, so changing either means changing both.
+
+**P21. A fix's test is written before the fix, and the tests that already existed are not the
+fix's to change.** A session that writes a fix and then its test writes the test from the fix:
+the test asserts what the new code does, passes by construction, and repeats whatever the fix
+got wrong. Showing that the test fails without the fix does not catch this, because a test
+written from the fix fails without it too. That demonstration proves a test can fail; it says
+nothing about where the test came from, so both are owed and neither replaces the other. What
+this buys under P0 is shipped correctness: a test the fix's code could not have shaped says more
+when it passes. Two rules follow, both about order. The same session may write the test and the
+fix. Order keeps the test from asserting whatever the fix's code happens to do; it does not
+keep the test from sharing the session's diagnosis, which only a second reader can question,
+and no second author is required here.
+
+**(a) Test first.** For a defect, write the test that reproduces it and run it against the
+unfixed tree before any fix is written. It must fail, and fail for the reason the report names:
+a test that fails on a typo, a missing import or an unrelated assertion has reproduced nothing.
+Only then write the fix. The test committed is the test that was seen failing: one edited after
+the fix was written is run against the unfixed tree again. The failing test is not a checkpoint
+of its own: the unit still ends green (P5), with the test and the fix in one commit. Where a
+defect cannot be reproduced in a test, say so in the commit body and say what was done instead;
+never write the test afterwards and present it as the reproduction.
+
+**(b) A test that existed before the fix is frozen for the fix.** A fix makes the code conform
+to the tests it found. If one of them stands in the way, because it encoded the defect or
+because the intended behaviour changed, then changing, skipping, loosening or deleting it is a
+second decision and not part of the fix. "A test" here includes what decides whether it runs and
+what it accepts: its fixtures and golden data, its shared helpers, the runner's exclusions and
+tolerances. The rule follows the purpose, not the unit boundary: a test changed to make way for
+a fix is covered whichever unit changes it. The unit that makes the change owes a fresh-context
+pass run as P12's adversarial pass, with two differences: it is at the strongest available tier
+whatever the size of the diff, and it has no self-review fallback. Where no fresh context can be
+spawned, the test stays as it was and the question goes to the owner (P8). The reviewer gets
+the old test, the new one, and the defect report as it was received or the reproduction where
+the session found the defect itself. It judges whether the old test was wrong by the
+specification, never by the fix; where no specification settles what the behaviour should be,
+that is the owner's fork (P8) and not the reviewer's. Where the unit already owes a pass, this
+is the same pass, not a second one. Adding a test is not covered, and a repository whose
+fixtures are declared immutable (P1) may forbid the change outright, which is stricter and
+stands.
+
+Say which layer holds this: both rules are **prose-only**. Whether the test preceded the fix is
+order, which no artifact records. That an existing test changed is visible in a diff, so a guard
+over (b) is machine-decidable, but none ships: a guard is earned by an incident (P3, P20). The
+commit body says that the test was seen failing first, and names any pre-existing test the unit
+changed. That is disclosure to a reader, and nothing may consume it (P3).

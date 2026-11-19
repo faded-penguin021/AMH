@@ -16,7 +16,7 @@ Two kinds:
 |---|---|---|
 | `PLACEHOLDER` | meta | The generic word, used in prose when talking about placeholders in general. Never substituted. |
 | `AMH_VERSION` | init | The harness version being adopted, e.g. `1.8.0`. Record it: process drift is diagnosable only if the version that shaped the process is written down. |
-| `PROFILE` | init | Which seed prose the install included: `light`, `standard` or `full`. Substituted into the adoption brief so the adopting agent knows what it is looking at — and nowhere else, because the brief is deleted when adoption finishes and nothing in the tree may branch on a level. |
+| `PROFILE` | init | Which seed prose the install included: `standard` or `full`. Substituted into the adoption brief so the adopting agent knows what it is looking at — and nowhere else, because the brief is deleted when adoption finishes and nothing in the tree may branch on a level. |
 | `DEFAULT_BRANCH` | init | The branch agents must never push to, e.g. `main`. |
 | `BRANCH_PREFIX` | init | Namespace for session branches, default `session` → `session/<codename>`; `--branch-prefix` may select another value. |
 | `MERGE_MODE_KEY` | init | `branch-per-change` or `branch-train`. |
@@ -39,7 +39,7 @@ Two kinds:
 | `MODULE_MAP` | you | One bullet per module or layer: what lives there and the invariant that protects it. |
 | `SEMANTIC_FIDELITY_RULE` | you | For porting or parity work: "reference semantics win over taste — port behaviour exactly, including its oddities; modernise the *how*, never the *what*." Delete if not porting. |
 | `PROVENANCE_SOURCE` | you | The label used in provenance comments naming the source artifact, e.g. `SPEC` or `V1`. |
-| `FIXTURE_IMMUTABILITY_RULE` | you | "Golden fixtures are immutable; production code conforms to THEM. Changing one requires proof the fixture was wrong plus a STATE entry." |
+| `FIXTURE_IMMUTABILITY_RULE` | you | "Golden fixtures are immutable; production code conforms to THEM. Changing one requires proof the fixture was wrong plus a STATE entry." The fixed bullet below it adds a fresh-context review pass to any such change made for a fix. |
 | `TOOLCHAIN_FLOOR` | you | Minimum supported versions; no legacy branches below them. |
 | `INVARIANT_SHORTLIST` | you | Three to eight bullets: the invariants agents are most likely to violate. Each cites its ledger row. |
 | `TAGGING_RULE` | you | Usually "Tagging and releasing stay owner steps." |
@@ -48,6 +48,6 @@ Two kinds:
 | `DATE` | you | A date stamp, `YYYY-MM-DD`. |
 | `QUESTION` / `DOC_PATH` | you | Rows of the runbook's reference-doc index. |
 | `CHANGE_TYPE` | you | A recurring change type getting its own playbook: bug fix, feature, dependency bump, release cut. |
-| `UNTESTED_GLUE_AREAS` | you | The code your test suite structurally cannot see — where the adversarial review pass is mandatory. |
+| `UNTESTED_GLUE_AREAS` | you | The code your test suite structurally cannot see — where the adversarial review pass is mandatory. A fix that changes an existing test owes a pass whatever it touches (the seed protocols file's Session discipline 12). |
 | `BUG_CLASS` | you | One entry on the adversarial checklist, each a real shipped bug with its ledger citation. Never generic advice. |
 | `DOMAIN_GUARDS` | you | Repo-specific machine-checkable release rules, e.g. a store changelog length cap (mind the unit: "500 characters" is codepoints, and `wc -c` overcounts multibyte text). |

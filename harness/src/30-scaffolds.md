@@ -103,7 +103,16 @@ classifies a shrink that already happened.
 
 <!-- amh:include harness/templates/seed/docs/STATE.md -->
 
-### 3.3 `docs/RUNBOOK.md` — change-type playbooks
+### 3.3 `docs/PROTOCOLS.md` and `docs/RUNBOOK.md` — what binds every session, and the playbooks
+
+The two are one split, made so that the constitution's mandatory reads are a short, stable
+document rather than the whole runbook: `docs/PROTOCOLS.md` holds the procedures every session
+is bound by whatever its task — session discipline, the adversarial and rule-review protocols,
+the leaked-credential incident, the acceptance ladder and working-memory compression — and
+changes only under the rule-review protocol; `docs/RUNBOOK.md` holds the module map, the
+change-type playbooks and CI triage, which adapt with the work and route into the first.
+
+<!-- amh:include harness/templates/seed/docs/PROTOCOLS.md -->
 
 <!-- amh:include harness/templates/seed/docs/RUNBOOK.md -->
 
@@ -319,7 +328,8 @@ rebased, or cut from a newer commit than HEAD.
 - **Deny (hard rails):** `git push --force` in all spellings; any push targeting the default
   branch directly; environment and secret dumps in the spellings a deny rule can express —
   `env`, `printenv`, the builtin dump forms (`set`, `export -p`, `declare -x`), reads of
-  `.env`-style files and of `/proc/<pid>/environ`, and reads of private keys under their
+  `.env`-style files and of `/proc/<pid>/environ` (on Claude Code with its sandbox on, only in
+  a spelling that may reach nothing: see that adapter's comment), and reads of private keys under their
   conventional names (`id_rsa` and its siblings — never the `.pub` half, which is meant to be
   read). Stop at names with no benign population: `.pem` and `.key` are container extensions
   rather than secret markers, so a rule denying them denies reading a public certificate, and
@@ -409,6 +419,17 @@ rebased, or cut from a newer commit than HEAD.
   — rails, redaction, or prose-only — and state each layer's bounds with it: a redaction hook
   sees successful tool calls only, cannot unsay what the tool already wrote to the transcript,
   and catches the enumerated shapes and nothing else.
+- **The host's own sandbox** (where the host has one): a layer under every rail above, never a
+  replacement for one. The Claude Code adapter turns on Claude Code's shell sandbox in the
+  project file with no retry outside it and no approval for being sandboxed, so the prompts stay
+  as they were. Three bounds go with it. Native Windows has none, by the owner's choice, so the
+  command guard and the prose are the only layers there. Where it cannot start, on Linux or WSL2
+  without `bubblewrap` and `socat`, the host runs commands unsandboxed with at most a warning, because
+  failing instead would stop Claude Code starting on native Windows. And a project file sets
+  defaults that a local, `--settings` or managed file outranks. The Codex adapter pins no sandbox
+  key and relies on Codex's default, since a pinned key could collide with the user's own
+  permission profile. A guard can validate what the shipped files ask for; whether a sandbox
+  started and enforced anything is a live probe, and no file proves it.
 - **Server-side:** the owner mirrors the hardest rails at the host — branch protection on the
   default branch (PRs required; force-push and deletion blocked) and secret-scanning push
   protection. The adapter's deny rules bind only agents that load them; the server binds every

@@ -286,10 +286,13 @@
 #     cleared prompt read as a judgement about the script, and it says it for any kind reached
 #     through `run`/`run-script`, not just the ones on the name list: `npm run dropdb` gets the
 #     same disclosure, because the guard read a script name there too.
-#     WHAT IS STILL OUTSIDE, and why it is not an oversight: a verb enters this tier when a
-#     public report shows it destroying data, and a web search for reported incidents naming
-#     `alembic downgrade base`, `manage.py flush`, `redis-cli flushall`, `mysql -e`, `mongosh
-#     --eval` or `drizzle-kit drop` returned none, so they stay out (AMH ledger row DC027).
+#     WHAT IS STILL OUTSIDE, and why: `alembic downgrade base`, `manage.py flush`, `redis-cli
+#     flushall`, `mysql -e`, `mongosh --eval` and `drizzle-kit drop` are not advised. They were
+#     kept out when a verb entered this tier only on a public report of it destroying data, and
+#     a web search for such reports returned none (AMH ledger row DC027). That bar no longer
+#     gates this guard (AMH ledger row DD074): a verb now enters once what it destroys is shown
+#     and what ordinary work it would newly advise is measured, and no change has done that for
+#     these yet. Their absence is unmeasured, not a finding that they are safe.
 #     `psql -f script.sql` and a migration run from application code stay out for the older
 #     reason — the verb is not in the command text at all. And one reported shape is outside any
 #     list a command scanner could hold: the PocketOS wipe was a `curl` GraphQL call carrying a
@@ -1694,23 +1697,80 @@ names_credential_store() {
 # allowed through to the normal rails so false positives do not brick the agent.
 #
 # Session identity is not portable across agent vendors, so the default state is a
-# per-repository, per-category file under /tmp. Tests may override either category's
-# file explicitly; DOTENV_ADVISORY_STATE remains supported for compatibility.
+# per-repository, per-category file in advisory_state_dir: TMPDIR when it names an absolute,
+# writable directory, /tmp otherwise. A host sandbox can leave /tmp read-only while TMPDIR stays
+# writable, and a TMPDIR that is missing or unwritable must not leave the marker unwritable too
+# (AMH ledger row DD093). A process may see no TMPDIR where another sees one, a hook outside the
+# sandbox against a ladder inside it, so every reader looks in both (advisory_state_files), and
+# scripts/session-start.sh clears both. Both are one directory when TMPDIR names /tmp by another
+# spelling (`/tmp/.`, a symlink), and the readers then read it once, judged by filesystem
+# identity: read twice, every spawn counted double. The two REPORTS take the union across the
+# directories: a deletion advised in one and resumed in the other came back, and is not
+# abandoned. The advisory itself still reads and writes only its own process's file. For the
+# `.env` and key-material tiers a spent marker is a regular FILE; anything else at its path — a
+# directory above all, or a dangling symlink — is state the guard cannot use, and the advisory
+# fires as for a marker it cannot write (AMH ledger row DD097); the other tiers already fire on
+# a directory there, since their reads and appends fail on it. Tests may override any category's
+# file explicitly through its *_ADVISORY_STATE variable; DOTENV_ADVISORY_STATE remains
+# supported for compatibility. An overridden file, with its `.resumed` companion, is the only
+# state the reports read for its category, wherever it sits: no /tmp sibling is looked for,
+# even when the override names a file directly under TMPDIR.
+advisory_state_dir() {
+	local dir=${TMPDIR:-}
+	case $dir in /*) ;; *) dir= ;; esac
+	while [ "$dir" != "${dir%/}" ]; do dir=${dir%/}; done
+	if [ -n "$dir" ] && [ -d "$dir" ] && [ -w "$dir" ]; then
+		printf '%s' "$dir"
+	else
+		printf '/tmp'
+	fi
+}
+
+# advisory_state_files <name> : set ADVISORY_STATES to the state file, then its /tmp sibling
+# when the file is the default one and its directory is not /tmp itself. An array, never lines
+# on stdout: a path is not a line, and an override holding a newline would read as two files.
+# Whether the file is overridden is asked of the override variable, never inferred from where
+# the file sits: an override that happens to name a file directly under TMPDIR is still the
+# only file read. Identity is the filesystem's (`-ef`), not the spelling's, so a TMPDIR of
+# `/tmp/.` or a symlink to /tmp yields one file.
+advisory_state_files() {
+	local own dir
+	ADVISORY_STATES=()
+	own=$(advisory_state_file "$1") || return 1
+	[ -n "$own" ] || return 1
+	ADVISORY_STATES=("$own")
+	advisory_state_override "$1" >/dev/null && return 0
+	dir=$(advisory_state_dir)
+	[ "$dir" = /tmp ] && return 0
+	[ "$dir" -ef /tmp ] && return 0
+	ADVISORY_STATES=("$own" "/tmp/${own##*/}")
+}
+
+# advisory_state_override <name> : print the category's explicitly set state file and succeed;
+# fail when its *_ADVISORY_STATE variable is unset or the category is unknown.
+advisory_state_override() {
+	case $1 in
+	dotenv) [ -n "${DOTENV_ADVISORY_STATE+x}" ] && printf '%s' "$DOTENV_ADVISORY_STATE" ;;
+	keymaterial) [ -n "${KEYMATERIAL_ADVISORY_STATE+x}" ] && printf '%s' "$KEYMATERIAL_ADVISORY_STATE" ;;
+	destructive) [ -n "${DESTRUCTIVE_ADVISORY_STATE+x}" ] && printf '%s' "$DESTRUCTIVE_ADVISORY_STATE" ;;
+	interpreter) [ -n "${INTERPRETER_ADVISORY_STATE+x}" ] && printf '%s' "$INTERPRETER_ADVISORY_STATE" ;;
+	subagent) [ -n "${SUBAGENT_ADVISORY_STATE+x}" ] && printf '%s' "$SUBAGENT_ADVISORY_STATE" ;;
+	hookfile) [ -n "${HOOKFILE_ADVISORY_STATE+x}" ] && printf '%s' "$HOOKFILE_ADVISORY_STATE" ;;
+	*) return 1 ;;
+	esac
+}
+
 advisory_state_file() { # advisory_state_file <name>
 	local name=$1 slug uid
 	case $name in
-	dotenv) [ -n "${DOTENV_ADVISORY_STATE+x}" ] && { printf '%s' "$DOTENV_ADVISORY_STATE"; return 0; } ;;
-	keymaterial) [ -n "${KEYMATERIAL_ADVISORY_STATE+x}" ] && { printf '%s' "$KEYMATERIAL_ADVISORY_STATE"; return 0; } ;;
-	destructive) [ -n "${DESTRUCTIVE_ADVISORY_STATE+x}" ] && { printf '%s' "$DESTRUCTIVE_ADVISORY_STATE"; return 0; } ;;
-	interpreter) [ -n "${INTERPRETER_ADVISORY_STATE+x}" ] && { printf '%s' "$INTERPRETER_ADVISORY_STATE"; return 0; } ;;
-	subagent) [ -n "${SUBAGENT_ADVISORY_STATE+x}" ] && { printf '%s' "$SUBAGENT_ADVISORY_STATE"; return 0; } ;;
-	hookfile) [ -n "${HOOKFILE_ADVISORY_STATE+x}" ] && { printf '%s' "$HOOKFILE_ADVISORY_STATE"; return 0; } ;;
+	dotenv | keymaterial | destructive | interpreter | subagent | hookfile) ;;
 	*) return 1 ;;
 	esac
+	advisory_state_override "$name" && return 0
 	slug=${ROOT//\//_}
 	slug=${slug// /_}
 	uid=${UID:-unknown}
-	printf '/tmp/amh-command-guard-%s-advisory-%s-%s' "$name" "$uid" "$slug"
+	printf '%s/amh-command-guard-%s-advisory-%s-%s' "$(advisory_state_dir)" "$name" "$uid" "$slug"
 }
 
 needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
@@ -1796,6 +1856,13 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 	[ "$MACHINE_MODE" -eq 0 ] || return 1
 	state=$(advisory_state_file "$name")
 	[ -n "$state" ] || return 1
+	# A marker that cannot be written FIRES the advisory, and says why, instead of passing the
+	# command: "I could not record it" is not "nothing to advise". It used to be read that way,
+	# and a read-only /tmp inside a host sandbox turned every one-time advisory off (AMH ledger
+	# rows DD096, DD097). Where no marker can ever be written the same command is then refused
+	# on every attempt, as the no-digest arm already is (AMH ledger row DD071): loud, the
+	# direction an advisory may fail (owner, 2026-11-18).
+	ADVISORY_UNRECORDED=0
 	if [ "$name" = destructive ]; then
 		# Rearm per TARGET SET, not per category — the one place this rail's state
 		# deliberately diverges from the other two.
@@ -1816,7 +1883,7 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 			# the line. No gate reads it, and none may (P3, AMH ledger row DC004).
 			if [ "$HOOK_INVOCATION" -eq 1 ] &&
 				{ [ ! -e "$state.resumed" ] || ! LC_ALL=C grep -qxF -- "$sig" "$state.resumed" 2>/dev/null; }; then
-				printf '%s\n' "$sig" >>"$state.resumed" 2>/dev/null || :
+				printf '%s\n' "$sig" 2>/dev/null >>"$state.resumed" || :
 			fi
 			return 1
 		fi
@@ -1825,7 +1892,7 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# session, and the bootstrap deletes the file; not worth a second mechanism.
 		# An `xargs` deletion with no digest to key it on is never recorded, so it never matches
 		# and re-fires on every attempt (see `record_destructive_targets`).
-		[ "${DESTRUCTIVE_UNKEYABLE:-0}" -eq 1 ] || printf '%s\n' "$sig" >>"$state" 2>/dev/null || return 1
+		[ "${DESTRUCTIVE_UNKEYABLE:-0}" -eq 1 ] || printf '%s\n' "$sig" 2>/dev/null >>"$state" || ADVISORY_UNRECORDED=1
 	elif [ "$name" = interpreter ] || [ "$name" = hookfile ]; then
 		# The hook-file tier rearms the same way, per command text: removing the hook at minute
 		# two must not buy silence for moving it aside at minute forty.
@@ -1850,7 +1917,7 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 			if [ -e "$state" ] && LC_ALL=C grep -qxF -- "$sig" "$state" 2>/dev/null; then
 				return 1
 			fi
-			printf '%s\n' "$sig" >>"$state" 2>/dev/null || return 1
+			printf '%s\n' "$sig" 2>/dev/null >>"$state" || ADVISORY_UNRECORDED=1
 		else
 			ADVISORY_UNKEYABLE=1
 		fi
@@ -1870,18 +1937,33 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 		# turn three times over, with a line recorded for each. Nothing reads that file as
 		# evidence of anything (P3): it says a prompt fired and a spawn went ahead, never
 		# that anyone thought about it.
+		# Here the marker's write is its REMOVAL: one that cannot be cleared would let every later
+		# spawn pass unadvised, so it fires like any unwritable marker (AMH ledger row DD097).
 		if [ -e "$state" ]; then
-			rm -f -- "$state" 2>/dev/null || :
-			if [ "$HOOK_INVOCATION" -eq 1 ]; then
-				when=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null) || when='unknown-time'
-				printf '%s spawn proceeded past the advisory\n' "$when" >>"$state.resumed" 2>/dev/null || :
+			if rm -f -- "$state" 2>/dev/null && [ ! -e "$state" ]; then
+				if [ "$HOOK_INVOCATION" -eq 1 ]; then
+					when=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null) || when='unknown-time'
+					printf '%s spawn proceeded past the advisory\n' "$when" 2>/dev/null >>"$state.resumed" || :
+				fi
+				return 1
 			fi
-			return 1
+			ADVISORY_UNRECORDED=1
+		else
+			: 2>/dev/null >"$state" || ADVISORY_UNRECORDED=1
 		fi
-		: >"$state" 2>/dev/null || return 1
 	else
-		[ -e "$state" ] && return 1
-		: >"$state" 2>/dev/null || return 1
+		# Only a regular FILE is a spent marker. A directory at its path used to count as one,
+		# so whatever planted it, the `.env` and key-material advisories never fired again; it
+		# is state the guard cannot use, and an unusable marker fires (AMH ledger row DD097). A
+		# dangling symlink is unusable too: writing through it would create its target, and the
+		# rerun would then find a spent marker the guard never chose the place of.
+		if [ -f "$state" ]; then
+			return 1
+		elif [ -e "$state" ] || [ -L "$state" ]; then
+			ADVISORY_UNRECORDED=1
+		else
+			: 2>/dev/null >"$state" || ADVISORY_UNRECORDED=1
+		fi
 	fi
 	case $name in
 	dotenv)
@@ -2049,6 +2131,16 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 	if { [ "$name" = interpreter ] || [ "$name" = hookfile ]; } && [ "${ADVISORY_UNKEYABLE:-0}" -eq 1 ]; then
 		# shellcheck disable=SC2016 # the backticked tool names must print literally.
 		ADVISORY_REASON="$ADVISORY_REASON"' No digest tool (`sha256sum`, `shasum` or `cksum`) was found to key this command on, so this advisory fires on every attempt and a rerun will not clear it: install one, or ask the owner.'
+	fi
+	# Last of all, for every tier: it overrides each tier's "rerun to proceed". The path is not
+	# printed; it carries this repository's location, and the directory is what can be fixed.
+	if [ "${ADVISORY_UNRECORDED:-0}" -eq 1 ]; then
+		# shellcheck disable=SC2016 # the backticked names must print literally.
+		ADVISORY_REASON="$ADVISORY_REASON"' The guard could not write the marker that records this advisory (in `TMPDIR` when that is an absolute, writable directory, else in `/tmp`), or found something other than a regular file at its path, so it fires on every attempt and a rerun will not clear it: make one of those writable for this process, or, when something already occupies the marker'"'"'s path, ask the owner to clear it.'
+		case $name in
+		dotenv) DOTENV_ADVISORY_REASON=$ADVISORY_REASON ;;
+		keymaterial) KEYMATERIAL_ADVISORY_REASON=$ADVISORY_REASON ;;
+		esac
 	fi
 	return 0
 }
@@ -6146,8 +6238,10 @@ is_destructive_segment() {
 		#
 		# `push:pg`, `push:mysql` and `push:sqlite` are the older per-dialect spellings of the
 		# same command. `generate`, `migrate`, `check`, `up` and `studio` are the everyday ones
-		# and are not advised; `drop` is deliberately absent, because no public report shows it
-		# destroying stored data and this tier's list is earned by reports (AMH ledger row DC027).
+		# and are not advised. `drop` is absent: it was kept out while this tier's list was
+		# earned by public reports and none showed it destroying stored data (AMH ledger row
+		# DC027), and under the bar that replaced that one (AMH ledger row DD074) no change has
+		# yet shown what it destroys or measured what it would newly advise.
 		#
 		# The four spellings are ENUMERATED and the kind is built from a literal, never from the
 		# word. A `push:*` glob put command text into the kind, and the kind is the one part of a
@@ -7128,6 +7222,73 @@ st_tier_unkeyable() { # st_tier_unkeyable <fail|empty> <command>
 	if [ -n "$old_h_set" ]; then HOOKFILE_ADVISORY_STATE=$old_h; else unset HOOKFILE_ADVISORY_STATE; fi
 }
 
+# A marker the guard cannot write must FIRE the advisory on every attempt and say why; it used to
+# pass the command with nothing said (AMH ledger rows DD096, DD097). The marker is pointed into a
+# directory that does not exist, so the write fails for the reason a read-only /tmp gives it.
+# <var> names the tier's state override; `subagent` is driven through `needs_one_time_advisory`,
+# as its own fixtures are, since no command text reaches that tier.
+st_tier_unrecorded() { # st_tier_unrecorded <STATE_VAR> <command>
+	local var=$1 cmd=$2 dir old_set old_state n fired reason
+	dir=$(mktemp -d "${TMPDIR:-/tmp}/amh-unrecorded-test.XXXXXX") || exit 1
+	old_set=$(eval "printf '%s' \"\${$var+x}\"")
+	old_state=$(eval "printf '%s' \"\${$var:-}\"")
+	printf -v "$var" '%s' "$dir/missing/marker"
+	for n in 1 2; do
+		if [ "$var" = SUBAGENT_ADVISORY_STATE ]; then
+			ADVISORY_REASON=''
+			if needs_one_time_advisory subagent ''; then fired=1; else fired=0; fi
+			reason=$ADVISORY_REASON
+		else
+			if st_check "$cmd"; then fired=0; else fired=1; fi
+			reason=$BLOCK_REASON
+		fi
+		if [ "$fired" -eq 0 ]; then
+			printf 'SELF-TEST FAIL: with its marker unwritable (%s) this advisory must fire on every attempt (attempt %s): %s\n' "$var" "$n" "$cmd" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+		else
+			case $reason in
+			*'could not write the marker'*) ;;
+			*)
+				printf 'SELF-TEST FAIL: an advisory with an unwritable marker did not say why it re-fires (%s): %s\n   reason given: %s\n' "$var" "$cmd" "$reason" >&2
+				ST_FAILS=$((ST_FAILS + 1))
+				;;
+			esac
+		fi
+	done
+	rmdir -- "$dir" 2>/dev/null || :
+	if [ -n "$old_set" ]; then printf -v "$var" '%s' "$old_state"; else unset "$var"; fi
+}
+
+# The subagent tier's marker is CLEARED to let a spawn through, so the write that can fail there
+# is the removal: an outstanding marker that will not go must fire, not pass every later spawn
+# (AMH ledger row DD097). A non-empty directory in the marker's place makes `rm -f` fail on
+# every host and for every user, root included, where a read-only directory would not.
+st_subagent_uncleared() {
+	local dir old_set old_state n
+	dir=$(mktemp -d "${TMPDIR:-/tmp}/amh-uncleared-test.XXXXXX") || exit 1
+	mkdir -p -- "$dir/marker/keep" || exit 1
+	old_set=${SUBAGENT_ADVISORY_STATE+x}
+	old_state=${SUBAGENT_ADVISORY_STATE:-}
+	SUBAGENT_ADVISORY_STATE=$dir/marker
+	for n in 1 2; do
+		ADVISORY_REASON=''
+		if ! needs_one_time_advisory subagent ''; then
+			printf 'SELF-TEST FAIL: an outstanding subagent marker that cannot be cleared let the spawn pass (attempt %s)\n' "$n" >&2
+			ST_FAILS=$((ST_FAILS + 1))
+		else
+			case $ADVISORY_REASON in
+			*'could not write the marker'*) ;;
+			*)
+				printf 'SELF-TEST FAIL: an uncleared subagent marker fired without saying why (attempt %s)\n' "$n" >&2
+				ST_FAILS=$((ST_FAILS + 1))
+				;;
+			esac
+		fi
+	done
+	rmdir -- "$dir/marker/keep" "$dir/marker" "$dir" 2>/dev/null || :
+	if [ -n "$old_set" ]; then SUBAGENT_ADVISORY_STATE=$old_state; else unset SUBAGENT_ADVISORY_STATE; fi
+}
+
 # With no digest tool an `xargs` deletion has no key, so it must be advised on EVERY attempt and
 # say why. The digest function is replaced for the duration, not the PATH, because a self-test
 # cannot assume which tools a host's PATH holds or where.
@@ -7959,6 +8120,13 @@ printenv'
 	st_tier_unkeyable empty 'python3 -c "shutil.rmtree(d)"'
 	st_tier_unkeyable fail 'rm .git/hooks/pre-push'
 	st_tier_unkeyable empty 'rm .git/hooks/pre-push'
+	st_tier_unrecorded DOTENV_ADVISORY_STATE 'python3 -c "open('"'"'.env'"'"')"'
+	st_tier_unrecorded KEYMATERIAL_ADVISORY_STATE 'cat server.pem'
+	st_tier_unrecorded DESTRUCTIVE_ADVISORY_STATE 'rm -rf tmp/build'
+	st_tier_unrecorded INTERPRETER_ADVISORY_STATE 'python3 -c "shutil.rmtree(d)"'
+	st_tier_unrecorded HOOKFILE_ADVISORY_STATE 'rm .git/hooks/pre-push'
+	st_tier_unrecorded SUBAGENT_ADVISORY_STATE ''
+	st_subagent_uncleared
 	st_interpreter_signature_is_opaque 'python3 -c "T=\"sk-live-FIXTURE\"; shutil.rmtree(d)"' 'sk-live-FIXTURE'
 	# A multi-line program: one signature line, or the rerun can never clear it — `printf %q`
 	# renders an embedded newline as a backslash-newline on bash before 4.4, which this file
@@ -8815,8 +8983,9 @@ EOF'
 	st_allowed 'drizzle-kit migrate'
 	st_allowed 'drizzle-kit studio'
 	st_allowed 'drizzle-kit check'
-	# Deliberately absent from the arm: no public report shows it destroying stored data, and
-	# this tier's list is earned by reports rather than by resemblance.
+	# Absent from the arm: it was kept out while this tier's list was earned by public reports
+	# (AMH ledger row DC027), and no change has yet measured it under the bar that replaced
+	# that one (AMH ledger row DD074). This pins today's behaviour, not a finding that it is safe.
 	st_allowed 'drizzle-kit drop'
 	# The name is matched WHOLE. A script whose name merely CONTAINS one of the list is a
 	# different script — the D007 class in the arm most exposed to it, since a script name is
@@ -9820,18 +9989,31 @@ git push --force origin main
 #
 # Exit is always 0, including when the state files are absent, which is the ordinary case in
 # a session that deleted nothing.
+#
+# The two state directories are one record split in two (see advisory_state_dir), so the report
+# is the union of advised signatures minus the union of resumed ones: a deletion advised where
+# both were written and resumed where only one was is not abandoned. Each line is tagged with
+# the file it came from, `A` advised or `R` resumed, and the set difference is awk's.
 advisory_report() {
-	local state advised
-	state=$(advisory_state_file destructive) || return 0
-	[ -n "$state" ] || return 0
-	[ -e "$state" ] || return 0
-	while IFS= read -r advised; do
-		[ -n "$advised" ] || continue
-		if [ -e "$state.resumed" ] && LC_ALL=C grep -qxF -- "$advised" "$state.resumed" 2>/dev/null; then
-			continue
+	local state line
+	local -a ADVISORY_STATES=()
+	advisory_state_files destructive 2>/dev/null || return 0
+	for state in "${ADVISORY_STATES[@]}"; do
+		# Opened silently: a failed open would print the state file's path, which carries this
+		# repository's location (AMH ledger row DD097).
+		if [ -f "$state" ] && [ -r "$state" ]; then
+			while IFS= read -r line || [ -n "$line" ]; do printf 'A %s\n' "$line"; done 2>/dev/null <"$state"
 		fi
-		printf '%s\n' "$advised"
-	done <"$state"
+		if [ -f "$state.resumed" ] && [ -r "$state.resumed" ]; then
+			while IFS= read -r line || [ -n "$line" ]; do printf 'R %s\n' "$line"; done 2>/dev/null <"$state.resumed"
+		fi
+	done |
+		LC_ALL=C awk '
+			{ sig = substr($0, 3) }
+			sig == "" { next }
+			/^R / { resumed[sig] = 1; next }
+			!(sig in seen) { seen[sig] = 1; order[++n] = sig }
+			END { for (i = 1; i <= n; i++) if (!(order[i] in resumed)) print order[i] }'
 	return 0
 }
 
@@ -9865,11 +10047,14 @@ run_pretask() {
 # gate, CI step or decision procedure may read it as evidence of a check (P3, AMH ledger row
 # D014).
 spawn_report() {
-	local state count
-	state=$(advisory_state_file subagent) || return 0
-	[ -n "$state" ] || return 0
-	[ -e "$state.resumed" ] || return 0
-	count=$(LC_ALL=C grep -c '' "$state.resumed" 2>/dev/null) || return 0
+	local state count=0 n
+	local -a ADVISORY_STATES=()
+	advisory_state_files subagent 2>/dev/null || return 0
+	for state in "${ADVISORY_STATES[@]}"; do
+		[ -e "$state.resumed" ] || continue
+		n=$(LC_ALL=C grep -c '' "$state.resumed" 2>/dev/null) || continue
+		count=$((count + n))
+	done
 	[ "$count" -gt 0 ] || return 0
 	printf '%s\n' "$count"
 	return 0

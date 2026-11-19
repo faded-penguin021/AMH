@@ -60,7 +60,7 @@ say() { printf '%s\n' "$*"; }
 # extra step. The rest of the name is quoted, so only the category slot globs — a repository
 # path containing a glob character stays a literal rather than widening the pattern. That slot
 # is a greedy `*` that does not cross `/`, so the widest reach is another repository's file of
-# exactly this shape under /tmp, and erasing one of those is harmless: an advisory that rearms
+# exactly this shape under /tmp or TMPDIR, and erasing one of those is harmless: an advisory that rearms
 # early blocks one extra command and explains why, which is the direction this file is allowed
 # to fail in. Erasing one too FEW removes a rail in silence, which is why the pattern is wide.
 #
@@ -89,8 +89,21 @@ say() { printf '%s\n' "$*"; }
 # that reach rather than closing it: the category slot is still a greedy `*`, so a neighbouring
 # repository whose path embeds this exact shape stays reachable. Contrived, and not a reason to
 # widen — but the absolute would be false.
+#
+# A marker that cannot be removed is REPORTED, not swallowed. A state file left behind is a
+# spent advisory this session inherits, so the rail is off for it with nothing on screen saying
+# so; a `.resumed` left behind makes both reports span earlier sessions. A `/tmp` this process
+# sees read-only while the hook that wrote there did not is the plain way to get either. The
+# warning names the directory by its ROLE — `/tmp` or `TMPDIR` — and prints neither the marker,
+# whose name embeds this repository's path (AMH ledger row DD097), nor TMPDIR's value, which
+# can embed a home directory. It is a banner line and nothing else: the exit status stays 0,
+# because a boot step that cannot clear a file must not stop the session (P14). The labels are
+# kept in a plain string, not read back through a here-string, which bash before 5.1 builds as
+# a temporary file — in the very directory that may be unwritable.
+ADVISORY_RESET_FAILED=''
 reset_command_guard_advisories() {
-	local slug uid f had_globignore old_globignore noglob=0
+	local slug uid f dir had_globignore old_globignore noglob=0 failed
+	local -a dirs=(/tmp)
 	case $- in *f*) noglob=1 ;; esac
 	set +f
 	had_globignore=${GLOBIGNORE+x}
@@ -99,9 +112,30 @@ reset_command_guard_advisories() {
 	slug=${ROOT//\//_}
 	slug=${slug// /_}
 	uid=${UID:-unknown}
-	for f in /tmp/amh-command-guard-*-advisory-"$uid"-"$slug" \
-		/tmp/amh-command-guard-*-advisory-"$uid"-"$slug".resumed; do
-		[ -e "$f" ] && rm -f -- "$f" 2>/dev/null
+	# Both places the command guard may have written: /tmp, and TMPDIR when it names an absolute
+	# directory (its advisory_state_dir). A hook that saw no TMPDIR wrote to /tmp even when this
+	# process sees one, so both are cleared. An unwritable directory with no marker in it says
+	# nothing; one holding a marker that stays after `rm` is reported (see above).
+	dir=${TMPDIR:-}
+	case $dir in /*) ;; *) dir= ;; esac
+	while [ "$dir" != "${dir%/}" ]; do dir=${dir%/}; done
+	[ -n "$dir" ] && [ "$dir" != /tmp ] && dirs+=("$dir")
+	for dir in "${dirs[@]}"; do
+		failed=0
+		for f in "$dir"/amh-command-guard-*-advisory-"$uid"-"$slug" \
+			"$dir"/amh-command-guard-*-advisory-"$uid"-"$slug".resumed; do
+			if [ -e "$f" ]; then
+				rm -f -- "$f" 2>/dev/null
+				[ -e "$f" ] && failed=1
+			fi
+		done
+		if [ "$failed" = 1 ]; then
+			if [ "$dir" = /tmp ]; then
+				ADVISORY_RESET_FAILED="$ADVISORY_RESET_FAILED /tmp"
+			else
+				ADVISORY_RESET_FAILED="$ADVISORY_RESET_FAILED TMPDIR"
+			fi
+		fi
 	done
 	if [ -n "$had_globignore" ]; then GLOBIGNORE=$old_globignore; else unset GLOBIGNORE; fi
 	[ "$noglob" = 1 ] && set -f
@@ -159,6 +193,14 @@ install_prepush_hook() {
 }
 
 say "── AMH session start ─────────────────────────────────────────"
+for d in /tmp TMPDIR; do
+	case "$ADVISORY_RESET_FAILED " in *" $d "*)
+		say "· ⚠ could not clear the command guard's one-time advisory state under $d — what an"
+		say "  earlier session spent or resumed there carries over: an advisory may never fire, and"
+		say "  the advisory reports may count earlier sessions. Make it clearable, then re-run this script."
+		;;
+	esac
+done
 
 # 1. Toolchain bootstrap — remote/ephemeral containers only, gated on an explicit
 #    flag. A heuristic here would surprise someone on their own machine.
@@ -419,7 +461,11 @@ report_newer_state() {
 			n=$(wm_git rev-list --count "$head..$sha" -- "$STATE_FILE" 2>/dev/null) || n=x
 			[ "$n" = 0 ] || printf '%s %s %s\n' "$n" "$sha" "$name"
 		done)
-	if printf '%s\n' "$found" | grep -q '^x '; then
+	# A `case` match, not `printf | grep -q`: with a failed count early in a long enough list the
+	# early-exiting reader under `pipefail` read it as absent and printed `x` as a count. `case`
+	# needs no pipe, and no temporary file, which a here-string past the pipe buffer does and a
+	# sandbox may not allow (AMH ledger row DD110).
+	if case $'\n'"$found" in *$'\n''x '*) true ;; *) false ;; esac; then
 		wm_not_checked "could not count the commits that build on this checkout"
 	elif [ -n "$found" ]; then
 		say "· ⚠ working memory: $STATE_FILE here is OLDER than on work that builds on this checkout:"
@@ -512,10 +558,11 @@ fi
 
 # 4. Protocol pointer.
 #
-# The runbook clause is conditional on the file EXISTING, because not every install profile
-# ships one and the smallest profile — the default — deliberately does not. Pointing a fresh
-# session at a document that is not there teaches it to distrust the banner, and the adopter
-# cannot fix it themselves: this script is overwritten on every upgrade by design.
+# The runbook clause is conditional on the file EXISTING. Every install profile ships one, so a
+# tree without it is an incomplete install or a legacy one — an older light profile went without,
+# and its adopters were told to fold the playbooks into the constitution. Pointing a session at a
+# document that is not there teaches it to distrust the banner, and the adopter cannot fix this
+# line themselves: this script is overwritten on every upgrade by design.
 if [ -f "$ROOT/docs/RUNBOOK.md" ]; then
 	say "· protocol: read $STATE_FILE first (incl. the Owner queue), then the matching"
 	say "  playbook in docs/RUNBOOK.md. Verify with scripts/ladder.sh. Never leave the branch red."

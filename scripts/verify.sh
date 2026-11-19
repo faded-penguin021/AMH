@@ -24,13 +24,14 @@ while IFS= read -r script; do
 done < <(git ls-files -co --exclude-standard '*.sh' | sort)
 
 step "parse check (bash -n) on ${#SCRIPTS[@]} script(s)"
+# No scratch file: a host sandbox can leave /tmp read-only, and every script then read as broken
+# (DD-093). bash -n's diagnostics are captured instead.
 for s in "${SCRIPTS[@]}"; do
-	bash -n "$s" 2>/tmp/amh-parse.$$ || {
+	if ! parse_err=$(bash -n "$s" 2>&1); then
 		bad "$s"
-		sed 's/^/       /' /tmp/amh-parse.$$
-	}
+		printf '%s\n' "$parse_err" | sed 's/^/       /'
+	fi
 done
-rm -f /tmp/amh-parse.$$
 
 step "shellcheck"
 if command -v shellcheck >/dev/null 2>&1; then

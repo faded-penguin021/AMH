@@ -2,8 +2,8 @@
 
 > **Status: rev 2, committed 2026-11-04 (S0). Adopted by the owner the same day: S1, S2, S6a and
 > S3 ride the release after 16.0.0 (moved there by the owner later that day), and S4, S5, S6b and
-> S6c stay deferred (§2).** No unit is approved yet.
-> Each starts only on the owner's explicit approval of that unit; adopting the plan approved none.
+> S6c stay deferred (§2).** **The owner approved S1, S2, S6a and S3 together on 2026-11-10, to
+> run in the order of §4.1.** Each is still reviewed separately (§2, item 4).
 > Rev 2 folds in an external review of rev 1 (verdict REVISE_BEFORE_IMPLEMENTATION, nine
 > findings). Each finding was re-checked against this tree, or against the host's documentation,
 > before it was accepted (§6). Re-checking F8 found a wider gap than the review named, and that

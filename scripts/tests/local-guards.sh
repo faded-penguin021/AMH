@@ -26,7 +26,12 @@ sed_in_place() { # <sed-expression> <file>
 }
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
-WORK=$(mktemp -d)
+# Checked: an empty WORK puts every fixture at the filesystem root, and the suite would go on
+# to report on trees it never built.
+if ! WORK=$(mktemp -d) || [ -z "$WORK" ] || [ ! -d "$WORK" ]; then
+	printf '%s: no scratch directory could be created — no fixture ran\n' "${0##*/}" >&2
+	exit 1
+fi
 trap 'rm -rf "$WORK"' EXIT
 
 export GIT_AUTHOR_NAME=amh-test GIT_AUTHOR_EMAIL=amh@test.invalid
@@ -91,7 +96,7 @@ expect() { # expect <pass|fail|warn> <name> <dir> <guard> [message-substring]
 	elif [ "$want" = fail ] && { [ "$rc" -eq 0 ] || is_marked_warn "$rc" "$out"; }; then
 		FAILED=$((FAILED + 1))
 		printf '  FAIL %s — expected failure, guard did not fail (exit %d)\n%s\n' "$name" "$rc" "$out" >&2
-	elif [ -n "$want_msg" ] && ! printf '%s' "$out" | grep -qF "$want_msg"; then
+	elif [ -n "$want_msg" ] && ! grep -qF "$want_msg" <<<"$out"; then
 		FAILED=$((FAILED + 1))
 		printf '  FAIL %s — verdict right but message never mentioned %s\n%s\n' "$name" "$want_msg" "$out" >&2
 	else
@@ -552,7 +557,7 @@ printf '# COMMENTED_OUT_KEY=x\n' >>"$d/harness/templates/amh.conf.example"
 expect pass "config-schema: a commented key in the example is not a requirement" "$d" config-schema.sh
 
 d=$(snapshot doc_navigation_missing)
-sed_in_place 's/^## Acceptance ladder$/## Verification ladder/' "$d/docs/RUNBOOK.md"
+sed_in_place 's/^## Acceptance ladder$/## Verification ladder/' "$d/docs/PROTOCOLS.md"
 expect fail "doc-navigation: a binding heading was renamed" "$d" doc-navigation.sh "missing navigation heading"
 
 d=$(snapshot doc_navigation_duplicate)
@@ -568,6 +573,29 @@ sed_in_place '/^- Session execution, checkpoints, recovery, and owner forks:/d' 
 sed_in_place 's/Follow \*\*Session discipline\*\* every/Follow the runbook every/' "$d/AGENTS.md"
 expect fail "doc-navigation: Session discipline routing was removed" "$d" doc-navigation.sh "missing navigation pointer"
 
+# The binding sections split between docs/PROTOCOLS.md and the runbook (DD-081), so each
+# heading is looked for in the file its pointer names, and found in the other one is a second
+# authority. Each way a section can end up on the wrong side of the split has a fixture.
+d=$(snapshot doc_navigation_section_moved_back)
+sed_in_place '/^## Session discipline (BINDING for every session)$/d' "$d/docs/PROTOCOLS.md"
+printf '\n## Session discipline (BINDING for every session)\n' >>"$d/docs/RUNBOOK.md"
+expect fail "doc-navigation: a protocols section moved back into the runbook (missing)" "$d" doc-navigation.sh "missing navigation heading in docs/PROTOCOLS.md: ## Session discipline (BINDING for every session)"
+expect fail "doc-navigation: a protocols section moved back into the runbook (other file)" "$d" doc-navigation.sh "duplicate navigation heading in docs/RUNBOOK.md: ## Session discipline (BINDING for every session) (its pointer names docs/PROTOCOLS.md)"
+
+d=$(snapshot doc_navigation_section_in_both)
+printf '\n## Rule-review protocol (MANDATORY for binding-rule and guard diffs)\n' >>"$d/docs/RUNBOOK.md"
+expect fail "doc-navigation: a protocols section also in the runbook" "$d" doc-navigation.sh "duplicate navigation heading in docs/RUNBOOK.md: ## Rule-review protocol (MANDATORY for binding-rule and guard diffs) (its pointer names docs/PROTOCOLS.md)"
+
+d=$(snapshot doc_navigation_runbook_section_in_protocols)
+printf '\n## Host rails and what they miss\n' >>"$d/docs/PROTOCOLS.md"
+expect fail "doc-navigation: a runbook section also in the protocols" "$d" doc-navigation.sh "duplicate navigation heading in docs/PROTOCOLS.md: ## Host rails and what they miss (its pointer names docs/RUNBOOK.md)"
+
+d=$(snapshot doc_navigation_pointer_sent_back)
+# shellcheck disable=SC2016 # the backticks are Markdown code spans matched or written
+# literally; nothing in them is meant to expand.
+sed_in_place 's#`docs/PROTOCOLS.md` → \*\*Acceptance ladder\*\*\.#`docs/RUNBOOK.md` → **Acceptance ladder**.#' "$d/AGENTS.md"
+expect fail "doc-navigation: a constitution pointer sent back to the runbook" "$d" doc-navigation.sh "missing navigation pointer in AGENTS.md: - Verification and locally unverifiable coverage: \`docs/PROTOCOLS.md\` → **Acceptance ladder**."
+
 # The state file's rule preambles moved into the runbook and left pointers behind. DB-029
 # recorded the first such pointer as prose only; these two fixtures are why the second and
 # third are not. Deleting either line is an edit the size and structure rungs cannot see.
@@ -578,6 +606,46 @@ expect fail "doc-navigation: the state file's compression-rule pointer was delet
 d=$(snapshot doc_navigation_state_queue_pointer_missing)
 sed_in_place '/final chat message must:/d' "$d/docs/STATE.md"
 expect fail "doc-navigation: the Owner-queue pointer into Session discipline was deleted" "$d" doc-navigation.sh "missing navigation pointer in docs/STATE.md"
+
+# Host-rail coverage moved out of the constitution into its own runbook section, and two
+# pointers were left behind (DD-080). A relocated text the constitution no longer names is
+# repealed, so each way of losing the route has a fixture: the pointer, the heading, a second
+# heading, a pointer aimed at another section, and pointer and heading removed together.
+rails_ptr='what they miss** before you count on a rail'
+deletion_ptr='what they miss**. A deletion the guard denied'
+
+d=$(snapshot doc_navigation_rails_pointer_missing)
+sed_in_place '/Host rails and what they miss\*\* before you count on a rail/d' "$d/AGENTS.md"
+expect fail "doc-navigation: the host-rails pointer was deleted" "$d" doc-navigation.sh "$rails_ptr"
+
+d=$(snapshot doc_navigation_deletion_pointer_missing)
+sed_in_place '/Host rails and what they miss\*\*\. A deletion the guard denied/d' "$d/AGENTS.md"
+expect fail "doc-navigation: the deletion-rails pointer was deleted" "$d" doc-navigation.sh "$deletion_ptr"
+
+d=$(snapshot doc_navigation_rails_heading_missing)
+sed_in_place 's/^## Host rails and what they miss$/## Host rails/' "$d/docs/RUNBOOK.md"
+expect fail "doc-navigation: the host-rails heading was renamed" "$d" doc-navigation.sh "missing navigation heading in docs/RUNBOOK.md: ## Host rails and what they miss"
+
+d=$(snapshot doc_navigation_rails_heading_duplicate)
+printf '\n## Host rails and what they miss\n' >>"$d/docs/RUNBOOK.md"
+expect fail "doc-navigation: the host-rails heading was duplicated" "$d" doc-navigation.sh "duplicate navigation heading in docs/RUNBOOK.md: ## Host rails and what they miss"
+
+d=$(snapshot doc_navigation_rails_wrong_destination)
+sed_in_place 's/→ \*\*Host rails and what they miss\*\*\. A deletion/→ **Acceptance ladder**. A deletion/' "$d/AGENTS.md"
+expect fail "doc-navigation: the deletion-rails pointer names another section" "$d" doc-navigation.sh "$deletion_ptr"
+
+d=$(snapshot doc_navigation_rails_wrong_destination_working)
+sed_in_place 's/→ \*\*Host rails and what they miss\*\* before you count/→ **Acceptance ladder** before you count/' "$d/AGENTS.md"
+expect fail "doc-navigation: the host-rails pointer names another section" "$d" doc-navigation.sh "$rails_ptr"
+
+# Three assertions on one tree, so the case cannot pass on the heading alone while a pointer
+# deletion silently did nothing.
+d=$(snapshot doc_navigation_rails_pointer_and_heading_removed)
+sed_in_place '/Host rails and what they miss\*\*/d' "$d/AGENTS.md"
+sed_in_place '/^## Host rails and what they miss$/d' "$d/docs/RUNBOOK.md"
+expect fail "doc-navigation: host-rails pointers and heading removed together (heading)" "$d" doc-navigation.sh "missing navigation heading in docs/RUNBOOK.md: ## Host rails and what they miss"
+expect fail "doc-navigation: host-rails pointers and heading removed together (rails pointer)" "$d" doc-navigation.sh "$rails_ptr"
+expect fail "doc-navigation: host-rails pointers and heading removed together (deletion pointer)" "$d" doc-navigation.sh "$deletion_ptr"
 
 d=$(snapshot drift_script)
 printf '# local edit\n' >>"$d/scripts/redact.sh"
@@ -786,16 +854,54 @@ sed_in_place 's|^  "hooks": {$|  "hooks": {\
 expect fail "adapter-set: a second PreToolUse array in the machine template" "$d" adapter-set.sh \
 	'2 "PreToolUse" key(s) found'
 
-# The root-anchored /proc rails (DD-070), in either copy.
-d=$(snapshot adapter_claude_proc_rail_gone_template)
-sed_in_place '/"Read(\/\/proc\/\*\/environ)",/d' "$d/harness/templates/configs/claude-settings.json"
-expect fail "adapter-set: the template dropped a root-anchored /proc rail" "$d" adapter-set.sh \
-	'does not carry "Read(//proc/*/environ)"'
+# No root-anchored /proc rule with a wildcard, in either copy (DD-095): beside the sandbox block it
+# expands into bwrap arguments for every running process. Each is inserted after the single-slash
+# rail, which stays.
+d=$(snapshot adapter_claude_proc_wildcard_back_template)
+sed_in_place 's|^      "Read(/proc/\*\*/environ)",$|&\
+      "Read(//proc/*/environ)",|' "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: the template carries a root-anchored /proc wildcard again" "$d" adapter-set.sh \
+	'carries a root-anchored /proc rule with a wildcard ("Read(//proc/*/environ)")'
 
-d=$(snapshot adapter_claude_proc_rail_gone_reference)
-sed_in_place '/"Read(\/\/proc\/\*\*\/environ)",/d' "$d/.claude/settings.json"
-expect fail "adapter-set: the reference copy dropped a root-anchored /proc rail" "$d" adapter-set.sh \
-	'does not carry "Read(//proc/**/environ)"'
+d=$(snapshot adapter_claude_proc_wildcard_back_reference)
+sed_in_place 's|^      "Read(/proc/\*\*/environ)",$|&\
+      "Read(//proc/**/environ)",|' "$d/.claude/settings.json"
+expect fail "adapter-set: the reference copy carries a root-anchored /proc wildcard again" "$d" adapter-set.sh \
+	'carries a root-anchored /proc rule with a wildcard ("Read(//proc/**/environ)")'
+
+# The same rule with JSON's `\/` escape decodes to the same path, so it is the same rule.
+d=$(snapshot adapter_claude_proc_wildcard_escaped)
+sed_in_place 's|^      "Read(/proc/\*\*/environ)",$|&\
+      "Read(\\/\\/proc\\/*\\/environ)",|' "$d/.claude/settings.json"
+expect fail "adapter-set: a root-anchored /proc wildcard spelled with JSON escapes" "$d" adapter-set.sh \
+	'carries a root-anchored /proc rule with a wildcard'
+
+# A `?` glob and a third leading slash make the same per-process rule.
+d=$(snapshot adapter_claude_proc_wildcard_question)
+sed_in_place 's|^      "Read(/proc/\*\*/environ)",$|&\
+      "Read(///proc/?/environ)",|' "$d/harness/templates/configs/claude-settings.json"
+expect fail "adapter-set: a root-anchored /proc rule with a ? glob" "$d" adapter-set.sh \
+	'carries a root-anchored /proc rule with a wildcard ("Read(///proc/?/environ)")'
+
+# A literal root-anchored path passes (by inference one mount, not one per process). The pass is
+# vacuous if the anchor line moved and nothing was inserted, so the insertion is checked first.
+d=$(snapshot adapter_claude_proc_literal_ok)
+sed_in_place 's|^      "Read(/proc/\*\*/environ)",$|&\
+      "Read(//proc/self/environ)",|' "$d/.claude/settings.json"
+if grep -qxF '      "Read(//proc/self/environ)",' "$d/.claude/settings.json"; then
+	expect pass "adapter-set: a literal root-anchored /proc path is not a wildcard" "$d" adapter-set.sh
+else
+	FAILED=$((FAILED + 1))
+	printf '  FAIL adapter-set: the literal /proc fixture inserted nothing; its anchor line moved\n' >&2
+fi
+
+# The machine-mode fragment too (DD-104): merged into the user settings, its deny rules reach a
+# project's sandbox and expand per running process as the project's do (DD-100).
+d=$(snapshot adapter_machine_proc_wildcard_back)
+sed_in_place 's|^      "Read(/proc/\*\*/environ)",$|&\
+      "Read(//proc/**/environ)",|' "$d/harness/templates/configs/claude-machine-settings.json"
+expect fail "adapter-set: the machine template carries a root-anchored /proc wildcard again" "$d" adapter-set.sh \
+	'claude-machine-settings.json: carries a root-anchored /proc rule with a wildcard ("Read(//proc/**/environ)")'
 
 # The machine-mode template (DD-063): a user-level fragment no ladder can see once it is installed,
 # so each way of shipping it wrong fails here. A hook without `--machine` would install the full
@@ -1042,6 +1148,281 @@ printf '\n[[hooks.PostToolUse]]\nmatcher = ".*"\nhooks = []\n' >>"$d/.codex/conf
 expect fail "adapter-set: a narrowed Codex rail beside another table's all-tools matcher" "$d" adapter-set.sh \
 	"UNVERIFIED, not all-tools"
 
+# The host sandboxes (DD-079): configuration validation, so every case is a file the host would
+# load looser than the shipped one, and each would pass a guard that read nothing here. Each
+# mutates ONE copy — template or reference, alternating — so a check reading only one of them is
+# caught. `sandbox_line` inserts lines straight after a line matched exactly (leading space kept).
+sandbox_line() { # sandbox_line <file> <exact-line> <text-to-insert-after-it>
+	SB_AT=$2 SB_ADD=$3 awk '{ print } $0 == ENVIRON["SB_AT"] { print ENVIRON["SB_ADD"] }' "$1" >"$1.amh-awk" &&
+		cat "$1.amh-awk" >"$1" && rm -f "$1.amh-awk"
+}
+CT=harness/templates/configs/claude-settings.json
+CR=.claude/settings.json
+SB_ENABLED='    "enabled": true,'
+SB_BLOCK_MSG='"sandbox" block is not exactly'
+
+d=$(snapshot adapter_sandbox_off)
+sed_in_place 's/^    "enabled": true,$/    "enabled": false,/' "$d/$CT"
+expect fail "adapter-set: the Claude sandbox is turned off" "$d" adapter-set.sh "$SB_BLOCK_MSG"
+
+d=$(snapshot adapter_sandbox_gone)
+sed_in_place '/^  "sandbox": {$/,/^  },$/d' "$d/$CR"
+expect fail "adapter-set: the Claude sandbox block is removed" "$d" adapter-set.sh '0 top-level "sandbox" key(s)'
+
+d=$(snapshot adapter_sandbox_retry_on)
+sed_in_place 's/"allowUnsandboxedCommands": false,/"allowUnsandboxedCommands": true,/' "$d/$CR"
+expect fail "adapter-set: the unsandboxed retry is allowed" "$d" adapter-set.sh "$SB_BLOCK_MSG"
+
+d=$(snapshot adapter_sandbox_autoallow)
+sed_in_place 's/"autoAllowBashIfSandboxed": false$/"autoAllowBashIfSandboxed": true/' "$d/$CT"
+expect fail "adapter-set: sandboxed commands run unprompted" "$d" adapter-set.sh "$SB_BLOCK_MSG"
+
+# Each key the host accepts inside the block, added as its own line: a widened write path, a
+# widened network allowlist, disabled filesystem isolation, exclusions, permissive sockets, weaker
+# nested isolation, a misspelled key, a duplicate key (JSON keeps the last), and `failIfUnavailable`,
+# which is the fallback switch — the owner chose to keep the fallback (DD-078), so setting it either
+# way is a change of decision the guard reports rather than a loosening it ignores.
+n=0
+for extra in \
+	'    "filesystem": { "allowWrite": ["~"] },' \
+	'    "network": { "allowedDomains": ["*"] },' \
+	'    "filesystem": { "disabled": true },' \
+	'    "excludedCommands": ["rm", "git"],' \
+	'    "network": { "allowAllUnixSockets": true },' \
+	'    "enableWeakerNestedSandbox": true,' \
+	'    "enabeld": true,' \
+	'    "enabled": false,' \
+	'    "failIfUnavailable": true,' \
+	'    "failIfUnavailable": false,'; do
+	n=$((n + 1))
+	d=$(snapshot "adapter_sandbox_extra_$n")
+	if [ $((n % 2)) -eq 0 ]; then target=$CR; else target=$CT; fi
+	sandbox_line "$d/$target" "$SB_ENABLED" "$extra"
+	expect fail "adapter-set: an added sandbox key loosens or changes the block ($extra)" "$d" adapter-set.sh "$SB_BLOCK_MSG"
+done
+
+# A key written on the opening line is invisible to a reader that only checks the lines below.
+d=$(snapshot adapter_sandbox_key_on_open)
+sed_in_place 's/^  "sandbox": {$/  "sandbox": { "excludedCommands": ["*"],/' "$d/$CT"
+expect fail "adapter-set: a key on the sandbox block's opening line" "$d" adapter-set.sh "$SB_BLOCK_MSG"
+
+# A second block after the first: JSON keeps the last, so the off switch governs.
+d=$(snapshot adapter_sandbox_duplicate)
+sandbox_line "$d/$CR" '    "autoAllowBashIfSandboxed": false' '  },
+  "sandbox": { "enabled": false'
+expect fail "adapter-set: a second, later sandbox block" "$d" adapter-set.sh '2 top-level "sandbox" key(s)'
+
+# The wrong scope: the same exact block nested under "permissions" is not the sandbox setting.
+d=$(snapshot adapter_sandbox_nested)
+sed_in_place '/^  "sandbox": {$/,/^  },$/d' "$d/$CT"
+sandbox_line "$d/$CT" '  "permissions": {' '    "sandbox": {
+    "enabled": true,
+    "allowUnsandboxedCommands": false,
+    "autoAllowBashIfSandboxed": false
+    },'
+expect fail "adapter-set: the sandbox block nested under permissions" "$d" adapter-set.sh '0 top-level "sandbox" key(s)'
+
+# Additional directories and escalation, which sit outside the block and still reach the sandbox.
+d=$(snapshot adapter_sandbox_additional_dirs)
+sandbox_line "$d/$CR" '  "permissions": {' '    "additionalDirectories": ["/"],'
+expect fail "adapter-set: additional directories widen the sandbox's reach" "$d" adapter-set.sh 'sets permissions.additionalDirectories'
+
+d=$(snapshot adapter_sandbox_bypass)
+sandbox_line "$d/$CT" '  "permissions": {' '    "defaultMode": "bypassPermissions",'
+expect fail "adapter-set: an escalation mode approves everything" "$d" adapter-set.sh 'sets permissions.defaultMode'
+
+# Restored to a correct shape somewhere else: the same block moved to the END of the file, after
+# "hooks", is what the host loads, and must pass. A check that pinned the block's position rather
+# than its scope and content would fail this.
+d=$(snapshot adapter_sandbox_moved_last)
+sed_in_place '/^  "sandbox": {$/,/^  },$/d' "$d/$CR"
+sed_in_place "\$d" "$d/$CR"
+sed_in_place "\$s/^  }\$/  },/" "$d/$CR"
+printf '  "sandbox": {\n    "enabled": true,\n    "allowUnsandboxedCommands": false,\n    "autoAllowBashIfSandboxed": false\n  }\n}\n' >>"$d/$CR"
+expect pass "adapter-set: the exact sandbox block at the end of the file" "$d" adapter-set.sh
+
+# The bypasses a line reader passed (Sol's mid-unit review of H4b). The block nested under
+# "permissions" but indented like a top-level key: indentation is not JSON scope.
+d=$(snapshot adapter_sandbox_nested_flush)
+sed_in_place '/^  "sandbox": {$/,/^  },$/d' "$d/$CR"
+sandbox_line "$d/$CR" '  "permissions": {' '  "sandbox": {
+    "enabled": true,
+    "allowUnsandboxedCommands": false,
+    "autoAllowBashIfSandboxed": false
+  },'
+expect fail "adapter-set: the sandbox block nested under permissions at top-level indentation" "$d" adapter-set.sh \
+	'0 top-level "sandbox" key(s)'
+
+# An escaped key decodes to a second "sandbox", after "hooks", and JSON lets the last one govern.
+d=$(snapshot adapter_sandbox_escaped_duplicate)
+sed_in_place "\$d" "$d/$CT"
+sed_in_place "\$s/^  }\$/  },/" "$d/$CT"
+printf '  "\\u0073andbox": {"enabled": false}\n}\n' >>"$d/$CT"
+expect fail "adapter-set: an escaped second sandbox key" "$d" adapter-set.sh 'written with a JSON escape'
+
+d=$(snapshot adapter_sandbox_escaped_mode)
+# By sed, not sandbox_line: mawk decodes `\u` escapes in ENVIRON, so the helper would write the
+# plain key and this case would test the other check.
+sed_in_place 's/^  "permissions": {$/&\n    "\\u0064efaultMode": "bypassPermissions",/' "$d/$CR"
+expect fail "adapter-set: an escaped defaultMode" "$d" adapter-set.sh 'written with a JSON escape'
+
+# Permission rules that feed the sandbox, beside a byte-exact block.
+n=0
+for rule in '"Edit(//tmp/outside/**)",' '"WebFetch(domain:example.com)",' '"Write(//**)",' '"Read(//**)",'; do
+	n=$((n + 1))
+	d=$(snapshot "adapter_sandbox_allow_$n")
+	if [ $((n % 2)) -eq 0 ]; then target=$CR; else target=$CT; fi
+	sandbox_line "$d/$target" '    "allow": [' "      $rule"
+	expect fail "adapter-set: an allow rule widens the sandbox (${rule%,})" "$d" adapter-set.sh 'permission rules feed the sandbox'
+done
+
+# The bypasses the owed review of H4b found in the tokenizer. A key with a literal dot is not
+# nesting: "sandbox.enabled" beside an empty "sandbox" leaves the real block empty (F1).
+d=$(snapshot adapter_sandbox_dotted_keys)
+sed_in_place '/^  "sandbox": {$/,/^  },$/c\
+  "sandbox": {},\
+  "sandbox.enabled": true,\
+  "sandbox.allowUnsandboxedCommands": false,\
+  "sandbox.autoAllowBashIfSandboxed": false,' "$d/$CR"
+expect fail "adapter-set: literal dotted keys beside an empty sandbox block" "$d" adapter-set.sh "$SB_BLOCK_MSG"
+
+# An escaped allow VALUE decodes to the rule a plain one spells (F2).
+d=$(snapshot adapter_sandbox_allow_escaped)
+sed_in_place 's/^    "allow": \[$/&\n      "\\u0052ead(\/\/**)",/' "$d/$CT"
+expect fail "adapter-set: an escaped Read allow rule" "$d" adapter-set.sh 'allow value written with a JSON escape'
+
+# A scanner that fails is a red run, never a pass (F4). The shim fails exactly the awk program
+# that carries the named text and passes every other call to the real awk.
+SB_AWK=$(command -v awk)
+for scanner in 'keys == 0' 'read == 0 && bad == 0' 'function opens'; do
+	d=$(snapshot "adapter_sandbox_scanner_${scanner%% *}")
+	mkdir -p "$d/.shim"
+	printf '#!/bin/sh\ncase "$*" in *"%s"*) exit 42 ;; esac\nexec "%s" "$@"\n' "$scanner" "$SB_AWK" >"$d/.shim/awk"
+	chmod +x "$d/.shim/awk"
+	EXPECT_PATH_PREFIX="$d/.shim"
+	expect fail "adapter-set: a sandbox scanner that fails ($scanner)" "$d" adapter-set.sh 'scanner failed'
+	EXPECT_PATH_PREFIX=
+done
+
+# Correct configurations in another layout must still pass: the block on one line, and its members
+# reordered. A check of one serialization rather than of the configuration fails both.
+d=$(snapshot adapter_sandbox_one_line)
+sed_in_place '/^  "sandbox": {$/,/^  },$/c\
+  "sandbox": {"autoAllowBashIfSandboxed": false, "enabled": true, "allowUnsandboxedCommands": false},' "$d/$CT"
+expect pass "adapter-set: the sandbox block on one line, reordered" "$d" adapter-set.sh
+
+# Codex: no key outside the three hook tables, by allow-list. Each case is a key the host loads
+# that loosens its default sandbox, or the fallback and Windows switches, or proxy-off domain rules
+# (which bind only while a proxy runs; network.enabled alone opens direct networking).
+XT=harness/templates/configs/codex-config.toml
+XR=.codex/config.toml
+n=0
+for extra in \
+	'sandbox_mode = "danger-full-access"' \
+	'default_permissions = ":danger-full-access"' \
+	'approval_policy = "never"' \
+	'windows = { sandbox = "unelevated" }' \
+	'[sandbox_workspace_write]
+network_access = true' \
+	'[sandbox_workspace_write]
+writable_roots = ["/"]' \
+	'[windows]
+sandbox = "unelevated"' \
+	'[features]
+prefer_mxc = true' \
+	'[permissions.amh.network]
+enabled = true
+domains = { "example.com" = "allow" }'; do
+	n=$((n + 1))
+	d=$(snapshot "adapter_codex_sandbox_key_$n")
+	if [ $((n % 2)) -eq 0 ]; then target=$XR; else target=$XT; fi
+	case $extra in
+	'['*) printf '\n%s\n' "$extra" >>"$d/$target" ;;
+	# A bare key must come before the first table or TOML assigns it to that table.
+	*) { printf '%s\n' "$extra"; cat "$d/$target"; } >"$d/codex.amh" && cat "$d/codex.amh" >"$d/$target" ;;
+	esac
+	expect fail "adapter-set: the Codex adapter sets a sandbox, approval or network key (${extra%%$'\n'*})" "$d" adapter-set.sh \
+		"outside its three hook tables"
+done
+
+# A key slipped INTO a hook table is a line of that table, and the allow-list still reads it.
+d=$(snapshot adapter_codex_sandbox_key_in_table)
+sed_in_place 's/^matcher = "\^Bash\$"$/matcher = "^Bash$"\nsandbox_mode = "danger-full-access"/' "$d/$XR"
+expect fail "adapter-set: a sandbox key inside a Codex hook table" "$d" adapter-set.sh "outside its three hook tables"
+
+# Comments and blank lines are not keys: a correct file with more of both still passes.
+d=$(snapshot adapter_codex_sandbox_comments_only)
+printf '\n# sandbox_mode = "danger-full-access" is what this file must never say\n\n' >>"$d/$XT"
+expect pass "adapter-set: a Codex comment naming a sandbox key" "$d" adapter-set.sh
+
+# The reviewer's read-only pin.
+RT=harness/templates/configs/codex-agents/amh-rule-reviewer.toml
+RR=.codex/agents/amh-rule-reviewer.toml
+d=$(snapshot adapter_reviewer_writable)
+sed_in_place 's/^sandbox_mode = "read-only"$/sandbox_mode = "workspace-write"/' "$d/$RT"
+expect fail "adapter-set: the rule reviewer can write" "$d" adapter-set.sh "exactly one sandbox_mode key"
+
+d=$(snapshot adapter_reviewer_duplicate_mode)
+printf 'sandbox_mode = "danger-full-access"\n' >>"$d/$RR"
+expect fail "adapter-set: a second reviewer sandbox_mode" "$d" adapter-set.sh "found 2 such key(s)"
+
+d=$(snapshot adapter_reviewer_mode_in_table)
+sed_in_place '/^sandbox_mode = "read-only"$/d' "$d/$RR"
+printf '\n[mcp_servers.x]\nsandbox_mode = "read-only"\n' >>"$d/$RR"
+expect fail "adapter-set: the reviewer's read-only line sits under a table" "$d" adapter-set.sh "not a bare top-level key"
+
+# The read-only line moved into the instructions string, with an escaped key doing the governing:
+# text inside a multi-line string is not a key, and an escaped key is not read as one.
+d=$(snapshot adapter_reviewer_pin_in_string)
+sed_in_place 's/^sandbox_mode = "read-only"$/"\\u0073andbox_mode" = "danger-full-access"/' "$d/$RT"
+sed_in_place 's/^developer_instructions = """$/developer_instructions = """\nsandbox_mode = "read-only"/' "$d/$RT"
+expect fail "adapter-set: the reviewer pin is instruction text beside an escaped key" "$d" adapter-set.sh "not a bare top-level key"
+
+d=$(snapshot adapter_reviewer_pin_only_in_string)
+sed_in_place '/^sandbox_mode = "read-only"$/d' "$d/$RR"
+sed_in_place 's/^developer_instructions = """$/developer_instructions = """\nsandbox_mode = "read-only"/' "$d/$RR"
+expect fail "adapter-set: the reviewer pin only inside the instructions string" "$d" adapter-set.sh "found 0 such key(s)"
+
+d=$(snapshot adapter_reviewer_indented_table)
+printf '  [other]\nsandbox_mode = "danger-full-access"\n' >>"$d/$RT"
+expect fail "adapter-set: an indented table header in the reviewer" "$d" adapter-set.sh "not a bare top-level key"
+
+# A triple quote inside an ordinary string opens nothing; only one that BEGINS a value does (F3).
+# Python's TOML parser reads this reviewer as workspace-write.
+d=$(snapshot adapter_reviewer_quote_in_string)
+cat >"$d/$RR" <<'TOML'
+name = "amh-rule-reviewer"
+description = "description '''"
+sandbox_mode = "workspace-write"
+developer_instructions = """
+'''
+sandbox_mode = "read-only"
+note = """
+TOML
+expect fail "adapter-set: a triple quote inside an ordinary reviewer string" "$d" adapter-set.sh "0 of them read-only"
+
+d=$(snapshot adapter_reviewer_unclosed_string)
+printf 'extra = """\nsandbox_mode = "danger-full-access"\n' >>"$d/$RT"
+expect fail "adapter-set: a reviewer string that never closes" "$d" adapter-set.sh "never closes"
+
+# A rejected Codex line is reported by number, never echoed: it could carry a credential (F5).
+d=$(snapshot adapter_codex_sandbox_no_echo)
+{ printf 'review_probe = "%s_%s"\n' PUBLIC_DIAGNOSTIC SENTINEL; cat "$d/$XR"; } >"$d/codex.amh" && cat "$d/codex.amh" >"$d/$XR"
+expect fail "adapter-set: a stray Codex line is reported" "$d" adapter-set.sh "line(s) 1"
+# Captured first: under pipefail the guard's own exit 1 would make a matching grep read as a miss.
+sb_out=$(cd "$d" && bash scripts/guards/adapter-set.sh 2>&1)
+if grep -qF 'PUBLIC_DIAGNOSTIC_SENTINEL' <<<"$sb_out"; then
+	FAILED=$((FAILED + 1))
+	printf '  FAIL adapter-set: a stray Codex line is echoed into the diagnostic\n' >&2
+else
+	PASSED=$((PASSED + 1))
+fi
+
+# A comment naming the key, and a trailing comment on the pin, are not second assignments.
+d=$(snapshot adapter_reviewer_comments)
+sed_in_place 's/^sandbox_mode = "read-only"$/# sandbox_mode stays read-only\nsandbox_mode = '"'"'read-only'"'"' # inspect only/' "$d/$RR"
+expect pass "adapter-set: comments beside a single-quoted reviewer pin" "$d" adapter-set.sh
+
 
 d=$(snapshot drift_dist)
 printf 'hand edit\n' >>"$d/harness/dist/AMH.md"
@@ -1060,6 +1441,18 @@ expect fail "placeholders: undocumented" "$d" placeholder-integrity.sh "not docu
 d=$(snapshot ph_unfilled)
 printf '{{%s}}\n' PROJECT_NAME >>"$d/docs/STATE.md"
 expect fail "placeholders: left unfilled in a live file" "$d" placeholder-integrity.sh "unfilled placeholder"
+
+# The unfilled slot FIRST, then 240 KiB of exempt ones. The inner pass was `grep -o | grep -qv`
+# under `pipefail`: the reader exited at the first line, the writer took EPIPE with most of its
+# output still pending, and the failed pipeline read as "every slot exempt" — on every run, since
+# a pipe holds 64 KiB and no more before the reader has read anything (DD-110).
+d=$(snapshot ph_unfilled_first_of_many)
+{
+	printf '{{%s}}\n' PROJECT_NAME
+	printf '%*s\n' 40000 '' | sed 's/ /{{X}} /g'
+} >"$d/docs/ph-many.md"
+expect fail "placeholders: an unfilled slot ahead of 240 KiB of exempt ones" "$d" placeholder-integrity.sh \
+	"unfilled placeholder(s) in live files: docs/ph-many.md"
 
 # A BINARY live file whose bytes happen to match, under a grep that reports it the way GNU grep
 # <= 3.4 does — which is what Git for Windows ships (3.0). The notice goes to STDOUT there, so
@@ -1115,6 +1508,46 @@ printf 'GDEF\000 {{%s}} \000glyf\n' PROJECT_NAME >"$d/harness/templates/seed/log
 EXPECT_PATH_PREFIX=$(grep_stdout_notice_shim ph_binary_tpl) || EXPECT_PATH_PREFIX=
 expect pass "placeholders: a binary template asset is not an undocumented placeholder" "$d" \
 	placeholder-integrity.sh
+EXPECT_PATH_PREFIX=
+
+# A guard whose scratch files could not be created. Both of these went on with an empty path:
+# the placeholder guard compared two empty lists and printed its green line over an
+# undocumented placeholder, and the ledger guard went red only because its writes to
+# `/head-tree` failed, which says nothing about the edit it was given (DD-072). Each now stops
+# and says it checked nothing. The plants make a pass a false one.
+mktemp_fails_shim() { # <name> -> prints a PATH directory whose mktemp always fails
+	local dir=$WORK/mktemp_fails_$1
+	mkdir -p "$dir"
+	printf '#!/usr/bin/env bash\nprintf "mktemp: simulated failure\\n" >&2\nexit 1\n' >"$dir/mktemp"
+	chmod +x "$dir/mktemp"
+	printf '%s' "$dir"
+}
+
+d=$(snapshot ph_no_scratch)
+printf '{{%s}}\n' LOCAL_PLANTED >"$d/harness/templates/seed/planted.md"
+EXPECT_PATH_PREFIX=$(mktemp_fails_shim ph) || EXPECT_PATH_PREFIX=
+expect fail "placeholders: no scratch file means the guard checked NOTHING, and says so" "$d" \
+	placeholder-integrity.sh "checked NOTHING"
+EXPECT_PATH_PREFIX=
+
+# The same, from a mktemp that reports success and prints no path: the exit status alone let
+# the empty names through to the green line.
+d=$(snapshot ph_empty_scratch)
+printf '{{%s}}\n' LOCAL_PLANTED >"$d/harness/templates/seed/planted.md"
+EXPECT_PATH_PREFIX=$WORK/mktemp_empty_ph
+mkdir -p "$EXPECT_PATH_PREFIX"
+printf '#!/usr/bin/env bash\nexit 0\n' >"$EXPECT_PATH_PREFIX/mktemp"
+chmod +x "$EXPECT_PATH_PREFIX/mktemp"
+expect fail "placeholders: a mktemp that succeeds with no path is no scratch file either" "$d" \
+	placeholder-integrity.sh "checked NOTHING"
+EXPECT_PATH_PREFIX=
+
+d=$(snapshot ledger_no_scratch)
+sed '0,/This repository is both the harness/s//This repository WAS both the harness/' \
+	"$d/docs/LEDGER.md" >"$d/docs/LEDGER.md.new" && mv "$d/docs/LEDGER.md.new" "$d/docs/LEDGER.md"
+EXPECT_PATH_PREFIX=$(mktemp_fails_shim ledger) || EXPECT_PATH_PREFIX=
+expect fail "ledger-append-only: no scratch directory means the guard checked NOTHING, and says so" \
+	"$d" ledger-append-only.sh "checked NOTHING"
 EXPECT_PATH_PREFIX=
 
 d=$(snapshot ver_bump)
@@ -1687,6 +2120,49 @@ printf 'cites `AAA-first-in-listing.md`\n' >"$d/doc.md"
 expect pass "path-refs: an early match on a long listing is not a missing file" "$d" path-refs.sh \
 	'1 path reference(s) resolve across 2 file(s)'
 
+# (ix) A markdown file the guard cannot READ. The listing names untracked files on purpose, as
+#      the secret scan's does, and Claude Code's sandbox puts unreadable placeholders in the
+#      tree — `.claude/loop.md` among them — which every sandboxed ladder run then failed on
+#      (DD-088). Outside the sandbox the same file was worse than a failure: each grep wrote
+#      `Permission denied` to stderr and the guard printed its green count over a file it never
+#      read. So an untracked file that cannot be read is skipped and NAMED, because a session
+#      that cannot read a file cannot commit it either, while a tracked one is a failure: it is
+#      in the tree being verified, and nothing about it was checked. `chmod 000` is the only
+#      portable way to pose the state, and root reads through it, so a root run skips these
+#      cases aloud rather than passing them over a file that was readable after all.
+d=$(snapshot refs_unreadable_untracked)
+mkdir -p "$d/.claude"
+# shellcheck disable=SC2016 # literal backticks: a broken citation the skip must not judge.
+printf 'See `docs/NOTHING_HERE.md`.\n' >"$d/.claude/loop.md"
+chmod 000 "$d/.claude/loop.md"
+if cat "$d/.claude/loop.md" >/dev/null 2>&1; then
+	printf '  SKIP 3 path-refs unreadable-file case(s): this user reads a mode-000 file, so the state cannot be posed\n' >&2
+else
+	expect pass "path-refs: an untracked file it cannot read is skipped and named" "$d" path-refs.sh \
+		'1 untracked file(s) could not be read and were not scanned: .claude/loop.md'
+	chmod 644 "$d/.claude/loop.md"
+	d=$(snapshot refs_unreadable_tracked)
+	printf 'Nothing cited here.\n' >"$d/readable-then-not.md"
+	(cd "$d" && git add readable-then-not.md && git commit -qm tracked)
+	chmod 000 "$d/readable-then-not.md"
+	expect fail "path-refs: a tracked file it cannot read is a failure" "$d" path-refs.sh \
+		'could not read tracked file readable-then-not.md'
+	chmod 644 "$d/readable-then-not.md"
+	# Whether a file is tracked is asked without a pathspec. A `:(literal)` pathspec is read as
+	# part of the NAME under GIT_LITERAL_PATHSPECS=1, so the lookup missed and a tracked file was
+	# skipped as untracked. The same variable turns the listing's `'*.md'` into a literal name,
+	# which a directory called `*.md` then matches: that is how the case reaches the lookup.
+	d=$(guard_only_tree refs_unreadable_tracked_literal_pathspecs)
+	mkdir -p "$d/*.md"
+	printf 'Nothing cited.\n' >"$d/*.md/good.md"
+	printf 'Nothing cited.\n' >"$d/*.md/hidden.md"
+	(cd "$d" && git add -A && git commit -qm literal)
+	chmod 000 "$d/*.md/hidden.md"
+	GIT_LITERAL_PATHSPECS=1 expect fail "path-refs: literal pathspecs cannot pass a tracked file off as untracked" \
+		"$d" path-refs.sh 'could not read tracked file *.md/hidden.md'
+	chmod 644 "$d/*.md/hidden.md"
+fi
+
 # --- scripts/bootstrap.sh ----------------------------------------------------
 # Not a guard, so it gets its own runner rather than `expect`. It is repo-local for the
 # same reason the guards above are: session-start.sh is the shipped, agent-neutral boot
@@ -1756,7 +2232,7 @@ bs_expect() { # bs_expect <pass|fail> <name> <message-substring>
 	elif [ "$want" = fail ] && [ "$BS_RC" -eq 0 ]; then
 		FAILED=$((FAILED + 1))
 		printf '  FAIL %s — expected a non-zero exit, got 0\n%s\n' "$name" "$BS_OUT" >&2
-	elif ! printf '%s' "$BS_OUT" | grep -qF "$want_msg"; then
+	elif ! grep -qF "$want_msg" <<<"$BS_OUT"; then
 		FAILED=$((FAILED + 1))
 		printf '  FAIL %s — verdict right but the output never mentioned %s\n%s\n' "$name" "$want_msg" "$BS_OUT" >&2
 	else
@@ -1835,7 +2311,7 @@ fi
 # generator that produced nothing looks like. Placed here because BS_PATH is built above.
 out=$(cd "$base" && env PATH="$BS_PATH" bash scripts/guards/manifest-drift.sh 2>&1)
 rc=$?
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'this guard checked NOTHING'; then
+if [ "$rc" -ne 0 ] && grep -qF 'this guard checked NOTHING' <<<"$out"; then
 	PASSED=$((PASSED + 1))
 else
 	FAILED=$((FAILED + 1))
@@ -1859,7 +2335,7 @@ out=$(cd "$dm" && PATH="$bm_shim:$PATH" scripts/build-manifest.sh 2>&1)
 bm_rc_write=$?
 bm_after=$(cat "$dm/scripts/MANIFEST.sha256" "$dm/harness/templates/scripts/MANIFEST.sha256")
 if [ "$bm_rc_stdout" -ne 0 ] && [ "$bm_rc_write" -ne 0 ] && [ "$bm_before" = "$bm_after" ] &&
-	printf '%s' "$out" | grep -qF 'produced no sha256 digest'; then
+	grep -qF 'produced no sha256 digest' <<<"$out"; then
 	PASSED=$((PASSED + 1))
 else
 	FAILED=$((FAILED + 1))
@@ -1873,7 +2349,7 @@ fi
 # tool list has no `comm`, so this is the condition, not a simulation of it.
 out=$(cd "$base" && env PATH="$BS_PATH" bash scripts/guards/config-schema.sh 2>&1)
 rc=$?
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'checked NOTHING'; then
+if [ "$rc" -ne 0 ] && grep -qF 'checked NOTHING' <<<"$out"; then
 	PASSED=$((PASSED + 1))
 else
 	FAILED=$((FAILED + 1))

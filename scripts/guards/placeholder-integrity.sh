@@ -22,8 +22,16 @@ if [ ! -f "$DOC" ]; then
 	exit 1
 fi
 
-documented=$(mktemp)
-used=$(mktemp)
+# Checked: with these empty, both lists below were written to a path nobody made, read back as
+# empty, and compared equal — the green line over an undocumented placeholder (DD-072).
+documented=''
+used=''
+if ! documented=$(mktemp) || [ -z "$documented" ] || [ ! -f "$documented" ] ||
+	! used=$(mktemp) || [ -z "$used" ] || [ ! -f "$used" ]; then
+	printf 'placeholder-integrity: no temporary file could be created — this guard checked NOTHING\n'
+	[ -z "${documented:-}" ] || rm -f "$documented"
+	exit 1
+fi
 trap 'rm -f "$documented" "$used"' EXIT
 
 # Documented names: the leading `| \`NAME\` |` cell of each table row. Slash-separated
@@ -73,7 +81,10 @@ if [ -n "$live" ]; then
 	leftover=$(printf '%s\n' "$live" | tr '\n' '\0' |
 		LC_ALL=C xargs -0 grep -I -lE '\{\{[A-Z_][A-Z0-9_]*\}\}' 2>/dev/null |
 		while IFS= read -r f; do
-			if LC_ALL=C grep -I -ohE '\{\{[A-Z_][A-Z0-9_]*\}\}' "$f" | grep -qvE '^\{\{(PLACEHOLDER|X)\}\}$'; then
+			# Captured, then matched: `| grep -qv` exits at the first unfilled slot, and under
+			# `pipefail` the writer's EPIPE then reads as "every slot exempt" (DD-110).
+			if toks=$(LC_ALL=C grep -I -ohE '\{\{[A-Z_][A-Z0-9_]*\}\}' "$f") &&
+				grep -qvE '^\{\{(PLACEHOLDER|X)\}\}$' <<<"$toks"; then
 				printf '%s\n' "$f"
 			fi
 		done)

@@ -439,6 +439,7 @@ Corrected by DC-044.
   The one shape no verb list can hold went to the forge/API queue item instead: PocketOS lost its
   production volume and its backups to a `curl` GraphQL mutation carrying a token the agent found
   in an unrelated file.
+  Corrected by DD-074.
 
 - DC-028: **Six character walkers disagreed with bash about what closes a quote, and the report
   that led here described the harmless half of it.** All six read the `\"` in a double-quoted word

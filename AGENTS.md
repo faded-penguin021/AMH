@@ -1,7 +1,7 @@
 # AMH meta-repository — maintenance guide
 
 This repository is the source of truth for the **Agentic Maintenance Harness** (AMH) and its
-reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 16.1.1**
+reference instance. Its product is shell and Markdown. Adopted harness version: **AMH 17.0.0**
 (`harness/VERSION`).
 
 This file states the harness and this repository as they are now. Rules are rewritten in place
@@ -10,10 +10,7 @@ still binds stays, whatever its age — relocating a live rule is repeal, not ti
 Supersession history, adoption narratives, and per-version records of what the owner sanctioned
 go to the live ledger volume, with a pointer line in the `docs/STATE.md` changelog; moving
 anything out of this file takes the rule-review protocol, and a bulk relocation is the owner's
-call. No byte cap governs this file: the defect is kind, not size, and a cap over live
-legislation would only invite shaving rules to make room for kept narrative. What stands in is
-a reader, not a check — the `RULE_FILES` advisory is a local, WARN-only, uncommitted-diff-only
-courtesy that says the protocol applies; the reviewer is the enforcement.
+call.
 
 ## Sources and generated artifacts
 
@@ -49,7 +46,7 @@ the rule-review protocol.
    settings) as current truth — point at the live probe, route it to the Owner queue, or keep it as
    an observation scoped in the sentence to when it was seen. Over the compression trigger, follow
    **Working-memory compression** before editing; that section carries both rules in full. Improve the runbook in the same change if its procedure proved insufficient.
-6. With every file change of the unit made — the state file included — follow `docs/RUNBOOK.md`
+6. With every file change of the unit made — the state file included — follow `docs/PROTOCOLS.md`
    → **Acceptance ladder** and review the command's actual output. The tree the ladder verified is
    then the tree you commit.
 7. Commit with an honest verification disclosure. Then run `scripts/ladder.sh --guards-only`
@@ -59,8 +56,9 @@ the rule-review protocol.
    did not happen: fetch the reference it names and re-run, or say plainly that it did not run.
    Then push the permitted `BRANCH_PREFIX/<codename>` session branch.
 
-The procedures named in `docs/RUNBOOK.md` are binding. Follow **Session discipline** every
-session; use **Change-type playbooks** for the task; apply **Rule-review protocol** when the
+The procedures in `docs/PROTOCOLS.md` and the playbooks in `docs/RUNBOOK.md` are binding.
+Follow **Session discipline** every session; use **Change-type playbooks** for the task; apply
+**Rule-review protocol** when the
 diff changes binding rules or guard semantics, or the unit was set to (**Session
 discipline** 10). `RULE_FILES` is a tripwire, not a complete
 definition of that scope.
@@ -75,7 +73,7 @@ definition of that scope.
   its enumerated reader list (`python3 -c "open('.env')"` above all), wrappers it does not strip,
   constructed commands and heredocs reach past it. That block is the authority on which is
   which; do not infer coverage in either direction from this line. This rule binds you whether
-  or not a script can see the shape you chose. If exposure occurs, follow `docs/RUNBOOK.md` →
+  or not a script can see the shape you chose. If exposure occurs, follow `docs/PROTOCOLS.md` →
   **Incident: leaked credential**.
 - Never force-push or push to the branch named by `DEFAULT_BRANCH`. Push only the configured
   session branch; the owner merges.
@@ -94,20 +92,17 @@ definition of that scope.
   a guard's necessity is demonstrated the way `docs/RUNBOOK.md` → **Add a guard** already
   requires: remove the BEHAVIOUR, re-run the SUITE, and read the fixture fail. Running the
   unguarded operation for real is not a stronger demonstration of the same thing; it is the
-  incident the guard was being written to prevent. `scripts/command-guard.sh` holds a literal
-  TARGET list for four commands — an `rm -r -f`, a `git clean -f -d`, a `cmd /c` `rd /s` or
-  `del /s`, or a PowerShell `Remove-Item -Recurse` (any alias), naming the filesystem root, a
-  Windows drive root or a home directory, is blocked and does not clear on a rerun; a `cmd /c` recursive deletion whose text carries `\"` nested quotes
-  is blocked the same way, whatever its path — and the git verbs armed only on an unknown target
-  are silent on a literal path, except behind `xargs`, which adds operands of its own. A deletion the guard denied PERMANENTLY, or the host refused, is a
+  incident the guard was being written to prevent. Before your first bulk deletion of a session —
+  a recursive one, or one made through an interpreter — read which deletions the command guard
+  refuses for good and which buy only an advisory:
+  `docs/RUNBOOK.md` → **Host rails and what they miss**. A deletion the guard denied
+  PERMANENTLY, or the host refused, is a
   stop, not a spelling problem: never retry it through another shell, a `cmd /c` or
   `powershell -Command` wrapper, an interpreter or a script file to get it past the refusal. Read
   what the refusal objected to; if the deletion is still needed, use a spelling the refusal
   itself names or ask the owner. A one-time advisory is different by design — it clears when the
   SAME command is rerun after the check it asks for, and a respelling made only to dodge it is the
-  sidestep its own text names (**DD-038**). An INLINE interpreter deletion (`python3 -c`
-  naming `rmtree`, `unlink` and the rest of that list) buys one advisory a rerun clears, on the
-  evidence of a word in a command line and never a reading of the program (**DD-019**). A path
+  sidestep its own text names (**DD-038**). A path
   built from a variable the guard cannot expand, the same deletion behind `bash -c`, one inside
   a script file, and a test suite that deletes when it runs are prose-only and bind you, not a
   script (**DD-018**).
@@ -117,12 +112,12 @@ definition of that scope.
 
 ## Progressive disclosure
 
-- Secret handling and incidents: `docs/RUNBOOK.md` → **Incident: leaked credential**.
-- Session execution, checkpoints, recovery, and owner forks: `docs/RUNBOOK.md` → **Session discipline**.
+- Secret handling and incidents: `docs/PROTOCOLS.md` → **Incident: leaked credential**.
+- Session execution, checkpoints, recovery, and owner forks: `docs/PROTOCOLS.md` → **Session discipline**.
 - Change procedures: `docs/RUNBOOK.md` → **Change-type playbooks**.
-- Binding-rule changes: `docs/RUNBOOK.md` → **Rule-review protocol**.
-- Verification and locally unverifiable coverage: `docs/RUNBOOK.md` → **Acceptance ladder**.
-- Compressing working memory: `docs/RUNBOOK.md` → **Working-memory compression**.
+- Binding-rule changes: `docs/PROTOCOLS.md` → **Rule-review protocol**.
+- Verification and locally unverifiable coverage: `docs/PROTOCOLS.md` → **Acceptance ladder**.
+- Compressing working memory: `docs/PROTOCOLS.md` → **Working-memory compression**.
 - Current values, branch policy, rule-file scope, thresholds, and extension configuration:
   `amh.conf`.
 - Durable rationale, deviations, and discoveries: `docs/LEDGER.md` and the live ledger volume
@@ -142,38 +137,17 @@ definition of that scope.
   `docs/RUNBOOK.md` → **Efficient document retrieval**.
 - Keep shipped scripts repository-agnostic. A repository-specific need belongs in an existing
   extension point or requires a reviewed extension-point change.
-- Know which rails your own session actually has. An agent whose harness provides no
-  pre-execution hook runs with **no command rail at all** — `scripts/command-guard.sh` is then
-  a script nobody calls, and these rules are the only layer. The one exception is the push: the
-  git-native `pre-push` rail (`command-guard.sh --pre-push`, installed into `.git/hooks/pre-push`
-  by `session-start.sh`) is invoked by git rather than by the agent, so it still guards the
-  publication invariants for a hook-less agent — a guardrail `--no-verify` bypasses, not a
-  boundary. It exists only where installed: `session-start.sh` never overwrites a foreign
-  pre-push hook or writes one under `core.hooksPath`, and a fresh clone has none until that
-  script runs. It judges refs, never a commit message or an identity. No script can detect the
-  hook-less state for you: telling a hook invocation from a
-  manual one requires one vendor's environment variables, which the harness may not assume, so
-  this stays prose on purpose (**DA-022**). A host mode can take the hooks away for one session,
-  and no AMH script checks for that either: Claude Code's `--safe-mode` and `--bare` skip the
-  hooks its settings files define, and the CLAUDE.md that points here, and `--restricted`
-  ignores the project's settings file unless it is passed again with `--settings`, so a session
-  started in any of them has no command rail, no output redaction and no session bootstrap,
-  whatever `.claude/settings.json` says (**DD-053**). A machine-mode copy of the guard
-  (`command-guard.sh --machine`, wired from a user-level settings file) may also judge your
-  commands. It keeps only the permanent deletion denials, the credential rails and its refusals
-  of a command it could not read, names itself in the first line of its refusal, and stands in
-  for none of this repository's rails. Nothing here can see whether one is installed, and the
-  host modes above skip it too (**DD-063**). Installing or refreshing one changes files outside
-  the repository, so it takes the owner's explicit yes, never your judgement (**DD-066**). Where a host routes shell commands through
-  a PowerShell tool, the command rail exists only if the adapter's matcher names that tool and the
-  hook's own shell (bash) is present; the Claude adapter's matcher does, and PowerShell text then
-  goes to the guard's PowerShell reader, a shorter list than the bash one, whose misses the
-  guard's header names (**DD-039**). The Claude adapter anchors every hook at the project root
-  and, on Claude Code 2.1.295 or later (an older build fails open as before), sets both
-  PreToolUse hooks to refuse the call when the hook itself fails, so a guard that crashes, times
-  out or cannot start blocks the call instead of letting it run (**DD-040**). On Windows that
-  makes Git for Windows a hard requirement: without Git Bash every shell call and spawn is
-  refused, and AMH is not usable. A refusal that names a failed hook or Git Bash is a stop, not
+- Know which rails your own session actually has: read
+  `docs/RUNBOOK.md` → **Host rails and what they miss** before you count on a rail to stop a
+  command, before your first push of a session, when a hook or the host refuses a call, before
+  your first command through a PowerShell tool, before you change an adapter, a hook or a guard,
+  and at the start of a session on Windows or one started with a flag that changes which settings
+  or hooks the host loads. No script can detect the hook-less state for you: telling a hook
+  invocation from a manual one requires one vendor's environment variables, which the harness
+  may not assume, so this stays prose on purpose (**DA-022**).
+  Installing or refreshing a machine-mode copy of the guard (`command-guard.sh --machine`)
+  changes files outside the repository, so it takes the owner's explicit yes, never your
+  judgement (**DD-066**). A refusal that names a failed hook or Git Bash is a stop, not
   an obstacle: report it to the owner — on Windows, that Git for Windows must be installed —
   and never remove a hook, its `onFailure` or its shell pin to get past it. The one case you
   repair yourself is a defect in this repository's own guard copy, by the editor path in

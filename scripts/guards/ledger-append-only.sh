@@ -353,7 +353,12 @@ if ! git diff --name-only HEAD -- "$LEDGER_DIR" | awk -v base="$LEDGER_BASENAME"
 	exit 0
 fi
 
-TMPDIR=$(mktemp -d)
+# Checked: with it empty the guard went red only because writing `/head-tree` failed, a
+# verdict about the filesystem root rather than about the ledger it was given (DD-072).
+if ! TMPDIR=$(mktemp -d) || [ -z "$TMPDIR" ] || [ ! -d "$TMPDIR" ]; then
+	printf 'ledger-append-only: no scratch directory could be created — this guard checked NOTHING\n'
+	exit 1
+fi
 trap 'rm -rf "$TMPDIR"' EXIT
 materialize_head_chain "$TMPDIR/head-tree"
 copy_worktree_chain "$TMPDIR/work-tree"

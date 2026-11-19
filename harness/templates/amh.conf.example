@@ -36,7 +36,10 @@ RELEASE_TAG_PREFIX=
 # probed with `type -P` and reported `observed` or `unavailable` — a real probe, so a real
 # answer about this environment. Only the name is printed, never the resolved path. (`type -P`
 # and not `command -v`: the latter resolves builtins, functions and aliases before it looks at
-# PATH, so it reports `printf` as observed on a machine holding no binaries at all.)
+# PATH, so it reports `printf` as observed on a machine holding no binaries at all.) On Linux or
+# WSL2 with Claude Code's sandbox, add `bwrap socat`: without them it runs every command
+# unsandboxed with at most a warning on stderr, and this line is then the one place that
+# absence shows in the session banner.
 # ADAPTER_FILES is a space-separated list of the agent-adapter files this repository ships.
 # Each is reported `configured` when present and `unknown` when absent — NEVER `observed`
 # and never `unavailable`. Present means this repo REQUESTS an integration; nothing can see
@@ -213,9 +216,9 @@ PLAN_DIR=docs/plans
 # LEAVE the entries for files you do not have. An entry naming a file that does not exist
 # is inert — the tripwire matches paths in a diff, and a path that cannot appear never
 # matches — and it starts working by itself the day a larger install profile adds the file.
-# Pruning one buys nothing and silently narrows the scope: you would receive the runbook on
-# a later re-run with the tripwire no longer covering it, and nothing would say so. Narrowing
+# Pruning one buys nothing and silently narrows the scope: you would receive the file on a
+# later re-run with the tripwire no longer covering it, and nothing would say so. Narrowing
 # this list is a rule change either way, never housekeeping.
 #
 # Add each new agent adapter's config file here.
-RULE_FILES='AGENTS.md docs/RUNBOOK.md amh.conf scripts/ladder.sh scripts/test-ladder-guards.sh scripts/command-guard.sh scripts/redact.sh scripts/session-start.sh .claude/settings.json .codex/config.toml .codex/rules/amh.rules .codex/agents/amh-rule-reviewer.toml'
+RULE_FILES='AGENTS.md docs/PROTOCOLS.md docs/RUNBOOK.md amh.conf scripts/ladder.sh scripts/test-ladder-guards.sh scripts/command-guard.sh scripts/redact.sh scripts/session-start.sh .claude/settings.json .codex/config.toml .codex/rules/amh.rules .codex/agents/amh-rule-reviewer.toml'

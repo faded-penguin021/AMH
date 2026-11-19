@@ -1,7 +1,7 @@
 # STATE — project state & session memory
 
 > **Length guard.** Thresholds are in `amh.conf`; the rules for compressing this file are
-> `docs/RUNBOOK.md` → **Working-memory compression**, and they bind whether or not you follow
+> `docs/PROTOCOLS.md` → **Working-memory compression**, and they bind whether or not you follow
 > this pointer. Read them before any edit that takes this file over the compression trigger.
 >
 > **Tree-relative.** That same section says what may be in `Current state` at all — the Changelog
@@ -16,85 +16,72 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 16.1.1** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 17.0.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
-This tree declares **16.1.1**; `harness/CHANGELOG.md` names what each version carries. Whether
-it is tagged or released is not recorded here — `scripts/session-start.sh` probes that every
-session.
-
+Release state: `scripts/session-start.sh` probes the declared version's tag every session.
 `docs/LEDGER_D.md` is the live ledger volume.
 
-`docs/plans/2026-10-31-owner-queue-closure.md` has every unit done. A5, retiring it together with
-`docs/plans/2026-11-02-unit2-attempt-1.patch`, is what remains.
+Live plans, each in `docs/plans/`, where a unit starts only on the owner's explicit approval of
+that unit:
 
-Multi-unit work, planned: `docs/plans/2026-11-04-spill-guard-borrowings.md` closes the
-credential-handling gaps found by comparing AMH with spill-guard. The owner adopted its four
-selected units on 2026-11-04; S4, S5, S6b and S6c stay deferred.
- **Each unit starts only on the owner's explicit approval of that unit**; none is
-approved yet.
-
-- [x] S0 — the plan committed (rev 2)
-- [ ] S1 — refusal text does not repeat a supported credential shape (awaiting approval)
-- [ ] S2 — private-key bodies under a line prefix
-- [ ] S6a — options on the wrappers the guard already peels
-- [ ] S3 — four token shapes
+- `2026-11-01-harness-research-gaps.md`, adopted: every unit done, H4b's follow-up last
+  (**DD-103** to **DD-105**), except H8, parked. Before a unit starts the session names the
+  decisions it needs and waits for the answers; a fresh-context review is pre-allowed for every
+  unit (owner, 2026-11-09).
+- `2026-11-04-spill-guard-borrowings.md`, adopted: S1, S2, S6a and S3 approved on 2026-11-10, to
+  run in that order, each with its own review and its version settled when its behaviour is
+  final (its §2, items 4 and 5); S4, S5, S6b and S6c deferred.
+- `2026-11-10-command-guard-gap-review.md` and `2026-11-09-cc-safety-net-borrowings.md`: drafts,
+  nothing approved; G1, one review of both, comes first (Owner queue).
+- `2026-11-10-queue-cycle-and-memory-tiers.md`: a draft, nothing approved.
+- `2026-11-19-pipefail-grep-race.md`, adopted, its one unit R1 done (**DD-110**); the session
+  that merges the train archives it.
 
 Operational gotchas:
 
 - A poison token in a squash-merge message suppresses the release commit's CI run entirely. Edit
-  the squash message before merging; the guard checks commits on a branch, not the message the
-  forge composes at merge time (**DC-040**).
-- Nothing checks that every version with a changelog entry actually got a tag, so a merged
-  release can sit untagged with every rung green (**DA-010**). `scripts/session-start.sh` probes
-  the current version's tag every session; `git ls-remote --tags origin` settles any other.
+  the squash message before merging; the guard checks branch commits, not the forge's message
+  (**DC-040**).
+- Nothing checks that every version with a changelog entry got a tag, so a merged release can
+  sit untagged with every rung green (**DA-010**); `git ls-remote --tags origin` settles one.
 
 ## Owner queue
 
 > **Protected section.** Never delete it, and never silently drop items during compression.
 > Items leave only when done, answered or triaged — then delete the item and record the outcome
 > as a Changelog line or a ledger row. How to test an item before restating it, and why the
-> final chat message must: `docs/RUNBOOK.md` → **Session discipline** 7.
+> final chat message must: `docs/PROTOCOLS.md` → **Session discipline** 7.
 
-**OPEN — tag `amh-v16.1.1` once this tree is merged.** Tagging is an owner step. Check:
-`git ls-remote --tags origin amh-v16.1.1` — no output means it is still open.
+**OPEN — decide whether to plan a fix for a quote inside backticks.** Bash ends a backtick
+substitution at the first unescaped backtick, quotes or not, while every walker in the command
+guard reads a `'` inside one as opening a string that hides the rest; no plan covers it, the
+guard's header names it, and it reaches heredoc bodies too (**DD-059**).
+Check: `scripts/command-guard.sh --command "echo \`echo 'x\`; printenv"` — exit 0 means open.
 
-**OPEN — decide whether to plan a fix for a quote inside backticks.** Found while building Unit 2:
-bash ends a backtick substitution at the first unescaped backtick, quotes or not, and every walker
-in the command guard reads a `'` inside one as opening a string that hides the rest, so
-`` echo `echo 'x`; printenv `` passes. No plan covers it; the guard's header names it.
-Check: `scripts/command-guard.sh --command "echo \`echo 'x\`; printenv"` — exit status 0 means
-it is still open. Unit 4 now reads heredoc bodies as bash does, so this gap also reaches a
-command whose body the guard used to misread and refuse (**DD-059**).
+**OPEN — the research-gaps plan's remaining §1 decisions.** Whether P6 admits retiring a
+compensation stays open until one is proposed, with H5's classification as input (**DD-082**);
+an H8 incident-bar exception is asked if H8 reopens; the combined order is the item below. No
+check settles it.
 
-**OPEN — decide whether to fix the command guard's payload parser on a non-UTF-8 code page
-(evidence: **DD-069**).** Its text stdio swallows an encode or decode error, so the command passes
-unjudged; measured only as the mechanism, on Linux. No Windows host here can test the proposed fix,
-and no one-line check here settles it.
+**OPEN — run G1, one gpt-6-astra `-e high` review of both command-guard plans,
+`docs/plans/2026-11-10-command-guard-gap-review.md` and
+`docs/plans/2026-11-09-cc-safety-net-borrowings.md`, then decide adoption of both together and
+which units** (owner, 2026-11-10, with N1's mandate, the gap plan's §2, item 2).
+Check: `scripts/command-guard.sh --command 'rm -r ~'` — exit 0 means that gap is still open.
 
-**OPEN — decide whether to adopt the harness-research-gaps plan,
-`docs/plans/2026-11-01-harness-research-gaps.md`, and each decision in its §1.** It is committed
-as a draft, and nothing in it is approved. No unit starts without the owner's approval of that
-unit.
+**OPEN — decide on the queue-cycle plan, `docs/plans/2026-11-10-queue-cycle-and-memory-tiers.md`:
+review first (M1), adoption, and the facts its §2, item 3 asks for.** No check settles it.
 
-**OPEN — decide whether to adopt rev 2 of the cc-safety-net plan,
-`docs/plans/2026-11-09-cc-safety-net-borrowings.md`, and which units.** Its N1 review is folded, and
-its §8 has a row for each finding. Nothing in it is adopted or approved, and each later unit starts
-only on the owner's approval of that unit.
+**OPEN — decide the N1 review's last recommendation it could not apply:** the cross-plan order
+and release placement in that plan's §2, decision 3; H0.5's recommended order is in the
+research-gaps plan's §7.1. No check settles it.
 
-**OPEN — decide two recommendations from that review that it had no authority to apply.** (1)
-Whether to reconsider a `find` arm for the permanent targets, which **DD-018** chose not to take
-(the plan's N8). (2) The cross-plan order and release placement in that plan's §2, decision 3, which
-reach the spill-guard and research-gaps plans.
+**OPEN — tag `amh-v17.0.0` once this train is merged.** MAJOR (owner, 2026-11-17, **DD-094**),
+no longer blocked by H4b (owner, 2026-11-19, **DD-103**). Tagging is an owner step, and the README's clone command names the
+tag. Check: `git ls-remote --tags origin amh-v17.0.0` — no output means open.
 
-**OPEN — approve, or not, starting spill-guard plan Unit S1: refusal text does not repeat a
-supported credential shape.** The plan is adopted for the release after 16.0.0 (its §2), and S1
-is its first unit.
-Each unit starts only on the owner's explicit approval of that unit, and approving one approves
-only that one. When a unit lands, this item moves to the next. Check for S6a's gap, which the
-plan raised: `scripts/command-guard.sh --command 'nice -n 5 rm -rf ~'` — exit status 0 means a
-wrapper option still takes a deletion of the home directory past the permanent denial.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -115,34 +102,49 @@ from.
   proposals (**DB-024**); a guard that opens a file to classify it (**DB-027**); a configurable
   ledger-id prefix (**DC-015**); ledger immutability across commits (**DC-020**); a guard that
   judges a State sentence's temporal validity (**DD-006**).
+- **2026-11-19:** a payload-parser fix for a non-UTF-8 code page until a host can test it
+  (**DD-069**); a guard for a fix that changes an existing test until an incident earns one
+  (**DD-073**); a `find` arm for the permanent targets, N8 (**DD-018**); all three **DD-106**.
 
 ## Changelog
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-11-09 — **16.1.1 drafted as PATCH, on the owner's choice,** for the fixes below; the version
-  queue item is answered and the tag is queued.
+- 2026-11-19 — **Pipefail race, R1: every pipe into an early-exit reader under `pipefail` whose
+  status decides something audited, 109 fixed, the rest recorded with why they cannot race**
+  (**DD-110**).
+- 2026-11-19 — **PR #75 review fixes, F3, the last unit: the command guard's advisory state —
+  an override read alone, the reports' union across both directories, one directory read once,
+  and only a regular file a spent marker; the plan is archived to
+  `docs/history/2026-11-19-pr75-review-fixes.md`** (**DD-109**).
+- 2026-11-19 — **PR #75 review fixes, F2: the bootstrap warns of an advisory marker it cannot
+  clear, the fixture suite counts skips apart, and the installer reads `RULE_FILES` as the ladder
+  does** (**DD-108**).
+- 2026-11-19 — **PR #75 review fixes, F1: the 17.0.0 Upgrading text, the README and the seed
+  ledger corrected; every finding reproduced and fixed** (**DD-107**).
+- 2026-11-19 — **Owner: three queue items closed on the session's recommendation** — no
+  non-UTF-8 parser fix until testable, no test-change guard until an incident, no `find` arm
+  (**DD-106**).
+- 2026-11-19 — **H4b follow-up, the last: the machine-mode fragment drops its `//proc` rules
+  under `adapter-set.sh`, the README claims only the passed sandbox cells, and acceptance (f)
+  passed in both arms** (**DD-104**, **DD-105**).
+- 2026-11-19 — **The owner cleared DD-088's tag block and chose to drop the machine-mode
+  `//proc` rules,** each on the session's recommendation (**DD-103**).
 
-- 2026-11-09 — **Two Owner-queue items closed on the owner's ask.** The interpreter and hook-file
-  advisories re-fire with no digest tool (**DD-071**), and the machine-mode review's three gaps are
-  fixed (**DD-070**). A runbook recipe now covers a branch that outlives its squash merge.
-
-- 2026-11-09 — **N1 of the cc-safety-net plan done: gpt-6-astra's review folded into rev 2.** It
-  rewrote most units and approved none; the plan's §8 has a row for each finding.
-
-- 2026-11-09 — **Working memory compressed, and the 16.1.0 queue item left as done:** its check
-  found `amh-v16.1.0` on origin that day.
-
-- 2026-11-09 — **The cc-safety-net borrowings plan committed as a draft (N0).** On the owner's
-  ask, after comparing that project with the command guard; its N1 review is in the Owner queue.
-
-- 2026-11-08 — **The 16.1.0 train, folded.** The deletion rail reads through `xargs`, an optional
-  machine mode that adoption and upgrades ask about, and the guard fixes they and a whole-train
-  review surfaced (**DD-062** to **DD-067**).
-
-- 2026-07-25 through 2026-11-06 — **Everything before that, folded.** Founding through the 16.0.0
-  train (**DD-001** to **DD-061**, **DC-020** to **DC-044**, and the volumes for everything older;
-  `docs/history/2026-11-05-unit4-review-and-fix.md` and the archived cc-safe-setup plan). The
-  10.3.0–10.4.0 and 14.2.0 drafts rode later tags untagged, and 16.0.0 carried the 15.2.0 draft
-  whole.
+- 2026-11-18 — **H4b follow-up: the last owner-box run, two runs at `7d44ff5`, recorded**
+  (**DD-099** to **DD-102**, `2026-11-01-harness-research-gaps-h4b-results.md` §5).
+- 2026-11-18 — **H4b follow-up: `2026-11-01-harness-research-gaps-h4b-probe.sh` repaired for the
+  last box run** (**DD-098**).
+- 2026-11-18 — **Owner: an advisory whose marker cannot be written fires** (**DD-097**).
+- 2026-11-13 through 2026-11-17 — **The research-gaps plan's units and H4b follow-ups, folded**
+  (**DD-072** to **DD-096**, the plan's §1 and §5, companions
+  `2026-11-01-harness-research-gaps-h1-inventory.md`,
+  `2026-11-01-harness-research-gaps-h2-relocation.md`,
+  `2026-11-01-harness-research-gaps-h3-layout.md`,
+  `2026-11-01-harness-research-gaps-h4a-containment.md`,
+  `2026-11-01-harness-research-gaps-h5-classification.md` and
+  `2026-11-01-harness-research-gaps-h6-runs.md`).
+- 2026-07-25 through 2026-11-12 — **Everything before that, folded.** Founding through the
+  17.0.0 draft (**DD-001** to **DD-073**, **DC-020** to **DC-044**, and the volumes before them;
+  `docs/history/`).
