@@ -1,8 +1,9 @@
 # PLAN — fix the adopter-facing findings of the 17.0.0 train's PR-time review
 
-> **Status: adopted by the owner on 2026-11-19, with F1, F2 and F3 approved to run in that
-> order (F0 done).** The owner answered the three decisions before any unit started (§1). Each
-> unit is one fresh session; a unit that finds a decision §1 does not settle stops and asks.
+> **Status: done — every unit, F0 to F3, finished on 2026-11-19 (DD-107 to DD-109); archived.
+> Adopted by the owner on 2026-11-19, with F1, F2 and F3 approved to run in that order.** The
+> owner answered the three decisions before any unit started (§1). Each unit was one fresh
+> session; a unit that found a decision §1 does not settle stopped and asked.
 
 The plan is provisional while it is live. Its durable outcomes go to Changelog lines and ledger
 rows. Code cites ledger rows and never this file, and no ledger row may cite this file's path.
@@ -155,3 +156,11 @@ before changing anything:
 existing suite still passes; copies byte-identical; the manifest regenerated; the full ladder
 green; the rule review run and triaged. Then archive or delete this plan (see above) in the same
 commit, and leave PR #75's description for the owner's session to update.
+
+**Status: done 2026-11-19 (DD-109).** All four findings reproduced in a `mktemp -d` state
+directory and are fixed. The guard header meant here is the comment block above
+`advisory_state_dir`, since the file's own header does not describe the state. The Sol review and
+the rule review added a dangling-symlink case, silent opens, array-framed state paths (a newline
+in an override), setup checks in every fixture and three prose fixes, all in DD-109. This plan is
+archived to `docs/history/` in the same commit; PR #75's description is left for the owner's
+session.

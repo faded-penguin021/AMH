@@ -84,12 +84,15 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   `session-start.sh` look in both, because a hook outside a host sandbox may see no `TMPDIR`
   where a process inside it sees one. Inside a host sandbox `/tmp` can be read-only while
   `TMPDIR` stays writable, and a marker the guard could not write let the advisory's command
-  through unseen. The shipped suite's no-hasher fixture now keeps `TMPDIR` through its `env -i`.
+  through unseen. The two reports treat both places as one record, reading a directory reached
+  by two spellings once, and an explicit state-file override as the only file. The shipped
+  suite's no-hasher fixture now keeps `TMPDIR` through its `env -i`.
 - **A one-time advisory whose marker cannot be written now fires instead of passing,** in every
   tier, and says so: the command is refused on every attempt until `TMPDIR` or `/tmp` is writable
   for the guard's process, as an unkeyable advisory already is. It used to treat "could not
   record the marker" as "nothing to advise" and exit 0. A failed marker write also no longer
-  prints the marker's path on stderr.
+  prints the marker's path on stderr. For the `.env` and key-material tiers, anything at the
+  marker's path that is not a regular file is such a marker too.
 - **The procedures every session is bound by have their own seed, `docs/PROTOCOLS.md`,** split
   out of the runbook: Session discipline, the adversarial and rule-review protocols, the
   leaked-credential incident, the acceptance ladder and working-memory compression, verbatim
@@ -127,8 +130,17 @@ changed against 16.1.1, and the manifest changes with them:
 
 - `command-guard.sh` keeps its one-time advisory markers under `TMPDIR` when that names an
   absolute, writable directory, and under `/tmp` otherwise. `--advisory-report` and
-  `--spawn-report` read the place their own process would write and `/tmp` as well; the first
-  lists an outstanding entry once, and the second sums the resumed spawns of both. An advisory
+  `--spawn-report` read the place their own process would write and `/tmp` as well, and read a
+  `TMPDIR` that is `/tmp` by another spelling, such as a symlink to it, once: the first lists the
+  deletions advised in either place minus those resumed in either, each once, so a deletion
+  resumed under one is not reported abandoned from the other, and the second sums the resumed
+  spawns without counting one directory twice. An explicit `*_ADVISORY_STATE` override, with
+  its `.resumed` companion, is the only state either report reads, even when it names a file
+  directly under `TMPDIR`, and a newline in it no longer splits it into two paths. The `.env`
+  and key-material advisories take only a regular file for a spent marker: a directory or a
+  dangling symlink at its path now fires the advisory as unusable state, where it used to pass
+  every later command unadvised, and the unwritable-marker text says that an occupied marker
+  path is the owner's to clear. An advisory
   whose marker cannot be written, or a subagent marker that cannot be cleared, now fires on every
   attempt and says why, instead of passing; a failed marker write no longer prints the marker's
   path on stderr; and its self-test gains a fixture for each tier's unwritable marker. Its header
@@ -141,8 +153,9 @@ changed against 16.1.1, and the manifest changes with them:
 - `ladder.sh` exits red, before any rung runs, when it cannot create its scratch directory.
 - `test-ladder-guards.sh` checks its own `mktemp -d`, keeps `TMPDIR` through the no-hasher
   fixture's `env -i`, and gains fixtures for the ladder's scratch directory, for the markers
-  under `TMPDIR` and `/tmp`, for `session-start.sh` clearing both, and for its warning about a
-  marker it cannot clear. A fixture this host cannot run, such as the `/tmp` fallback ones under
+  under `TMPDIR` and `/tmp`, for `session-start.sh` clearing both, for its warning about a
+  marker it cannot clear, and for the four advisory-state edges above: the override, the union,
+  the one directory reached by two spellings and the marker that is not a regular file. A fixture this host cannot run, such as the `/tmp` fallback ones under
   a read-only `/tmp`, is now reported as `skip` and counted apart, so its closing line reads
   `N passed, M failed, K skipped` and the pass total counts only assertions that ran.
 

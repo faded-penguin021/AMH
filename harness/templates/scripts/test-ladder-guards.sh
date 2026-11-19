@@ -2183,6 +2183,113 @@ else
 	report no "the rearm survives a noglob amh.conf" "rc=$rc" "$out"
 fi
 
+# --- the advisory state's edges: four defects, each silent in its own direction
+# (a) Only a regular file is a spent marker. A directory at the `.env` or key-material marker's
+# path counted as one, so those advisories never fired again; it is state the guard cannot use,
+# and it fires as an unwritable marker does (AMH ledger row DD097). So does a dangling symlink,
+# which the write would otherwise follow to create a marker somewhere else. Needs no /tmp. The
+# directories must exist first: a marker that cannot be written prints the same sentence.
+d=$(mk cg_advisory_marker_not_a_file)
+mkdir -p "$d/state.dotenv" "$d/state.keymaterial"
+ln -s "$d/no-such-target" "$d/state.dangling"
+out=$(cd "$d" && DOTENV_ADVISORY_STATE="$d/state.dotenv" scripts/command-guard.sh --command 'cat .env.example' 2>&1)
+rc=$?
+out2=$(cd "$d" && KEYMATERIAL_ADVISORY_STATE="$d/state.keymaterial" scripts/command-guard.sh --command 'cat cert.pem' 2>&1)
+rc2=$?
+out3=$(cd "$d" && DOTENV_ADVISORY_STATE="$d/state.dangling" scripts/command-guard.sh --command 'cat .env.example' 2>&1)
+rc3=$?
+if [ -d "$d/state.dotenv" ] && [ -d "$d/state.keymaterial" ] && [ -L "$d/state.dangling" ] &&
+	[ "$rc" -eq 2 ] && [ "$rc2" -eq 2 ] && [ "$rc3" -eq 2 ] && [ ! -e "$d/no-such-target" ] &&
+	grep -qF 'something other than a regular file at its path' <<<"$out" &&
+	grep -qF 'something other than a regular file at its path' <<<"$out2" &&
+	grep -qF 'something other than a regular file at its path' <<<"$out3"; then
+	report ok "a directory or dangling symlink at the .env or key-material marker's path fires the advisory as unusable state"
+else
+	report no "a directory or dangling symlink at the .env or key-material marker's path fires the advisory as unusable state" "rc=$rc rc2=$rc2 rc3=$rc3" "$out" "$out2" "$out3"
+fi
+
+# The three below read /tmp, the second state directory, and are skipped by name without it.
+if [ -w /tmp ]; then
+	# (b) An explicit override is the only file read, even directly under TMPDIR, where it used
+	# to be taken for the default file and a same-named stranger under /tmp was reported too.
+	# The stranger is made by `mktemp`, so no entry already under /tmp is touched. An override
+	# holding a newline is one path, not two: read as lines, its second line named a file whose
+	# contents the report printed.
+	d=$(mk cg_advisory_override_under_tmpdir)
+	ovr="$WORK/cg_override_tmpdir"
+	mkdir -p "$ovr"
+	decoy=0
+	stranger=$(mktemp /tmp/amh-fixture-override.XXXXXX 2>/dev/null) && [ -f "$stranger" ] &&
+		printf 'tmp/stranger\n' >"$stranger" && decoy=1
+	base=${stranger##*/}
+	printf 'tmp/own\n' >"$ovr/$base"
+	printf 'tmp/second-line\n' >"$ovr/second"
+	out=$(cd "$d" && TMPDIR="$ovr" DESTRUCTIVE_ADVISORY_STATE="$ovr/$base" scripts/command-guard.sh --advisory-report 2>&1)
+	out2=$(cd "$d" && DESTRUCTIVE_ADVISORY_STATE="$ovr/none
+$ovr/second" scripts/command-guard.sh --advisory-report 2>&1)
+	[ -n "$stranger" ] && rm -f -- "$stranger"
+	if [ "$decoy" -eq 1 ] && grep -qxF 'tmp/own' <<<"$out" && ! grep -qF 'tmp/stranger' <<<"$out" &&
+		! grep -qF 'tmp/second-line' <<<"$out2"; then
+		report ok "an override under TMPDIR is the only file the report reads"
+	else
+		report no "an override under TMPDIR is the only file the report reads" "decoy=$decoy" "report was: [$out]" "newline override report: [$out2]"
+	fi
+
+	# (c) The report is the union of advised minus the union of resumed. `tmp/build` is advised
+	# by a hook that saw no TMPDIR and again, then resumed, by one that saw it: it came back, and
+	# was reported abandoned. `tmp/other`, advised under /tmp alone, keeps the report honest.
+	d=$(mk cg_advisory_union_across_dirs)
+	un="$WORK/cg_union_tmpdir"
+	mkdir -p "$un"
+	(cd "$d" && hook_cmd 'rm -rf tmp/build' | env -u TMPDIR scripts/command-guard.sh >/dev/null 2>&1)
+	(cd "$d" && hook_cmd 'rm -rf tmp/other' | env -u TMPDIR scripts/command-guard.sh >/dev/null 2>&1)
+	(cd "$d" && hook_cmd 'rm -rf tmp/build' | TMPDIR="$un" scripts/command-guard.sh >/dev/null 2>&1)
+	(cd "$d" && hook_cmd 'rm -rf tmp/build' | TMPDIR="$un" scripts/command-guard.sh >/dev/null 2>&1) # resumed
+	out=$(cd "$d" && TMPDIR="$un" scripts/command-guard.sh --advisory-report 2>&1)
+	slug=$(cd "$d" && pwd)
+	slug=${slug//\//_}
+	slug=${slug// /_}
+	m="amh-command-guard-destructive-advisory-${UID:-unknown}-$slug"
+	# The setup, checked: advised in both directories, resumed under TMPDIR alone.
+	setup=0
+	grep -qF 'tmp/build' "/tmp/$m" 2>/dev/null && grep -qF 'tmp/build' "$un/$m" 2>/dev/null &&
+		grep -qF 'tmp/build' "$un/$m.resumed" 2>/dev/null && [ ! -e "/tmp/$m.resumed" ] && setup=1
+	rm -f -- "/tmp/$m" "/tmp/$m.resumed"
+	if [ "$setup" -eq 1 ] && grep -qF 'tmp/other' <<<"$out" && ! grep -qF 'tmp/build' <<<"$out"; then
+		report ok "a deletion resumed in one state directory is not reported abandoned from the other"
+	else
+		report no "a deletion resumed in one state directory is not reported abandoned from the other" "setup=$setup" "report was: [$out]"
+	fi
+
+	# (d) A TMPDIR that is /tmp by another spelling is one directory, read once: the spawn report
+	# counted every spawn twice through a symlink to /tmp.
+	d=$(mk cg_spawn_count_one_dir_two_spellings)
+	ln -s /tmp "$WORK/cg_tmp_link"
+	(cd "$d" && printf '{}' | TMPDIR="$WORK/cg_tmp_link" scripts/command-guard.sh --pre-task >/dev/null 2>&1)
+	(cd "$d" && printf '{}' | TMPDIR="$WORK/cg_tmp_link" scripts/command-guard.sh --pre-task >/dev/null 2>&1) # proceeds
+	out=$(cd "$d" && TMPDIR="$WORK/cg_tmp_link" scripts/command-guard.sh --spawn-report 2>&1)
+	slug=$(cd "$d" && pwd)
+	slug=${slug//\//_}
+	slug=${slug// /_}
+	# The setup, checked: the link is /tmp, and the spawn was recorded there through it, once.
+	via=0
+	[ -L "$WORK/cg_tmp_link" ] && [ "$WORK/cg_tmp_link" -ef /tmp ] &&
+		[ "$(LC_ALL=C grep -c '' "/tmp/amh-command-guard-subagent-advisory-${UID:-unknown}-$slug.resumed" 2>/dev/null)" = 1 ] && via=1
+	rm -f -- "/tmp/amh-command-guard-subagent-advisory-${UID:-unknown}-$slug" \
+		"/tmp/amh-command-guard-subagent-advisory-${UID:-unknown}-$slug.resumed"
+	if [ "$via" -eq 1 ] && [ "$out" = 1 ]; then
+		report ok "one spawn through a TMPDIR symlinked to /tmp is counted once"
+	else
+		report no "one spawn through a TMPDIR symlinked to /tmp is counted once" "via=$via" "spawn report was: [$out]"
+	fi
+else
+	for f in "an override under TMPDIR is the only file the report reads" \
+		"a deletion resumed in one state directory is not reported abandoned from the other" \
+		"one spawn through a TMPDIR symlinked to /tmp is counted once"; do
+		report skip "$f (/tmp is not writable here)"
+	done
+fi
+
 # --- the working-memory line: newer state on top of this checkout, judged by no branch name
 # The incident (AMH ledger row DD049): a unit finished in a second worktree was pushed with a
 # `<local>:<remote>` refspec, so the remote branch moved and the main checkout's branch did not,

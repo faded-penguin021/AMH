@@ -1702,8 +1702,19 @@ names_credential_store() {
 # writable, and a TMPDIR that is missing or unwritable must not leave the marker unwritable too
 # (AMH ledger row DD093). A process may see no TMPDIR where another sees one, a hook outside the
 # sandbox against a ladder inside it, so every reader looks in both (advisory_state_files), and
-# scripts/session-start.sh clears both. Tests may override either category's file explicitly;
-# DOTENV_ADVISORY_STATE remains supported for compatibility.
+# scripts/session-start.sh clears both. Both are one directory when TMPDIR names /tmp by another
+# spelling (`/tmp/.`, a symlink), and the readers then read it once, judged by filesystem
+# identity: read twice, every spawn counted double. The two REPORTS take the union across the
+# directories: a deletion advised in one and resumed in the other came back, and is not
+# abandoned. The advisory itself still reads and writes only its own process's file. For the
+# `.env` and key-material tiers a spent marker is a regular FILE; anything else at its path — a
+# directory above all, or a dangling symlink — is state the guard cannot use, and the advisory
+# fires as for a marker it cannot write (AMH ledger row DD097); the other tiers already fire on
+# a directory there, since their reads and appends fail on it. Tests may override any category's
+# file explicitly through its *_ADVISORY_STATE variable; DOTENV_ADVISORY_STATE remains
+# supported for compatibility. An overridden file, with its `.resumed` companion, is the only
+# state the reports read for its category, wherever it sits: no /tmp sibling is looked for,
+# even when the override names a file directly under TMPDIR.
 advisory_state_dir() {
 	local dir=${TMPDIR:-}
 	case $dir in /*) ;; *) dir= ;; esac
@@ -1715,31 +1726,47 @@ advisory_state_dir() {
 	fi
 }
 
-# advisory_state_files <name> : the state file, then its /tmp sibling when the file is the
-# default one and sits elsewhere. An overridden file (the *_ADVISORY_STATE variables) has none.
+# advisory_state_files <name> : set ADVISORY_STATES to the state file, then its /tmp sibling
+# when the file is the default one and its directory is not /tmp itself. An array, never lines
+# on stdout: a path is not a line, and an override holding a newline would read as two files.
+# Whether the file is overridden is asked of the override variable, never inferred from where
+# the file sits: an override that happens to name a file directly under TMPDIR is still the
+# only file read. Identity is the filesystem's (`-ef`), not the spelling's, so a TMPDIR of
+# `/tmp/.` or a symlink to /tmp yields one file.
 advisory_state_files() {
-	local own base
+	local own dir
+	ADVISORY_STATES=()
 	own=$(advisory_state_file "$1") || return 1
-	printf '%s
-' "$own"
-	base=${own##*/}
-	[ "$own" = "$(advisory_state_dir)/$base" ] || return 0
-	[ "$own" = "/tmp/$base" ] && return 0
-	printf '%s
-' "/tmp/$base"
+	[ -n "$own" ] || return 1
+	ADVISORY_STATES=("$own")
+	advisory_state_override "$1" >/dev/null && return 0
+	dir=$(advisory_state_dir)
+	[ "$dir" = /tmp ] && return 0
+	[ "$dir" -ef /tmp ] && return 0
+	ADVISORY_STATES=("$own" "/tmp/${own##*/}")
+}
+
+# advisory_state_override <name> : print the category's explicitly set state file and succeed;
+# fail when its *_ADVISORY_STATE variable is unset or the category is unknown.
+advisory_state_override() {
+	case $1 in
+	dotenv) [ -n "${DOTENV_ADVISORY_STATE+x}" ] && printf '%s' "$DOTENV_ADVISORY_STATE" ;;
+	keymaterial) [ -n "${KEYMATERIAL_ADVISORY_STATE+x}" ] && printf '%s' "$KEYMATERIAL_ADVISORY_STATE" ;;
+	destructive) [ -n "${DESTRUCTIVE_ADVISORY_STATE+x}" ] && printf '%s' "$DESTRUCTIVE_ADVISORY_STATE" ;;
+	interpreter) [ -n "${INTERPRETER_ADVISORY_STATE+x}" ] && printf '%s' "$INTERPRETER_ADVISORY_STATE" ;;
+	subagent) [ -n "${SUBAGENT_ADVISORY_STATE+x}" ] && printf '%s' "$SUBAGENT_ADVISORY_STATE" ;;
+	hookfile) [ -n "${HOOKFILE_ADVISORY_STATE+x}" ] && printf '%s' "$HOOKFILE_ADVISORY_STATE" ;;
+	*) return 1 ;;
+	esac
 }
 
 advisory_state_file() { # advisory_state_file <name>
 	local name=$1 slug uid
 	case $name in
-	dotenv) [ -n "${DOTENV_ADVISORY_STATE+x}" ] && { printf '%s' "$DOTENV_ADVISORY_STATE"; return 0; } ;;
-	keymaterial) [ -n "${KEYMATERIAL_ADVISORY_STATE+x}" ] && { printf '%s' "$KEYMATERIAL_ADVISORY_STATE"; return 0; } ;;
-	destructive) [ -n "${DESTRUCTIVE_ADVISORY_STATE+x}" ] && { printf '%s' "$DESTRUCTIVE_ADVISORY_STATE"; return 0; } ;;
-	interpreter) [ -n "${INTERPRETER_ADVISORY_STATE+x}" ] && { printf '%s' "$INTERPRETER_ADVISORY_STATE"; return 0; } ;;
-	subagent) [ -n "${SUBAGENT_ADVISORY_STATE+x}" ] && { printf '%s' "$SUBAGENT_ADVISORY_STATE"; return 0; } ;;
-	hookfile) [ -n "${HOOKFILE_ADVISORY_STATE+x}" ] && { printf '%s' "$HOOKFILE_ADVISORY_STATE"; return 0; } ;;
+	dotenv | keymaterial | destructive | interpreter | subagent | hookfile) ;;
 	*) return 1 ;;
 	esac
+	advisory_state_override "$name" && return 0
 	slug=${ROOT//\//_}
 	slug=${slug// /_}
 	uid=${UID:-unknown}
@@ -1925,8 +1952,18 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 			: 2>/dev/null >"$state" || ADVISORY_UNRECORDED=1
 		fi
 	else
-		[ -e "$state" ] && return 1
-		: 2>/dev/null >"$state" || ADVISORY_UNRECORDED=1
+		# Only a regular FILE is a spent marker. A directory at its path used to count as one,
+		# so whatever planted it, the `.env` and key-material advisories never fired again; it
+		# is state the guard cannot use, and an unusable marker fires (AMH ledger row DD097). A
+		# dangling symlink is unusable too: writing through it would create its target, and the
+		# rerun would then find a spent marker the guard never chose the place of.
+		if [ -f "$state" ]; then
+			return 1
+		elif [ -e "$state" ] || [ -L "$state" ]; then
+			ADVISORY_UNRECORDED=1
+		else
+			: 2>/dev/null >"$state" || ADVISORY_UNRECORDED=1
+		fi
 	fi
 	case $name in
 	dotenv)
@@ -2099,7 +2136,7 @@ needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
 	# printed; it carries this repository's location, and the directory is what can be fixed.
 	if [ "${ADVISORY_UNRECORDED:-0}" -eq 1 ]; then
 		# shellcheck disable=SC2016 # the backticked names must print literally.
-		ADVISORY_REASON="$ADVISORY_REASON"' The guard could not write the marker that records this advisory (in `TMPDIR` when that is an absolute, writable directory, else in `/tmp`), so it fires on every attempt and a rerun will not clear it: make one of those writable for this process, or ask the owner.'
+		ADVISORY_REASON="$ADVISORY_REASON"' The guard could not write the marker that records this advisory (in `TMPDIR` when that is an absolute, writable directory, else in `/tmp`), or found something other than a regular file at its path, so it fires on every attempt and a rerun will not clear it: make one of those writable for this process, or, when something already occupies the marker'"'"'s path, ask the owner to clear it.'
 		case $name in
 		dotenv) DOTENV_ADVISORY_REASON=$ADVISORY_REASON ;;
 		keymaterial) KEYMATERIAL_ADVISORY_REASON=$ADVISORY_REASON ;;
@@ -9952,18 +9989,31 @@ git push --force origin main
 #
 # Exit is always 0, including when the state files are absent, which is the ordinary case in
 # a session that deleted nothing.
+#
+# The two state directories are one record split in two (see advisory_state_dir), so the report
+# is the union of advised signatures minus the union of resumed ones: a deletion advised where
+# both were written and resumed where only one was is not abandoned. Each line is tagged with
+# the file it came from, `A` advised or `R` resumed, and the set difference is awk's.
 advisory_report() {
-	local state advised
-	while IFS= read -r state; do
-		if [ -z "$state" ] || [ ! -e "$state" ]; then continue; fi
-		while IFS= read -r advised; do
-			[ -n "$advised" ] || continue
-			if [ -e "$state.resumed" ] && LC_ALL=C grep -qxF -- "$advised" "$state.resumed" 2>/dev/null; then
-				continue
-			fi
-			printf '%s\n' "$advised"
-		done <"$state"
-	done < <(advisory_state_files destructive 2>/dev/null) | awk '!seen[$0]++'
+	local state line
+	local -a ADVISORY_STATES=()
+	advisory_state_files destructive 2>/dev/null || return 0
+	for state in "${ADVISORY_STATES[@]}"; do
+		# Opened silently: a failed open would print the state file's path, which carries this
+		# repository's location (AMH ledger row DD097).
+		if [ -f "$state" ] && [ -r "$state" ]; then
+			while IFS= read -r line || [ -n "$line" ]; do printf 'A %s\n' "$line"; done 2>/dev/null <"$state"
+		fi
+		if [ -f "$state.resumed" ] && [ -r "$state.resumed" ]; then
+			while IFS= read -r line || [ -n "$line" ]; do printf 'R %s\n' "$line"; done 2>/dev/null <"$state.resumed"
+		fi
+	done |
+		LC_ALL=C awk '
+			{ sig = substr($0, 3) }
+			sig == "" { next }
+			/^R / { resumed[sig] = 1; next }
+			!(sig in seen) { seen[sig] = 1; order[++n] = sig }
+			END { for (i = 1; i <= n; i++) if (!(order[i] in resumed)) print order[i] }'
 	return 0
 }
 
@@ -9998,11 +10048,13 @@ run_pretask() {
 # D014).
 spawn_report() {
 	local state count=0 n
-	while IFS= read -r state; do
-		if [ -z "$state" ] || [ ! -e "$state.resumed" ]; then continue; fi
+	local -a ADVISORY_STATES=()
+	advisory_state_files subagent 2>/dev/null || return 0
+	for state in "${ADVISORY_STATES[@]}"; do
+		[ -e "$state.resumed" ] || continue
 		n=$(LC_ALL=C grep -c '' "$state.resumed" 2>/dev/null) || continue
 		count=$((count + n))
-	done < <(advisory_state_files subagent 2>/dev/null)
+	done
 	[ "$count" -gt 0 ] || return 0
 	printf '%s\n' "$count"
 	return 0
