@@ -36,6 +36,8 @@ that unit:
 - `2026-11-10-command-guard-gap-review.md` and `2026-11-09-cc-safety-net-borrowings.md`: drafts,
   nothing approved; G1, one review of both, comes first (Owner queue).
 - `2026-11-10-queue-cycle-and-memory-tiers.md`: a draft, nothing approved.
+- `2026-11-19-pipefail-grep-race.md`, adopted with R1 approved (owner, 2026-11-19): every pipe
+  into an early-exit consumer under `pipefail` audited, and the racy ones fixed, before the tag.
 
 Operational gotchas:
 
