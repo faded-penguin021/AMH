@@ -2019,7 +2019,8 @@ shipped bug teaches session N+9's review pass.
 > **Rows are immutable.** The ` [cited]` marker is metadata and may be synchronized in place.
 > Otherwise correct a detail with a new row and append `Corrected by D-NNN.` to the old row, or
 > replace its whole conclusion with a new row and append `Superseded by D-NNN.` The first pointer
-> is final. The guard checks pointer form, not whether the chosen verb is honest.
+> is final. No shipped guard checks the pointer: a guard of your own under `scripts/guards/` can
+> check its form, and no guard can check whether the chosen verb is honest.
 >
 > **Authoring.** Search the volume chain before appending. Write the smallest self-contained
 > durable lesson; route debugging narrative to history and point to it from the STATE changelog.

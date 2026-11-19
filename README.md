@@ -163,7 +163,7 @@ The harness is the accumulated answer to those, and every mechanism in it is nar
 | **The ladder** (`scripts/ladder.sh`) | One verification entrypoint, run identically by the agent and by CI. | "It passes locally" — and green-by-omission. | standard, full |
 | **Rails** (`scripts/command-guard.sh`, `scripts/redact.sh`, `scripts/redact-tool-output.sh`) | A pre-execution command guard, a redaction filter that doubles as the repo's secret scan, and a post-execution hook that runs that filter over a tool result where the agent can rewrite one. | Force-pushes, `.env` reads, credentials in output. | standard, full |
 | **Review protocols** | Fresh-context adversarial passes, with a no-self-review rule. | A session grading its own homework. | standard, full |
-| **Archive tier** (`docs/history/`, `docs/plans/`) | Frozen archive of completed plans and active multi-session build plans. | Loss of historical context; inability to track and reference past decisions. | full |
+| **Archive tier** (`docs/history/`) | Frozen archive of completed plans. `docs/plans/`, for active multi-session build plans, is yours to create when you need one; no profile installs it. | Loss of historical context; inability to track and reference past decisions. | full |
 
 Nothing in the harness consumes a self-report. A checklist an agent ticks is not evidence;
 the ladder is.
@@ -261,12 +261,15 @@ Know its limits before you rely on it:
 AMH's rails are not a security sandbox. The hosts have one of their own, and AMH asks for it
 rather than replacing it:
 
-- **Claude Code.** A fresh install's `.claude/settings.json` turns on Claude Code's shell
+- **Claude Code.** The `.claude/settings.json` the installer writes turns on Claude Code's shell
   sandbox: `enabled`, no retry outside it (`allowUnsandboxedCommands: false`), and no approval
   for being sandboxed (`autoAllowBashIfSandboxed: false`), so the permission prompts stay as they
   were. Every AMH rail stays; the sandbox is a layer under them. It covers Bash, PowerShell and
   Monitor commands on macOS, Linux and WSL2. It does not cover hooks (AMH's own included), the
-  file and web tools, MCP servers, or, in most sessions, commands you type with `!`.
+  file and web tools, MCP servers, or, in most sessions, commands you type with `!`. The
+  installer writes that file only where none exists: a repository that already has one keeps
+  it unchanged, so the installer adds no `sandbox` block to it, and the 17.0.0 entry of
+  `harness/CHANGELOG.md` → **Upgrading**, step 5, has the agent ask the user whether to add it.
 - **Native Windows has no sandbox.** On native Windows, Claude Code runs shell commands with no
   sandbox, so the command guard and these rules are the only layers there. The guard's machine
   mode is a rail, not containment. To get the sandbox on a Windows machine, run Claude Code

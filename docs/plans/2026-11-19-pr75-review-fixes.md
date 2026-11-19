@@ -96,6 +96,11 @@ Findings, all in prose:
 **Acceptance:** each finding is fixed or recorded here as not reproduced; the full ladder green;
 the rule review run, with its findings triaged in the ledger row.
 
+**Status: done 2026-11-19 (DD-107).** Every finding reproduced and is fixed; none is recorded as
+not reproduced. The rule review and a Sol review added a hand-applied step 7 for the seed
+ledger's preamble and ten lesser fixes, all in DD-107. The inventory F2 and F3 extend is the
+bullet list at the head of the 17.0.0 entry's **Upgrading** subsection.
+
 ### F2 — `session-start.sh`, `test-ladder-guards.sh` and `amh-init.sh` (shipped scripts)
 
 - *(confirmed, P1; owner decision 3)* `harness/templates/scripts/session-start.sh:113`. The

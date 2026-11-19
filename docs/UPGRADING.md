@@ -40,7 +40,8 @@ beside them holds their hashes:
 
 If our ledger or state file records a deliberate fork of a shipped script, that copy has just
 reverted an owner decision: re-apply the fork, delete scripts/MANIFEST.sha256 again, and tell me
-you did.
+you did. Every later run of amh-init.sh that a changelog note asks for copies the scripts again,
+so re-apply the fork after the last such run as well.
 
 Then apply the changelog's Upgrading notes: new amh.conf keys, seed-prose changes I want by
 hand, adapter or CI changes. Files I own are never overwritten — amh.conf, the seed documents,
@@ -137,7 +138,8 @@ repository cannot wait for upstream may carry a deliberate fork of a shipped scr
 costs step 6 spells out. Nothing else is a supported reason to edit one. If you carry one, every
 upgrade is a merge: step 4's copy overwrites the fork and restores the manifest, so re-apply the
 fork after copying and delete the manifest again — the record of the decision is what tells the
-upgrading session to.
+upgrading session to. A changelog note in step 5 that re-runs `amh-init.sh` overwrites them the
+same way, so the fork is re-applied after the last such run.
 
 ## The procedure
 
@@ -169,18 +171,19 @@ rung will say so, and this is the fix. If you have no manifest at all (you upgra
 this file existed), the rung warns on every run that the shipped scripts went unchecked;
 copying it is what turns the rung on.
 
-If you have the harness repo checked out, `scripts/amh-init.sh /path/to/your-repo` does the
-same thing and is safe to re-run: it overwrites exactly the shipped scripts and leaves every
-file you own — `amh.conf`, the seed prose, your workflow and adapter configs — untouched.
-Anything it does write on a re-run (a file a newer release introduced, or one you deleted) takes
-its values from the `amh.conf` it keeps, so you need not repeat the options you installed with.
-To read them it sources your `amh.conf` from your repository's root, exactly as your ladder does
-— a dry run included. It refuses to go on, before writing anything, in three cases: an option
-that disagrees with that file (change `amh.conf` first); an `amh.conf` that does not load to its
-end; and a value from it that a file about to be written would carry but that file cannot hold
-safely — a branch name outside letters, digits, `.`, `_`, `-` and `/`, say. A kept value that no
-written file carries is never checked. If a refusal is about a value you mean to keep, the
-`cp` route above does the same upgrade without rendering anything.
+If you have the harness repo checked out, `scripts/amh-init.sh /path/to/your-repo` does the same
+thing and is safe to re-run: it overwrites exactly the shipped scripts and leaves every file you
+own — `amh.conf`, the seed prose, your workflow and adapter configs — untouched. Read the
+Upgrading notes of every entry you cross before you run it, though: a note can ask for a check
+before any installer run. Anything it does write on a re-run (a file a newer release introduced,
+or one you deleted) takes its values from the `amh.conf` it keeps, so you need not repeat the
+options you installed with. To read them it sources your `amh.conf` from your repository's root,
+exactly as your ladder does — a dry run included. It refuses to go on, before writing anything,
+in three cases: an option that disagrees with that file (change `amh.conf` first); an `amh.conf`
+that does not load to its end; and a value from it that a file about to be written would carry
+but that file cannot hold safely — a branch name outside letters, digits, `.`, `_`, `-` and `/`,
+say. A kept value that no written file carries is never checked. If a refusal is about a value
+you mean to keep, the `cp` route above does the same upgrade without rendering anything.
 
 The `--profile` flag it grew in 2.0.0 does not change that, and you do not need to pass it on
 an upgrade. It decides which seed prose a **fresh** install receives; a file you already have

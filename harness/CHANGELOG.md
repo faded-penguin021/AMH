@@ -55,8 +55,9 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   file, plus one sentence for a build that does not. Other agents never read `CLAUDE.md`, so
   nothing changes for them, and `AGENTS.md` stays the one canonical text. A Claude Code session
   started with `--safe-mode` or `--bare` still loads no `CLAUDE.md` at all.
-- **The Claude Code adapter turns on Claude Code's own shell sandbox** for fresh installs, as a
-  layer under every AMH rail: a top-level `sandbox` block with `enabled: true`,
+- **The Claude Code adapter turns on Claude Code's own shell sandbox** wherever the installer
+  writes `.claude/settings.json`, which it does only where none exists, as a layer under every
+  AMH rail: a top-level `sandbox` block with `enabled: true`,
   `allowUnsandboxedCommands: false` (no retry outside it) and `autoAllowBashIfSandboxed: false`
   (being sandboxed approves nothing, so the prompts stay as they were). Native Windows has no
   sandbox under Claude Code and the README says so. Where the sandbox cannot start — Linux or
@@ -116,25 +117,65 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
 
 ### Upgrading
 
-Copy the 17.0.0 shipped scripts and manifest through the normal upgrade procedure. Of the
-scripts, `command-guard.sh` changed in comments alone, and `ladder.sh` and
-`test-ladder-guards.sh` changed as above; the manifest changes with them. Neither change needs
-anything else from you, but if a guard of your own under `scripts/guards/` takes an unchecked
-`mktemp`, it has the shape the ladder had: check the call and exit non-zero saying the guard
-checked nothing.
+This train also carries changes to the AMH repository's own conformance scenarios, guards and
+tests; they ship nothing, so nothing below asks anything of you for them.
+
+Copy the 17.0.0 shipped scripts and manifest through the normal upgrade procedure. Four scripts
+changed against 16.1.1, and the manifest changes with them:
+
+- `command-guard.sh` keeps its one-time advisory markers under `TMPDIR` when that names an
+  absolute, writable directory, and under `/tmp` otherwise. `--advisory-report` and
+  `--spawn-report` read the place their own process would write and `/tmp` as well; the first
+  lists an outstanding entry once, and the second sums the resumed spawns of both. An advisory
+  whose marker cannot be written, or a subagent marker that cannot be cleared, now fires on every
+  attempt and says why, instead of passing; a failed marker write no longer prints the marker's
+  path on stderr; and its self-test gains a fixture for each tier's unwritable marker. Its header
+  and one comment also say why six data-plane verbs are still absent.
+- `session-start.sh` clears the command guard's markers under an absolute `TMPDIR` as well as
+  under `/tmp`, quietly skipping a directory it cannot write.
+- `ladder.sh` exits red, before any rung runs, when it cannot create its scratch directory.
+- `test-ladder-guards.sh` checks its own `mktemp -d`, keeps `TMPDIR` through the no-hasher
+  fixture's `env -i`, and gains fixtures for the ladder's scratch directory, for the markers
+  under `TMPDIR` and `/tmp`, and for `session-start.sh` clearing both.
+
+None of these needs anything else from you, but if a guard of your own under `scripts/guards/`
+takes an unchecked `mktemp`, it has the shape the ladder had: check the call and exit non-zero
+saying the guard checked nothing.
+
+**Every `amh-init.sh` run in this upgrade overwrites the shipped scripts and the manifest,**
+step F's included, and so does one made in place of the copy. If your ledger or state file
+records a deliberate fork of a shipped script, re-apply it and delete `scripts/MANIFEST.sha256`
+again after step F's run, the last one, not only after the copy that `docs/UPGRADING.md`
+describes.
+
+**Before the first `amh-init.sh` run of this upgrade — the copy in `docs/UPGRADING.md` step 4
+included, if you make it that way — check whether `.claude/settings.json` exists.** If it does
+not, the run installs this release's Claude Code adapter, which turns the sandbox on, so ask the
+user step 5's question below before you run it. After the run, keep the installed file on a yes;
+on a no, or with no way to ask, remove its top-level `sandbox` block straight away, before any
+other step, and change nothing else in it. If the file exists, the run keeps it, and step 5
+applies as written.
 
 **Move to `docs/PROTOCOLS.md` first; the steps after it copy from that file.** Re-run
 `amh-init.sh <target>` with no `--profile`, which now means `standard`. It writes
 `docs/PROTOCOLS.md`, and into a tree installed light it also writes `docs/RUNBOOK.md` and
-`docs/LEDGER.md`: that is the upgrade from light to standard. It keeps every file you already
-have, so the rest is by hand:
+`docs/LEDGER.md`: that is the upgrade from light to standard. It keeps every seed and
+configuration file you already have, so the rest is by hand:
 
 A. If you edited any of the six sections — in your runbook, or folded into your constitution
-   from a light install — carry those edits into `docs/PROTOCOLS.md`. Then delete the six
-   sections from the runbook and the constitution, so each rule has one copy.
-B. From a light install that folded the playbooks into the constitution: move them into the
-   new runbook's **Change-type playbooks** section, replacing the scaffold's placeholder
-   playbook, and delete them from the constitution.
+   from a light install — carry those edits into `docs/PROTOCOLS.md`. If a `docs/PROTOCOLS.md`
+   existed before the run, the run kept it: check that it holds all six sections first. Then
+   delete the six sections from the runbook and the constitution, so each rule has one copy.
+B. From a light install, undo what 16.1.1's adoption brief had you do for the files light lacked,
+   now that the runbook and the ledger exist. If you folded the playbooks into the constitution,
+   move them into the new runbook's **Change-type playbooks** section, replacing the scaffold's
+   placeholder playbook, and delete them from the constitution. Then copy back from
+   `harness/templates/seed/AGENTS.md` whatever your constitution lacks of: steps 3 and 4 of the
+   maintenance protocol, which open the matching playbook in `docs/RUNBOOK.md` and bind the work
+   to `docs/PROTOCOLS.md` → **Session discipline**; the ledger sentences of the **Ground truth**
+   note; the **Long-term memory** paragraph; the blockquote that routes history to the live
+   ledger volume; and the **Invariants that still bind** section, with your own shortlist in
+   place of its placeholder.
 C. Repoint every pointer that sends one of the six sections to the runbook — in the
    constitution, the state file and the runbook itself — to `docs/PROTOCOLS.md`. The
    shapes the seeds used are "RUNBOOK **Session discipline**", "`docs/RUNBOOK.md` → **Session
@@ -148,8 +189,12 @@ D. Add `docs/PROTOCOLS.md` to `RULE_FILES` in `amh.conf`, after `AGENTS.md`. Wit
 E. If you have `.codex/agents/amh-rule-reviewer.toml`, replace "already defined by
    docs/RUNBOOK.md" with "the Rule-review protocol already defines".
 F. Re-run `amh-init.sh <target>`. Its closing report carries a "Migrate to docs/PROTOCOLS.md"
-   block for as long as anything above is left; the migration is done when the block is gone.
-   Stop passing `--profile light` anywhere you scripted it: it is now refused.
+   block while it still finds something above left undone. The block is a diagnostic, not
+   proof of completion: it looks only for the headings, pointers and settings it knows, so its
+   absence does not show that your edits arrived. Compare each section you had customized, in
+   the old runbook or constitution, with its destination in `docs/PROTOCOLS.md` or the runbook,
+   and finish when every edit is there. Stop passing `--profile light` anywhere you scripted it:
+   it is now refused.
 
 Then apply the test-first rules by hand, because seeds are yours:
 
@@ -157,34 +202,48 @@ Then apply the test-first rules by hand, because seeds are yours:
    `harness/templates/seed/AGENTS.md` into your constitution, below your fixture-immutability
    rule if you have one. Its sentence "The fixture rule above may forbid the change outright"
    points at that rule; drop the sentence if you have none.
-2. Copy Session discipline item 12 from `harness/templates/seed/docs/PROTOCOLS.md`. If your list
-   does not end at item 11, number it after your last item and change the "Session discipline
-   12" references in the bullet from step 1 and in the sentence from step 3. Its own references
-   to items 3, 7 and 8 are the checkpoint invariant, ask-don't-assume and the verification
-   disclosure; renumber them if yours differ.
-3. Copy the last sentence of the first paragraph of the seed protocols file's adversarial
-   review protocol into yours.
+2. If your **Session discipline** has no item headed "A fix's test is written before the fix,
+   and existing tests are frozen for the fix" — a `docs/PROTOCOLS.md` the run above wrote fresh
+   has it — copy that item, item 12, from `harness/templates/seed/docs/PROTOCOLS.md`, numbered
+   after your last item. Whichever number the item ends up with, use it for the "Session
+   discipline 12" references in the bullet from step 1 and in the sentence from step 3. Its own
+   references to items 3, 7 and 8 are the checkpoint invariant, ask-don't-assume and the
+   verification disclosure; renumber them if yours differ.
+3. If your adversarial review protocol does not already say that a fix that changes, skips,
+   loosens or deletes an existing test owes the review pass — a freshly written
+   `docs/PROTOCOLS.md` does — copy that sentence, the last of the seed protocols file's first
+   paragraph there, into yours.
 4. If `AGENTS.md` is your canonical file and `CLAUDE.md` only points at it, replace the "read
    AGENTS.md" sentence of your `CLAUDE.md` with both lines of `harness/templates/seed/CLAUDE.md`:
    the `@AGENTS.md` import and the fallback sentence for a build that does not resolve it. Keep
    anything else your `CLAUDE.md` says that `AGENTS.md` does not, though under the single-source
    rule there should be nothing.
-5. **Ask the user whether they want Claude Code's sandbox; do not add it unasked.** Your
-   `.claude/settings.json` is yours, so the upgrade does not touch it. Tell the user what it
-   changes before they answer: shell commands can no longer write outside the working tree and
-   the temporary directory, reach the network except through the host's proxy, which asks
-   before each new host in the default permission mode, or write
-   `.git/hooks`, `.git/config` and the `.claude` settings files; `git push` over SSH fails inside
-   it; a `git merge` that must replace a protected file fails with `unable to unlink old` and has
-   to be run in the user's own terminal; and on Linux and WSL2 it needs `bubblewrap` and `socat`
-   or it does nothing beyond a warning on stderr. Only on a yes, add the top-level `sandbox` block from
+5. **Ask the user whether they want Claude Code's sandbox; do not leave it added unasked.** Your
+   `.claude/settings.json` is yours, so the upgrade does not touch it, unless the run above
+   installed it, when you asked this before that run (above). Tell the user what it changes
+   before they answer, as Claude Code's documentation and this adapter's deny rules describe it:
+   shell commands can no longer write outside the working tree and the temporary directory, reach
+   the network except through the host's proxy, which asks before each new host in the default
+   permission mode, or write `.git/hooks`, `.git/config` and the `.claude` settings files;
+   `git push` over SSH fails inside it; a `git merge` that must replace a protected file fails
+   with `unable to unlink old` and has to be run in the user's own terminal; and on Linux and
+   WSL2 it needs `bubblewrap` and `socat` or it does nothing beyond a warning on stderr. Then
+   tell them what was observed rather than read, from the README's **The host's sandbox**: on one
+   live host, Claude Code 2.1.327 in a Linux container on a WSL2 kernel, a write outside the tree
+   and an HTTPS push to a host nobody had allowed were refused in the default permission mode,
+   and a sandboxed command could not create a linked worktree or commit in one made beforehand,
+   because `.git/worktrees/` is read-only inside it. Everything else is unverified — macOS, Linux
+   outside a container, other versions, Codex's sandbox — and native Windows has no sandbox at
+   all. Only on a yes, add the top-level `sandbox` block from
    `harness/templates/configs/claude-settings.json` to `.claude/settings.json`, keeping
-   everything the file already holds and without printing its contents. In the same change,
-   remove `Read(//proc/*/environ)` and `Read(//proc/**/environ)` from `permissions.deny` if the
-   file carries them, as a 16.1.1 install does and as 16.1.1's note had an older one add them:
-   with the sandbox on they expand per running process, and past bwrap's limit every shell
-   command is refused. On Linux or WSL2, also offer to add `bwrap socat` to `REQUIRED_TOOLS` in
-   `amh.conf`. Codex needs nothing.
+   everything the file already holds and without printing its contents; if the file already has a
+   top-level `sandbox` object, set the block's three keys inside it instead, keep its other keys,
+   and tell the user about any of the three it already set otherwise. In the same change, remove
+   `Read(//proc/*/environ)` and `Read(//proc/**/environ)` from `permissions.deny` if the file
+   carries them, as a 16.1.1 install does and as 16.1.1's note had an older one add them: with
+   the sandbox on they expand per running process, and past bwrap's limit every shell command is
+   refused. On Linux or WSL2, also offer to add `bwrap socat` to `REQUIRED_TOOLS` in `amh.conf`.
+   Codex needs nothing.
 6. **If the machine-mode fragment is installed, offer to remove its two root-anchored `/proc`
    rules; do not remove them unasked.** This release's fragment no longer carries
    `Read(//proc/*/environ)` or `Read(//proc/**/environ)`, and `docs/UPGRADING.md`'s merge only
@@ -196,6 +255,11 @@ Then apply the test-first rules by hand, because seeds are yours:
    change nothing else; the single-slash
    `Read(/proc/*/environ)` and `Read(/proc/**/environ)` stay. With no way to ask, change nothing
    outside this repository and say so in your final report.
+7. **Correct the ledger preamble's pointer claim.** A ledger seeded before this release says
+   "The guard checks pointer form, not whether the chosen verb is honest", and no shipped guard
+   does. If no guard of your own under `scripts/guards/` checks it, replace that sentence with
+   the two that now stand there in `harness/templates/seed/docs/LEDGER.md`, in every volume
+   whose preamble carries it. A preamble is not a row, so this edits no row.
 
 This rule is what makes the release MAJOR, on the precedent of 16.0.0: a session that wrote a
 fix and then its test, or changed an existing test to make a fix pass, was within the rules
