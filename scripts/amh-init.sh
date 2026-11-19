@@ -272,7 +272,28 @@ FRESH=1
 # written only after the file has been read to its end: a conf that exits part way would
 # otherwise hand back nothing, and nothing reads exactly like "every key unset" — the defaults
 # this block exists to stop rendering.
+# Whether RULE_FILES, as the sourced amh.conf left it, covers docs/PROTOCOLS.md — printed as
+# 1 or 0. Run INSIDE the subshell that sourced the file, so the entries split on whatever IFS
+# it left, as they do in the ladder (its RULE_FILES rung), and matched the ladder's way: an
+# entry covers itself and, as a directory, everything under it. An unset RULE_FILES covers
+# nothing. Read by the migration report below.
+rule_files_cover_protocols() {
+	local rf want=docs/PROTOCOLS.md
+	set -f
+	for rf in ${RULE_FILES-}; do
+		case $want in "$rf" | "$rf"/*)
+			set +f
+			printf 1
+			return 0
+			;;
+		esac
+	done
+	set +f
+	printf 0
+}
+
 KEEPS_CONF=0
+RULE_FILES_COVER=''
 [ -e "$TARGET/amh.conf" ] && KEEPS_CONF=1
 RETAINED=' '
 if [ "$KEEPS_CONF" = 1 ]; then
@@ -288,6 +309,11 @@ if [ "$KEEPS_CONF" = 1 ]; then
 			conf_read=1
 			continue
 		fi
+		case $rec in =AMH-INIT-RULE-FILES-COVER=*)
+			RULE_FILES_COVER=${rec#=AMH-INIT-RULE-FILES-COVER=}
+			continue
+			;;
+		esac
 		key=${rec%%=*}
 		val=${rec#*=}
 		for triple in $CONF_BACKED; do
@@ -318,12 +344,14 @@ if [ "$KEEPS_CONF" = 1 ]; then
 			def=DEFAULT_OF_$var
 			printf -v "$ckey" '%s' "${!def}"
 		done
+		RULE_FILES=''
 		set +u
 		# shellcheck source=/dev/null
 		. "$ROOT/amh.conf" </dev/null >/dev/null
 		for k in $conf_keys; do
 			[ -n "${!k+x}" ] && printf '%s=%s\0' "$k" "${!k}"
 		done
+		printf '=AMH-INIT-RULE-FILES-COVER=%s\0' "$(rule_files_cover_protocols)"
 		printf '%s\0' '=AMH-INIT-END-OF-CONF'
 	)
 	[ "$conf_read" = 1 ] ||
@@ -847,7 +875,7 @@ fi
 # constitution's "the incident playbook in `docs/RUNBOOK.md`", and the runbook's own doc-index
 # row "this runbook → **Working-memory compression**". The two configuration steps of the hand
 # migration are checked as well, because the report going quiet is what the Upgrading notes
-# call done: RULE_FILES must list docs/PROTOCOLS.md, and a Codex reviewer agent must not send
+# call done: RULE_FILES must cover docs/PROTOCOLS.md, and a Codex reviewer agent must not send
 # its reviewer to the runbook for the review classes.
 MOVED_SECTIONS='Session discipline|Adversarial review protocol|Rule-review protocol|Incident: leaked credential|Acceptance ladder|Working-memory compression'
 migrate=''
@@ -886,10 +914,30 @@ if [ -f "$TARGET/docs/PROTOCOLS.md" ]; then
 		[ "$n" -gt 0 ] &&
 			migrate="${migrate}   $rel sends $n pointer(s) to the runbook for a section docs/PROTOCOLS.md now holds$NL"
 	done
-	if [ -f "$TARGET/amh.conf" ] &&
-		! grep -E '^RULE_FILES=' "$TARGET/amh.conf" | grep -qE "(['\" ])docs/PROTOCOLS\.md(['\" ])"; then
-		migrate="${migrate}   amh.conf: RULE_FILES does not list docs/PROTOCOLS.md, so an edit to it raises no legislation advisory$NL"
+	# RULE_FILES is judged by its EFFECTIVE value and by the ladder's own matching, not by
+	# grepping the assignment: a `docs` entry covers the file and a later reassignment can drop
+	# it, and the text of the first line says neither (rule_files_cover_protocols). A kept
+	# amh.conf was already read once, above, and is not run a second time; one this run wrote is
+	# read here, as the ladder reads it, from the shipped scripts' empty default.
+	# Called only inside a command substitution: it changes directory and sources the file.
+	rule_files_cover_written_conf() {
+		local ROOT RULE_FILES=''
+		cd -- "$TARGET" || return 1
+		ROOT=$(pwd)
+		set +u
+		# shellcheck source=/dev/null
+		. "$ROOT/amh.conf" </dev/null >/dev/null 2>&1
+		rule_files_cover_protocols
+	}
+	if [ -f "$TARGET/amh.conf" ] && [ -z "$RULE_FILES_COVER" ]; then
+		RULE_FILES_COVER=$(rule_files_cover_written_conf)
 	fi
+	case $RULE_FILES_COVER in
+	1) ;;
+	0) migrate="${migrate}   amh.conf: RULE_FILES does not cover docs/PROTOCOLS.md, so an edit to it raises no legislation advisory$NL" ;;
+	*) [ -f "$TARGET/amh.conf" ] &&
+		migrate="${migrate}   amh.conf did not load to its end, so whether RULE_FILES covers docs/PROTOCOLS.md is unknown$NL" ;;
+	esac
 	if [ -f "$TARGET/.codex/agents/amh-rule-reviewer.toml" ] &&
 		grep -qF 'already defined by docs/RUNBOOK.md' "$TARGET/.codex/agents/amh-rule-reviewer.toml"; then
 		migrate="${migrate}   .codex/agents/amh-rule-reviewer.toml still sends its reviewer to docs/RUNBOOK.md for the review classes$NL"

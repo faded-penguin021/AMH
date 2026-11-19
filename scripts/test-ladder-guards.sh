@@ -26,6 +26,7 @@ export GIT_COMMITTER_NAME=amh-test GIT_COMMITTER_EMAIL=amh@test.invalid
 
 PASSED=0
 FAILED=0
+SKIPPED=0
 SUITE_STARTED=$SECONDS
 REPORT_STARTED=$SECONDS
 SLOW_FIXTURE_SECONDS=${SLOW_FIXTURE_SECONDS:-10}
@@ -264,12 +265,17 @@ run_full() { (cd "$1" && CI=1 scripts/ladder.sh 2>&1); }
 run_local() { (cd "$1" && env -u CI scripts/ladder.sh --guards-only 2>&1); }
 
 # --- assertions -------------------------------------------------------------
-report() { # <ok|no> <name> <detail...>
+# `skip` is for a fixture this host cannot run. It is counted apart, so the pass total counts
+# only assertions that ran: a skip reported as `ok` reads, in the summary, exactly like a pass.
+report() { # <ok|no|skip> <name> <detail...>
 	local elapsed=${FIXTURE_ELAPSED_SECONDS:-$((SECONDS - REPORT_STARTED))}
 	record_timing "$2" "$elapsed"
 	if [ "$1" = ok ]; then
 		PASSED=$((PASSED + 1))
 		printf 'ok %03d - %ss - %s\n' "$((PASSED + FAILED))" "$elapsed" "$2" >&2
+	elif [ "$1" = skip ]; then
+		SKIPPED=$((SKIPPED + 1))
+		printf 'skip - %s\n' "$2" >&2
 	else
 		FAILED=$((FAILED + 1))
 		shift
@@ -310,6 +316,24 @@ timing_diagnostics_self_test() {
 			"an out-of-range threshold was accepted"
 	else
 		report ok "timing diagnostics filter and summarize fixtures"
+	fi
+}
+
+# The skip verdict, exercised in a subshell so its counts stay out of the real ones: a skip
+# must raise the skip count, leave the pass and fail counts alone, and say `skip`.
+skip_verdict_probe() {
+	local PASSED=0 FAILED=0 SKIPPED=0
+	report skip "a fixture this host cannot run" 2>&1
+	printf '%s %s %s\n' "$PASSED" "$FAILED" "$SKIPPED"
+}
+skip_verdict_self_test() {
+	local out
+	out=$(skip_verdict_probe)
+	if [ "$(printf '%s\n' "$out" | tail -1)" = '0 0 1' ] &&
+		grep -qxF 'skip - a fixture this host cannot run' <<<"$out"; then
+		report ok "a skipped fixture is counted as skipped, not passed"
+	else
+		report no "a skipped fixture is counted as skipped, not passed" "$out"
 	fi
 }
 
@@ -473,6 +497,7 @@ akia_token() {
 # =============================================================================
 printf 'ladder guard fixtures\n'
 timing_diagnostics_self_test
+skip_verdict_self_test
 
 # --- command-guard.sh: Codex PreToolUse payload -----------------------------
 d=$(mk codex_hook_payload)
@@ -2041,9 +2066,26 @@ if [ ! -e "$planted" ]; then
 else
 	report no "session-start clears the markers under TMPDIR" "the planted marker is still there"
 fi
+# A marker the bootstrap cannot remove is a spent advisory the next session inherits, so it is
+# reported, naming the directory by its role and printing neither the marker, whose name embeds
+# the repository's path (AMH ledger row DD097), nor TMPDIR's value; the boot still exits 0. A directory planted under the marker's name
+# is what `rm -f` cannot remove whoever runs it, root included, where an unwritable directory
+# would not stop root.
+mkdir -p "$planted"
+out=$(cd "$d" && TMPDIR="$td" env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ] && [ -e "$planted" ] &&
+	grep -qF "could not clear the command guard's one-time advisory state under TMPDIR" <<<"$out" &&
+	! grep -qF "state under /tmp" <<<"$out" &&
+	! grep -qF "$marker_name" <<<"$out" && ! grep -qF "$slug" <<<"$out" && ! grep -qF "$td" <<<"$out"; then
+	report ok "session-start reports a marker it cannot clear, by its directory's role, and still exits 0"
+else
+	report no "session-start reports a marker it cannot clear, by its directory's role, and still exits 0" "rc=$rc" "$out"
+fi
+rmdir -- "$planted"
 
 # The two fixtures below need a writable /tmp, the fallback they test; under a sandbox that
-# leaves /tmp read-only they are reported as not run, by name, rather than passed.
+# leaves /tmp read-only they are reported as skipped, by name, rather than passed.
 if [ -w /tmp ]; then
 	# A TMPDIR that is missing or unwritable falls back to /tmp, so the advisory stays one-time: a
 	# marker the guard cannot write would make it fire on every attempt.
@@ -2084,7 +2126,11 @@ if [ -w /tmp ]; then
 		(cd "$d" && env -u TMPDIR -u AMH_REMOTE bash scripts/session-start.sh >/dev/null 2>&1)
 	fi
 else
-	report ok "NOT RUN: the /tmp fallback and /tmp-marker fixtures (/tmp is not writable here)"
+	for f in "a missing TMPDIR still gets the advisory, once" \
+		"a marker under /tmp is reported from a process with TMPDIR set" \
+		"session-start with TMPDIR set clears a marker under /tmp"; do
+		report skip "$f (/tmp is not writable here)"
+	done
 fi
 
 # The `.resumed` sibling rearms too. The bootstrap's pattern stopped at the slug, so it deleted
@@ -3536,6 +3582,6 @@ expect_verdict "the full green verdict names its subject" run_full "$d" 0 \
 	"✓ ladder green"
 
 # =============================================================================
-printf '\n%d passed, %d failed\n' "$PASSED" "$FAILED"
+printf '\n%d passed, %d failed, %d skipped\n' "$PASSED" "$FAILED" "$SKIPPED"
 print_timing_summary
 [ "$FAILED" -eq 0 ]

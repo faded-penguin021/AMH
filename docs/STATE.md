@@ -37,8 +37,8 @@ that unit:
   nothing approved; G1, one review of both, comes first (Owner queue).
 - `2026-11-10-queue-cycle-and-memory-tiers.md`: a draft, nothing approved.
 - `2026-11-19-pr75-review-fixes.md`, adopted with F1, F2 and F3 approved, in that order (owner,
-  2026-11-19): the adopter-facing findings of the train's PR-time review, before the tag. F1 is
-  done (**DD-107**).
+  2026-11-19): the adopter-facing findings of the train's PR-time review, before the tag. F1 and
+  F2 are done (**DD-107**, **DD-108**).
 
 Operational gotchas:
 
@@ -112,6 +112,9 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-19 — **PR #75 review fixes, F2: the bootstrap warns of an advisory marker it cannot
+  clear, the fixture suite counts skips apart, and the installer reads `RULE_FILES` as the ladder
+  does** (**DD-108**).
 - 2026-11-19 — **PR #75 review fixes, F1: the 17.0.0 Upgrading text, the README and the seed
   ledger corrected; every finding reproduced and fixed** (**DD-107**).
 - 2026-11-19 — **Owner: three queue items closed on the session's recommendation** — no

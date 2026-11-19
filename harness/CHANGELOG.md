@@ -111,8 +111,10 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   constitution or runbook that still carries one of the six sections (or, from a light install,
   folded playbooks), a `docs/PROTOCOLS.md` missing one of them, pointers in the constitution,
   state file or runbook that still send a moved section to the runbook (in every shape the
-  seeds used), a `RULE_FILES` that does not list `docs/PROTOCOLS.md`, and a Codex reviewer agent
-  still sent to the runbook. It is advice: the exit status does not change, because every file it
+  seeds used), a `RULE_FILES` that does not cover `docs/PROTOCOLS.md`, and a Codex reviewer agent
+  still sent to the runbook. `RULE_FILES` is read as the ladder reads it — its effective value
+  once `amh.conf` has run, an entry covering everything under it — so a `docs` entry counts and
+  a later reassignment that drops the file does not. It is advice: the exit status does not change, because every file it
   reads is yours.
 
 ### Upgrading
@@ -132,11 +134,17 @@ changed against 16.1.1, and the manifest changes with them:
   path on stderr; and its self-test gains a fixture for each tier's unwritable marker. Its header
   and one comment also say why six data-plane verbs are still absent.
 - `session-start.sh` clears the command guard's markers under an absolute `TMPDIR` as well as
-  under `/tmp`, quietly skipping a directory it cannot write.
+  under `/tmp`. A directory holding a marker it cannot remove gets a banner warning that names
+  it as `/tmp` or `TMPDIR`, printing neither the marker nor `TMPDIR`'s value, since a marker left
+  there is an advisory the session may never see; the exit status stays 0. One comment now calls a tree without a runbook an incomplete or
+  legacy install, since every profile installs one.
 - `ladder.sh` exits red, before any rung runs, when it cannot create its scratch directory.
 - `test-ladder-guards.sh` checks its own `mktemp -d`, keeps `TMPDIR` through the no-hasher
   fixture's `env -i`, and gains fixtures for the ladder's scratch directory, for the markers
-  under `TMPDIR` and `/tmp`, and for `session-start.sh` clearing both.
+  under `TMPDIR` and `/tmp`, for `session-start.sh` clearing both, and for its warning about a
+  marker it cannot clear. A fixture this host cannot run, such as the `/tmp` fallback ones under
+  a read-only `/tmp`, is now reported as `skip` and counted apart, so its closing line reads
+  `N passed, M failed, K skipped` and the pass total counts only assertions that ran.
 
 None of these needs anything else from you, but if a guard of your own under `scripts/guards/`
 takes an unchecked `mktemp`, it has the shape the ladder had: check the call and exit non-zero

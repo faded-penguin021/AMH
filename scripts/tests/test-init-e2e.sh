@@ -1118,7 +1118,7 @@ for p in standard full; do
 		printf '%s' "$out" | grep -qF 'AGENTS.md never mentions docs/PROTOCOLS.md' &&
 		printf '%s' "$out" | grep -qF 'docs/RUNBOOK.md still has a section that now lives elsewhere: Acceptance ladder, Adversarial review protocol, Incident: leaked credential, Rule-review protocol, Session discipline, Working-memory compression' &&
 		printf '%s' "$out" | grep -qE 'docs/STATE\.md sends [0-9]+ pointer' &&
-		printf '%s' "$out" | grep -qF 'amh.conf: RULE_FILES does not list docs/PROTOCOLS.md' &&
+		printf '%s' "$out" | grep -qF 'amh.conf: RULE_FILES does not cover docs/PROTOCOLS.md' &&
 		printf '%s' "$out" | grep -qF '.codex/agents/amh-rule-reviewer.toml still sends its reviewer to docs/RUNBOOK.md'; then
 		pass
 	else
@@ -1197,11 +1197,36 @@ sed_in_place 's#| `docs/PROTOCOLS.md` → \*\*Working-memory compression\*\* |#|
 out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
 if printf '%s' "$out" | grep -qF 'AGENTS.md sends 1 pointer(s) to the runbook' &&
 	printf '%s' "$out" | grep -qF 'docs/RUNBOOK.md sends 1 pointer(s) to the runbook' &&
-	printf '%s' "$out" | grep -qF 'amh.conf: RULE_FILES does not list docs/PROTOCOLS.md' &&
+	printf '%s' "$out" | grep -qF 'amh.conf: RULE_FILES does not cover docs/PROTOCOLS.md' &&
 	printf '%s' "$out" | grep -qF '.codex/agents/amh-rule-reviewer.toml still sends its reviewer'; then
 	pass
 else
 	fail "the old incident and doc-index pointer forms and both configuration steps are reported" "$out"
+fi
+
+# RULE_FILES is judged as the ladder judges it: by its effective value, an entry covering
+# everything under it. A `docs` entry covers the binding document, so it must not be reported;
+# a later reassignment that drops it must be, whatever the first assignment lists.
+d=$(target rule_files_directory_entry)
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+sed_in_place "s#^RULE_FILES='AGENTS.md docs/PROTOCOLS.md docs/RUNBOOK.md #RULE_FILES='AGENTS.md docs #" "$d/amh.conf"
+out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
+if grep -qE "^RULE_FILES='AGENTS.md docs " "$d/amh.conf" &&
+	! printf '%s' "$out" | grep -qF 'RULE_FILES does not cover' &&
+	! printf '%s' "$out" | grep -qF 'Migrate to'; then
+	pass
+else
+	fail "a RULE_FILES directory entry that covers docs/PROTOCOLS.md is not reported" "$out"
+fi
+d=$(target rule_files_reassigned)
+"$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
+printf "RULE_FILES='AGENTS.md amh.conf'\n" >>"$d/amh.conf"
+out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
+if grep -qE "^RULE_FILES='AGENTS.md docs/PROTOCOLS.md " "$d/amh.conf" &&
+	printf '%s' "$out" | grep -qF 'amh.conf: RULE_FILES does not cover docs/PROTOCOLS.md'; then
+	pass
+else
+	fail "a later RULE_FILES reassignment that drops docs/PROTOCOLS.md is reported" "$out"
 fi
 
 # A binding document the adopter already had is kept, like any file of theirs, so it is its

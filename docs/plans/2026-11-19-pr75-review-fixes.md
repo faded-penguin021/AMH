@@ -126,6 +126,11 @@ bullet list at the head of the 17.0.0 entry's **Upgrading** subsection.
 byte-identical; the manifest regenerated; the full ladder green; the rule review run and
 triaged.
 
+**Status: done 2026-11-19 (DD-108).** All four findings reproduced and are fixed. One departure
+from the letter: the warning names the directory by its role, `/tmp` or `TMPDIR`, rather than
+printing `TMPDIR`'s value, which the rule review showed can carry a home directory. The rule
+review's other findings are applied, all in DD-108.
+
 ### F3 — the command guard's advisory state (shipped script)
 
 All four are the reviewer's claims, so reproduce each one in a `mktemp -d` state directory
