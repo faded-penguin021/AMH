@@ -895,6 +895,14 @@ else
 	printf '  FAIL adapter-set: the literal /proc fixture inserted nothing; its anchor line moved\n' >&2
 fi
 
+# The machine-mode fragment too (DD-104): merged into the user settings, its deny rules reach a
+# project's sandbox and expand per running process as the project's do (DD-100).
+d=$(snapshot adapter_machine_proc_wildcard_back)
+sed_in_place 's|^      "Read(/proc/\*\*/environ)",$|&\
+      "Read(//proc/**/environ)",|' "$d/harness/templates/configs/claude-machine-settings.json"
+expect fail "adapter-set: the machine template carries a root-anchored /proc wildcard again" "$d" adapter-set.sh \
+	'claude-machine-settings.json: carries a root-anchored /proc rule with a wildcard ("Read(//proc/**/environ)")'
+
 # The machine-mode template (DD-063): a user-level fragment no ladder can see once it is installed,
 # so each way of shipping it wrong fails here. A hook without `--machine` would install the full
 # project guard for every session on the machine.

@@ -283,10 +283,32 @@ rather than replacing it:
   settings outrank it, and `--restricted` ignores it.
 - **Codex** sandboxes by default. AMH's Codex adapter sets no sandbox key, so it relies on
   Codex's default and on whatever policy you configured, and does not enforce either.
-- **Nothing here is observed yet.** `scripts/guards/adapter-set.sh` checks that the shipped files
-  ask for exactly this and nothing looser. That is configuration validation, not a test of a
-  running session. No platform has yet been probed in a live sandboxed session, so every cell —
-  macOS, Linux, WSL2, under either host — is unverified until one is.
+- **One host was probed live, and only what it showed is claimed.**
+  `scripts/guards/adapter-set.sh` checks that the shipped files ask for exactly this and nothing
+  looser, which is configuration validation, not a test of a running session. The live probe ran
+  Claude Code 2.1.327 with `bubblewrap` 0.9.0 in a throwaway Ubuntu 24.04 container, started with
+  `seccomp=unconfined` on a WSL2 kernel, twice on 2026-11-18. Inside the sandbox there:
+  - each command ran in its own PID namespace;
+  - a write outside the working tree was refused, after the same write had landed outside the
+    sandbox;
+  - writes inside the tree, writes to `TMPDIR` and a `git commit` worked;
+  - the session bootstrap, the command guard's one-time advisory and the full ladder all worked;
+  - in the second run, against one GitHub repository, a `git push` over HTTPS to a host nobody
+    had allowed was refused in the `default` and `dontAsk` permission modes, and reached the remote
+    under `bypassPermissions` or once the host was allowed (the first run's token could not reach
+    that repository, so it settled nothing);
+  - the shipped rules held at 279 `bwrap` arguments up to about 4,500 running processes.
+
+  With `bwrap` hidden from `PATH`, the same command ran unsandboxed, behind the `Sandbox disabled`
+  warning. The evidence is in this repository's ledger, `docs/LEDGER_D.md`, rows DD-100 and
+  DD-102.
+- **A linked worktree is a limit.** `.git/worktrees/` is read-only inside the sandbox, so a
+  sandboxed command cannot create a linked worktree or commit in one made beforehand. Run that
+  work in your own terminal.
+- **Everything else is unverified.** That covers macOS, Linux outside a container and with its
+  own kernel, and Codex's sandbox. It covers whether a sandboxed command on WSL2 can launch a
+  Windows program, and whether Claude Code's Read tool honours the `/proc` rails, since the probed
+  model never called it on them. It also covers any other Claude Code or `bubblewrap` version.
 
 ## Who it is for
 

@@ -64,9 +64,10 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   seen saying so only in a `Sandbox disabled` warning on stderr;
   `failIfUnavailable` stays unset because it would stop Claude Code starting on native Windows,
   and `amh.conf.example` now suggests listing `bwrap socat` in `REQUIRED_TOOLS` so the session
-  banner shows them. The Codex adapter sets no sandbox key and relies on Codex's default. No
-  platform has been probed in a live sandboxed session: what ships is configuration, and every
-  containment cell is unverified.
+  banner shows them. The Codex adapter sets no sandbox key and relies on Codex's default. One host
+  was probed live, Claude Code 2.1.327 in a Linux container on a WSL2 kernel: the README's
+  **The host's sandbox** claims only the cells that passed there, records linked worktrees as a
+  limit, and leaves every other platform and cell unverified.
 - **The Claude Code adapter drops the two root-anchored `/proc` deny rules 16.1.1 added,**
   `Read(//proc/*/environ)` and `Read(//proc/**/environ)`. With the sandbox on, Claude Code
   expands each into bwrap arguments for every running process: in a throwaway box they refused
@@ -75,8 +76,8 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   tool was seen refusing `/proc/<pid>/environ` by itself, once, on one version; the single-slash
   pair stays. `scripts/guards/adapter-set.sh`, which required both rules, now fails a
   root-anchored `/proc` deny rule with a wildcard in either Claude file. The machine-mode
-  fragment keeps its `//proc` rules; whether they reach a project's sandbox when both load is
-  unmeasured.
+  fragment drops the same two rules, and the same check now covers it: merged into the user
+  settings, they were measured reaching a project's sandbox at the same per-process cost.
 - **The command guard's one-time advisory markers move to `TMPDIR` when it names an absolute,
   writable directory**, and `/tmp` otherwise; `--advisory-report`, `--spawn-report` and
   `session-start.sh` look in both, because a hook outside a host sandbox may see no `TMPDIR`
@@ -179,13 +180,22 @@ Then apply the test-first rules by hand, because seeds are yours:
    or it does nothing beyond a warning on stderr. Only on a yes, add the top-level `sandbox` block from
    `harness/templates/configs/claude-settings.json` to `.claude/settings.json`, keeping
    everything the file already holds and without printing its contents. In the same change,
-   remove `Read(//proc/*/environ)` and `Read(//proc/**/environ)` from `permissions.deny` if 16.1.1's
-   note had you add them: with the sandbox on they expand per running process, and past bwrap's
-   limit every shell command is refused. If the user also installed the machine-mode fragment,
-   say that it keeps the same two rules at user level and that whether they reach the project's
-   sandbox is unmeasured; if sandboxed commands then fail with a bwrap error, remove them there
-   too, on the user's yes. On Linux or WSL2, also
-   offer to add `bwrap socat` to `REQUIRED_TOOLS` in `amh.conf`. Codex needs nothing.
+   remove `Read(//proc/*/environ)` and `Read(//proc/**/environ)` from `permissions.deny` if the
+   file carries them, as a 16.1.1 install does and as 16.1.1's note had an older one add them:
+   with the sandbox on they expand per running process, and past bwrap's limit every shell
+   command is refused. On Linux or WSL2, also offer to add `bwrap socat` to `REQUIRED_TOOLS` in
+   `amh.conf`. Codex needs nothing.
+6. **If the machine-mode fragment is installed, offer to remove its two root-anchored `/proc`
+   rules; do not remove them unasked.** This release's fragment no longer carries
+   `Read(//proc/*/environ)` or `Read(//proc/**/environ)`, and `docs/UPGRADING.md`'s merge only
+   adds, so a refreshed install keeps them. In `~/.claude/settings.json` they reach the sandbox
+   of every project that turns one on, this one or any other, and expand there per running
+   process as a project's own did. Ask whatever the user answered in step 5, and whether or not
+   they refreshed the fragment. Only on a yes, remove exactly those two entries from
+   `permissions.deny` in `~/.claude/settings.json` with a program that never shows the file, and
+   change nothing else; the single-slash
+   `Read(/proc/*/environ)` and `Read(/proc/**/environ)` stay. With no way to ask, change nothing
+   outside this repository and say so in your final report.
 
 This rule is what makes the release MAJOR, on the precedent of 16.0.0: a session that wrote a
 fix and then its test, or changed an existing test to make a fix pass, was within the rules

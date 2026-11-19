@@ -497,6 +497,14 @@ else
 	if [ "$machine_hooks" -ne 1 ]; then
 		note "$MACHINE_TEMPLATE: $machine_hooks command hook(s) found at any layout, where the machine-mode fragment ships exactly one — a hook added there runs in every session on the machine, beside no project for a project-relative path to resolve against (DD-063)"
 	fi
+	# No root-anchored /proc rule with a wildcard here either (DD-104), read exactly as the Claude
+	# files are above and with the same limits, a `\u` escape among them. The fragment sets no
+	# sandbox, but merged into the user settings its deny rules reached a project's sandbox and
+	# grew per running process at the rate the project's own did (DD-100).
+	proc_rules=$(grep -oE '"Read\(([\]?/){2,}proc[\]?/[^"]*[][*?][^"]*\)"' "$MACHINE_TEMPLATE")
+	if [ -n "$proc_rules" ]; then
+		note "$MACHINE_TEMPLATE: carries a root-anchored /proc rule with a wildcard ($(printf '%s' "$proc_rules" | tr '\n' ' ' | sed 's/ $//')). Merged into the user settings, it reaches a project's sandbox, where Claude Code expands it into bwrap arguments for every running process at the rate a project's own copy grew, which past bwrap's limit refused every shell command (DD-100, DD-104)"
+	fi
 	# The EVENT the hook sits under is read too: the same exact entry under `"PostToolUse"` runs
 	# after the command it was meant to stop. The last capitalised key opening an array before
 	# the command line is the event; `"hooks"` and `"deny"` are lower-case and never match.

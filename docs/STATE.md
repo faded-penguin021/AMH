@@ -26,11 +26,10 @@ Release state: `scripts/session-start.sh` probes the declared version's tag ever
 Live plans, each in `docs/plans/`, where a unit starts only on the owner's explicit approval of
 that unit:
 
-- `2026-11-01-harness-research-gaps.md`, adopted: every unit done except H8, parked, and H4b's
-  follow-up, whose live probes ran on 2026-11-18; the owner cleared the tag block and approved
-  the unit that drops the machine-mode `//proc` rules, claims the passed cells and runs
-  acceptance (f) here (2026-11-19, **DD-103**). Before a unit starts the session names the decisions it needs and
-  waits for the answers; a fresh-context review is pre-allowed for every unit (owner, 2026-11-09).
+- `2026-11-01-harness-research-gaps.md`, adopted: every unit done, H4b's follow-up last
+  (**DD-103** to **DD-105**), except H8, parked. Before a unit starts the session names the
+  decisions it needs and waits for the answers; a fresh-context review is pre-allowed for every
+  unit (owner, 2026-11-09).
 - `2026-11-04-spill-guard-borrowings.md`, adopted: S1, S2, S6a and S3 approved on 2026-11-10, to
   run in that order, each with its own review and its version settled when its behaviour is
   final (its §2, items 4 and 5); S4, S5, S6b and S6c deferred.
@@ -116,6 +115,9 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-19 — **H4b follow-up, the last: the machine-mode fragment drops its `//proc` rules
+  under `adapter-set.sh`, the README claims only the passed sandbox cells, and acceptance (f)
+  passed in both arms** (**DD-104**, **DD-105**).
 - 2026-11-19 — **The owner cleared DD-088's tag block and chose to drop the machine-mode
   `//proc` rules,** each on the session's recommendation (**DD-103**).
 

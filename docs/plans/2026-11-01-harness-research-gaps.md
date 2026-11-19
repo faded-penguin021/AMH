@@ -739,10 +739,13 @@ fi
     and unallowed pushes outside `bypassPermissions` are refused; linked worktrees fail; the
     machine-mode fragment's `//proc` rules reach a project's sandbox from the user settings; the
     Read tool on `/proc` and the WSL2 cell stay unverified.
-  - **Owed:** the follow-up that claims only the cells that passed (README, ledger row, commit
-    body), (f) here, and dropping the machine-mode fragment's `//proc` rules. The owner answered
-    the run's two decisions on 2026-11-19, each as recommended (**DD-103**): DD-088's tag block is
-    cleared, and the fragment drops its `//proc` rules; the unit that does the rest is approved.
+  - **Done 2026-11-19, the last of H4b:** the owner answered the run's two decisions, each as
+    recommended (**DD-103**): DD-088's tag block is cleared, and the fragment drops its `//proc`
+    rules. The approved unit then dropped them, with `adapter-set.sh` covering the fragment
+    (**DD-104**). The README claims only the cells that passed, records linked worktrees as a limit
+    and leaves the rest unverified. Acceptance (f) passed in both arms, run by fresh-context agents
+    against a scratch 16.1.1 install (**DD-105**). Not verified, and so claimed by none of them: the
+    Read tool on `/proc`, the WSL2 Windows-program cell, and every other platform.
     The owner answered the four decisions on 2026-11-17, each as recommended
     (**DD-094**): removal of the `//proc` rules allowed, the `/tmp` fixes a unit of their own,
     worktree creation a recorded limit, and the run driven by a session on the owner's host.
