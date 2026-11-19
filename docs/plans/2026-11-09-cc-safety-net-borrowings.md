@@ -727,7 +727,7 @@ Nor is H4a's completion a prerequisite.
 
 cc-safety-net refuses the host outright.
 
-#### N8 — a narrow `find` arm for the permanent targets (deferred; Owner queue)
+#### N8 — a narrow `find` arm for the permanent targets (declined, owner 2026-11-19, DD-106)
 
 **What it would cover.** `find ~ -delete`, `find / -delete` and `find <target> -exec rm -rf {} +`,
 aimed at `names_catastrophic_target`'s list.

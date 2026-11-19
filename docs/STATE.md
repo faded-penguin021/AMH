@@ -58,10 +58,6 @@ guard reads a `'` inside one as opening a string that hides the rest; no plan co
 guard's header names it, and it reaches heredoc bodies too (**DD-059**).
 Check: `scripts/command-guard.sh --command "echo \`echo 'x\`; printenv"` — exit 0 means open.
 
-**OPEN — decide whether to fix the command guard's payload parser on a non-UTF-8 code page
-(**DD-069**).** An encode or decode error is swallowed and the command passes unjudged; measured
-on Linux only, and no host here can test the fix. No check settles it.
-
 **OPEN — the research-gaps plan's remaining §1 decisions.** Whether P6 admits retiring a
 compensation stays open until one is proposed, with H5's classification as input (**DD-082**);
 an H8 incident-bar exception is asked if H8 reopens; the combined order is the item below. No
@@ -76,19 +72,14 @@ Check: `scripts/command-guard.sh --command 'rm -r ~'` — exit 0 means that gap 
 **OPEN — decide on the queue-cycle plan, `docs/plans/2026-11-10-queue-cycle-and-memory-tiers.md`:
 review first (M1), adoption, and the facts its §2, item 3 asks for.** No check settles it.
 
-**OPEN — decide two recommendations of the N1 review it could not apply.** (1) A `find` arm for
-the permanent targets, which **DD-018** declined (the plan's N8). (2) The cross-plan order and
-release placement in that plan's §2, decision 3; H0.5's recommended order is in the research-gaps
-plan's §7.1. No check settles it.
+**OPEN — decide the N1 review's last recommendation it could not apply:** the cross-plan order
+and release placement in that plan's §2, decision 3; H0.5's recommended order is in the
+research-gaps plan's §7.1. No check settles it.
 
 **OPEN — tag `amh-v17.0.0` once this train is merged.** MAJOR (owner, 2026-11-17, **DD-094**),
 no longer blocked by H4b (owner, 2026-11-19, **DD-103**). Tagging is an owner step, and the README's clone command names the
 tag. Check: `git ls-remote --tags origin amh-v17.0.0` — no output means open.
 
-**OPEN — decide whether to build a guard for a fix that changes an existing test (**DD-073**).**
-The rule is prose-only; a WARN-only advisory over configured test paths is buildable, but no
-violation is recorded and a guard is earned by an incident. Recommendation: wait for one. No check
-settles it.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
@@ -109,12 +100,18 @@ from.
   proposals (**DB-024**); a guard that opens a file to classify it (**DB-027**); a configurable
   ledger-id prefix (**DC-015**); ledger immutability across commits (**DC-020**); a guard that
   judges a State sentence's temporal validity (**DD-006**).
+- **2026-11-19:** a payload-parser fix for a non-UTF-8 code page until a host can test it
+  (**DD-069**); a guard for a fix that changes an existing test until an incident earns one
+  (**DD-073**); a `find` arm for the permanent targets, N8 (**DD-018**); all three **DD-106**.
 
 ## Changelog
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-19 — **Owner: three queue items closed on the session's recommendation** — no
+  non-UTF-8 parser fix until testable, no test-change guard until an incident, no `find` arm
+  (**DD-106**).
 - 2026-11-19 — **H4b follow-up, the last: the machine-mode fragment drops its `//proc` rules
   under `adapter-set.sh`, the README claims only the passed sandbox cells, and acceptance (f)
   passed in both arms** (**DD-104**, **DD-105**).
