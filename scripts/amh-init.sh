@@ -835,8 +835,10 @@ remaining=''
 for rel in ${INSTALLED[@]+"${INSTALLED[@]}"}; do
 	f="$TARGET/$rel"
 	[ -f "$f" ] || continue
-	if grep -ohE '\{\{[A-Z_][A-Z0-9_]*\}\}' "$f" 2>/dev/null |
-		grep -qvE '^\{\{(PLACEHOLDER|X)\}\}$'; then
+	# Captured, then matched, as the guard does: a pipe into `grep -qv` under `pipefail` reads
+	# an unfilled slot as none once the reader exits early (DD-110).
+	if toks=$(grep -ohE '\{\{[A-Z_][A-Z0-9_]*\}\}' "$f" 2>/dev/null) &&
+		grep -qvE '^\{\{(PLACEHOLDER|X)\}\}$' <<<"$toks"; then
 		remaining="$remaining$rel$NL"
 	fi
 done

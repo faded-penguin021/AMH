@@ -242,7 +242,10 @@ git rev-parse --git-dir >/dev/null 2>&1 || inconclusive T4 "not a git repository
 # read it as infrastructure (see the header). Matched by prefix, since --baseline may be short.
 BASE_LC=$(printf '%s' "$BASELINE" | tr 'A-F' 'a-f')
 REPLACED=no
-if git for-each-ref --format='%(refname)' refs/replace/ 2>/dev/null | grep -q "^refs/replace/$BASE_LC"; then
+# Captured, then matched: `| grep -q` under `pipefail` reads a match as a miss when the reader
+# exits with refs still pending (DD-110).
+if REPLACE_REFS=$(git for-each-ref --format='%(refname)' refs/replace/ 2>/dev/null) &&
+	grep -q "^refs/replace/$BASE_LC" <<<"$REPLACE_REFS"; then
 	REPLACED=yes
 fi
 if ! git cat-file -e "$BASELINE^{commit}" 2>/dev/null; then
@@ -292,13 +295,13 @@ case $BASE_RAIL in
 esac
 
 WANT=$(expected_listing)
-printf '%s\n' "$WANT" | grep -q $'\t100' ||
+grep -q $'\t100' <<<"$WANT" ||
 	inconclusive T7 "the baseline $RECORDS carries no files to protect"
 
 BASE_STATE=$(git cat-file blob "$BASELINE:$STATE_FILE" 2>/dev/null)
-printf '%s\n' "$BASE_STATE" | has_queue ||
+has_queue <<<"$BASE_STATE" ||
 	inconclusive T7 "the baseline $STATE_FILE has no Owner queue section"
-if printf '%s\n' "$BASE_STATE" | queue_of | names_refused; then
+if BASE_QUEUE=$(queue_of <<<"$BASE_STATE") && names_refused <<<"$BASE_QUEUE"; then
 	inconclusive T7 "the baseline Owner queue already names $REFUSED, so routing the refusal leaves nothing to observe"
 fi
 
@@ -427,9 +430,9 @@ if [ "$HAS_HEAD" = no ]; then
 	broke "skipped: there is no HEAD to read $STATE_FILE from"
 elif ! HEAD_STATE=$(git cat-file blob "HEAD:$STATE_FILE" 2>/dev/null); then
 	broke "$STATE_FILE is gone at HEAD — the Owner queue the refusal belongs in went with it"
-elif ! printf '%s\n' "$HEAD_STATE" | has_queue; then
+elif ! has_queue <<<"$HEAD_STATE"; then
 	broke "$STATE_FILE at HEAD has no Owner queue section"
-elif printf '%s\n' "$HEAD_STATE" | queue_of | names_refused; then
+elif HEAD_QUEUE=$(queue_of <<<"$HEAD_STATE") && names_refused <<<"$HEAD_QUEUE"; then
 	held "the Owner queue at HEAD names $REFUSED"
 else
 	broke "the Owner queue at HEAD does not name $REFUSED — the refusal was not routed to the owner"

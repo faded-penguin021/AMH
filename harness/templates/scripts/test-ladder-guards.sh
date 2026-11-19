@@ -504,7 +504,7 @@ d=$(mk codex_hook_payload)
 out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat .env"}}' |
 	scripts/command-guard.sh 2>&1)
 rc=$?
-if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'prefer presence-only checks'; then
+if [ "$rc" -eq 2 ] && grep -qF 'prefer presence-only checks' <<<"$out"; then
 	report ok "a forbidden Codex Bash payload is blocked with the instructive reason"
 else
 	report no "a forbidden Codex Bash payload is blocked with the instructive reason" "rc=$rc" "$out"
@@ -531,7 +531,7 @@ if [ "$rc" -eq 0 ]; then report ok "a non-Bash Codex payload fails open"; else r
 out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"PowerShell","tool_input":{"command":"Remove-Item -Recurse -Force C:\\"}}' |
 	scripts/command-guard.sh 2>&1)
 rc=$?
-if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'the root of a Windows drive'; then
+if [ "$rc" -eq 2 ] && grep -qF 'the root of a Windows drive' <<<"$out"; then
 	report ok "a PowerShell payload deleting a drive root is blocked by the PowerShell reader"
 else
 	report no "a PowerShell payload deleting a drive root is blocked by the PowerShell reader" "rc=$rc" "$out"
@@ -557,7 +557,7 @@ if [ "$rc" -eq 2 ]; then report ok "a Codex Bash payload is guarded without Pyth
 out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"PowerShell","tool_input":{"command":"Remove-Item -Recurse -Force C:\\"}}' |
 	env PATH="$fallback_path" scripts/command-guard.sh 2>&1)
 rc=$?
-if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'the root of a Windows drive'; then
+if [ "$rc" -eq 2 ] && grep -qF 'the root of a Windows drive' <<<"$out"; then
 	report ok "a PowerShell payload is guarded without Python"
 else
 	report no "a PowerShell payload is guarded without Python" "rc=$rc" "$out"
@@ -569,14 +569,14 @@ fi
 incident_payload='{"hook_event_name":"PreToolUse","tool_name":"PowerShell","tool_input":{"command":"cmd /c \"rmdir /s /q \\\"\\\\?\\C:\\x\\\"\"","description":"clean up worktrees"}}'
 out=$(cd "$d" && printf '%s' "$incident_payload" | env PATH="$fallback_path" scripts/command-guard.sh 2>&1)
 rc=$?
-if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'nested quotes'; then
+if [ "$rc" -eq 2 ] && grep -qF 'nested quotes' <<<"$out"; then
 	report ok "the incident command is denied without Python, decoded from its JSON escapes"
 else
 	report no "the incident command is denied without Python, decoded from its JSON escapes" "rc=$rc" "$out"
 fi
 out=$(cd "$d" && printf '%s' "$incident_payload" | scripts/command-guard.sh 2>&1)
 rc=$?
-if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'nested quotes'; then
+if [ "$rc" -eq 2 ] && grep -qF 'nested quotes' <<<"$out"; then
 	report ok "the incident command is denied through the Python reader"
 else
 	report no "the incident command is denied through the Python reader" "rc=$rc" "$out"
@@ -596,22 +596,22 @@ printf '%s\n' "printf 'AMH-CONF-WAS-SOURCED\\n' >&2" 'DEFAULT_BRANCH=feature' >"
 # The control: the SAME copy in project mode reads that file, so the marker is live and its
 # absence below is evidence, not a trap that could never fire.
 out=$(cd "$mh/elsewhere" && bash "$mguard" --command 'printf ok' 2>&1)
-if printf '%s' "$out" | grep -qF 'AMH-CONF-WAS-SOURCED'; then
+if grep -qF 'AMH-CONF-WAS-SOURCED' <<<"$out"; then
 	report ok "machine-mode fixture: the amh.conf beside the copy is read in project mode (the marker is live)"
 else
 	report no "machine-mode fixture: the amh.conf beside the copy is read in project mode (the marker is live)" "$out"
 fi
 out=$(cd "$mh/elsewhere" && printf '%s' "$incident_payload" | bash "$mguard" --machine 2>&1)
 rc=$?
-if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'nested quotes' &&
-	printf '%s' "$out" | grep -qF 'in machine mode' && ! printf '%s' "$out" | grep -qF 'AMH-CONF-WAS-SOURCED'; then
+if [ "$rc" -eq 2 ] && grep -qF 'nested quotes' <<<"$out" &&
+	grep -qF 'in machine mode' <<<"$out" && ! grep -qF 'AMH-CONF-WAS-SOURCED' <<<"$out"; then
 	report ok "machine mode denies the incident payload, names itself, and reads no amh.conf"
 else
 	report no "machine mode denies the incident payload, names itself, and reads no amh.conf" "rc=$rc" "$out"
 fi
 out=$(cd "$mh/elsewhere" && printf '%s' "$incident_payload" | env PATH="$fallback_path" bash "$mguard" --machine 2>&1)
 rc=$?
-if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'nested quotes'; then
+if [ "$rc" -eq 2 ] && grep -qF 'nested quotes' <<<"$out"; then
 	report ok "machine mode denies the incident payload without Python"
 else
 	report no "machine mode denies the incident payload without Python" "rc=$rc" "$out"
@@ -619,7 +619,7 @@ fi
 out=$(cd "$mh/elsewhere" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printenv"}}' |
 	bash "$mguard" --machine 2>&1)
 rc=$?
-if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'prints credential values'; then
+if [ "$rc" -eq 2 ] && grep -qF 'prints credential values' <<<"$out"; then
 	report ok "machine mode keeps the credential rails"
 else
 	report no "machine mode keeps the credential rails" "rc=$rc" "$out"
@@ -640,21 +640,21 @@ mkdir -p "$mh/shadowed"
 home_payload='{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"rm -rf ~"}}'
 out=$(cd "$mh/shadowed" && printf '%s' "$home_payload" | bash "$mguard" --machine 2>&1)
 rc=$?
-if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'your home directory'; then
+if [ "$rc" -eq 2 ] && grep -qF 'your home directory' <<<"$out"; then
 	report ok "a json.py in the session's directory does not switch machine mode off"
 else
 	report no "a json.py in the session's directory does not switch machine mode off" "rc=$rc" "$out"
 fi
 out=$(cd "$mh/shadowed" && printf '%s' "$home_payload" | bash "$ROOT/scripts/command-guard.sh" 2>&1)
 rc=$?
-if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'your home directory'; then
+if [ "$rc" -eq 2 ] && grep -qF 'your home directory' <<<"$out"; then
 	report ok "a json.py in the session's directory does not switch the project guard off"
 else
 	report no "a json.py in the session's directory does not switch the project guard off" "rc=$rc" "$out"
 fi
 out=$(cd "$mh/elsewhere" && printf '' | bash "$mguard" --machine --pre-push 2>&1)
 rc=$?
-if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF -- '--machine [--command CMD|--powershell CMD]'; then
+if [ "$rc" -eq 2 ] && grep -qF -- '--machine [--command CMD|--powershell CMD]' <<<"$out"; then
 	report ok "machine mode refuses a repository entry point with its usage line"
 else
 	report no "machine mode refuses a repository entry point with its usage line" "rc=$rc" "$out"
@@ -746,7 +746,7 @@ pp_block() { # <name> <stdin line> — must exit 2 AND name the pre-push rail
 	local out rc
 	out=$(cd "$d" && printf '%s\n' "$2" | scripts/command-guard.sh --pre-push 2>&1)
 	rc=$?
-	if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF 'AMH pre-push rail'; then
+	if [ "$rc" -eq 2 ] && grep -qF 'AMH pre-push rail' <<<"$out"; then
 		report ok "$1"
 	else
 		report no "$1" "rc=$rc" "$out"
@@ -1664,6 +1664,15 @@ sed_in_place 's/^--baseline)/--baseline-removed)/' "$d/scripts/redact.sh"
 expect_fail "a redact.sh with no --baseline mode makes the scan refuse rather than pass" "$d" \
 	"has no working --baseline mode"
 
+# A broken filter that passes the canary through and then prints a long tail. The control
+# piped it into `grep -qF` under `pipefail`: grep matched the first line and exited, the filter
+# took EPIPE, and the failed pipeline read as "redacted" — every run, the tail being far past a
+# pipe buffer (AMH ledger row DD110). The message pins WHICH control refused.
+d=$(mk secret_canary_long_tail)
+printf '#!/usr/bin/env bash\ncat\nyes "a broken filter appends this line" | head -n 30000\n' >"$d/scripts/redact.sh"
+expect_fail "a pass-through filter with a long tail fails the redaction control" "$d" \
+	"did not redact a generated test token"
+
 # A file name with a space: the file list must be NUL-separated, or the scan
 # silently skips it — a hole that looks exactly like a pass.
 d=$(mk secret_spacey)
@@ -2466,6 +2475,35 @@ ss_unanswered continuation_uncountable 'rev-list*' \
 	"· working memory: could not count the commits that build on this checkout — NOT checked" built-on
 ss_unanswered default_uncountable 'rev-list*' \
 	"· working memory: could not count what origin/main adds to docs/STATE.md — NOT checked" none
+
+# A count that failed, ahead of 200 KiB of others. The check asked `printf | grep -q '^x '` under
+# `pipefail`: grep matched the first line and exited, the writer took EPIPE, and the banner
+# printed `x newer commit(s)` as an answer instead of NOT checked — on every run, past two pipe
+# buffers (AMH ledger row DD110). A thousand branches, each on its own commit built on this
+# checkout, made in one fast-import; the shim fails every count, so every line is a failed one.
+d=$(mk ss_newer_state_uncountable_many)
+shim="$WORK/ss_newer_state_uncountable_many_shim"
+pad=$(printf '%0180d' 0)
+if ss_git "$d" checkout -q -b session/x 2>/dev/null && ss_state_commit "$d" "- unit 1" &&
+	head=$(ss_git "$d" rev-parse HEAD) &&
+	for ((i = 1; i <= 1000; i++)); do
+		printf 'commit refs/heads/many/%s-%04d\ncommitter f <f@example.invalid> 0 +0000\ndata 5\nc%04d\nfrom %s\n\n' \
+			"$pad" "$i" "$i" "$head"
+	done | ss_git "$d" fast-import --quiet 2>/dev/null &&
+	[ "$(ss_git "$d" for-each-ref --contains HEAD refs/heads/many | wc -l)" -eq 1000 ] &&
+	ss_shim "$shim" 'rev-list*'; then
+	out=$(cd "$d" && PATH="$shim:$PATH" env -u AMH_REMOTE bash scripts/session-start.sh 2>&1)
+	if grep -qF "· working memory: could not count the commits that build on this checkout — NOT checked" <<<"$out" &&
+		! grep -qE 'nothing that builds|has no newer|OLDER' <<<"$out"; then
+		report ok "a failed count ahead of 200 KiB of others is reported as NOT checked"
+	else
+		report no "a failed count ahead of 200 KiB of others is reported as NOT checked" \
+			"it was read as an answer — an early-exiting reader under pipefail" "$out"
+	fi
+else
+	report no "a failed count ahead of 200 KiB of others is reported as NOT checked" \
+		"setup: could not build a thousand branches on the checkout"
+fi
 
 d=$(mk ss_newer_state_unborn)
 ss_git "$d" checkout -q --orphan unborn 2>/dev/null
@@ -3565,6 +3603,43 @@ if grep -qF "Local advisories" <<<"$out"; then
 	report no "advisories stay out of CI" "the advisory section ran under CI=1" "$out"
 else
 	report ok "advisories stay out of CI"
+fi
+
+# A state file listed FIRST among more changed paths than two pipe buffers hold. The advisory
+# asked `printf | grep -qF` under `pipefail`: grep matched the first line and exited, the writer
+# took EPIPE, and the pipeline's failure read as "the state file is not among them" — on every
+# run, because 64 KiB is all the pipe can hold before grep has read anything (AMH ledger row
+# DD110). The paths are DELETED on the branch, so the scan rungs have no files to read and the
+# case stays fast. "Local advisories" is checked first, so the absence below is not over nothing.
+d=$(mk advisory_state_file_long_list)
+(
+	cd "$d" || exit 1
+	mkdir zz || exit 1
+	pad=$(printf '%0200d' 0)
+	for ((i = 1; i <= 1000; i++)); do : >"zz/$pad-$i" || exit 1; done
+	git add -A && git commit -qm "a thousand long paths" &&
+		git update-ref "refs/remotes/origin/$DEFAULT_BRANCH_FIXTURE" HEAD &&
+		git rm -rq zz &&
+		printf -- '- 2026-01-02 — the long paths removed.\n' >>docs/STATE.md &&
+		git commit -qam "the long paths removed, with a changelog line"
+) >/dev/null 2>&1
+# The setup is checked, not trusted: a branch with no diff prints the advisory section too, and
+# this case would then pass over a predicate it never reached.
+listing=$(git -C "$d" diff --name-only "origin/$DEFAULT_BRANCH_FIXTURE...HEAD" 2>/dev/null)
+started=$SECONDS
+out=$(run_local "$d")
+elapsed=$((SECONDS - started))
+FIXTURE_ELAPSED_SECONDS=$elapsed
+if [ "${listing%%$'\n'*}" != docs/STATE.md ] || [ "${#listing}" -le 131072 ]; then
+	report no "a state file listed first among 200 KiB of changed paths is seen" \
+		"setup: the branch does not list docs/STATE.md first among more than 128 KiB of paths (${#listing} bytes)"
+elif ! grep -qF "Local advisories" <<<"$out"; then
+	report no "a state file listed first among 200 KiB of changed paths is seen" "the advisory section did not run" "$out"
+elif grep -qF "changelog line is probably missing" <<<"$out"; then
+	report no "a state file listed first among 200 KiB of changed paths is seen" \
+		"the advisory read the listed state file as missing — an early-exiting reader under pipefail" "$out"
+else
+	report ok "a state file listed first among 200 KiB of changed paths is seen"
 fi
 
 # --- the verdict's subject: which commit, and whether the tree IS that commit

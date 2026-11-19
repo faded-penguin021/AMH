@@ -119,6 +119,16 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   once `amh.conf` has run, an entry covering everything under it — so a `docs` entry counts and
   a later reassignment that drops the file does not. It is advice: the exit status does not change, because every file it
   reads is yours.
+- **Three shipped checks no longer read a match as a miss when `grep -q` exits early under
+  `pipefail`.** `grep -q` exits at its first match; a writer with output still pending then
+  fails on the closed pipe, and `pipefail` made that failure the check's answer. The ladder's
+  local advisory could warn that a branch left the state file unchanged when the file was listed
+  early among more changed paths than a pipe holds. Its redaction control could pass a broken
+  filter that printed the test token ahead of a long tail, which is the secret scan's fail-open
+  direction, and its baseline control could refuse a working one. `session-start.sh` could print
+  a count it failed to take as `x` newer commits instead of saying it could not count. Each now
+  matches with `case`, which needs no pipe and no temporary file. Nothing is owed beyond the
+  normal script copy.
 
 ### Upgrading
 
@@ -149,15 +159,22 @@ changed against 16.1.1, and the manifest changes with them:
   under `/tmp`. A directory holding a marker it cannot remove gets a banner warning that names
   it as `/tmp` or `TMPDIR`, printing neither the marker nor `TMPDIR`'s value, since a marker left
   there is an advisory the session may never see; the exit status stays 0. One comment now calls a tree without a runbook an incomplete or
-  legacy install, since every profile installs one.
-- `ladder.sh` exits red, before any rung runs, when it cannot create its scratch directory.
+  legacy install, since every profile installs one. Its failed-count check matches with `case`,
+  not a pipe into `grep -q`.
+- `ladder.sh` exits red, before any rung runs, when it cannot create its scratch directory. Its
+  state-file advisory and both redaction controls match with `case`, not a pipe into
+  `grep -q`.
 - `test-ladder-guards.sh` checks its own `mktemp -d`, keeps `TMPDIR` through the no-hasher
   fixture's `env -i`, and gains fixtures for the ladder's scratch directory, for the markers
   under `TMPDIR` and `/tmp`, for `session-start.sh` clearing both, for its warning about a
   marker it cannot clear, and for the four advisory-state edges above: the override, the union,
   the one directory reached by two spellings and the marker that is not a regular file. A fixture this host cannot run, such as the `/tmp` fallback ones under
   a read-only `/tmp`, is now reported as `skip` and counted apart, so its closing line reads
-  `N passed, M failed, K skipped` and the pass total counts only assertions that ran.
+  `N passed, M failed, K skipped` and the pass total counts only assertions that ran. Its
+  output checks match a here-string rather than `printf | grep -q`, and three fixtures feed
+  more than two pipe buffers with the match first: a state file listed first among 200 KiB of
+  changed paths, a pass-through filter with a long tail, and a failed working-memory count
+  ahead of 200 KiB of others.
 
 None of these needs anything else from you, but if a guard of your own under `scripts/guards/`
 takes an unchecked `mktemp`, it has the shape the ladder had: check the call and exit non-zero

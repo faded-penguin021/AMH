@@ -802,7 +802,15 @@ guard_secret_shapes() {
 		canary=$canary$(head -c 512 /dev/urandom | LC_ALL=C tr -dc 'A-Z0-9')
 	done
 	canary="AKIA${canary:0:16}"
-	if printf 'x %s x\n' "$canary" | bash scripts/redact.sh 2>/dev/null | grep -qF "$canary"; then
+	# Both controls capture the filter's output and match it with `case`, never `| grep -q`: the
+	# filter is the thing under test, so its output is not bounded by construction, and a broken
+	# one that printed the canary ahead of a long tail made an early-exiting reader under
+	# `pipefail` read a survivor as redacted. `case` needs no pipe and no temporary file, which a
+	# here-string past the pipe buffer does (AMH ledger row DD110). The capture keeps a failing
+	# filter a failed check, as the pipeline did.
+	local filtered
+	if filtered=$(printf 'x %s x\n' "$canary" | bash scripts/redact.sh 2>/dev/null) &&
+		case $filtered in *"$canary"*) true ;; *) false ;; esac; then
 		fail "scripts/redact.sh did not redact a generated test token — the filter is empty, broken or pass-through, and this scan would report green on everything"
 		return
 	fi
@@ -820,7 +828,8 @@ guard_secret_shapes() {
 	# the per-file comparison below, which runs on that file's own bytes. Refusing to scan
 	# is the honest verdict for both: this rung is the repo's whole secret defence, and
 	# "I did not manage to look" must never render as clean (AMH ledger row DC002).
-	if ! printf 'x %s x\n' "$canary" | bash scripts/redact.sh --baseline 2>/dev/null | grep -qF "$canary"; then
+	if ! { filtered=$(printf 'x %s x\n' "$canary" | bash scripts/redact.sh --baseline 2>/dev/null) &&
+		case $filtered in *"$canary"*) true ;; *) false ;; esac; }; then
 		fail "scripts/redact.sh has no working --baseline mode, so this scan cannot tell a redaction from the platform's own newline handling and did NOT scan this tree. The copy of redact.sh beside this ladder is older than it or broken — re-run the harness's init script to restore the matching pair."
 		return
 	fi
@@ -1553,7 +1562,10 @@ advisories() {
 	if [ -n "$base" ]; then
 		local changed
 		changed=$(git diff --name-only "$base...HEAD" 2>/dev/null)
-		if [ -n "$changed" ] && ! printf '%s\n' "$changed" | grep -qF "$STATE_FILE"; then
+		# A `case` match, not `printf | grep -qF`: on a branch whose changed-file list passed a
+		# pipe buffer the early-exiting reader under `pipefail` made a listed state file read as
+		# missing. `case` needs no pipe and no temporary file (AMH ledger row DD110).
+		if [ -n "$changed" ] && ! case $changed in *"$STATE_FILE"*) true ;; *) false ;; esac; then
 			warn "this branch changes files but not $STATE_FILE — the checkpoint's changelog line is probably missing"
 		fi
 

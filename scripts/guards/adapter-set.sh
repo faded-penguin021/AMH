@@ -110,11 +110,11 @@ codex_config=harness/templates/configs/codex-config.toml
 session_hook=$(sed -n '/^\[\[hooks.SessionStart\]\]$/,/^$/p' "$codex_config")
 pretool_hook=$(sed -n '/^\[\[hooks.PreToolUse\]\]$/,/^$/p' "$codex_config")
 if [ "$(printf '%s\n' "$session_hook" | grep -cF 'scripts/session-start.sh')" -ne 1 ] ||
-	printf '%s\n' "$session_hook" | grep -qF 'scripts/command-guard.sh'; then
+	grep -qF 'scripts/command-guard.sh' <<<"$session_hook"; then
 	note "Codex SessionStart hook must invoke only the shipped agent-neutral session-start.sh"
 fi
 if [ "$(printf '%s\n' "$pretool_hook" | grep -cF 'scripts/command-guard.sh')" -ne 1 ] ||
-	printf '%s\n' "$pretool_hook" | grep -qF 'scripts/session-start.sh'; then
+	grep -qF 'scripts/session-start.sh' <<<"$pretool_hook"; then
 	note "Codex PreToolUse hook must invoke only the shipped agent-neutral command-guard.sh"
 fi
 
@@ -214,7 +214,7 @@ for declaration in "${ADAPTERS[@]}"; do
 		matcher_keys=$(printf '%s\n' "$group" | grep -o '"matcher"[[:space:]]*:' | wc -l | tr -d ' ')
 		if [ "$(printf '%s\n' "$group" | grep -cF "\"command\": $CLAUDE_ROOT$POST_HOOK_SCRIPT\"")" -ne 1 ]; then
 			note "$settings: the \"PostToolUse\" group does not invoke $POST_HOOK_SCRIPT exactly once — the group exists and the rail it is supposed to wire does not run"
-		elif ! printf '%s\n' "$group" | grep -qF '"shell": "bash",'; then
+		elif ! grep -qF '"shell": "bash",' <<<"$group"; then
 			note "$settings: the \"PostToolUse\" hook carries no \"shell\": \"bash\" pin. The pin loop above counts entries across the whole file, so it cannot say WHICH entry is unpinned; this says it for the one entry whose failure is silent in both directions"
 		# Coverage is the third silent failure. A matcher narrowed to `Write` still runs the
 		# rail, still passes its self-test and still satisfies both checks above, while Bash and
@@ -224,7 +224,7 @@ for declaration in "${ADAPTERS[@]}"; do
 		# a parser, which group's matcher governs the rail is a guess.
 		elif [ "$matcher_keys" -gt 1 ] || [ "$matcher_keys" -ne "$matchers" ]; then
 			note "$settings: the \"PostToolUse\" array carries $matcher_keys \"matcher\" key(s), $matchers of them one key per line, so which one governs $POST_HOOK_SCRIPT is UNVERIFIED, not all-tools. This guard reads a PostToolUse array holding a single matcher group, one key per line"
-		elif ! printf '%s\n' "$group" | grep -qx '[[:space:]]*"matcher": "\*",\{0,1\}'; then
+		elif ! grep -qx '[[:space:]]*"matcher": "\*",\{0,1\}' <<<"$group"; then
 			note "$settings: the \"PostToolUse\" matcher is not the explicit all-tools \"*\", the one spelling this guard vouches for — a narrower matcher leaves every tool it does not name unredacted while the rail still looks wired"
 		else
 			claude_post=$((claude_post + 1))
@@ -259,7 +259,7 @@ for declaration in "${ADAPTERS[@]}"; do
 			note "$config: no [[hooks.PostToolUse]] group found at the layout this guard reads, so Codex output redaction is absent or UNVERIFIED"
 		elif [ "$codex_matchers" -gt 1 ]; then
 			note "$config: the PostToolUse hooks carry $codex_matchers matcher keys, so which one governs $POST_HOOK_SCRIPT is UNVERIFIED, not all-tools. This guard reads a single [[hooks.PostToolUse]] table"
-		elif ! printf '%s\n' "$group" | grep -qx 'matcher = "\.\*"'; then
+		elif ! grep -qx 'matcher = "\.\*"' <<<"$group"; then
 			note "$config: the PostToolUse matcher is not the explicit all-tools regular expression \".*\""
 		elif [ "$(printf '%s\n' "$group" | grep -Ec '^[[:space:]]*\{ type = "command", command = ".*scripts/redact-tool-output\.sh.*"[, ]')" -ne 1 ]; then
 			note "$config: the [[hooks.PostToolUse]] group does not declare exactly one command hook that invokes $POST_HOOK_SCRIPT"
@@ -556,7 +556,7 @@ else
 		note "$MACHINE_TEMPLATE: the \"deny\" array does not open directly inside \"permissions\" at the layout this guard reads, so the machine-mode deny rails are UNVERIFIED, not present"
 	fi
 	while IFS= read -r rule; do
-		printf '%s\n' "$machine_deny" | grep -qxF -- "$rule" && continue
+		grep -qxF -- "$rule" <<<"$machine_deny" && continue
 		note "$MACHINE_TEMPLATE: permissions.deny lacks $rule, one of the adapter's two denials of a command that prints a stored credential by design"
 	done <<<"$MACHINE_BASH_RAILS"
 	adapter_reads=$(sed -n '/^[[:space:]]*"deny": \[$/,/^[[:space:]]*\]/p' harness/templates/configs/claude-settings.json |
@@ -567,11 +567,11 @@ else
 		note "checked NOTHING for the machine-mode credential rails — no \"Read(...)\" entry found in the Claude adapter template's deny array at the layout this guard reads"
 	else
 		while IFS= read -r rule; do
-			printf '%s\n' "$machine_deny" | grep -qxF -- "$rule" && continue
+			grep -qxF -- "$rule" <<<"$machine_deny" && continue
 			note "$MACHINE_TEMPLATE: permissions.deny lacks $rule, which the Claude adapter template carries — the file-reading tool is a path the command guard never sees, in every session the fragment covers"
 		done <<<"$adapter_reads"
 	fi
-	if ! printf '%s\n' "$machine_deny" | grep -qxF -- "$MACHINE_SELF_DENY"; then
+	if ! grep -qxF -- "$MACHINE_SELF_DENY" <<<"$machine_deny"; then
 		note "$MACHINE_TEMPLATE: permissions.deny lacks $MACHINE_SELF_DENY — the file-editing tools could rewrite the guard every session runs under, which the guard never sees them touch (DD-051)"
 	fi
 fi

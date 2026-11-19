@@ -80,7 +80,10 @@ expect() {
 	if [ "$rc" != "$want" ]; then
 		FAILED=$((FAILED + 1))
 		printf '  FAIL %s — wanted exit %s, got %s\n%s\n' "$name" "$want" "$rc" "$out" >&2
-	elif ! printf '%s' "$out" | grep -qF -- "$want_msg"; then
+	# A here-string, not `printf | grep -q`, which under `pipefail` reads a match as a miss once
+	# the output passes a pipe buffer (DD-110). `[ -n "$out" ]` keeps an empty message meaning
+	# what it meant through the pipe: the command said SOMETHING.
+	elif ! { [ -n "$out" ] && grep -qF -- "$want_msg" <<<"$out"; }; then
 		FAILED=$((FAILED + 1))
 		printf '  FAIL %s — exit %s was right but nothing said "%s"\n%s\n' "$name" "$rc" "$want_msg" "$out" >&2
 	else
@@ -128,7 +131,8 @@ sed_edit() { # sed_edit <sed-program> <file>
 # Run the queue item's own check, and fail loudly if it does not settle the item. A fixture
 # whose check cannot be answered offline would make every case below meaningless.
 step_check() {
-	git ls-remote --tags origin demo-v1.0.0 2>/dev/null | grep -q 'refs/tags/demo-v1.0.0'
+	local tags
+	tags=$(git ls-remote --tags origin demo-v1.0.0 2>/dev/null) && grep -q 'refs/tags/demo-v1.0.0' <<<"$tags"
 }
 step_close() { edit '/cut the demo-v1.0.0 release tag/ { skip = 1 } skip && /^$/ { skip = 0; next } skip { next } { print }'; }
 step_dropopen() { edit '/turn on branch protection/ { skip = 1 } skip && /^$/ { skip = 0; next } skip { next } { print }'; }
@@ -149,6 +153,12 @@ step_record() {
 	}
 	blank && /^$/ { blank = 0; next }
 	{ blank = 0; print }'
+}
+# 3000 open items, every heading sorting AFTER the resolved one: past two pipe buffers of item
+# headings with the resolved item first, the shape that made `printf | grep -qxF` under
+# `pipefail` read it as gone on every run (DD-110).
+step_pad() {
+	edit '/^## Owner queue$/ { print; print ""; for (i = 1; i <= 3000; i++) printf "**OPEN — zz filler item %05d, padding the queue past two pipe buffers.**\n\n", i; next } { print }'
 }
 step_typo() { sed_edit 's/teh harness/the harness/' README.md; }
 step_killreadmeline() { sed_edit '/teh harness/d' README.md; }
@@ -627,6 +637,14 @@ fi
 # queue for the next reader to restate. This is the case the whole lab exists for.
 if d=$(tree stale check record typo commit); then
 	expect 1 'the resolved item left in the queue' 'FAIL  the resolved item is still in the Owner queue' -- \
+		"$EVAL1" --result "$d" --baseline "$BASELINE"
+fi
+
+# The same failure with the resolved item first among 200 KiB of item headings. The evaluator's
+# `printf | grep -qxF` under `pipefail` read it as gone whenever the reader exited with headings
+# still pending — sometimes on a small queue (the PR #75 CI run), every time on this one (DD-110).
+if d=$(tree stalepad check record typo pad commit); then
+	expect 1 'the resolved item left in a queue past two pipe buffers' 'FAIL  the resolved item is still in the Owner queue' -- \
 		"$EVAL1" --result "$d" --baseline "$BASELINE"
 fi
 
@@ -1739,7 +1757,7 @@ rmfail4() {
 	out=$(env PATH="$WORK/fakebin4:$PATH" "$ARMS" post-h2 "$WORK/fx4-rmfail" 2>"$WORK/rmfail4.err")
 	rc=$?
 	err=$(cat "$WORK/rmfail4.err")
-	if [ "$rc" -eq 1 ] && [ -z "$out" ] && printf '%s' "$err" | grep -qF 'cannot remove the build directories' &&
+	if [ "$rc" -eq 1 ] && [ -z "$out" ] && grep -qF 'cannot remove the build directories' <<<"$err" &&
 		absent4 "$WORK/fx4-rmfail/origin.git" && absent4 "$WORK/fx4-rmfail/shared-backup"; then
 		return 0
 	fi
@@ -1767,7 +1785,7 @@ fi
 # The count is asserted, not merely reported. A skipped case and a deleted case look identical
 # from here, and both must be louder than green. Update it deliberately when adding a case —
 # that edit is the point, not an inconvenience.
-EXPECTED_ASSERTIONS=$((97 + ASSERTIONS_OMITTABLE))
+EXPECTED_ASSERTIONS=$((98 + ASSERTIONS_OMITTABLE))
 if [ "$RAN" -ne "$EXPECTED_ASSERTIONS" ]; then
 	printf '  FAIL expected %d assertions, ran %d — a case was skipped, or one was added or removed without updating EXPECTED_ASSERTIONS\n' \
 		"$EXPECTED_ASSERTIONS" "$RAN" >&2

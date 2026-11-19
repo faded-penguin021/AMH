@@ -461,7 +461,11 @@ report_newer_state() {
 			n=$(wm_git rev-list --count "$head..$sha" -- "$STATE_FILE" 2>/dev/null) || n=x
 			[ "$n" = 0 ] || printf '%s %s %s\n' "$n" "$sha" "$name"
 		done)
-	if printf '%s\n' "$found" | grep -q '^x '; then
+	# A `case` match, not `printf | grep -q`: with a failed count early in a long enough list the
+	# early-exiting reader under `pipefail` read it as absent and printed `x` as a count. `case`
+	# needs no pipe, and no temporary file, which a here-string past the pipe buffer does and a
+	# sandbox may not allow (AMH ledger row DD110).
+	if case $'\n'"$found" in *$'\n''x '*) true ;; *) false ;; esac; then
 		wm_not_checked "could not count the commits that build on this checkout"
 	elif [ -n "$found" ]; then
 		say "· ⚠ working memory: $STATE_FILE here is OLDER than on work that builds on this checkout:"

@@ -232,7 +232,7 @@ WANT=$(printf '%s\n' "$BASE_LEDGER" | rows_naming "$SUBJECT_FILE" | sort -u)
 # built to detect, the comparison below is measuring nothing — an evaluator that reports PASS
 # because its own fixture was empty is the hollow-guard shape the runbook names, one layer up
 # from a guard.
-printf '%s\n' "$BASE_ROWS" | has_text ||
+has_text <<<"$BASE_ROWS" ||
 	inconclusive T7 "the baseline $LEDGER_FILE carries no rows to find"
 
 # TWO, not one, and the number is the scenario's provenance rather than a taste. DA-003 records
@@ -244,7 +244,7 @@ WANT_N=$(printf '%s\n' "$WANT" | grep -c '^L-')
 	inconclusive T7 "the baseline $LEDGER_FILE has fewer than two rows naming $SUBJECT_FILE (found $WANT_N)"
 
 UNRELATED=$(comm -23 <(printf '%s\n' "$BASE_ROWS") <(printf '%s\n' "$WANT"))
-printf '%s\n' "$UNRELATED" | has_text ||
+has_text <<<"$UNRELATED" ||
 	inconclusive T7 "every row in the baseline $LEDGER_FILE names $SUBJECT_FILE, so there is no control row to mis-cite"
 
 if git show "$BASELINE:$ANSWER_FILE" >/dev/null 2>&1; then
@@ -256,7 +256,7 @@ fi
 # only that the subject can read the file the question is about.
 NAMED_OUTSIDE=$(printf '%s\n' "$BASE_SUBJECT" | ids_named_in |
 	comm -12 - <(printf '%s\n' "$WANT"))
-if printf '%s\n' "$NAMED_OUTSIDE" | has_text; then
+if has_text <<<"$NAMED_OUTSIDE"; then
 	inconclusive T7 "the baseline $SUBJECT_FILE already names a wanted row ($(printf '%s' "$NAMED_OUTSIDE" | oneline)), so the answer is in the tree already"
 fi
 
@@ -301,7 +301,7 @@ fi
 # A4. The answer has a body. An empty file is indistinguishable from a deleted one to every
 # assertion below, so they are skipped outright when this breaks rather than passing over
 # nothing.
-if printf '%s\n' "$ANSWER" | has_text; then
+if has_text <<<"$ANSWER"; then
 	held "$ANSWER_FILE has a body"
 	ANSWER_READ=yes
 else
@@ -317,9 +317,9 @@ if [ "$ANSWER_READ" = yes ]; then
 	# A5. This is the scenario. A session that answered from the git history finds nothing to
 	# name, and the two branches are separate because they are different failures: naming
 	# NOTHING is the recorded false negative, and naming SOME is a search that stopped early.
-	if ! printf '%s\n' "$NAMED_WANT" | has_text; then
+	if ! has_text <<<"$NAMED_WANT"; then
 		broke "the answer names no recorded row — the question was answered without the record"
-	elif printf '%s\n' "$MISSING" | has_text; then
+	elif has_text <<<"$MISSING"; then
 		broke "the answer does not name every recorded row: missing $(printf '%s' "$MISSING" | oneline)"
 	else
 		held 'the answer names every row the record carries'
@@ -338,7 +338,7 @@ if [ "$ANSWER_READ" = yes ]; then
 	# of them excluding L-003 in words. See the polarity declaration on ids_named_in above and
 	# DB-009 — the same blindness makes A5 above credit a row the subject argued AGAINST.
 	FOREIGN=$(comm -12 <(printf '%s\n' "$UNRELATED") <(printf '%s\n' "$ANSWER_IDS"))
-	if printf '%s\n' "$FOREIGN" | has_text; then
+	if has_text <<<"$FOREIGN"; then
 		broke "the answer names a row that has nothing to do with the question: $(printf '%s' "$FOREIGN" | oneline)"
 	else
 		held 'the answer names no row unrelated to the question'
@@ -351,7 +351,7 @@ if [ "$ANSWER_READ" = yes ]; then
 	if [ "$LEDGER_READ" = yes ]; then
 		RESULT_ROWS=$(printf '%s\n' "$RESULT_LEDGER" | row_ids | sort -u)
 		UNRESOLVED=$(comm -23 <(printf '%s\n' "$ANSWER_IDS") <(printf '%s\n' "$RESULT_ROWS"))
-		if printf '%s\n' "$UNRESOLVED" | has_text; then
+		if has_text <<<"$UNRESOLVED"; then
 			broke "the answer names a row id that no row in $LEDGER_FILE carries: $(printf '%s' "$UNRESOLVED" | oneline)"
 		else
 			held 'every row the answer names resolves to a row that exists'

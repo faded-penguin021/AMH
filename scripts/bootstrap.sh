@@ -110,9 +110,12 @@ persist_path() {
 # execute (truncated download, wrong architecture, a directory of the same name) would
 # satisfy `command -v` while verify.sh's rung stayed dark.
 shellcheck_runs() { # [path]
-	local sc=${1:-shellcheck}
+	local sc=${1:-shellcheck} ver
 	command -v -- "$sc" >/dev/null 2>&1 || return 1
-	"$sc" --version 2>/dev/null | grep -q '^version:'
+	# Captured, then matched: `| grep -q` under `pipefail` fails the check when grep exits with
+	# the version text still being written (DD-110). The capture keeps a failing --version a
+	# failure, as the pipeline did.
+	ver=$("$sc" --version 2>/dev/null) && grep -q '^version:' <<<"$ver"
 }
 
 install_shellcheck() {
@@ -156,7 +159,7 @@ install_shellcheck() {
 		# function is never called at all, so "protects the existing binary" is not a
 		# property that can be exercised. What each one actually does is distinct — this
 		# one refuses to write, that one verifies what was written — and both are cheap.
-		if ! "$found" --version 2>/dev/null | grep -q '^version:'; then
+		if ! { ver=$("$found" --version 2>/dev/null) && grep -q '^version:' <<<"$ver"; }; then
 			printf 'the downloaded binary does not run (truncated, or built for another architecture)\n' >&2
 			exit 1
 		fi

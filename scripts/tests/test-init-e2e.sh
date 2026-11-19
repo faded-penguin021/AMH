@@ -150,7 +150,7 @@ custom_guard_out=$("$d_custom/scripts/command-guard.sh" --command 'git push orig
 custom_guard_rc=$?
 if grep -qxF 'BRANCH_PREFIX=maintainer' "$d_custom/amh.conf" &&
 	[ "$custom_guard_rc" -eq 2 ] &&
-	printf '%s' "$custom_guard_out" | grep -qF 'maintainer/<codename>'; then
+	grep -qF 'maintainer/<codename>' <<<"$custom_guard_out"; then
 	pass
 else
 	fail "--branch-prefix drives installed scripts with an arbitrary prefix" \
@@ -165,8 +165,10 @@ if cmp -s "$ROOT/harness/templates/configs/codex-config.toml" "$d/.codex/config.
 	cmp -s "$expected_codex_rules" "$d/.codex/rules/amh.rules" &&
 	[ "$(grep -cFx '[[hooks.SessionStart]]' "$d/.codex/config.toml")" -eq 1 ] &&
 	[ "$(grep -cFx '[[hooks.PreToolUse]]' "$d/.codex/config.toml")" -eq 1 ] &&
-	sed -n '/^\[\[hooks.SessionStart\]\]$/,/^$/p' "$d/.codex/config.toml" | grep -qF 'scripts/session-start.sh' &&
-	sed -n '/^\[\[hooks.PreToolUse\]\]$/,/^$/p' "$d/.codex/config.toml" | grep -qF 'scripts/command-guard.sh' &&
+	codex_ss=$(sed -n '/^\[\[hooks.SessionStart\]\]$/,/^$/p' "$d/.codex/config.toml") &&
+	grep -qF 'scripts/session-start.sh' <<<"$codex_ss" &&
+	codex_pt=$(sed -n '/^\[\[hooks.PreToolUse\]\]$/,/^$/p' "$d/.codex/config.toml") &&
+	grep -qF 'scripts/command-guard.sh' <<<"$codex_pt" &&
 	cmp -s "$ROOT/harness/templates/configs/codex-agents/amh-rule-reviewer.toml" \
 		"$d/.codex/agents/amh-rule-reviewer.toml" &&
 	[ ! -e "$HOME/.codex/agents/amh-rule-reviewer.toml" ]; then
@@ -194,7 +196,7 @@ fi
 # claiming there is nothing left to do. The alternative — a tool that guesses — hands back
 # a constitution that reads as finished and asserts nothing.
 report=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
-if printf '%s' "$report" | grep -qF 'Search for {{'; then
+if grep -qF 'Search for {{' <<<"$report"; then
 	pass
 else
 	fail "the run reports the placeholders it deliberately did not fill" "$report"
@@ -213,7 +215,7 @@ d=$(target positive_control)
 printf 'key = %s\n' "$(akia_token)" >"$d/deploy.sh"
 out=$(target_ladder "$d")
 rc=$?
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'credential-shaped'; then
+if [ "$rc" -ne 0 ] && grep -qF 'credential-shaped' <<<"$out"; then
 	pass
 else
 	fail "the instantiated ladder still catches a planted credential" "exit $rc" "$out"
@@ -297,7 +299,7 @@ fi
 printf '\nOWNER CHOSE STANDARD; placeholders half done\n' >>"$d/AMH-ADOPT.md"
 brief=$(cat "$d/AMH-ADOPT.md")
 out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
-if [ "$(cat "$d/AMH-ADOPT.md")" = "$brief" ] && printf '%s' "$out" | grep -qF 'already adopted'; then
+if [ "$(cat "$d/AMH-ADOPT.md")" = "$brief" ] && grep -qF 'already adopted' <<<"$out"; then
 	pass
 else
 	fail "a re-run leaves an annotated brief alone and says why" "$out"
@@ -364,7 +366,7 @@ fi
 rm -f "$d/.codex/rules/amh.rules"
 out=$("$ROOT/scripts/amh-init.sh" --default-branch develop "$d" 2>&1)
 rc=$?
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF "disagrees with DEFAULT_BRANCH='master'" &&
+if [ "$rc" -ne 0 ] && grep -qF "disagrees with DEFAULT_BRANCH='master'" <<<"$out" &&
 	[ ! -e "$d/.codex/rules/amh.rules" ]; then
 	pass
 else
@@ -376,7 +378,7 @@ fi
 sed_in_place '/^DEFAULT_BRANCH=/d' "$d/amh.conf"
 out=$("$ROOT/scripts/amh-init.sh" --default-branch master "$d" 2>&1)
 rc=$?
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF "resolves DEFAULT_BRANCH to the shipped scripts' default 'main'" &&
+if [ "$rc" -ne 0 ] && grep -qF "resolves DEFAULT_BRANCH to the shipped scripts' default 'main'" <<<"$out" &&
 	[ ! -e "$d/.codex/rules/amh.rules" ]; then
 	pass
 else
@@ -405,7 +407,7 @@ for spec in '--default-branch:release/"stable"' '--branch-prefix:x$(id)' '--defa
 	t=$(target "unsafe_value_$n")
 	out=$("$ROOT/scripts/amh-init.sh" "$flag" "$val" "$t" 2>&1)
 	rc=$?
-	if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF -- "$flag" &&
+	if [ "$rc" -ne 0 ] && grep -qF -- "$flag" <<<"$out" &&
 		only_git "$t"; then
 		pass
 	else
@@ -432,7 +434,7 @@ fi
 rm -f "$d/.codex/rules/amh.rules"
 out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
 rc=$?
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'DEFAULT_BRANCH in the kept amh.conf may contain only' &&
+if [ "$rc" -ne 0 ] && grep -qF 'DEFAULT_BRANCH in the kept amh.conf may contain only' <<<"$out" &&
 	[ ! -e "$d/.codex/rules/amh.rules" ]; then
 	pass
 else
@@ -503,7 +505,7 @@ printf 'exit 0\n' >>"$d/amh.conf"
 rm -f "$d/.codex/rules/amh.rules"
 out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
 rc=$?
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'did not load to its end' &&
+if [ "$rc" -ne 0 ] && grep -qF 'did not load to its end' <<<"$out" &&
 	[ ! -e "$d/.codex/rules/amh.rules" ]; then
 	pass
 else
@@ -517,7 +519,7 @@ d=$(target unrelated_conf_option)
 printf 'UNRELATED=1\n' >"$d/amh.conf"
 out=$("$ROOT/scripts/amh-init.sh" --default-branch master "$d" 2>&1)
 rc=$?
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF "resolves DEFAULT_BRANCH to the shipped scripts' default 'main'" &&
+if [ "$rc" -ne 0 ] && grep -qF "resolves DEFAULT_BRANCH to the shipped scripts' default 'main'" <<<"$out" &&
 	[ ! -e "$d/.codex/rules/amh.rules" ]; then
 	pass
 else
@@ -552,7 +554,7 @@ shipped_count=$(find "$ROOT/harness/templates/scripts" -maxdepth 1 -name '*.sh' 
 out=$(target_ladder "$d")
 if [ "$shipped_count" -eq 0 ]; then
 	fail "counted NOTHING to expect — no shipped scripts found under harness/templates/scripts" "$out"
-elif printf '%s' "$out" | grep -qF "   ok    $shipped_count shipped script(s) match the published hashes"; then
+elif grep -qF "   ok    $shipped_count shipped script(s) match the published hashes" <<<"$out"; then
 	pass
 else
 	fail "the instantiated repo verifies all $shipped_count shipped script(s) against the manifest" "$out"
@@ -575,7 +577,7 @@ fi
 printf '\n# a local edit to a shipped rail\n' >>"$d/scripts/redact.sh"
 out=$(target_ladder "$d")
 rc=$?
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'scripts/redact.sh does not match the hash'; then
+if [ "$rc" -ne 0 ] && grep -qF 'scripts/redact.sh does not match the hash' <<<"$out"; then
 	pass
 else
 	fail "an edited shipped script turns the adopter's ladder red" "exit $rc" "$out"
@@ -625,7 +627,7 @@ expect_init_dies() { # <name> <harness-dir> <target-dir>
 	rc=$?
 	if [ "$rc" -eq 0 ]; then
 		fail "$1" "expected a failure, amh-init succeeded" "$out"
-	elif ! printf '%s' "$out" | grep -qF 'disagree'; then
+	elif ! grep -qF 'disagree' <<<"$out"; then
 		fail "$1" "failed, but not with the divergence message" "$out"
 	else
 		pass
@@ -717,7 +719,7 @@ d=$PROFILE_DIR
 printf 'key = %s\n' "$(akia_token)" >"$d/deploy.sh"
 out=$(target_ladder "$d")
 rc=$?
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'credential-shaped'; then
+if [ "$rc" -ne 0 ] && grep -qF 'credential-shaped' <<<"$out"; then
 	pass
 else
 	fail "a standard instantiation still catches a planted credential" "exit $rc" "$out"
@@ -731,7 +733,7 @@ d=$(target profile_no_ledger)
 rm -f -- "$d/docs/LEDGER.md"
 out=$(target_ladder "$d")
 rc=$?
-if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF 'no ledger yet'; then
+if [ "$rc" -eq 0 ] && grep -qF 'no ledger yet' <<<"$out"; then
 	pass
 else
 	fail "a tree without a ledger reports the ledger rung as skipped and stays green" "exit $rc" "$out"
@@ -776,8 +778,8 @@ fi
 d=$(target profile_light_removed)
 out=$("$ROOT/scripts/amh-init.sh" --profile light "$d" 2>&1)
 rc=$?
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'light profile was removed in AMH 17.0.0' &&
-	printf '%s' "$out" | grep -qF 'use --profile standard' && only_git "$d"; then
+if [ "$rc" -ne 0 ] && grep -qF 'light profile was removed in AMH 17.0.0' <<<"$out" &&
+	grep -qF 'use --profile standard' <<<"$out" && only_git "$d"; then
 	pass
 else
 	fail "--profile light is refused by name and writes nothing" "exit $rc" "$out"
@@ -820,13 +822,13 @@ d=$(target downgrade_rerun)
 printf '\n{{%s}}\n' ARCHIVE_OWNER_SLOT >>"$d/docs/history/README.md"
 out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
 if [ -f "$d/docs/history/README.md" ] &&
-	! printf '%s' "$out" | grep -qF '(not in the standard profile' &&
-	printf '%s' "$out" | grep -qF '0 not in the standard profile'; then
+	! grep -qF '(not in the standard profile' <<<"$out" &&
+	grep -qF '0 not in the standard profile' <<<"$out"; then
 	pass
 else
 	fail "a plain re-run keeps seeds the adopter already has instead of declining them" "$out"
 fi
-if printf '%s' "$out" | grep -qE '^ +docs/history/README\.md$'; then
+if grep -qE '^ +docs/history/README\.md$' <<<"$out"; then
 	pass
 else
 	fail "a kept-but-out-of-profile seed still reaches the unfilled-placeholder report" "$out"
@@ -838,8 +840,8 @@ fi
 # stopping at the filename leaves the ADVICE untested, and the advice is the part that can be
 # wrong while looking right (D-007's shape, in an assertion rather than a guard).
 out=$("$ROOT/scripts/amh-init.sh" --profile standard "$(target profile_report)" 2>&1)
-if printf '%s' "$out" | grep -qF 'docs/history/README.md (not in the standard profile — add it with --profile full)' &&
-	printf '%s' "$out" | grep -qF '1 not in the standard profile'; then
+if grep -qF 'docs/history/README.md (not in the standard profile — add it with --profile full)' <<<"$out" &&
+	grep -qF '1 not in the standard profile' <<<"$out"; then
 	pass
 else
 	fail "the run names each declined seed, the profile that supplies it, and the tally" "$out"
@@ -849,7 +851,7 @@ fi
 # --merge-mode rule. Falling through to "install everything" would be the dangerous default.
 out=$("$ROOT/scripts/amh-init.sh" --profile heavy "$(target profile_bad)" 2>&1)
 rc=$?
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'must be standard or full'; then
+if [ "$rc" -ne 0 ] && grep -qF 'must be standard or full' <<<"$out"; then
 	pass
 else
 	fail "an unknown --profile is fatal at init" "exit $rc" "$out"
@@ -1048,7 +1050,7 @@ assert_migrated() { # <label> <dir> [expected-playbooks-file]
 	pointer_check "$d"
 	if [ -z "$POINTER_PROBLEMS" ]; then pass; else fail "$label: every pointer destination resolves" "$POINTER_PROBLEMS"; fi
 	out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
-	if ! printf '%s' "$out" | grep -qF 'Migrate to docs/PROTOCOLS.md'; then pass; else fail "$label: a re-run reports nothing left to migrate" "$out"; fi
+	if ! grep -qF 'Migrate to docs/PROTOCOLS.md' <<<"$out"; then pass; else fail "$label: a re-run reports nothing left to migrate" "$out"; fi
 	out=$(target_ladder "$d")
 	rc=$?
 	if [ "$rc" -eq 0 ]; then pass; else fail "$label: the tree's own ladder is green" "exit $rc" "$out"; fi
@@ -1099,7 +1101,7 @@ d=$(target layout_repeat)
 before=$(cd "$d" && find AGENTS.md CLAUDE.md docs -type f | sort | xargs cat | cksum)
 out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
 after=$(cd "$d" && find AGENTS.md CLAUDE.md docs -type f | sort | xargs cat | cksum)
-if [ "$before" = "$after" ] && ! printf '%s' "$out" | grep -qF 'Migrate to'; then
+if [ "$before" = "$after" ] && ! grep -qF 'Migrate to' <<<"$out"; then
 	pass
 else
 	fail "a repeated install leaves the prose untouched and reports nothing to migrate" "$out"
@@ -1115,11 +1117,11 @@ for p in standard full; do
 	make_historical_runbook "$d"
 	out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
 	if [ -f "$d/docs/PROTOCOLS.md" ] &&
-		printf '%s' "$out" | grep -qF 'AGENTS.md never mentions docs/PROTOCOLS.md' &&
-		printf '%s' "$out" | grep -qF 'docs/RUNBOOK.md still has a section that now lives elsewhere: Acceptance ladder, Adversarial review protocol, Incident: leaked credential, Rule-review protocol, Session discipline, Working-memory compression' &&
-		printf '%s' "$out" | grep -qE 'docs/STATE\.md sends [0-9]+ pointer' &&
-		printf '%s' "$out" | grep -qF 'amh.conf: RULE_FILES does not cover docs/PROTOCOLS.md' &&
-		printf '%s' "$out" | grep -qF '.codex/agents/amh-rule-reviewer.toml still sends its reviewer to docs/RUNBOOK.md'; then
+		grep -qF 'AGENTS.md never mentions docs/PROTOCOLS.md' <<<"$out" &&
+		grep -qF 'docs/RUNBOOK.md still has a section that now lives elsewhere: Acceptance ladder, Adversarial review protocol, Incident: leaked credential, Rule-review protocol, Session discipline, Working-memory compression' <<<"$out" &&
+		grep -qE 'docs/STATE\.md sends [0-9]+ pointer' <<<"$out" &&
+		grep -qF 'amh.conf: RULE_FILES does not cover docs/PROTOCOLS.md' <<<"$out" &&
+		grep -qF '.codex/agents/amh-rule-reviewer.toml still sends its reviewer to docs/RUNBOOK.md' <<<"$out"; then
 		pass
 	else
 		fail "historical $p: the upgrade writes docs/PROTOCOLS.md and reports the unfinished migration" "$out"
@@ -1130,7 +1132,7 @@ done
 # ...and a migrated historical standard install still escalates cleanly.
 d=$WORK/historical_standard
 out=$("$ROOT/scripts/amh-init.sh" --profile full "$d" 2>&1)
-if [ -f "$d/docs/history/README.md" ] && ! printf '%s' "$out" | grep -qF 'Migrate to'; then
+if [ -f "$d/docs/history/README.md" ] && ! grep -qF 'Migrate to' <<<"$out"; then
 	pass
 else
 	fail "a migrated historical install escalates to full with nothing to migrate" "$out"
@@ -1144,9 +1146,9 @@ d=$(target historical_light_folded)
 make_historical_light_folded "$d"
 out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
 if [ -f "$d/docs/RUNBOOK.md" ] && [ -f "$d/docs/LEDGER.md" ] && [ -f "$d/docs/PROTOCOLS.md" ] &&
-	printf '%s' "$out" | grep -qF '1 not in the standard profile' &&
-	printf '%s' "$out" | grep -qF 'AGENTS.md never mentions docs/PROTOCOLS.md' &&
-	printf '%s' "$out" | grep -qF 'AGENTS.md still has a section that now lives elsewhere: Acceptance ladder, Adversarial review protocol, Change-type playbooks, Incident: leaked credential'; then
+	grep -qF '1 not in the standard profile' <<<"$out" &&
+	grep -qF 'AGENTS.md never mentions docs/PROTOCOLS.md' <<<"$out" &&
+	grep -qF 'AGENTS.md still has a section that now lives elsewhere: Acceptance ladder, Adversarial review protocol, Change-type playbooks, Incident: leaked credential' <<<"$out"; then
 	pass
 else
 	fail "historical light: a bare re-run upgrades to standard and reports the folded sections" "$out"
@@ -1175,8 +1177,8 @@ make_historical_runbook "$d"
 "$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
 hand_migrate "$d" no no
 out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
-if printf '%s' "$out" | grep -qE 'docs/STATE\.md sends [0-9]+ pointer' &&
-	! printf '%s' "$out" | grep -qE '^ +(AGENTS\.md|docs/RUNBOOK\.md) '; then
+if grep -qE 'docs/STATE\.md sends [0-9]+ pointer' <<<"$out" &&
+	! grep -qE '^ +(AGENTS\.md|docs/RUNBOOK\.md) ' <<<"$out"; then
 	pass
 else
 	fail "a half-done migration is reported, naming only the state file" "$out"
@@ -1195,10 +1197,10 @@ sed_in_place 's#See `docs/PROTOCOLS.md` → \*\*Incident: leaked credential\*\*#
 # shellcheck disable=SC2016 # the backticks are Markdown code spans written literally.
 sed_in_place 's#| `docs/PROTOCOLS.md` → \*\*Working-memory compression\*\* |#| this runbook → **Working-memory compression** |#' "$d/docs/RUNBOOK.md"
 out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
-if printf '%s' "$out" | grep -qF 'AGENTS.md sends 1 pointer(s) to the runbook' &&
-	printf '%s' "$out" | grep -qF 'docs/RUNBOOK.md sends 1 pointer(s) to the runbook' &&
-	printf '%s' "$out" | grep -qF 'amh.conf: RULE_FILES does not cover docs/PROTOCOLS.md' &&
-	printf '%s' "$out" | grep -qF '.codex/agents/amh-rule-reviewer.toml still sends its reviewer'; then
+if grep -qF 'AGENTS.md sends 1 pointer(s) to the runbook' <<<"$out" &&
+	grep -qF 'docs/RUNBOOK.md sends 1 pointer(s) to the runbook' <<<"$out" &&
+	grep -qF 'amh.conf: RULE_FILES does not cover docs/PROTOCOLS.md' <<<"$out" &&
+	grep -qF '.codex/agents/amh-rule-reviewer.toml still sends its reviewer' <<<"$out"; then
 	pass
 else
 	fail "the old incident and doc-index pointer forms and both configuration steps are reported" "$out"
@@ -1212,8 +1214,8 @@ d=$(target rule_files_directory_entry)
 sed_in_place "s#^RULE_FILES='AGENTS.md docs/PROTOCOLS.md docs/RUNBOOK.md #RULE_FILES='AGENTS.md docs #" "$d/amh.conf"
 out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
 if grep -qE "^RULE_FILES='AGENTS.md docs " "$d/amh.conf" &&
-	! printf '%s' "$out" | grep -qF 'RULE_FILES does not cover' &&
-	! printf '%s' "$out" | grep -qF 'Migrate to'; then
+	! grep -qF 'RULE_FILES does not cover' <<<"$out" &&
+	! grep -qF 'Migrate to' <<<"$out"; then
 	pass
 else
 	fail "a RULE_FILES directory entry that covers docs/PROTOCOLS.md is not reported" "$out"
@@ -1223,7 +1225,7 @@ d=$(target rule_files_reassigned)
 printf "RULE_FILES='AGENTS.md amh.conf'\n" >>"$d/amh.conf"
 out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
 if grep -qE "^RULE_FILES='AGENTS.md docs/PROTOCOLS.md " "$d/amh.conf" &&
-	printf '%s' "$out" | grep -qF 'amh.conf: RULE_FILES does not cover docs/PROTOCOLS.md'; then
+	grep -qF 'amh.conf: RULE_FILES does not cover docs/PROTOCOLS.md' <<<"$out"; then
 	pass
 else
 	fail "a later RULE_FILES reassignment that drops docs/PROTOCOLS.md is reported" "$out"
@@ -1235,7 +1237,7 @@ d=$(target protocols_incomplete)
 "$ROOT/scripts/amh-init.sh" "$d" >/dev/null 2>&1
 section_of "$REF/docs/PROTOCOLS.md" 'Session discipline' >"$d/docs/PROTOCOLS.md"
 out=$("$ROOT/scripts/amh-init.sh" "$d" 2>&1)
-if printf '%s' "$out" | grep -qF 'docs/PROTOCOLS.md has no section for: Adversarial review protocol, Rule-review protocol, Incident: leaked credential, Acceptance ladder, Working-memory compression'; then
+if grep -qF 'docs/PROTOCOLS.md has no section for: Adversarial review protocol, Rule-review protocol, Incident: leaked credential, Acceptance ladder, Working-memory compression' <<<"$out"; then
 	pass
 else
 	fail "a kept, incomplete docs/PROTOCOLS.md is reported section by section" "$out"
@@ -1248,7 +1250,7 @@ h=$(harness_copy seed_unclassified)
 : >"$h/harness/templates/seed/docs/UNCLASSIFIED.md"
 out=$("$h/scripts/amh-init.sh" "$(target seed_unclassified_target)" 2>&1)
 rc=$?
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'no profile classification'; then
+if [ "$rc" -ne 0 ] && grep -qF 'no profile classification' <<<"$out"; then
 	pass
 else
 	fail "a seed file with no profile classification is fatal" "exit $rc" "$out"

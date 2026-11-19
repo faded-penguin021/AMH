@@ -81,7 +81,10 @@ if [ -n "$live" ]; then
 	leftover=$(printf '%s\n' "$live" | tr '\n' '\0' |
 		LC_ALL=C xargs -0 grep -I -lE '\{\{[A-Z_][A-Z0-9_]*\}\}' 2>/dev/null |
 		while IFS= read -r f; do
-			if LC_ALL=C grep -I -ohE '\{\{[A-Z_][A-Z0-9_]*\}\}' "$f" | grep -qvE '^\{\{(PLACEHOLDER|X)\}\}$'; then
+			# Captured, then matched: `| grep -qv` exits at the first unfilled slot, and under
+			# `pipefail` the writer's EPIPE then reads as "every slot exempt" (DD-110).
+			if toks=$(LC_ALL=C grep -I -ohE '\{\{[A-Z_][A-Z0-9_]*\}\}' "$f") &&
+				grep -qvE '^\{\{(PLACEHOLDER|X)\}\}$' <<<"$toks"; then
 				printf '%s\n' "$f"
 			fi
 		done)

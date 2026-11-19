@@ -36,8 +36,8 @@ that unit:
 - `2026-11-10-command-guard-gap-review.md` and `2026-11-09-cc-safety-net-borrowings.md`: drafts,
   nothing approved; G1, one review of both, comes first (Owner queue).
 - `2026-11-10-queue-cycle-and-memory-tiers.md`: a draft, nothing approved.
-- `2026-11-19-pipefail-grep-race.md`, adopted with R1 approved (owner, 2026-11-19): every pipe
-  into an early-exit consumer under `pipefail` audited, and the racy ones fixed, before the tag.
+- `2026-11-19-pipefail-grep-race.md`, adopted, its one unit R1 done (**DD-110**); the session
+  that merges the train archives it.
 
 Operational gotchas:
 
@@ -111,6 +111,9 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-19 — **Pipefail race, R1: every pipe into an early-exit reader under `pipefail` whose
+  status decides something audited, 109 fixed, the rest recorded with why they cannot race**
+  (**DD-110**).
 - 2026-11-19 — **PR #75 review fixes, F3, the last unit: the command guard's advisory state —
   an override read alone, the reports' union across both directories, one directory read once,
   and only a regular file a spent marker; the plan is archived to

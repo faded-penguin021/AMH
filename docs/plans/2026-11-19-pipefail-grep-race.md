@@ -1,6 +1,6 @@
 # PLAN — no check flips when `grep -q` closes its pipe early under `pipefail`
 
-> **Status: adopted by the owner on 2026-11-19, with R1 approved (R0 done).** One unit, run by
+> **Status: adopted by the owner on 2026-11-19; R0 and R1 done.** One unit, run by
 > the plan runner. **Do not archive or delete this file in R1**: the runner reads R1's done
 > marker here to verify the unit. The session that merges the train archives it afterwards.
 
@@ -40,7 +40,12 @@ Conventional defaults, which the unit may revisit only with a stated reason:
 - **Done:** committed with the owner's decision; `docs/STATE.md` lists it under Live plans.
 - **Acceptance:** `scripts/ladder.sh --guards-only` green.
 
-### R1 — audit and fix the `pipefail` + `grep -q` race
+### R1 — audit and fix the `pipefail` + `grep -q` race: done 2026-11-19
+
+- **Done:** 109 sites fixed, the rest recorded with their reasons; five fixtures, each seen red
+  on the old code and green on the new; outcomes in the ledger row and Changelog line this
+  unit added.
+
 
 1. **Inventory.** List every pipeline whose last stage exits before reading all of its input
    (`grep -q`, `grep -m N`, `head`) in each tracked `*.sh` that sets `pipefail` — in the file,

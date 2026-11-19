@@ -96,7 +96,7 @@ expect() { # expect <pass|fail|warn> <name> <dir> <guard> [message-substring]
 	elif [ "$want" = fail ] && { [ "$rc" -eq 0 ] || is_marked_warn "$rc" "$out"; }; then
 		FAILED=$((FAILED + 1))
 		printf '  FAIL %s — expected failure, guard did not fail (exit %d)\n%s\n' "$name" "$rc" "$out" >&2
-	elif [ -n "$want_msg" ] && ! printf '%s' "$out" | grep -qF "$want_msg"; then
+	elif [ -n "$want_msg" ] && ! grep -qF "$want_msg" <<<"$out"; then
 		FAILED=$((FAILED + 1))
 		printf '  FAIL %s — verdict right but message never mentioned %s\n%s\n' "$name" "$want_msg" "$out" >&2
 	else
@@ -1411,7 +1411,7 @@ d=$(snapshot adapter_codex_sandbox_no_echo)
 expect fail "adapter-set: a stray Codex line is reported" "$d" adapter-set.sh "line(s) 1"
 # Captured first: under pipefail the guard's own exit 1 would make a matching grep read as a miss.
 sb_out=$(cd "$d" && bash scripts/guards/adapter-set.sh 2>&1)
-if printf '%s' "$sb_out" | grep -qF 'PUBLIC_DIAGNOSTIC_SENTINEL'; then
+if grep -qF 'PUBLIC_DIAGNOSTIC_SENTINEL' <<<"$sb_out"; then
 	FAILED=$((FAILED + 1))
 	printf '  FAIL adapter-set: a stray Codex line is echoed into the diagnostic\n' >&2
 else
@@ -1441,6 +1441,18 @@ expect fail "placeholders: undocumented" "$d" placeholder-integrity.sh "not docu
 d=$(snapshot ph_unfilled)
 printf '{{%s}}\n' PROJECT_NAME >>"$d/docs/STATE.md"
 expect fail "placeholders: left unfilled in a live file" "$d" placeholder-integrity.sh "unfilled placeholder"
+
+# The unfilled slot FIRST, then 240 KiB of exempt ones. The inner pass was `grep -o | grep -qv`
+# under `pipefail`: the reader exited at the first line, the writer took EPIPE with most of its
+# output still pending, and the failed pipeline read as "every slot exempt" — on every run, since
+# a pipe holds 64 KiB and no more before the reader has read anything (DD-110).
+d=$(snapshot ph_unfilled_first_of_many)
+{
+	printf '{{%s}}\n' PROJECT_NAME
+	printf '%*s\n' 40000 '' | sed 's/ /{{X}} /g'
+} >"$d/docs/ph-many.md"
+expect fail "placeholders: an unfilled slot ahead of 240 KiB of exempt ones" "$d" placeholder-integrity.sh \
+	"unfilled placeholder(s) in live files: docs/ph-many.md"
 
 # A BINARY live file whose bytes happen to match, under a grep that reports it the way GNU grep
 # <= 3.4 does — which is what Git for Windows ships (3.0). The notice goes to STDOUT there, so
@@ -2220,7 +2232,7 @@ bs_expect() { # bs_expect <pass|fail> <name> <message-substring>
 	elif [ "$want" = fail ] && [ "$BS_RC" -eq 0 ]; then
 		FAILED=$((FAILED + 1))
 		printf '  FAIL %s — expected a non-zero exit, got 0\n%s\n' "$name" "$BS_OUT" >&2
-	elif ! printf '%s' "$BS_OUT" | grep -qF "$want_msg"; then
+	elif ! grep -qF "$want_msg" <<<"$BS_OUT"; then
 		FAILED=$((FAILED + 1))
 		printf '  FAIL %s — verdict right but the output never mentioned %s\n%s\n' "$name" "$want_msg" "$BS_OUT" >&2
 	else
@@ -2299,7 +2311,7 @@ fi
 # generator that produced nothing looks like. Placed here because BS_PATH is built above.
 out=$(cd "$base" && env PATH="$BS_PATH" bash scripts/guards/manifest-drift.sh 2>&1)
 rc=$?
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'this guard checked NOTHING'; then
+if [ "$rc" -ne 0 ] && grep -qF 'this guard checked NOTHING' <<<"$out"; then
 	PASSED=$((PASSED + 1))
 else
 	FAILED=$((FAILED + 1))
@@ -2323,7 +2335,7 @@ out=$(cd "$dm" && PATH="$bm_shim:$PATH" scripts/build-manifest.sh 2>&1)
 bm_rc_write=$?
 bm_after=$(cat "$dm/scripts/MANIFEST.sha256" "$dm/harness/templates/scripts/MANIFEST.sha256")
 if [ "$bm_rc_stdout" -ne 0 ] && [ "$bm_rc_write" -ne 0 ] && [ "$bm_before" = "$bm_after" ] &&
-	printf '%s' "$out" | grep -qF 'produced no sha256 digest'; then
+	grep -qF 'produced no sha256 digest' <<<"$out"; then
 	PASSED=$((PASSED + 1))
 else
 	FAILED=$((FAILED + 1))
@@ -2337,7 +2349,7 @@ fi
 # tool list has no `comm`, so this is the condition, not a simulation of it.
 out=$(cd "$base" && env PATH="$BS_PATH" bash scripts/guards/config-schema.sh 2>&1)
 rc=$?
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF 'checked NOTHING'; then
+if [ "$rc" -ne 0 ] && grep -qF 'checked NOTHING' <<<"$out"; then
 	PASSED=$((PASSED + 1))
 else
 	FAILED=$((FAILED + 1))
