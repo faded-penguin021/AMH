@@ -36,6 +36,8 @@ that unit:
 - `2026-11-10-command-guard-gap-review.md` and `2026-11-09-cc-safety-net-borrowings.md`: drafts,
   nothing approved; G1, one review of both, comes first (Owner queue).
 - `2026-11-10-queue-cycle-and-memory-tiers.md`: a draft, nothing approved.
+- `2026-11-19-pr75-review-fixes.md`, adopted with F1, F2 and F3 approved, in that order (owner,
+  2026-11-19): the adopter-facing findings of the train's PR-time review, before the tag.
 
 Operational gotchas:
 
