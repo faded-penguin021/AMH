@@ -740,8 +740,10 @@ fi
     machine-mode fragment's `//proc` rules reach a project's sandbox from the user settings; the
     Read tool on `/proc` and the WSL2 cell stay unverified.
   - **Owed:** the follow-up that claims only the cells that passed (README, ledger row, commit
-    body), (f) here, and the owner's decisions the run feeds: whether DD-088's tag block is
-    cleared, and whether the machine-mode fragment drops its `//proc` rules. The owner answered the four decisions on 2026-11-17, each as recommended
+    body), (f) here, and dropping the machine-mode fragment's `//proc` rules. The owner answered
+    the run's two decisions on 2026-11-19, each as recommended (**DD-103**): DD-088's tag block is
+    cleared, and the fragment drops its `//proc` rules; the unit that does the rest is approved.
+    The owner answered the four decisions on 2026-11-17, each as recommended
     (**DD-094**): removal of the `//proc` rules allowed, the `/tmp` fixes a unit of their own,
     worktree creation a recorded limit, and the run driven by a session on the owner's host.
 

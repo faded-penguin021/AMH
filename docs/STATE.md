@@ -27,8 +27,9 @@ Live plans, each in `docs/plans/`, where a unit starts only on the owner's expli
 that unit:
 
 - `2026-11-01-harness-research-gaps.md`, adopted: every unit done except H8, parked, and H4b's
-  follow-up, whose live probes ran on 2026-11-18 and whose claims and acceptance (f) are owed
-  (Owner queue). Before a unit starts the session names the decisions it needs and
+  follow-up, whose live probes ran on 2026-11-18; the owner cleared the tag block and approved
+  the unit that drops the machine-mode `//proc` rules, claims the passed cells and runs
+  acceptance (f) here (2026-11-19, **DD-103**). Before a unit starts the session names the decisions it needs and
   waits for the answers; a fresh-context review is pre-allowed for every unit (owner, 2026-11-09).
 - `2026-11-04-spill-guard-borrowings.md`, adopted: S1, S2, S6a and S3 approved on 2026-11-10, to
   run in that order, each with its own review and its version settled when its behaviour is
@@ -67,21 +68,6 @@ compensation stays open until one is proposed, with H5's classification as input
 an H8 incident-bar exception is asked if H8 reopens; the combined order is the item below. No
 check settles it.
 
-**OPEN — decide whether H4b's last box run clears the three **DD-088** failures that block the
-17.0.0 tag (**DD-099** to **DD-102**).** Run on 2026-11-18, results in
-`docs/plans/2026-11-01-harness-research-gaps-h4b-results.md` §5. The scale failure does not
-reproduce on the shipped adapter, which stays flat while the control fails; the full ladder is
-green inside the sandbox; a push to a real remote lands under `bypassPermissions` or with its
-host allowed and is refused by the proxy under `default` and `dontAsk` otherwise. Unfixed, 17.0.0
-ships with the sandbox block off and says so (owner, 2026-11-15). Recommendation: cleared. Then a
-follow-up claims only the cells that passed, and acceptance (f) runs here; the Read tool on
-`/proc`, linked worktrees and the WSL2 cell stay unverified or limits. No check settles it.
-
-**OPEN — decide whether the machine-mode fragment drops its `//proc` rules too (**DD-095**).**
-Measured on 2026-11-18 as the owner asked: merged into the user settings, they reach a project's
-sandbox and cost about 6 bwrap arguments per running process, as project rules do (**DD-100**).
-Recommendation: drop them. No check settles it.
-
 **OPEN — run G1, one gpt-6-astra `-e high` review of both command-guard plans,
 `docs/plans/2026-11-10-command-guard-gap-review.md` and
 `docs/plans/2026-11-09-cc-safety-net-borrowings.md`, then decide adoption of both together and
@@ -97,7 +83,7 @@ release placement in that plan's §2, decision 3; H0.5's recommended order is in
 plan's §7.1. No check settles it.
 
 **OPEN — tag `amh-v17.0.0` once this train is merged.** MAJOR (owner, 2026-11-17, **DD-094**),
-blocked as the H4b item says. Tagging is an owner step, and the README's clone command names the
+no longer blocked by H4b (owner, 2026-11-19, **DD-103**). Tagging is an owner step, and the README's clone command names the
 tag. Check: `git ls-remote --tags origin amh-v17.0.0` — no output means open.
 
 **OPEN — decide whether to build a guard for a fix that changes an existing test (**DD-073**).**
@@ -129,6 +115,9 @@ from.
 
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
+
+- 2026-11-19 — **The owner cleared DD-088's tag block and chose to drop the machine-mode
+  `//proc` rules,** each on the session's recommendation (**DD-103**).
 
 - 2026-11-18 — **H4b follow-up: the last owner-box run, two runs at `7d44ff5`, recorded**
   (**DD-099** to **DD-102**, `2026-11-01-harness-research-gaps-h4b-results.md` §5).
