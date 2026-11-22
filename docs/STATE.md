@@ -38,6 +38,8 @@ that unit:
 - `2026-11-10-queue-cycle-and-memory-tiers.md`: a draft, nothing approved.
 - `2026-11-19-pipefail-grep-race.md`, adopted, its one unit R1 done (**DD-110**); the session
   that merges the train archives it.
+- `2026-11-22-build-output-secret-scan.md`: a draft, B0 done; only B1, its gpt-6-astra `-e high`
+  review, is approved (owner, 2026-11-22), and the plan runner runs it (Owner queue).
 
 Operational gotchas:
 
@@ -70,6 +72,11 @@ check settles it.
 `docs/plans/2026-11-09-cc-safety-net-borrowings.md`, then decide adoption of both together and
 which units** (owner, 2026-11-10, with N1's mandate, the gap plan's §2, item 2).
 Check: `scripts/command-guard.sh --command 'rm -r ~'` — exit 0 means that gap is still open.
+
+**OPEN — run B1, one gpt-6-astra `-e high` review of
+`docs/plans/2026-11-22-build-output-secret-scan.md`, then decide on rev 2** (owner, 2026-11-22).
+The review's first question is whether the incident bar admits the plan at all (its §2, item 2).
+No check settles it.
 
 **OPEN — decide on the queue-cycle plan, `docs/plans/2026-11-10-queue-cycle-and-memory-tiers.md`:
 review first (M1), adoption, and the facts its §2, item 3 asks for.** No check settles it.
@@ -111,6 +118,10 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-22 — **Build-output secret scan, B0: a draft plan committed for a ladder rung that runs
+  the secret scan over the build output an adopter names, a Resend redaction class and a seed
+  sentence on client-exposed variables; B1, its review, is queued** (no ledger row: nothing is
+  decided yet).
 - 2026-11-19 — **Pipefail race, R1: every pipe into an early-exit reader under `pipefail` whose
   status decides something audited, 109 fixed, the rest recorded with why they cannot race**
   (**DD-110**).
