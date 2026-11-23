@@ -1,0 +1,49 @@
+{
+  "context": {
+    "fileName": ["AGENTS.md", "GEMINI.md"]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "amh-session-start",
+            "type": "command",
+            "command": "bash \"$GEMINI_PROJECT_DIR/scripts/session-start.sh\" --json=additional-context",
+            "timeout": 30000,
+            "description": "AMH session bootstrap: installs the git pre-push rail, resets the command guard's advisory state and injects the session banner. Configured, never observed firing; written against the Gemini CLI v0.70.0 documentation, retrieved 2026-11-23. An untrusted folder ignores this whole file."
+          }
+        ]
+      }
+    ],
+    "BeforeTool": [
+      {
+        "matcher": "^run_shell_command$",
+        "hooks": [
+          {
+            "name": "amh-command-guard",
+            "type": "command",
+            "command": "bash \"$GEMINI_PROJECT_DIR/scripts/command-guard.sh\"",
+            "timeout": 10000,
+            "description": "AMH command guard on run_shell_command calls: exit 2 refuses the call. Configured, never observed firing; written against the Gemini CLI v0.70.0 documentation, retrieved 2026-11-23, which says a hook failing any other way lets the call run (fail-open) and does not say whether hooks fire for a subagent's calls or in yolo or headless mode."
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "amh-redact-tool-output",
+            "type": "command",
+            "command": "bash \"$GEMINI_PROJECT_DIR/scripts/redact-tool-output.sh\"",
+            "timeout": 40000,
+            "description": "AMH output redactor: replaces a tool result only when it redacted a credential shape scripts/redact.sh knows; it needs python3 and fails open. Configured, never observed firing; written against the Gemini CLI v0.70.0 documentation, retrieved 2026-11-23."
+          }
+        ]
+      }
+    ]
+  }
+}

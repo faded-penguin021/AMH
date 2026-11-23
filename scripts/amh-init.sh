@@ -454,7 +454,7 @@ seed_min_rank() { # <rel> -> sets SEED_RANK to 1 (standard) or 2 (full)
 # The keep-policy configuration files, as <path under harness/templates>:<path in the target>.
 # ONE list, read twice — by the scan below and by the install loop — so a file added to one is
 # in the other.
-KEEP_CONFIGS='amh.conf.example:amh.conf configs/ci.yml:.github/workflows/ci.yml configs/claude-settings.json:.claude/settings.json configs/codex-config.toml:.codex/config.toml configs/codex-amh.rules:.codex/rules/amh.rules configs/codex-agents/amh-rule-reviewer.toml:.codex/agents/amh-rule-reviewer.toml'
+KEEP_CONFIGS='amh.conf.example:amh.conf configs/ci.yml:.github/workflows/ci.yml configs/claude-settings.json:.claude/settings.json configs/codex-config.toml:.codex/config.toml configs/codex-amh.rules:.codex/rules/amh.rules configs/codex-agents/amh-rule-reviewer.toml:.codex/agents/amh-rule-reviewer.toml configs/gemini-settings.json:.gemini/settings.json configs/gemini-agents/amh-rule-reviewer.md:.gemini/agents/amh-rule-reviewer.md configs/gemini-skills/amh-session-start/SKILL.md:.gemini/skills/amh-session-start/SKILL.md configs/gemini-skills/amh-acceptance-ladder/SKILL.md:.gemini/skills/amh-acceptance-ladder/SKILL.md configs/gemini-skills/amh-rule-review/SKILL.md:.gemini/skills/amh-rule-review/SKILL.md configs/gemini-skills/amh-host-rails/SKILL.md:.gemini/skills/amh-host-rails/SKILL.md configs/antigravity-hooks.json:.agents/hooks.json configs/antigravity-agents/amh-rule-reviewer.md:.agents/agents/amh-rule-reviewer.md configs/antigravity-rules/amh-session-start.md:.agents/rules/amh-session-start.md configs/antigravity-rules/amh-acceptance-ladder.md:.agents/rules/amh-acceptance-ladder.md configs/antigravity-rules/amh-rule-review.md:.agents/rules/amh-rule-review.md configs/antigravity-rules/amh-host-rails.md:.agents/rules/amh-host-rails.md'
 
 # Which placeholders a file this run will WRITE carries — the same decisions the writing section
 # makes: shipped scripts always, a seed or config only when absent and (for a seed) inside the
@@ -729,11 +729,11 @@ while IFS= read -r src; do
 	esac
 done < <(find "$TPL/seed" -type f | sort)
 
-# amh.conf, the CI workflow and both agent adapters, from KEEP_CONFIGS — the list the rendered
+# amh.conf, the CI workflow and every agent adapter, from KEEP_CONFIGS — the list the rendered
 # scan above read. Agent adapters are adopter-owned configuration, just like the CI workflow:
-# install the complete adapter only where each canonical path is absent. Codex reads the
-# canonical AGENTS.md seed directly, so it needs configuration and command policy here, not
-# another constitution pointer beside them.
+# install the complete adapter only where each canonical path is absent. Codex and Antigravity
+# read the canonical AGENTS.md seed directly and the Gemini CLI's settings file names it, so they
+# need configuration and command policy here, not another constitution pointer beside them.
 for pair in $KEEP_CONFIGS; do
 	install_file "$TPL/${pair%%:*}" "${pair#*:}" keep 644
 done

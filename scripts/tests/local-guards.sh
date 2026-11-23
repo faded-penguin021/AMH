@@ -719,6 +719,121 @@ d=$(snapshot adapter_codex_agent_neutral_script_gone)
 sed_in_place 's|scripts/command-guard\.sh|scripts/codex-command-guard.sh|' "$d/harness/templates/configs/codex-config.toml"
 expect fail "adapter-set: Codex invokes the shipped agent-neutral command guard" "$d" adapter-set.sh "agent-neutral command-guard.sh"
 
+# The Gemini CLI and Antigravity adapters (DD-114): every delivery layer is the generic loop's, so
+# one registration mutation per host proves the new paths are in it; the rest alter one wired
+# entry each, in a template or a reference copy, and each fails with the wiring check's own words.
+d=$(snapshot adapter_gemini_path_gone)
+rm "$d/.gemini/settings.json"
+expect fail "adapter-set: the Gemini CLI settings reference path was removed" "$d" adapter-set.sh \
+	"adapter reference-instance path missing: .gemini/settings.json"
+
+d=$(snapshot adapter_antigravity_install_gone)
+sed_in_place 's| configs/antigravity-rules/amh-rule-review\.md:\.agents/rules/amh-rule-review\.md||' "$d/scripts/amh-init.sh"
+expect fail "adapter-set: an Antigravity rule's install action was removed" "$d" adapter-set.sh \
+	"adapter install action missing: harness/templates/configs/antigravity-rules/amh-rule-review.md -> .agents/rules/amh-rule-review.md"
+
+d=$(snapshot adapter_antigravity_legislation_gone)
+sed_in_place 's| \.agents/hooks\.json||' "$d/harness/templates/amh.conf.example"
+expect fail "adapter-set: the Antigravity hooks file left the adopter RULE_FILES" "$d" adapter-set.sh \
+	"adopter RULE_FILES does not cover adapter path: .agents/hooks.json"
+
+d=$(snapshot adapter_gemini_context_dropped)
+sed_in_place 's|"fileName": \["AGENTS\.md", "GEMINI\.md"\]|"fileName": ["GEMINI.md"]|' "$d/harness/templates/configs/gemini-settings.json"
+expect fail "adapter-set: the Gemini CLI no longer reads AGENTS.md" "$d" adapter-set.sh "context.fileName"
+
+d=$(snapshot adapter_gemini_guard_matcher_narrowed)
+sed_in_place 's|"matcher": "^run_shell_command\$"|"matcher": "^run_shell$"|' "$d/.gemini/settings.json"
+expect fail "adapter-set: the Gemini CLI command guard matcher was altered" "$d" adapter-set.sh \
+	'not shipped: hooks.BeforeTool[].matcher="^run_shell$"'
+
+d=$(snapshot adapter_gemini_redactor_rewired)
+sed_in_place 's|scripts/redact-tool-output\.sh|scripts/redact.sh|' "$d/harness/templates/configs/gemini-settings.json"
+# shellcheck disable=SC2016 # the variable is a literal in the JSON the guard quotes
+expect fail "adapter-set: the Gemini CLI AfterTool hook runs another script" "$d" adapter-set.sh \
+	'not shipped: hooks.AfterTool[].hooks[].command="bash \"$GEMINI_PROJECT_DIR/scripts/redact.sh\""'
+
+d=$(snapshot adapter_gemini_session_hook_renamed)
+sed_in_place 's|"name": "amh-session-start"|"name": "session-start"|' "$d/.gemini/settings.json"
+expect fail "adapter-set: the Gemini CLI session hook was renamed" "$d" adapter-set.sh \
+	'not shipped: hooks.SessionStart[].hooks[].name="session-start"'
+
+# Each of these keeps every shipped literal in place and still turns the wiring off or moves it.
+d=$(snapshot adapter_gemini_hooks_disabled)
+awk '{ print } NR == 1 { print "  \"hooksConfig\": {"; print "    \"enabled\": false"; print "  }," }' \
+	"$d/harness/templates/configs/gemini-settings.json" >"$d/gemini-settings.json.new"
+mv "$d/gemini-settings.json.new" "$d/harness/templates/configs/gemini-settings.json"
+expect fail "adapter-set: the Gemini CLI hooks switched off beside intact wiring" "$d" adapter-set.sh \
+	'not shipped: hooksConfig.enabled=false'
+
+d=$(snapshot adapter_antigravity_entry_disabled)
+awk '{ print } /^  "amh-command-guard": \{$/ { print "    \"enabled\": false," }' "$d/.agents/hooks.json" >"$d/hooks.json.new"
+mv "$d/hooks.json.new" "$d/.agents/hooks.json"
+expect fail "adapter-set: the Antigravity command guard entry switched off" "$d" adapter-set.sh \
+	'not shipped: amh-command-guard.enabled=false'
+
+d=$(snapshot adapter_antigravity_minified)
+tr -d '\n' <"$d/harness/templates/configs/antigravity-hooks.json" >"$d/hooks.json.new"
+mv "$d/hooks.json.new" "$d/harness/templates/configs/antigravity-hooks.json"
+expect fail "adapter-set: a hooks file off the readable layout is UNVERIFIED" "$d" adapter-set.sh \
+	'is not at the one-key-per-line layout this guard reads'
+
+d=$(snapshot adapter_antigravity_guard_rewired)
+sed_in_place 's|scripts/command-guard\.sh|scripts/other-guard.sh|' "$d/.agents/hooks.json"
+expect fail "adapter-set: the Antigravity command guard runs another script" "$d" adapter-set.sh \
+	'not shipped: amh-command-guard.PreToolUse[].hooks[].command="root='
+
+d=$(snapshot adapter_antigravity_guard_matcher)
+sed_in_place 's|"matcher": "run_command"|"matcher": "run_.*"|' "$d/harness/templates/configs/antigravity-hooks.json"
+expect fail "adapter-set: the Antigravity command guard matcher was altered" "$d" adapter-set.sh \
+	'not shipped: amh-command-guard.PreToolUse[].matcher="run_.*"'
+
+d=$(snapshot adapter_antigravity_entry_renamed)
+sed_in_place 's|"amh-session-start": {|"session": {|' "$d/harness/templates/configs/antigravity-hooks.json"
+expect fail "adapter-set: the Antigravity session entry was renamed" "$d" adapter-set.sh \
+	'missing: ELEM amh-session-start.SessionStart[]'
+
+d=$(snapshot adapter_gemini_reviewer_shell)
+sed_in_place 's|^tools: \[read_file, |tools: [run_shell_command, read_file, |' "$d/.gemini/agents/amh-rule-reviewer.md"
+expect fail "adapter-set: the Gemini CLI reviewer gained the shell tool" "$d" adapter-set.sh "reviewer's tool list is not exactly"
+
+d=$(snapshot adapter_antigravity_reviewer_mcp)
+sed_in_place 's|^mainAgent: false$|mcpServers: [github]|' "$d/harness/templates/configs/antigravity-agents/amh-rule-reviewer.md"
+expect fail "adapter-set: the Antigravity reviewer gained an unlisted key" "$d" adapter-set.sh "unlisted key mcpServers"
+
+d=$(snapshot adapter_antigravity_reviewer_commands)
+sed_in_place 's|^commandExecutionPolicy: "off"$|commandExecutionPolicy: auto|' "$d/.agents/agents/amh-rule-reviewer.md"
+expect fail "adapter-set: the Antigravity reviewer may run commands" "$d" adapter-set.sh \
+	'lacks the shipped line(s) commandExecutionPolicy: "off"'
+
+d=$(snapshot adapter_gemini_reviewer_remote)
+sed_in_place 's|^kind: local$|kind: remote|' "$d/harness/templates/configs/gemini-agents/amh-rule-reviewer.md"
+expect fail "adapter-set: the Gemini CLI reviewer is no longer local" "$d" adapter-set.sh 'lacks the shipped line(s) kind: local'
+
+d=$(snapshot adapter_antigravity_rule_trigger)
+sed_in_place 's|^trigger: model_decision$|trigger: model-decision|' "$d/.agents/rules/amh-acceptance-ladder.md"
+expect fail "adapter-set: an Antigravity rule's trigger is one the host discards" "$d" adapter-set.sh "trigger is not model_decision"
+
+d=$(snapshot adapter_gemini_skill_misnamed)
+sed_in_place 's|^name: amh-host-rails$|name: host-rails|' "$d/harness/templates/configs/gemini-skills/amh-host-rails/SKILL.md"
+expect fail "adapter-set: a Gemini CLI skill's name is not its directory's" "$d" adapter-set.sh "is not its directory's, amh-host-rails"
+
+# A pointer resolves against the documents of the tree it lands in: the template against the seed,
+# the reference copy against this repository. Renaming the heading, not the pointer, is the drift.
+d=$(snapshot adapter_pointer_heading_renamed)
+sed_in_place 's|^## Universal session sequence$|## Session sequence|' "$d/AGENTS.md"
+expect fail "adapter-set: a reference pointer's heading was renamed" "$d" adapter-set.sh \
+	"points at AGENTS.md → **Universal session sequence**, and not exactly one heading there reads exactly that"
+
+d=$(snapshot adapter_seed_pointer_heading_renamed)
+sed_in_place 's|^## Agent harness$|## Agents|' "$d/harness/templates/seed/AGENTS.md"
+expect fail "adapter-set: a shipped pointer's seed heading was renamed" "$d" adapter-set.sh \
+	"points at harness/templates/seed/AGENTS.md → **Agent harness**"
+
+d=$(snapshot adapter_pointer_doubled)
+# shellcheck disable=SC2016 # Markdown backticks, written literally
+printf '\nAlso `docs/RUNBOOK.md` → **Change-type playbooks**.\n' >>"$d/.agents/rules/amh-rule-review.md"
+expect fail "adapter-set: a pointer file names a second section" "$d" adapter-set.sh "carries 2 pointer(s)"
+
 # ADAPTER_FILES is the sixth place the set is written down — the session banner reports from
 # it — so it drifts like any other. All three mutations below are silent without the guard:
 # the banner simply stops mentioning an adapter, or mentions one nobody ships, and `unknown`

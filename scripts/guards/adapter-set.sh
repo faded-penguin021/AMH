@@ -19,6 +19,18 @@ ADAPTERS=(
 	'harness/templates/configs/codex-config.toml|.codex/config.toml'
 	'harness/templates/configs/codex-amh.rules|.codex/rules/amh.rules'
 	'harness/templates/configs/codex-agents/amh-rule-reviewer.toml|.codex/agents/amh-rule-reviewer.toml'
+	'harness/templates/configs/gemini-settings.json|.gemini/settings.json'
+	'harness/templates/configs/gemini-agents/amh-rule-reviewer.md|.gemini/agents/amh-rule-reviewer.md'
+	'harness/templates/configs/gemini-skills/amh-session-start/SKILL.md|.gemini/skills/amh-session-start/SKILL.md'
+	'harness/templates/configs/gemini-skills/amh-acceptance-ladder/SKILL.md|.gemini/skills/amh-acceptance-ladder/SKILL.md'
+	'harness/templates/configs/gemini-skills/amh-rule-review/SKILL.md|.gemini/skills/amh-rule-review/SKILL.md'
+	'harness/templates/configs/gemini-skills/amh-host-rails/SKILL.md|.gemini/skills/amh-host-rails/SKILL.md'
+	'harness/templates/configs/antigravity-hooks.json|.agents/hooks.json'
+	'harness/templates/configs/antigravity-agents/amh-rule-reviewer.md|.agents/agents/amh-rule-reviewer.md'
+	'harness/templates/configs/antigravity-rules/amh-session-start.md|.agents/rules/amh-session-start.md'
+	'harness/templates/configs/antigravity-rules/amh-acceptance-ladder.md|.agents/rules/amh-acceptance-ladder.md'
+	'harness/templates/configs/antigravity-rules/amh-rule-review.md|.agents/rules/amh-rule-review.md'
+	'harness/templates/configs/antigravity-rules/amh-host-rails.md|.agents/rules/amh-host-rails.md'
 )
 
 conf_value() { # conf_value <key> <config>
@@ -801,5 +813,222 @@ for declaration in "${ADAPTERS[@]}"; do
 	done
 done
 
+# The Gemini CLI and Antigravity adapters (DD-114). One wiring check per surface, as the plan that
+# added them budgeted: each hook file's whole wiring, each reviewer's frontmatter, and each
+# pointer's frontmatter and heading. No JSON or YAML parser is in the dependency floor, so like the
+# Claude checks above these read the SHIPPED one-key-per-line layout, and a line outside it is
+# UNVERIFIED, never passed. What they validate is configuration: neither host has been observed
+# loading any of these files.
+#
+# json_paths <file>: every scalar in the file as `key.path=value`, and every object in an array as
+# `ELEM <array path>`, one per line and sorted, with a `description` value read as `*`. The hook
+# files are then compared with the shipped set EXACTLY, as a multiset: a key matched anywhere in a
+# group is not enough, because a hook moved out of `hooks`, flattened beside its matcher, split
+# across two elements, disabled by `enabled` or `hooksConfig`, or left without its `type` still
+# carries every literal. A duplicate key shows as a second line, so the last-wins reading of most
+# JSON readers cannot hide behind the first.
+json_paths() {
+	awk '
+		{ sub(/\r$/, ""); l = $0; sub(/^[[:space:]]+/, "", l); sub(/,$/, "", l) }
+		l == "" { next }
+		l == "{" { if (sp == 0) { sp = 1; stack[1] = ""; next }
+			print "ELEM " stack[sp]; sp++; stack[sp] = stack[sp - 1]; next }
+		l == "}" || l == "]" { sp--; next }
+		match(l, /^"[^"]*": /) {
+			key = substr(l, 2, RLENGTH - 4); rest = substr(l, RLENGTH + 1)
+			p = (stack[sp] == "" ? key : stack[sp] "." key)
+			if (rest == "{") { sp++; stack[sp] = p; next }
+			if (rest == "[") { sp++; stack[sp] = p "[]"; next }
+			if (key == "description") rest = "*"
+			print p "=" rest; next
+		}
+		{ print "#UNREAD line " NR }
+		END { if (sp != 0) print "#UNREAD unbalanced at end of file" }
+	' "$1" | LC_ALL=C sort
+}
+# hook_entry <prefix> <matcher or -> <name or -> <command> <timeout> [description]: the expected
+# lines of one hook, in json_paths form.
+hook_entry() {
+	local prefix=$1 matcher=$2 name=$3 command=$4 timeout=$5 described=${6-}
+	printf 'ELEM %s\n' "${prefix%.hooks[]}"
+	[ "$matcher" = - ] || printf '%s.matcher="%s"\n' "${prefix%.hooks[]}" "$matcher"
+	[ "$prefix" = "${prefix%.hooks[]}" ] || printf 'ELEM %s\n' "$prefix"
+	[ "$name" = - ] || printf '%s.name="%s"\n' "$prefix" "$name"
+	printf '%s.type="command"\n%s.command=%s\n%s.timeout=%s\n' "$prefix" "$prefix" "$command" "$prefix" "$timeout"
+	[ -z "$described" ] || printf '%s.description=*\n' "$prefix"
+}
+# shellcheck disable=SC2016 # the variables are literals in the JSON; the host or its shell expands them
+GEMINI_SESSION='"bash \"$GEMINI_PROJECT_DIR/scripts/session-start.sh\" --json=additional-context"'
+# shellcheck disable=SC2016
+GEMINI_GUARD='"bash \"$GEMINI_PROJECT_DIR/scripts/command-guard.sh\""'
+# shellcheck disable=SC2016
+GEMINI_REDACT='"bash \"$GEMINI_PROJECT_DIR/scripts/redact-tool-output.sh\""'
+# shellcheck disable=SC2016
+AG_SESSION='"root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; exec bash \"$root/scripts/session-start.sh\" --json=inject-steps"'
+# shellcheck disable=SC2016
+AG_GUARD='"root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; exec bash \"$root/scripts/command-guard.sh\""'
+# The Gemini CLI: the AGENTS.md setting is its only route to the constitution, and the host
+# fingerprints each hook by name and command, so both are part of the wiring. Antigravity: no
+# PostToolUse entry on purpose, since its response cannot rewrite a result.
+GEMINI_EXPECTED=$({
+	printf '%s\n' 'context.fileName=["AGENTS.md", "GEMINI.md"]'
+	hook_entry 'hooks.SessionStart[].hooks[]' '*' amh-session-start "$GEMINI_SESSION" 30000 described
+	hook_entry 'hooks.BeforeTool[].hooks[]' '^run_shell_command$' amh-command-guard "$GEMINI_GUARD" 10000 described
+	hook_entry 'hooks.AfterTool[].hooks[]' '*' amh-redact-tool-output "$GEMINI_REDACT" 40000 described
+} | LC_ALL=C sort)
+ANTIGRAVITY_EXPECTED=$({
+	hook_entry 'amh-session-start.SessionStart[]' - - "$AG_SESSION" 30
+	hook_entry 'amh-command-guard.PreToolUse[].hooks[]' run_command - "$AG_GUARD" 10
+} | LC_ALL=C sort)
+gemini_files=0
+antigravity_files=0
+for declaration in "${ADAPTERS[@]}"; do
+	case $declaration in
+	*gemini-settings.json*) expected=$GEMINI_EXPECTED ;;
+	*antigravity-hooks.json*) expected=$ANTIGRAVITY_EXPECTED ;;
+	*) continue ;;
+	esac
+	for config in "${declaration%|*}" "${declaration#*|}"; do
+		[ -f "$config" ] || continue
+		actual=$(json_paths "$config")
+		if grep -q '^#UNREAD' <<<"$actual"; then
+			note "$config: $(grep '^#UNREAD' <<<"$actual" | head -3 | sed 's/^#UNREAD //' | paste -sd, -) is not at the one-key-per-line layout this guard reads, so the hook wiring is UNVERIFIED, not present"
+			continue
+		fi
+		missing=$(LC_ALL=C comm -23 <(printf '%s\n' "$expected") <(printf '%s\n' "$actual"))
+		extra=$(LC_ALL=C comm -13 <(printf '%s\n' "$expected") <(printf '%s\n' "$actual"))
+		if [ -n "$missing$extra" ]; then
+			note "$config: its wiring is not the shipped adapter's, read as key paths — missing: ${missing:-none}; not shipped: ${extra:-none}"
+			continue
+		fi
+		case $config in
+		*gemini*) gemini_files=$((gemini_files + 1)) ;;
+		*) antigravity_files=$((antigravity_files + 1)) ;;
+		esac
+	done
+done
+[ "$gemini_files" -gt 0 ] || note "checked NOTHING for the Gemini CLI hook wiring — no settings file was reached or none matched"
+[ "$antigravity_files" -gt 0 ] || note "checked NOTHING for the Antigravity hook wiring — no hooks file was reached or none matched"
+# frontmatter_keys <file> <key>...: the file opens with a closed `---` block whose every line is a
+# bare `key: value` at the left margin, each listed key exactly once and no other. An unlisted key
+# is refused rather than ignored: on a reviewer, `mcpServers` or `skills` hands it tools its list
+# does not name; on a rule, a second `trigger` decides which one the host reads.
+frontmatter_keys() {
+	local file=$1 front bad
+	shift
+	front=$(awk 'NR == 1 { if ($0 != "---") { print "#NONE"; exit } next }
+		$0 == "---" { closed = 1; exit } { print } END { if (!closed) print "#UNCLOSED" }' "$file")
+	case $(printf '%s\n' "$front" | tail -1) in
+	'#NONE' | '#UNCLOSED')
+		note "$file: no closed --- frontmatter block opens the file, so the host may read none of its keys"
+		return 1
+		;;
+	esac
+	bad=$(printf '%s\n' "$front" | awk -v want=" $* " '
+		!/^[A-Za-z]+: [^ ]/ { print "unreadable line " NR; next }
+		{ k = $0; sub(/:.*/, "", k); seen[k]++
+		  if (index(want, " " k " ") == 0) print "unlisted key " k
+		  else if (seen[k] == 2) print "duplicate key " k }
+		END { n = split(want, w, " "); for (i = 1; i <= n; i++) if (!seen[w[i]]) print "missing key " w[i] }' |
+		paste -sd, - | sed 's/,/, /g')
+	if [ -n "$bad" ]; then
+		note "$file: its frontmatter must carry exactly the keys $* — found: $bad"
+		return 1
+	fi
+	FRONT=$front
+}
+front_line() { printf '%s\n' "$FRONT" | grep -cxF -- "$1"; }
+reviewers=0
+pointers=0
+for declaration in "${ADAPTERS[@]}"; do
+	case $declaration in
+	*gemini-agents/amh-rule-reviewer.md*)
+		keys='name description kind tools'
+		tools='tools: [read_file, read_many_files, grep_search, glob, list_directory]'
+		need=$'name: amh-rule-reviewer\nkind: local'
+		;;
+	*antigravity-agents/amh-rule-reviewer.md*)
+		keys='name description tools subagent mainAgent commandExecutionPolicy'
+		tools='tools: [view_file, grep_search, list_dir, find_by_name]'
+		need=$'name: amh-rule-reviewer\nsubagent: true\nmainAgent: false\ncommandExecutionPolicy: "off"'
+		;;
+	*gemini-skills/* | *antigravity-rules/*) keys='' ;;
+	*) continue ;;
+	esac
+	for file in "${declaration%|*}" "${declaration#*|}"; do
+		[ -f "$file" ] || continue
+		if [ -n "$keys" ]; then
+			# The tool list IS the read-only property: no shell and no write tool, every name
+			# spelled exactly (Antigravity documents a hang on a misspelled one). Every other key
+			# but the description is pinned too: the name is how the session invokes it, and
+			# kind, subagent and mainAgent decide where and as what it runs.
+			# shellcheck disable=SC2086 # the key list is split on purpose
+			frontmatter_keys "$file" $keys || continue
+			if [ "$(front_line "$tools")" -ne 1 ]; then
+				note "$file: the reviewer's tool list is not exactly '${tools#tools: }', so whether it is read-only is UNVERIFIED"
+				continue
+			fi
+			unpinned=''
+			while IFS= read -r line; do
+				[ "$(front_line "$line")" -eq 1 ] || unpinned="${unpinned:+$unpinned, }$line"
+			done <<<"$need"
+			if [ -n "$unpinned" ]; then
+				note "$file: the reviewer's frontmatter lacks the shipped line(s) $unpinned"
+			else
+				reviewers=$((reviewers + 1))
+			fi
+			continue
+		fi
+		case $file in
+		*gemini-skills/* | .gemini/skills/*)
+			skill=${file%/SKILL.md}
+			frontmatter_keys "$file" name description || continue
+			[ "$(front_line "name: ${skill##*/}")" -eq 1 ] || {
+				note "$file: the skill's name is not its directory's, ${skill##*/}"
+				continue
+			}
+			;;
+		*)
+			# A missing or unknown trigger makes Antigravity discard the rule silently.
+			frontmatter_keys "$file" trigger description || continue
+			[ "$(front_line 'trigger: model_decision')" -eq 1 ] || {
+				note "$file: the rule's trigger is not model_decision; Antigravity silently discards a rule whose trigger it does not know"
+				continue
+			}
+			;;
+		esac
+		# A pointer names ONE binding section by its exact heading. A shipped template resolves
+		# against the seed an adopter receives, this repository's copy against its own documents.
+		# Read from the body only: a pointer in the description is not the one the file follows.
+		# shellcheck disable=SC2016 # the backticks are Markdown, matched literally
+		found=$(awk 'NR == 1 && $0 == "---" { front = 1; next } front && $0 == "---" { front = 0; next } !front' "$file" |
+			grep -oE '`[^`]+` → \*\*[^*]+\*\*')
+		if [ "$(printf '%s' "$found" | grep -c '')" -ne 1 ]; then
+			note "$file: carries $(printf '%s' "$found" | grep -c '') pointer(s) of the form \`path\` → **Heading** on one line, where it must carry exactly one"
+			continue
+		fi
+		# shellcheck disable=SC2016 # the backticks are Markdown, matched literally
+		target=$(printf '%s\n' "$found" | sed 's/^`\([^`]*\)`.*/\1/')
+		heading=$(printf '%s\n' "$found" | sed 's/^.*→ \*\*\(.*\)\*\*$/\1/')
+		case $file in harness/templates/*) target=harness/templates/seed/$target ;; esac
+		case /$target/ in
+		*/../* | //*)
+			note "$file: points at $target, which leaves the tree it must resolve in"
+			continue
+			;;
+		esac
+		if [ ! -f "$target" ]; then
+			note "$file: points at $target, which does not exist"
+		# grep -c, never -q: under pipefail an early-exiting reader can fail the writer (DD-110).
+		elif [ "$(sed 's/[[:space:]]*$//' "$target" | grep -cxF -e "# $heading" -e "## $heading" -e "### $heading" -e "#### $heading")" -ne 1 ]; then
+			note "$file: points at $target → **$heading**, and not exactly one heading there reads exactly that"
+		else
+			pointers=$((pointers + 1))
+		fi
+	done
+done
+[ "$reviewers" -gt 0 ] || note "checked NOTHING for the Gemini CLI and Antigravity reviewers — no reviewer file was reached or none passed"
+[ "$pointers" -gt 0 ] || note "checked NOTHING for the Gemini CLI and Antigravity pointers — no skill or rule file was reached or none passed"
+
 [ "$fails" -eq 0 ] || exit 1
-printf 'first-class adapter set is complete across sources, reference paths, installation and legislation; %s Claude command hook(s) across %s file(s) pin shell=bash, %s file(s) anchor every Claude hook at the project root and refuse calls when a command guard fails, %s Claude command guard(s) match Bash|PowerShell, %s Claude and %s Codex adapter(s) wire the PostToolUse redaction rail for every tool, %s Claude file(s) deny the editing tools the git pre-push hook, the machine-mode template carries its exact hook and every adapter credential Read rail, and as configuration validation, not runtime attestation, %s Claude file(s) request exactly the shipped sandbox block, %s Codex file(s) set no key outside their hook tables, and %s reviewer file(s) pin sandbox_mode read-only\n' "$claude_hooks" "$claude_files" "$claude_anchor_files" "$claude_pre" "$claude_post" "$codex_post" "$claude_hookfile" "$claude_sandbox" "$codex_sandbox" "$reviewer_sandbox"
+printf 'first-class adapter set is complete across sources, reference paths, installation and legislation; %s Claude command hook(s) across %s file(s) pin shell=bash, %s file(s) anchor every Claude hook at the project root and refuse calls when a command guard fails, %s Claude command guard(s) match Bash|PowerShell, %s Claude and %s Codex adapter(s) wire the PostToolUse redaction rail for every tool, %s Claude file(s) deny the editing tools the git pre-push hook, the machine-mode template carries its exact hook and every adapter credential Read rail, and as configuration validation, not runtime attestation, %s Claude file(s) request exactly the shipped sandbox block, %s Codex file(s) set no key outside their hook tables, %s reviewer file(s) pin sandbox_mode read-only, %s Gemini CLI and %s Antigravity hook file(s) wire their shipped hooks, %s Gemini CLI and Antigravity reviewer file(s) carry their read-only tool list, and %s pointer file(s) name a heading that resolves\n' "$claude_hooks" "$claude_files" "$claude_anchor_files" "$claude_pre" "$claude_post" "$codex_post" "$claude_hookfile" "$claude_sandbox" "$codex_sandbox" "$reviewer_sandbox" "$gemini_files" "$antigravity_files" "$reviewers" "$pointers"

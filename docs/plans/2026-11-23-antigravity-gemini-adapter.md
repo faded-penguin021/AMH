@@ -1,6 +1,6 @@
 # PLAN — a third host adapter: the Gemini CLI and Antigravity
 
-> **Status: adopted by the owner on 2026-11-23; A0 to A2 done.** Units A1 to A5, run in order by the
+> **Status: adopted by the owner on 2026-11-23; A0 to A2 done, A3 committed and not yet done.** Units A1 to A5, run in order by the
 > plan runner on `session/antigravity-adapter`. **Do not archive or delete this file in any
 > unit**: the runner reads each unit's done marker here. The session that merges the train
 > archives it afterwards.
@@ -183,6 +183,19 @@ reason, write the Changelog line, and stop.
 manifest drift clean; the full ladder green; the rule review run and triaged.
 
 ### A3 — ship the adapter files and wire them into every surface that lists adapters
+
+- **Not done yet.** Open: the pre-commit Neon review (run `20261123T202449Z-neon-a3-precommit`)
+  found `json_paths` in `adapter-set.sh` passable — a `description` line swallowing appended keys,
+  an empty duplicate container emitting nothing, a dotted key colliding with the path separator,
+  a template pointer with a leading `/`; reuse the guard's existing `JSON_PATHS` tokenizer, add a
+  fixture per bypass, then mark this heading done.
+- **Committed so far:** the twelve files §4 lists, each a template under `harness/templates/configs/` and this
+  repository's copy, in every adapter list; `adapter-set.sh` gained one check per surface, the hook
+  files' an exact key-path set after the rule review found the first version passable, and the
+  init e2e test the install, placeholder and re-run cases, each seen red under its mutation. The
+  shipped session-start and host-rails pointers name the seed's headings, because the seed has
+  neither of this repository's, and this repository's host-rails pointers name `AGENTS.md` →
+  **Working guidance**, since the conformance lab's pre-H2 arm has no runbook section (**DD-114**).
 
 1. Create exactly the files §4 lists, settings, skills, rules, workflows and subagent
    definitions alike: the templates under `harness/templates/configs/`, this repository's own

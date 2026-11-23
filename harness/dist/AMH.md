@@ -1335,7 +1335,7 @@ PLAN_DIR=docs/plans
 # this list is a rule change either way, never housekeeping.
 #
 # Add each new agent adapter's config file here.
-RULE_FILES='AGENTS.md docs/PROTOCOLS.md docs/RUNBOOK.md amh.conf scripts/ladder.sh scripts/test-ladder-guards.sh scripts/command-guard.sh scripts/redact.sh scripts/session-start.sh .claude/settings.json .codex/config.toml .codex/rules/amh.rules .codex/agents/amh-rule-reviewer.toml'
+RULE_FILES='AGENTS.md docs/PROTOCOLS.md docs/RUNBOOK.md amh.conf scripts/ladder.sh scripts/test-ladder-guards.sh scripts/command-guard.sh scripts/redact.sh scripts/session-start.sh .claude/settings.json .codex/config.toml .codex/rules/amh.rules .codex/agents/amh-rule-reviewer.toml .gemini/settings.json .gemini/agents/amh-rule-reviewer.md .gemini/skills/amh-session-start/SKILL.md .gemini/skills/amh-acceptance-ladder/SKILL.md .gemini/skills/amh-rule-review/SKILL.md .gemini/skills/amh-host-rails/SKILL.md .agents/hooks.json .agents/agents/amh-rule-reviewer.md .agents/rules/amh-session-start.md .agents/rules/amh-acceptance-ladder.md .agents/rules/amh-rule-review.md .agents/rules/amh-host-rails.md'
 ``````
 
 ### 3.2 `docs/STATE.md` — working memory (bounded, compressible)
@@ -2799,7 +2799,9 @@ that exists.
 | `AGENTS.md`, `CLAUDE.md`, `docs/**` | seed prose | Copied once, yours thereafter. Re-running init never touches them. |
 | `.github/workflows/ci.yml` | yours | Written only if absent. |
 | `.claude/settings.json` | Claude Code adapter | Written only if absent. |
-| `.codex/config.toml`, `.codex/rules/amh.rules` | Codex adapter | Written only if absent. Codex consumes the canonical `AGENTS.md` directly, so there is no Codex-specific constitution pointer to maintain. |
+| `.codex/config.toml`, `.codex/rules/amh.rules`, `.codex/agents/amh-rule-reviewer.toml` | Codex adapter | Written only if absent. Codex consumes the canonical `AGENTS.md` directly, so there is no Codex-specific constitution pointer to maintain. |
+| `.gemini/settings.json`, `.gemini/skills/amh-*/SKILL.md`, `.gemini/agents/amh-rule-reviewer.md` | Gemini CLI adapter | Written only if absent. The settings file points the Gemini CLI at `AGENTS.md` and wires the session bootstrap, the command guard and the output redactor; the Gemini CLI ignores the whole file in a folder it does not trust. The skills only point at binding sections and enforce nothing. Configured, never observed firing. |
+| `.agents/hooks.json`, `.agents/rules/amh-*.md`, `.agents/agents/amh-rule-reviewer.md` | Antigravity adapter | Written only if absent. Antigravity reads `AGENTS.md` natively; the hooks file wires the session bootstrap and the command guard, and there is no output redaction. The rules only point at binding sections and enforce nothing. Configured, never observed firing. |
 
 If you find yourself wanting to edit a shipped script, stop: you have found a missing extension
 point. The change belongs in `amh.conf`, in a guard under `scripts/guards/`, or in
@@ -2815,7 +2817,7 @@ The init run printed every file that still contains one. **Nothing in your tree 
 skip this**, so check it yourself before you finish:
 
 ```sh
-grep -rn '{{' AGENTS.md CLAUDE.md docs/ .github/ .claude/ .codex/ 2>/dev/null
+grep -rn '{{' AGENTS.md CLAUDE.md docs/ .github/ .claude/ .codex/ .gemini/ .agents/ 2>/dev/null
 ```
 
 Each slot is documented in `harness/PLACEHOLDERS.md` **in the harness checkout you ran the
