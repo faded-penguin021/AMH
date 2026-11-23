@@ -40,6 +40,9 @@ that unit:
   that merges the train archives it.
 - `2026-11-22-build-output-secret-scan.md`: a draft, B0 done; only B1, its gpt-6-astra `-e high`
   review, is approved (owner, 2026-11-22), and the plan runner runs it (Owner queue).
+- `2026-11-23-antigravity-gemini-adapter.md`, adopted: a Gemini CLI and Antigravity adapter,
+  A0 done; A1 to A5 approved in full for the plan runner, the session deciding every fork and
+  recording each in its unit's ledger row (owner, 2026-11-23).
 
 Operational gotchas:
 
@@ -85,9 +88,6 @@ review first (M1), adoption, and the facts its §2, item 3 asks for.** No check 
 and release placement in that plan's §2, decision 3; H0.5's recommended order is in the
 research-gaps plan's §7.1. No check settles it.
 
-**OPEN — tag `amh-v17.0.0` once this train is merged.** MAJOR (owner, 2026-11-17, **DD-094**),
-no longer blocked by H4b (owner, 2026-11-19, **DD-103**). Tagging is an owner step, and the README's clone command names the
-tag. Check: `git ls-remote --tags origin amh-v17.0.0` — no output means open.
 
 
 ## Decided non-items (don't re-litigate without new evidence)
@@ -118,6 +118,9 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-23 — **Gemini CLI and Antigravity adapter, A0: a plan committed for a third host
+  adapter, every unit approved for the plan runner; the `amh-v17.0.0` tag item left the Owner
+  queue, the tag seen on `origin` that day** (no ledger row: nothing is decided yet).
 - 2026-11-22 — **Build-output secret scan, B0: a draft plan committed for a ladder rung that runs
   the secret scan over the build output an adopter names, a Resend redaction class and a seed
   sentence on client-exposed variables; B1, its review, is queued** (no ledger row: nothing is
