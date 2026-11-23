@@ -1,6 +1,6 @@
 # PLAN — a third host adapter: the Gemini CLI and Antigravity
 
-> **Status: adopted by the owner on 2026-11-23; A0 done.** Units A1 to A5, run in order by the
+> **Status: adopted by the owner on 2026-11-23; A0 and A1 done.** Units A1 to A5, run in order by the
 > plan runner on `session/antigravity-adapter`. **Do not archive or delete this file in any
 > unit**: the runner reads each unit's done marker here. The session that merges the train
 > archives it afterwards.
@@ -101,7 +101,10 @@ Every unit:
   amh-v17.0.0` answered with a tag on 2026-11-23.
 - **Acceptance:** `scripts/ladder.sh --guards-only` green.
 
-### A1 — establish what each host offers, and decide the adapter's shape
+### A1 — establish what each host offers, and decide the adapter's shape: done 2026-11-23
+
+- **Done:** §3 and §4 written; both hosts get files, and A2 runs (**DD-111**, **DD-112**).
+
 
 1. **Read how the existing adapters are wired** before looking outward: `scripts/guards/adapter-set.sh`,
    `harness/templates/configs/`, `scripts/amh-init.sh` (`KEEP_CONFIGS`, the seed ranking),
@@ -232,10 +235,198 @@ rule review run and triaged.
 clean; the full ladder green; the rule review run and triaged; both Owner-queue items present
 with checks.
 
-## 3. Host evidence (A1 fills this in)
+## 3. Host evidence (A1, 2026-11-23)
 
-Not yet written.
+Every source below was retrieved on 2026-11-23. Nothing here is `measured`: neither host runs in
+this container. `documented` means the named vendor page states it; `unverified` means no vendor
+page read for this unit states it, whatever a lead or a model said.
 
-## 4. The adapter's shape (A1 fills this in)
+**Gemini CLI sources** — the repository's own docs at tag `v0.70.0` (the latest release, published
+2026-11-19; the same pages on `main` at `eecccfc`, 2026-11-20, were byte-identical), each at
+`https://github.com/google-gemini/gemini-cli/blob/v0.70.0/docs/<path>`:
+G-md `cli/gemini-md.md` · G-conf `reference/configuration.md` · G-trust `cli/trusted-folders.md` ·
+G-hooks `hooks/index.md` · G-href `hooks/reference.md` · G-hbp `hooks/best-practices.md` ·
+G-policy `reference/policy-engine.md` · G-shell `tools/shell.md` · G-tools `reference/tools.md` ·
+G-sbx `cli/sandbox.md` · G-cli `cli/cli-reference.md` · G-skills `cli/skills.md` and
+`cli/creating-skills.md` · G-agents `core/subagents.md` · G-remote `core/remote-agents.md`.
 
-Not yet written.
+**Antigravity sources** — `https://antigravity.google/docs/<path>/`; the pages carry no version of
+their own, and the changelog that day named Antigravity CLI **1.5.12** (2026-11-19) and the App
+**2.34.0** as latest, so the evidence is taken to describe those: AG-rules `rules` · AG-hooks
+`hooks` · AG-perm `permissions` · AG-sbx `sandbox` · AG-cli `cli/reference` and `cli/using` ·
+AG-skills `skills` · AG-disc `customization-discovery` · AG-agents `subagents` · AG-remote
+`remote-agents` · AG-wf `ide/workflows` · AG-set `settings` · AG-log `changelog`.
+
+**Codex source** (one row of §4 depends on it) — C-skills
+`https://developers.openai.com/codex/skills`: Codex scans `.agents/skills` in every directory from
+its working directory up to the repository root.
+
+### 3.1 Gemini CLI (v0.70.0)
+
+| # | Surface | Finding | Evidence |
+| - | ------- | ------- | -------- |
+| 1 | Instruction files | Loads `GEMINI.md` by default — `~/.gemini/GEMINI.md`, then the workspace directories and their parents, then just-in-time in a directory a tool touches. `context.fileName` (string or array) names other files, the page's own example being `["AGENTS.md", "CONTEXT.md", "GEMINI.md"]`. So `AGENTS.md` is read **by a setting**, not natively. | documented, G-md, G-conf |
+| 1a | — whether `context.fileName` also renames the global `~/.gemini/` file | not stated | unverified |
+| 2 | Repo-local settings | `.gemini/settings.json` at the project root, JSON, layered over user settings and under the system override file. String values may reference `$VAR` / `${VAR}`. In an **untrusted** folder the CLI ignores `.gemini/settings.json` entirely (and `.env`, custom commands, MCP). | documented, G-conf, G-trust |
+| 2a | — whether folder trust is on by default | the two pages disagree: G-trust says the feature is "disabled by default"; G-conf gives `security.folderTrust.enabled` the default `true` | unverified |
+| 2b | — a comment key, or comments, in `settings.json` | not stated; a schema is published | unverified |
+| 3 | Static allow/deny | The policy engine (TOML, `commandPrefix` / `commandRegex` / `argsPattern`, priority tiers) is the documented mechanism, but its **Workspace tier is "currently non-functional"** — `.gemini/policies/*.toml` in a repository has no effect. `tools.exclude` in `settings.json` is **deprecated** in favour of policy rules; it prefix-matches `run_shell_command(<cmd>)` per chained segment, and the page shows it only beside `tools.core`, which, once set, allowlists *every* built-in tool. | documented, G-policy, G-shell, G-conf |
+| 3a | — `tools.exclude` without `tools.core` | not stated | unverified |
+| 4 | Hooks: events and matchers | Under `hooks` in `settings.json`: `SessionStart`, `SessionEnd`, `BeforeAgent`, `AfterAgent`, `BeforeModel`, `AfterModel`, `BeforeToolSelection`, `BeforeTool`, `AfterTool`, `PreCompress`, `Notification`. A group is `{matcher, sequential, hooks:[{type:"command", command, name, timeout, description}]}`. Tool-event matchers are regular expressions on the tool name; lifecycle matchers are exact strings; `"*"` or `""` matches all. `SessionStart` sources: `startup`, `resume`, `clear`. | documented, G-hooks, G-href |
+| 4a | Hooks: payload | stdin JSON with `session_id`, `transcript_path`, `cwd`, `hook_event_name`, `timestamp`; `BeforeTool` adds `tool_name`, `tool_input`; `AfterTool` adds `tool_response` (`llmContent`, `returnDisplay`, optional `error`). The shell tool's argument is `tool_input.command`. | documented, G-href, G-tools |
+| 4b | Hooks: response | Exit 0: stdout parsed as JSON. Exit 2: the action is blocked and stderr is the reason — for `BeforeTool` the call does not run and the turn continues; for `AfterTool` the result is hidden and stderr replaces it. `BeforeTool` JSON `decision: "deny"` (alias `"block"`) + `reason` blocks; `AfterTool` `decision: "deny"` + `reason` **replaces the tool result sent to the model**. `SessionStart` reads `hookSpecificOutput.additionalContext` (injected as the first turn, or prepended to the prompt headless) and `systemMessage`; it can never block. Non-JSON stdout "defaults to Allow" and is shown as a `systemMessage`. | documented, G-hooks, G-href |
+| 4c | Hooks: failure, timeout, environment | Any exit other than 0 or 2 is a warning and the call **proceeds with its original parameters: fail-open**. Timeout in milliseconds, default 60000. Hooks get a sanitised environment with `GEMINI_PROJECT_DIR` (project root), `GEMINI_CWD`, `GEMINI_SESSION_ID`, and `CLAUDE_PROJECT_DIR` as an alias; the page's own example command is `"$GEMINI_PROJECT_DIR/.gemini/hooks/security.sh"`. A project hook is fingerprinted by `name` + `command`: a new or changed one is warned about before it runs. `hooksConfig.enabled: false` or `/hooks disable-all` turns every hook off. | documented, G-hooks, G-hbp, G-conf |
+| 4d | — what a timed-out hook does to the call; the process's working directory; which shell runs `command` on Windows; whether `$GEMINI_PROJECT_DIR` is expanded by settings interpolation at load time or by the shell at run time; whether hooks fire for a subagent's tool calls | not stated | unverified |
+| 5 | Sandbox and skipping modes | Sandbox **off** by default (`--sandbox` default false); providers are Seatbelt on macOS, Docker/Podman, gVisor, LXC, `windows-native`, set by `tools.sandbox` or `GEMINI_SANDBOX`. An untrusted folder skips project settings and so every project hook; `--skip-trust` / `GEMINI_CLI_TRUST_WORKSPACE=true` trust it for one session; `--approval-mode=yolo` auto-approves. | documented, G-sbx, G-cli, G-trust |
+| 5a | — whether `yolo` or headless `-p` mode still runs hooks | not stated | unverified |
+| 6 | Tool names | Shell `run_shell_command` (`bash -c` on POSIX, `powershell.exe -NoProfile -Command` on Windows); read `read_file`, `read_many_files`; write `write_file`, `replace`; search `glob`, `grep_search`, `list_directory`; skills `activate_skill`; subagents invoked as a tool named after the agent, policy-matched through `invoke_agent`. | documented, G-tools, G-shell, G-policy |
+| 7 | Skills, rules, workflows | Workspace skills at `.gemini/skills/<name>/SKILL.md` or the `.agents/skills/` alias (the alias wins on a name clash); YAML frontmatter `name` and `description`. Name and description are in the system prompt from session start; the body loads when the model calls `activate_skill`, after a user consent prompt. No separate rules or workflows surface; custom commands (`.gemini/commands/*.toml`) are user-invoked prompts. | documented, G-skills |
+| 8 | Subagents | Repository-declared at `.gemini/agents/<name>.md`: frontmatter `name`, `description`, `kind: local`, `tools` (omitted = inherit all), `model`, `temperature`, `max_turns`, `timeout_mins`; the body is the system prompt. Each runs in "its own isolated context loop" with only the tools listed, and a subagent cannot call another. A `tools` list without the shell and write tools holds it read-only. Enabled by `experimental.enableAgents` (default `true`). | documented, G-agents, G-conf |
+| 8a | — that the subagent starts with none of the parent's history, and receives only the prompt the parent passes | "isolated context loop" and "independent history" are stated; the exact contents of its first turn are not | unverified |
+| 9 | Where it runs | A local process on the user's machine, as the user. "Remote subagents" (A2A) are remote agent services it calls, not a place the CLI runs. | documented, G-hooks, G-remote |
+
+### 3.2 Antigravity (CLI 1.5.12, App 2.34.0)
+
+| # | Surface | Finding | Evidence |
+| - | ------- | ------- | -------- |
+| 1 | Instruction files | Reads `AGENTS.md` **natively** (also `GEMINI.md`, `.agents/AGENTS.md`, `.agents/rules/*.md`) in the workspace folder and each parent up to the repository root, always on; not below the workspace folder. Limits: a rule file over **24,000 bytes is truncated**, and always-on rules share a 20,000-token budget past which the largest are demoted to a path-and-description pointer. | documented, AG-rules, AG-disc |
+| 2 | Repo-local settings | The workspace customisation directory is `.agents/` (`.agent/`, `_agents/`, `_agent/` still recognised): `rules/`, `skills/`, `agents/`, `hooks.json`, `mcp_config.json`. There is **no repo-local settings file**: the CLI's settings are `~/.gemini/antigravity-cli/settings.json`, and the App's project settings are set in its UI. | documented, AG-disc, AG-cli, AG-set |
+| 2a | — where the App stores a project's settings | not stated | unverified |
+| 3 | Static allow/deny | `permissions.allow` / `ask` / `deny` lists of `action(target)` (`command(prefix)` word-by-word or `command(regex:…)`, `read_file(path)`, `write_file(path)`, …), Deny > Ask > Allow — **in user settings only**; nothing repo-local. | documented, AG-perm |
+| 4 | Hooks: events and matchers | `.agents/hooks.json` at the workspace root, for the CLI, App and IDE alike. Top-level keys are hook names, each with optional `enabled` and event arrays: `SessionStart`, `PreToolUse`, `PostToolUse`, `PreInvocation`, `PostInvocation`, `Stop`. `PreToolUse`/`PostToolUse` take `{matcher, hooks:[{type, command, timeout}]}`, matcher a regular expression on the tool name (`"run_command"` matches exactly that tool); the other events take a handler list directly and ignore matchers. `timeout` in **seconds**, default 30. | documented, AG-hooks |
+| 4a | Hooks: payload | stdin JSON, camelCase: `conversationId`, `workspacePaths`, `transcriptPath`, `artifactDirectoryPath`, `modelName`, `lastUserInput`; CLI 1.5.4 added `hookEventName`, `cwd`, `toolCall.id`. `PreToolUse` adds `toolCall.name` and `toolCall.args` — for `run_command`, `CommandLine` and `Cwd` — and `stepIdx`. `PostToolUse` adds `toolCall`, `stepIdx` and `error`, and **no tool output**. | documented, AG-hooks, AG-log |
+| 4b | Hooks: response | stdout JSON. `PreToolUse`: `decision` (required) — `allow`, `auto_approve`, `deny` ("hard blocks execution immediately"), `ask`, `force_ask`, `deny_unless_prior_grant` — with optional `reason` (shown to the agent or the user), `overwrite`, `permissionOverrides`. `PostToolUse` returns `{}` only, so it **cannot rewrite or hide a result**. `SessionStart` returns `injectSteps`, e.g. `[{"systemMessage":{"systemMessage":"…"}}]`. | documented, AG-hooks |
+| 4c | — exit-code semantics; what a non-zero exit, a timeout or malformed stdout does to the call; the working directory of a workspace hook (plugin hooks run in the plugin's folder); which shell runs `command` on Windows; any trust gate on workspace hooks | not stated. The App 2.12.0 changelog says a failing hook "no longer ends the session; it is now reported as an error and the conversation continues", which does not say whether the tool call ran | unverified |
+| 4d | Load-time rejection | A hook configuration "that could never run" is rejected at load time with an error instead of being ignored (App changelog). | documented, AG-log |
+| 5 | Sandbox and skipping modes | A terminal sandbox, **on by default** (Linux namespaces, macOS Seatbelt, a Windows AppContainer on 11 24H2+), blocks `~/.ssh` and `.env` and cuts the network to approved domains; it is a user or App-project setting. `--dangerously-skip-permissions` auto-approves every request; `--mode` sets the execution mode; a hook entry with `enabled: false` is off. | documented, AG-sbx, AG-cli, AG-hooks |
+| 5a | — a flag or mode that skips workspace hooks or rules | none found | unverified |
+| 6 | Tool names | Shell `run_command` ("Propose a Bash command"); read `view_file`, `list_dir`, `find_by_name`, `grep_search`; write `write_to_file`, `replace_file_content`, `multi_replace_file_content`; subagents `invoke_subagent`, `define_subagent`. | documented, AG-hooks |
+| 6a | — the shell `run_command` uses on Windows | AG-perm names PowerShell and Command Prompt for command matching on Windows | unverified |
+| 7 | Skills, rules, workflows | Skills: `.agents/skills/<name>/SKILL.md` (the only workspace path; legacy `.agent/skills`), frontmatter `description` required and `name` optional; names and descriptions visible every turn, body read on demand. Rules: `.agents/rules/*.md` (flat), frontmatter `trigger` required — `always_on`, `model_decision` (path and `description` injected up front, body read on demand), `glob`, `manual` — and a missing or unknown trigger **silently discards** the rule. Workflows: **deprecated**, to be migrated to skills. | documented, AG-skills, AG-rules, AG-wf |
+| 8 | Subagents | Repository-declared at `.agents/agents/<name>.md` (or `<name>/agent.md`): frontmatter `name`, `description`, `tools` (default `[]`), `mainAgent`, `subagent`, `model`, `commandExecutionPolicy` (`off`, `auto`, `eager`, `sandbox`), `mcpServers`, `skills`. A subagent "does not inherit the parent's existing conversation history … starting with a clean slate", and inherits the parent's command prefixes, file scopes and sandbox. A `tools` list without the shell and write tools holds it read-only. Known issue: a misspelled tool name in `tools` may hang it. | documented, AG-agents |
+| 9 | Where it runs | Locally (App, IDE, CLI) with the user's privileges, inside the terminal sandbox when on; or as **Remote Agents** in "an isolated, Google-managed remote environment" working on attached GitHub repositories, Drive files and uploads, with plugin OAuth tokens "securely injected" on its requests. | documented, AG-remote, AG-sbx |
+| 9a | — that the remote environment is an ephemeral, non-root Linux VM; whether it loads the repository's `.agents/` customisations and runs its hooks | not stated (the plan's §1 lead) | unverified |
+
+## 4. The adapter's shape (A1, 2026-11-23)
+
+The A1 rules applied host by host, with three choices the rules leave open and their reasons.
+Any file, key, event or matcher not listed here is out of scope for A2 and A3.
+
+**Choices.**
+
+1. **A SessionStart hook on both hosts, with a JSON envelope (A2).** Both hosts document a session
+   hook whose output must be JSON (§3.1 4b, §3.2 4b), and `scripts/session-start.sh` prints plain
+   text. Without the hook, the pre-push rail goes uninstalled and the command guard's advisory
+   state is never reset unless the agent runs the bootstrap by hand. Redirecting the banner to
+   stderr would throw away the warnings the session needs to see. So A2 gives
+   `session-start.sh` an explicit, vendor-neutral output-shape option. It captures the script's
+   whole stdout and escapes it as a JSON string without `python3`. A bare run stays plain text.
+   Neon (`-e high`) recommended this too.
+2. **Entry-point pointers per host, never in `.agents/skills/`.** Codex scans `.agents/skills/` (C-skills),
+   so a shared set there would ship AMH skills to Codex, which decision 7 excludes; Gemini CLI also
+   reads that alias. So the Gemini CLI gets skills under `.gemini/skills/`, which neither Codex nor
+   Antigravity reads, and Antigravity gets `model_decision` rules under `.agents/rules/` — the
+   same progressive disclosure as a skill (§3.2 7), on a surface only Antigravity reads.
+   Workflows are deprecated and unused. Neon (`-e high`) preferred one shared `.agents/skills/`
+   set for having half the files, and it was overruled on decision 7.
+3. **No static deny rules and no sandbox setting, on either host.** The Gemini CLI's repo-local
+   options are a deprecated key whose semantics without `tools.core` are unverified, and a
+   policy tier documented as non-functional (§3.1 3). `tools.sandbox` needs a container runtime or
+   Seatbelt and would break a session without one. Antigravity has no repo-local permission or
+   sandbox file at all (§3.2 2, 3).
+
+**Gemini CLI — adapter files under `.gemini/`, three rails wired (A2 runs), skills, a reviewer
+subagent, no stub.**
+
+- `.gemini/settings.json` (template `harness/templates/configs/gemini-settings.json`). Keys, and
+  nothing else:
+  - `context.fileName`: `["AGENTS.md", "GEMINI.md"]` — §3.1 1; `GEMINI.md` is kept so the default
+    file still loads, given 1a.
+  - `hooks.SessionStart`: one group, `matcher` `"*"`, one hook named `amh-session-start`,
+    `type` `"command"`, command `bash "$GEMINI_PROJECT_DIR/scripts/session-start.sh"` plus A2's
+    output-shape option for `hookSpecificOutput.additionalContext`, `timeout` `30000` —
+    §3.1 4, 4b, 4c.
+  - `hooks.BeforeTool`: one group, `matcher` `"^run_shell_command$"`, one hook named
+    `amh-command-guard`, `type` `"command"`, command `bash "$GEMINI_PROJECT_DIR/scripts/command-guard.sh"`, `timeout`
+    `10000` — §3.1 4, 4a, 4b, 6.
+  - `hooks.AfterTool`: one group, `matcher` `"*"`, one hook named `amh-redact-tool-output`,
+    `type` `"command"`, command `bash "$GEMINI_PROJECT_DIR/scripts/redact-tool-output.sh"`, `timeout` `40000` —
+    §3.1 4, 4a, 4b.
+  - `description` on each of the three hooks carries the "configured, never observed firing" text
+    and the docs version (§3.1 4). There is no file-level comment, because a comment key is
+    unverified (2b). The hook `name` values above are fixed because the host fingerprints
+    `name` + `command` (4c).
+- `.gemini/skills/amh-session-start/SKILL.md`, `.gemini/skills/amh-acceptance-ladder/SKILL.md`,
+  `.gemini/skills/amh-rule-review/SKILL.md`, `.gemini/skills/amh-host-rails/SKILL.md`. Frontmatter
+  `name` and `description` only — §3.1 7. Each body names one binding section by its exact heading
+  (`AGENTS.md` → **Universal session sequence**, `docs/PROTOCOLS.md` → **Acceptance ladder**,
+  `docs/PROTOCOLS.md` → **Rule-review protocol (MANDATORY for binding-rule and guard diffs)**, `docs/RUNBOOK.md` → **Host rails and what they
+  miss**) and says it is prose that enforces nothing. It also says it is configured and has never been
+  observed firing, and names the docs version, as every Markdown adapter file below does.
+- `.gemini/agents/amh-rule-reviewer.md`. Frontmatter `name: amh-rule-reviewer`, `description`,
+  `kind: local`, `tools: [read_file, read_many_files, grep_search, glob, list_directory]`. The
+  list has no shell and no write tool, and leaving `tools` out would inherit every tool. The body
+  is the instructions `.codex/agents/amh-rule-reviewer.toml` carries — §3.1 8, 6.
+- No pointer stub: `context.fileName` points the host at `AGENTS.md` (§3.1 1). In an untrusted
+  folder the settings file, and with it every hook and the `AGENTS.md` setting, is ignored
+  (§3.1 2). That gap is A4's to state.
+
+**Antigravity — hooks, rules and a reviewer subagent under `.agents/`, two rails wired (A2 runs),
+no settings file, no redactor, no stub.**
+
+- `.agents/hooks.json` (template `harness/templates/configs/antigravity-hooks.json`). Two named
+  entries, and nothing else:
+  - `amh-session-start`: `SessionStart`, one handler, `type` `"command"`, command
+    `root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; exec bash "$root/scripts/session-start.sh"`
+    plus A2's output-shape option for `injectSteps` / `systemMessage`, `timeout` `30` — §3.2 4, 4b.
+  - `amh-command-guard`: `PreToolUse`, `matcher` `"run_command"`, one handler, `type` `"command"`, command
+    `root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; exec bash "$root/scripts/command-guard.sh"`,
+    `timeout` `10` — §3.2 4, 4a, 4b, 6. The command is the Codex adapter's root lookup, because
+    no project-directory variable and no hook working directory are documented (4c).
+  - No `PostToolUse` entry: its response cannot redact (§3.2 4b). No `$comment` or other unlisted
+    key, since Antigravity rejects at load time a hook configuration that could never run
+    (§3.2 4d). The honesty text for this one file therefore lives in A4's entry, a departure from
+    decision 4 recorded in **DD-112**.
+- `.agents/rules/amh-session-start.md`, `.agents/rules/amh-acceptance-ladder.md`,
+  `.agents/rules/amh-rule-review.md`, `.agents/rules/amh-host-rails.md`. Frontmatter
+  `trigger: model_decision` and `description`, nothing else — §3.2 7. The bodies are the same
+  pointers as the Gemini CLI skills.
+- `.agents/agents/amh-rule-reviewer.md`. Frontmatter `name: amh-rule-reviewer`, `description`,
+  `tools: [view_file, grep_search, list_dir, find_by_name]`, `subagent: true`,
+  `mainAgent: false`, `commandExecutionPolicy: off`. The tool names are copied exactly, given the
+  documented hang on a misspelled one. The body is the same instructions as the Gemini CLI
+  reviewer — §3.2 8, 6.
+- No pointer stub and no setting: `AGENTS.md` is read natively (§3.2 1). Its 24,000-byte
+  truncation is A4's to state.
+
+**What A2 changes** (each shipped script through its template, byte copy and manifest):
+
+- `command-guard.sh`:
+  - Recognise the Gemini CLI's `BeforeTool` payload (`hook_event_name` `BeforeTool`, `tool_name`
+    `run_shell_command`, `tool_input.command`) and refuse it by exit 2 plus stderr (§3.1 4b).
+  - Recognise Antigravity's `PreToolUse` payload (`toolCall.name` `run_command`,
+    `toolCall.args.CommandLine`) and answer on stdout with `{"decision":"deny","reason":…}` or
+    `{"decision":"allow"}`, exiting 0 either way, since the documented examples answer in JSON and
+    no page gives exit 2 a meaning there (§3.2 4b; the exit code's meaning is unverified, 4c).
+  - Route the Gemini CLI's command to the PowerShell reader only where the host is Windows
+    (§3.1 6; Antigravity's Windows shell is unverified, §3.2 6a).
+  - Make host recognition explicit, so an unrecognised payload stands down as documented.
+- `redact-tool-output.sh`: recognise the Gemini CLI's `AfterTool` payload and, only when a leaf
+  was redacted, answer `{"decision":"deny","reason":<filtered result>}` (§3.1 4b). Same explicit
+  host recognition as the guard.
+- `session-start.sh`: the output-shape option of choice 1, in two shapes —
+  `{"hookSpecificOutput":{"additionalContext":…}}` and
+  `{"injectSteps":[{"systemMessage":{"systemMessage":…}}]}`. It drains a non-terminal stdin, as
+  `--pre-task` does.
+- Not wired on either host: the `--pre-task` spawn speed bump. The A1 rules do not call for it, and
+  decision 7's budget keeps it out.
+
+**What A3 adds to the surfaces that list adapters:** the four installed paths
+`.gemini/settings.json`, `.gemini/agents/amh-rule-reviewer.md`, `.agents/hooks.json` and
+`.agents/agents/amh-rule-reviewer.md`, plus the eight skill and rule files, each with its template
+under `harness/templates/configs/` at the same relative path. They go into `ADAPTERS`,
+`KEEP_CONFIGS`, `ADAPTER_FILES` and both `RULE_FILES`, each as an explicit path, because
+`adapter-set.sh` matches each installed path exactly. The checks in `adapter-set.sh` are limited
+to one wiring check per new surface. That means the Gemini CLI's three hook groups and the
+`context.fileName` value, Antigravity's two hook entries, each reviewer's tool list, and each
+pointer's heading resolving.
