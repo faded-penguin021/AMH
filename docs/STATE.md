@@ -26,18 +26,12 @@ Release state: `scripts/session-start.sh` probes the declared version's tag ever
 Live plans, each in `docs/plans/`, where a unit starts only on the owner's explicit approval of
 that unit:
 
-- `2026-11-01-harness-research-gaps.md`, adopted: every unit done, H4b's follow-up last
-  (**DD-103** to **DD-105**), except H8, parked. Before a unit starts the session names the
-  decisions it needs and waits for the answers; a fresh-context review is pre-allowed for every
-  unit (owner, 2026-11-09).
 - `2026-11-04-spill-guard-borrowings.md`, adopted: S1, S2, S6a and S3 approved on 2026-11-10, to
   run in that order, each with its own review and its version settled when its behaviour is
   final (its §2, items 4 and 5); S4, S5, S6b and S6c deferred.
 - `2026-11-10-command-guard-gap-review.md` and `2026-11-09-cc-safety-net-borrowings.md`: drafts,
   nothing approved; G1, one review of both, comes first (Owner queue).
 - `2026-11-10-queue-cycle-and-memory-tiers.md`: a draft, nothing approved.
-- `2026-11-19-pipefail-grep-race.md`, adopted, its one unit R1 done (**DD-110**); the session
-  that merges the train archives it.
 - `2026-11-22-build-output-secret-scan.md`: a draft, B0 done; only B1, its gpt-6-astra `-e high`
   review, is approved (owner, 2026-11-22), and the plan runner runs it (Owner queue).
 - `2026-11-23-antigravity-gemini-adapter.md`, adopted: a Gemini CLI and Antigravity adapter,
@@ -65,10 +59,14 @@ guard reads a `'` inside one as opening a string that hides the rest; no plan co
 guard's header names it, and it reaches heredoc bodies too (**DD-059**).
 Check: `scripts/command-guard.sh --command "echo \`echo 'x\`; printenv"` — exit 0 means open.
 
-**OPEN — the research-gaps plan's remaining §1 decisions.** Whether P6 admits retiring a
-compensation stays open until one is proposed, with H5's classification as input (**DD-082**);
-an H8 incident-bar exception is asked if H8 reopens; the combined order is the item below. No
-check settles it.
+**OPEN — the research-gaps plan's remaining decisions; the plan itself is archived in
+`docs/history/`.** Whether P6 admits retiring a compensation stays open until one is proposed,
+with H5's classification as input (**DD-082**). H8 stays parked: measure an adopter verification
+or output failure, reopened only on a recorded adopter incident or an explicit owner exception to
+the incident bar. Its advice was one step in `harness/templates/AMH-ADOPT.md` §4 and the seed
+`verify.sh` comments that exercises the product as a user would, with green output short and
+failures loud; a reopened H8 gets a new plan and keeps strongest-tier rule review. No check
+settles it.
 
 **OPEN — run G1, one gpt-6-astra `-e high` review of both command-guard plans,
 `docs/plans/2026-11-10-command-guard-gap-review.md` and
@@ -106,8 +104,9 @@ that host's *Unverified* line in `docs/RUNBOOK.md` → **Host rails and what the
 docs/LEDGER_*.md` — a host with no row is still unprobed.
 
 **OPEN — decide the N1 review's last recommendation it could not apply:** the cross-plan order
-and release placement in that plan's §2, decision 3; H0.5's recommended order is in the
-research-gaps plan's §7.1. No check settles it.
+and release placement in that plan's §2, decision 3. H0.5 recommended S1 → S2 → S6a → S3 → N2 →
+N6a → N3 → N4 → N5 → N7a → N7b, interleaved with research-gaps units that are now all done. No
+check settles it.
 
 
 
@@ -158,6 +157,9 @@ rows — this section is a pointer index, not a narrative.
 - 2026-11-23 — **Gemini CLI and Antigravity adapter, A1: each host's surfaces established from
   vendor docs, nothing measured; the Gemini CLI gets settings, three hooks, skills and a reviewer,
   Antigravity two hooks, rules and a reviewer, and A2 runs** (**DD-111**, **DD-112**).
+- 2026-11-23 — **Housekeeping: the research-gaps plan and its eight companions, and the merged
+  pipefail plan, archived to `docs/history/`; the Owner-queue items that pointed into the former
+  now state H8 and H0.5's order themselves** (no ledger row: nothing is decided).
 - 2026-11-23 — **Gemini CLI and Antigravity adapter, A0: a plan committed for a third host
   adapter, every unit approved for the plan runner; the `amh-v17.0.0` tag item left the Owner
   queue, the tag seen on `origin` that day** (no ledger row: nothing is decided yet).
