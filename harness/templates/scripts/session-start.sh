@@ -9,8 +9,75 @@
 #
 # Shipped by the Agentic Maintenance Harness. Repo-agnostic: repo-specific toolchain
 # setup belongs in scripts/bootstrap.sh, which this script calls when present.
+#
+# Usage:
+#   session-start.sh                         the banner as plain text, which is what a host
+#                                            that injects a hook's stdout as context takes
+#   session-start.sh --json=additional-context
+#                                            the same banner as one JSON string, in
+#                                            {"hookSpecificOutput":{"additionalContext":…}}
+#   session-start.sh --json=inject-steps     the same banner as one JSON string, in
+#                                            {"injectSteps":[{"systemMessage":{"systemMessage":…}}]}
+#
+# The two JSON shapes are for a host whose session hook must answer JSON: named by the field
+# that carries the text, never by a host, so this script still names no vendor. Each runs the
+# whole bootstrap exactly as a bare run does — the pre-push rail and the advisory reset are why
+# a host is wired to this at all — captures all of its stdout, and escapes it with bash alone:
+# no `python3`, which the harness does not require. stdin, when it is not a terminal, is read
+# and discarded first. stderr is left alone. An argument this
+# script does not know is announced on stderr and the bare run happens anyway, because a
+# session that lost its bootstrap over a typo would lose more than its banner.
 
 set -uo pipefail
+
+# Sets JSON_QUOTED to its argument as a JSON string literal, quotes included: `\`, `"` and every
+# control character escaped, everything else — UTF-8 included — passed through as it is. The
+# same function as `command-guard.sh`'s, which says why the class is `[:cntrl:]`.
+json_quote() { # json_quote <text>
+	local rest=$1 quoted='' chunk c code
+	while :; do
+		chunk=${rest%%[\\\"[:cntrl:]]*}
+		quoted=$quoted$chunk
+		[ "$chunk" = "$rest" ] && break
+		rest=${rest#"$chunk"}
+		c=${rest:0:1}
+		rest=${rest:1}
+		case $c in
+		\\) quoted=$quoted"\\\\" ;;
+		\") quoted=$quoted'\"' ;;
+		$'\n') quoted=$quoted'\n' ;;
+		$'\t') quoted=$quoted'\t' ;;
+		$'\r') quoted=$quoted'\r' ;;
+		*)
+			printf -v code '\\u%04x' "'$c"
+			quoted=$quoted$code
+			;;
+		esac
+	done
+	JSON_QUOTED="\"$quoted\""
+}
+JSON_QUOTED=''
+
+case ${1:-} in
+'') ;;
+--json=additional-context | --json=inject-steps)
+	# A host that pipes its session payload in is not left writing into a closed pipe: drained,
+	# as the command guard's `--pre-task` drains its own. Only here, so a bare run is unchanged.
+	[ -t 0 ] || cat >/dev/null 2>&1 || :
+	# The bare run, as a child, so every `exit` below ends it and not this wrapper.
+	banner=$("${BASH:-bash}" "${BASH_SOURCE[0]}" </dev/null)
+	json_quote "$banner"
+	if [ "$1" = --json=additional-context ]; then
+		printf '{"hookSpecificOutput":{"additionalContext":%s}}\n' "$JSON_QUOTED"
+	else
+		printf '{"injectSteps":[{"systemMessage":{"systemMessage":%s}}]}\n' "$JSON_QUOTED"
+	fi
+	exit 0
+	;;
+*)
+	printf 'session-start.sh: unknown argument %s, ignored; usage: session-start.sh [--json=additional-context|--json=inject-steps]\n' "$1" >&2
+	;;
+esac
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT" || exit 0

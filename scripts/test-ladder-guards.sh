@@ -582,6 +582,212 @@ else
 	report no "the incident command is denied through the Python reader" "rc=$rc" "$out"
 fi
 
+# --- command-guard.sh: the Gemini CLI's and Antigravity's payloads ------------
+# Each host is recognised from its own documented payload and answered in its own documented
+# shape. The Gemini CLI's `BeforeTool` takes Claude's answer — exit 2, the reason on stderr —
+# while Antigravity documents a required JSON `decision` on stdout and no exit code, so a denial
+# there is `deny` with a zero exit and an allowed call still says `allow`. A payload no shape
+# matches is answered with nothing at all, never in another host's shape.
+d=$(mk third_host_payloads)
+gemini_deny='{"session_id":"s","transcript_path":"/t","cwd":"/w","hook_event_name":"BeforeTool","timestamp":"2026-11-23T00:00:00Z","tool_name":"run_shell_command","tool_input":{"command":"cat .env"}}'
+antigravity_deny='{"conversationId":"c","workspacePaths":["/w"],"hookEventName":"PreToolUse","toolCall":{"id":"t1","name":"run_command","args":{"CommandLine":"cat .env","Cwd":"/w"}},"stepIdx":3}'
+# The `.env` rule answers a directory's first attempt with its one-time advisory and later ones
+# with a permanent denial, so the fixtures below match the heading both carry, not either text.
+ag_answer() { # ag_answer <stdout> -> "deny True" for one JSON deny line carrying the reason
+	# Parsed as JSON where a python3 runs, so an escaping defect cannot pass as a match; the glob
+	# below is the floor where none does.
+	if [ "$1" = "${1%%$'\n'*}" ] && python3 -I -c '' >/dev/null 2>&1; then
+		printf '%s' "$1" | python3 -I -c 'import json,sys
+d = json.load(sys.stdin)
+r = d.get("reason", "")
+print(d.get("decision"), sorted(d) == ["decision", "reason"] and r.startswith("BLOCKED by the AMH command guard.") and ".env" in r)' 2>/dev/null
+		return
+	fi
+	case $1 in
+	*$'\n'*) printf 'more than one line' ;;
+	'{"decision":"deny","reason":"BLOCKED by the AMH command guard.'*'.env'*'"}') printf 'deny True' ;;
+	*) printf 'not a deny' ;;
+	esac
+}
+out=$(cd "$d" && printf '%s' "$gemini_deny" | scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && grep -qF 'prefer presence-only checks' <<<"$out"; then
+	report ok "a forbidden Gemini CLI BeforeTool payload is blocked by exit 2 with the reason"
+else
+	report no "a forbidden Gemini CLI BeforeTool payload is blocked by exit 2 with the reason" "rc=$rc" "$out"
+fi
+out=$(cd "$d" && printf '%s' '{"hook_event_name":"BeforeTool","tool_name":"run_shell_command","tool_input":{"command":"printf hello"}}' |
+	scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
+	report ok "an allowed Gemini CLI payload passes silently"
+else
+	report no "an allowed Gemini CLI payload passes silently" "rc=$rc" "$out"
+fi
+out=$(cd "$d" && printf '%s' "$antigravity_deny" | scripts/command-guard.sh 2>/dev/null)
+rc=$?
+if [ "$rc" -eq 0 ] && [ "$(ag_answer "$out")" = "deny True" ]; then
+	report ok "a forbidden Antigravity PreToolUse payload is denied in JSON on stdout"
+else
+	report no "a forbidden Antigravity PreToolUse payload is denied in JSON on stdout" "rc=$rc" "$out"
+fi
+out=$(cd "$d" && printf '%s' '{"conversationId":"c","toolCall":{"name":"run_command","args":{"CommandLine":"printf hello","Cwd":"/w"}},"stepIdx":1}' |
+	scripts/command-guard.sh 2>/dev/null)
+rc=$?
+if [ "$rc" -eq 0 ] && [ "$out" = '{"decision":"allow"}' ]; then
+	report ok "an allowed Antigravity payload is answered allow, with or without hookEventName"
+else
+	report no "an allowed Antigravity payload is answered allow, with or without hookEventName" "rc=$rc" "$out"
+fi
+# Antigravity requires a `decision` in every answer, so a recognised payload with no command to
+# judge is still answered `allow`, never with nothing.
+out=$(cd "$d" && printf '%s' '{"hookEventName":"PreToolUse","toolCall":{"name":"run_command","args":{"CommandLine":"","Cwd":"/w"}}}' |
+	scripts/command-guard.sh 2>/dev/null)
+rc=$?
+out_fb=$(cd "$d" && printf '%s' '{"hookEventName":"PreToolUse","toolCall":{"name":"run_command","args":{"CommandLine":"","Cwd":"/w"}}}' |
+	env PATH="$fallback_path" scripts/command-guard.sh 2>/dev/null)
+rc_fb=$?
+out_null=$(cd "$d" && printf '%s' '{"hookEventName":"PreToolUse","toolCall":{"name":"run_command","args":null}}' |
+	scripts/command-guard.sh 2>/dev/null)
+if [ "$rc" -eq 0 ] && [ "$rc_fb" -eq 0 ] && [ "$out" = '{"decision":"allow"}' ] &&
+	[ "$out_fb" = '{"decision":"allow"}' ] && [ "$out_null" = '{"decision":"allow"}' ]; then
+	report ok "an Antigravity payload with an empty command is still answered allow, by both readers"
+else
+	report no "an Antigravity payload with an empty command is still answered allow, by both readers" "rc=$rc" "$out" "fallback rc=$rc_fb: $out_fb" "null args: $out_null"
+fi
+# A Claude or Codex denial is still stderr and exit 2 with NOTHING on stdout: a JSON answer
+# there would be a change to two hosts this unit must leave alone.
+out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat .env"}}' |
+	scripts/command-guard.sh 2>/dev/null)
+rc=$?
+if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
+	report ok "a Claude or Codex denial prints nothing on stdout"
+else
+	report no "a Claude or Codex denial prints nothing on stdout" "rc=$rc" "$out"
+fi
+# Unrecognised: another event of each new host, and a tool of theirs that is not the shell.
+for unrecognised in \
+	'{"hook_event_name":"AfterTool","tool_name":"run_shell_command","tool_input":{"command":"cat .env"}}' \
+	'{"hookEventName":"PostToolUse","toolCall":{"name":"run_command","args":{"CommandLine":"cat .env"}}}' \
+	'{"hook_event_name":"BeforeTool","tool_name":"read_file","tool_input":{"command":"cat .env"}}' \
+	'{"hookEventName":"PreToolUse","toolCall":{"name":"view_file","args":{"CommandLine":"cat .env"}}}'; do
+	out=$(cd "$d" && printf '%s' "$unrecognised" | scripts/command-guard.sh 2>&1)
+	rc=$?
+	if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
+		report ok "an unrecognised payload is answered with nothing: ${unrecognised:0:60}"
+	else
+		report no "an unrecognised payload is answered with nothing: ${unrecognised:0:60}" "rc=$rc" "$out"
+	fi
+done
+# Both new shapes through the no-Python reader, decoded at their own keys.
+out=$(cd "$d" && printf '%s' "$gemini_deny" | env PATH="$fallback_path" scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && grep -qF 'BLOCKED by the AMH command guard.' <<<"$out"; then
+	report ok "a Gemini CLI payload is guarded without Python"
+else
+	report no "a Gemini CLI payload is guarded without Python" "rc=$rc" "$out"
+fi
+out=$(cd "$d" && printf '%s' "$antigravity_deny" | env PATH="$fallback_path" scripts/command-guard.sh 2>/dev/null)
+rc=$?
+if [ "$rc" -eq 0 ] && [ "$(ag_answer "$out")" = "deny True" ]; then
+	report ok "an Antigravity payload is guarded without Python"
+else
+	report no "an Antigravity payload is guarded without Python" "rc=$rc" "$out"
+fi
+out=$(cd "$d" && printf '%s' '{"hookEventName":"PostToolUse","toolCall":{"name":"run_command","args":{"CommandLine":"cat .env"}}}' |
+	env PATH="$fallback_path" scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
+	report ok "another Antigravity event is answered with nothing without Python"
+else
+	report no "another Antigravity event is answered with nothing without Python" "rc=$rc" "$out"
+fi
+# On Windows the Gemini CLI documents `run_shell_command` as PowerShell, so the PowerShell reader
+# judges it there and the bash reader everywhere else. `uname` is stubbed to say which.
+win_path="$d/windows-bin"
+mkdir -p "$win_path"
+printf '#!/bin/sh\necho MINGW64_NT-10.0\n' >"$win_path/uname"
+chmod +x "$win_path/uname"
+gemini_ps='{"hook_event_name":"BeforeTool","tool_name":"run_shell_command","tool_input":{"command":"Remove-Item -Recurse -Force C:\\"}}'
+out=$(cd "$d" && printf '%s' "$gemini_ps" | env PATH="$win_path:$PATH" scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && grep -qF 'the root of a Windows drive' <<<"$out"; then
+	report ok "a Gemini CLI payload on Windows is read by the PowerShell reader"
+else
+	report no "a Gemini CLI payload on Windows is read by the PowerShell reader" "rc=$rc" "$out"
+fi
+# And everywhere else the bash reader, whose rails the PowerShell one does not run on a bare `rm`:
+# the filesystem root is denied under a Linux `uname`, which a PowerShell reading would pass.
+linux_path="$d/linux-bin"
+mkdir -p "$linux_path"
+printf '#!/bin/sh\necho Linux\n' >"$linux_path/uname"
+chmod +x "$linux_path/uname"
+out=$(cd "$d" && printf '%s' '{"hook_event_name":"BeforeTool","tool_name":"run_shell_command","tool_input":{"command":"rm -rf /"}}' |
+	env PATH="$linux_path:$PATH" scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && grep -qF 'the filesystem root' <<<"$out"; then
+	report ok "a Gemini CLI payload off Windows is read by the bash reader"
+else
+	report no "a Gemini CLI payload off Windows is read by the bash reader" "rc=$rc" "$out"
+fi
+out=$(cd "$d" && printf '%s' '{"hook_event_name":"BeforeTool","tool_name":"run_shell_command","tool_input":{"command":"Write-Output '"'"'it'"''"'s fine'"'"'; Get-ChildItem"}}' |
+	env PATH="$win_path:$PATH" scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ]; then
+	report ok "an ordinary PowerShell command from the Gemini CLI on Windows passes"
+else
+	report no "an ordinary PowerShell command from the Gemini CLI on Windows passes" "rc=$rc" "$out"
+fi
+
+# --- session-start.sh: the JSON envelopes for a host whose session hook answers JSON
+# Each is the bare banner, whole, as one JSON string in its documented field: decoded, it must
+# equal a bare run's stdout byte for byte, and a bare run must stay plain text.
+d=$(mk ss_json_envelopes)
+(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh >/dev/null 2>&1) # first run installs the pre-push rail
+plain=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>/dev/null)
+if ! python3 -I -c '' >/dev/null 2>&1; then
+	report skip "session-start --json shapes (decoding them needs a python3 that runs; the script itself does not)"
+else for shape in additional-context inject-steps; do
+	out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh --json="$shape" 2>/dev/null)
+	decoded=$(printf '%s' "$out" | python3 -I -c 'import json,sys
+d = json.load(sys.stdin)
+if sys.argv[1] == "additional-context":
+    t = d["hookSpecificOutput"]["additionalContext"]
+else:
+    t = d["injectSteps"][0]["systemMessage"]["systemMessage"]
+sys.stdout.write(t)' "$shape" 2>&1)
+	if [ -n "$plain" ] && [ "$decoded" = "$plain" ] && [ "$(printf '%s\n' "$out" | wc -l)" -eq 1 ]; then
+		report ok "session-start --json=$shape carries the whole banner as one JSON string"
+	else
+		report no "session-start --json=$shape carries the whole banner as one JSON string" "$out" "decoded: $decoded"
+	fi
+done; fi
+case $plain in
+'{'*) report no "a bare session-start run stays plain text" "$plain" ;;
+*) report ok "a bare session-start run stays plain text" ;;
+esac
+# A host may pipe its session payload in. Past the pipe buffer, a writer whose reader never
+# reads is killed by SIGPIPE when the reader exits; the JSON shapes drain stdin so it is not.
+big_stdin=$(mk ss_json_stdin)
+(cd "$big_stdin" && env -u AMH_REMOTE bash scripts/session-start.sh >/dev/null 2>&1)
+(cd "$big_stdin" && head -c 300000 /dev/zero | tr '\0' x | env -u AMH_REMOTE bash scripts/session-start.sh --json=inject-steps >/dev/null 2>&1
+	printf '%s' "${PIPESTATUS[*]}" >"$WORK/ss_json_stdin.status")
+if [ "$(cat "$WORK/ss_json_stdin.status")" = "0 0 0" ]; then
+	report ok "session-start --json drains a piped payload"
+else
+	report no "session-start --json drains a piped payload" "pipeline status: $(cat "$WORK/ss_json_stdin.status")"
+fi
+# An argument the script does not know is announced and the bare run still happens: a session
+# must not lose its bootstrap to a typo in an adapter.
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh --json=additional-contxt 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ] && grep -qF 'unknown argument --json=additional-contxt' <<<"$out" &&
+	grep -qF '· protocol:' <<<"$out"; then
+	report ok "an unknown session-start argument is announced and the banner still runs"
+else
+	report no "an unknown session-start argument is announced and the banner still runs" "rc=$rc" "$out"
+fi
+
 # --- command-guard.sh: machine mode (`--machine`) -----------------------------
 # The user-level install: the guard copied OUTSIDE any repository, to the path the Claude machine
 # template names, beside an `amh.conf` machine mode must never read — sourcing it prints a marker.

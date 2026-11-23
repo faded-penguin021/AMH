@@ -1,6 +1,6 @@
 # PLAN — a third host adapter: the Gemini CLI and Antigravity
 
-> **Status: adopted by the owner on 2026-11-23; A0 and A1 done.** Units A1 to A5, run in order by the
+> **Status: adopted by the owner on 2026-11-23; A0 to A2 done.** Units A1 to A5, run in order by the
 > plan runner on `session/antigravity-adapter`. **Do not archive or delete this file in any
 > unit**: the runner reads each unit's done marker here. The session that merges the train
 > archives it afterwards.
@@ -159,7 +159,11 @@ Every unit:
 names each host's shape and the full list of files, keys and events; no `G*` id introduced; the
 ladder is green.
 
-### A2 — make the shipped rails tell the new host apart
+### A2 — make the shipped rails tell the new host apart: done 2026-11-23
+
+- **Done:** both payload readers of the command guard, the redactor and `session-start.sh`'s two
+  JSON envelopes, as "What A2 changes" in §4 lists; each behaviour fixture seen red without its
+  behaviour (the previous commit's scripts, or a scratch mutation) and green with it (**DD-113**).
 
 Runs only if §4 wires a hook for at least one host; otherwise mark it `: dropped <date>` with §4's
 reason, write the Changelog line, and stop.

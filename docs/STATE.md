@@ -41,7 +41,7 @@ that unit:
 - `2026-11-22-build-output-secret-scan.md`: a draft, B0 done; only B1, its gpt-6-astra `-e high`
   review, is approved (owner, 2026-11-22), and the plan runner runs it (Owner queue).
 - `2026-11-23-antigravity-gemini-adapter.md`, adopted: a Gemini CLI and Antigravity adapter,
-  A0 and A1 done; A1 to A5 approved in full for the plan runner, the session deciding every fork
+  A0 to A2 done; A1 to A5 approved in full for the plan runner, the session deciding every fork
   and recording each in its unit's ledger row (owner, 2026-11-23).
 
 Operational gotchas:
@@ -118,6 +118,10 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-23 — **Gemini CLI and Antigravity adapter, A2: the command guard and the redactor
+  recognise each host's payload explicitly and answer in its documented shape, an unrecognised
+  one gets nothing, and `session-start.sh` gains two JSON envelopes; Claude and Codex unchanged**
+  (**DD-113**).
 - 2026-11-23 — **Gemini CLI and Antigravity adapter, A1: each host's surfaces established from
   vendor docs, nothing measured; the Gemini CLI gets settings, three hooks, skills and a reviewer,
   Antigravity two hooks, rules and a reviewer, and A2 runs** (**DD-111**, **DD-112**).

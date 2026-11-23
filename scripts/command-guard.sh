@@ -183,8 +183,9 @@
 #   * A QUOTE INSIDE BACKTICKS. Bash ends a backtick substitution at the first unescaped
 #     backtick, quotes or not; every walker here reads a `'` inside one as opening a string, so
 #     `` echo `echo 'x`; printenv `` passes.
-#   * POWERSHELL IS READ BY ITS OWN READER, AND A SHORTER ONE. A PowerShell tool payload (and the
-#     text behind `powershell -Command` or `pwsh -c` from bash) goes to the PowerShell arm, which
+#   * POWERSHELL IS READ BY ITS OWN READER, AND A SHORTER ONE. A PowerShell tool payload, the
+#     Gemini CLI's `run_shell_command` on a Windows host (see `host_shell`), and the
+#     text behind `powershell -Command` or `pwsh -c` from bash go to the PowerShell arm, which
 #     judges `Remove-Item` and its aliases and `cmd /c` deletions itself and hands every other
 #     statement to the bash rails re-quoted word for word. PowerShell's own readers and dumps
 #     (`Get-Content .env`, `Get-ChildItem env:`), `.NET` deletions, `Invoke-Expression`, a `.ps1`
@@ -441,6 +442,9 @@
 #   command-guard.sh --spawn-report     count of subagent spawns that proceeded past the advisory
 #
 # Exit codes: 0 = allowed (or fail-open; warnings may print on stderr), 2 = blocked (reason on stderr).
+# One exception, in hook mode only: an Antigravity payload is answered on stdout and always exits
+# 0, `{"decision":"deny","reason":…}` when blocked and `{"decision":"allow"}` otherwise, because
+# that host documents a JSON decision and no exit code (see `hook_deny` and AMH ledger row DD113).
 #
 # Shipped by the Agentic Maintenance Harness. Repo-agnostic: do not edit locally.
 #
@@ -6485,12 +6489,29 @@ check_command_reading() { # check_command_reading <command>, under the current C
 }
 
 # --- hook payload -----------------------------------------------------------
-# Prints the tool's name on the first line and its command after it — `Bash` or `PowerShell`,
-# the two shell tools whose `tool_input.command` this guard reads — and nothing at all for any
-# other payload. The name decides which reader judges the command: PowerShell text is never
-# handed to the bash walkers whole (AMH ledger row DD012).
+# Prints three things, one per line, and then the command: the HOST whose payload this is, the
+# SHELL tool it names, and the command text — and nothing at all for any other payload. Host
+# recognition is explicit, shape by shape, because each host also decides how a denial must be
+# ANSWERED, and an answer in the wrong host's shape can be rejected by the host, which then runs
+# the call: failing open while the guard reports a block (AMH ledger row DD113).
+#
+#   claude       `tool_name` `Bash` or `PowerShell` with `tool_input.command`. Codex sends the
+#                same shape and takes the same answer, so it shares the label.
+#   gemini       the Gemini CLI's `BeforeTool`: `hook_event_name` `BeforeTool`, `tool_name`
+#                `run_shell_command`, `tool_input.command`.
+#   antigravity  Antigravity's `PreToolUse`: `toolCall.name` `run_command`, its command in
+#                `toolCall.args.CommandLine`; a `hookEventName`, when present, must be
+#                `PreToolUse`.
+#
+# The tool line is `Bash` or `PowerShell` for Claude's two tools and `Bash` for Antigravity's
+# `run_command`, which its documentation calls a Bash command; the Gemini CLI's is `shell`, whose
+# language depends on the platform (see `host_shell`). It decides
+# which reader judges the command: PowerShell text is never handed to the bash walkers whole
+# (AMH ledger row DD012). An unrecognised payload — another host's, another event's, another
+# tool's — prints nothing, and `run_hook` answers it with nothing: the fail-open stand-down this
+# script has always given a payload it cannot read, never a guess at whose shape to answer in.
 extract_command() { # fail-open: print nothing if the payload is not what we expect
-	local payload=$1 parsed tool
+	local payload=$1 parsed host tool outer key
 	# A `python3` that EXISTS is not one that RUNS. The Windows Store's app-execution alias is
 	# on PATH on a stock desktop and answers every call with an install prompt and a non-zero
 	# exit; reading its silence as "this payload held no command" stood the whole rail down on
@@ -6511,18 +6532,38 @@ extract_command() { # fail-open: print nothing if the payload is not what we exp
 		parsed=$(printf '%s' "$payload" | python3 -I -c 'import json,sys
 try:
     d = json.load(sys.stdin)
+    host = tool = None
+    c = ""
     if d.get("tool_name") in ("Bash", "PowerShell"):
+        host, tool = "claude", d["tool_name"]
         c = d.get("tool_input", {}).get("command", "")
+    elif d.get("tool_name") == "run_shell_command" and d.get("hook_event_name") == "BeforeTool":
+        host, tool = "gemini", "shell"
+        c = d.get("tool_input", {}).get("command", "")
+    elif isinstance(d.get("toolCall"), dict) and d["toolCall"].get("name") == "run_command" and d.get("hookEventName", "PreToolUse") == "PreToolUse":
+        host, tool = "antigravity", "Bash"
+        a = d["toolCall"].get("args")
+        c = a.get("CommandLine", "") if isinstance(a, dict) else ""
+    # A recognised payload of a new host is always named, command or not: Antigravity requires
+    # a decision in every answer, so even "nothing to judge" must reach run_hook as its host.
+    if host == "claude":
         if c:
-            print(d["tool_name"])
+            print(host)
+            print(tool)
+            print(c)
+    elif host:
+        print(host)
+        print(tool)
+        if isinstance(c, str) and c:
             print(c)
 except Exception:
     pass' 2>/dev/null); then
 		printf '%s\n' "$parsed"
 	else
 		# Keep the bash/git/coreutils baseline useful when Python is absent or does not run. This
-		# deliberately narrow fallback accepts only an object-shaped Bash or PowerShell payload
-		# and the documented tool_input.command spelling; anything ambiguous fails open.
+		# deliberately narrow fallback accepts only an object-shaped payload of one of the three
+		# recognised shapes above, each read at its documented command key; anything ambiguous
+		# fails open.
 		case $payload in
 		'{'*'}') ;;
 		*) return 0 ;;
@@ -6544,10 +6585,22 @@ except Exception:
 		# a whole LINE, so a single-line payload is consumed entirely no matter how long
 		# it is. It takes a payload that is BOTH multi-line and past the pipe buffer —
 		# pretty-printed JSON — which the `case` above accepts and the fixture builds.
+		outer=tool_input key=command
 		if grep -qE '"tool_name"[[:space:]]*:[[:space:]]*"Bash"' <<<"$payload"; then
-			tool=Bash
+			host=claude tool=Bash
 		elif grep -qE '"tool_name"[[:space:]]*:[[:space:]]*"PowerShell"' <<<"$payload"; then
-			tool=PowerShell
+			host=claude tool=PowerShell
+		elif grep -qE '"tool_name"[[:space:]]*:[[:space:]]*"run_shell_command"' <<<"$payload" &&
+			grep -qE '"hook_event_name"[[:space:]]*:[[:space:]]*"BeforeTool"' <<<"$payload"; then
+			host=gemini tool=shell
+		elif grep -qF '"toolCall"' <<<"$payload" &&
+			grep -qE '"name"[[:space:]]*:[[:space:]]*"run_command"' <<<"$payload"; then
+			# Another event's `hookEventName` is not this one, whatever else it carries.
+			if grep -qE '"hookEventName"[[:space:]]*:' <<<"$payload" &&
+				! grep -qE '"hookEventName"[[:space:]]*:[[:space:]]*"PreToolUse"' <<<"$payload"; then
+				return 0
+			fi
+			host=antigravity tool=Bash outer=toolCall key=CommandLine
 		else
 			return 0
 		fi
@@ -6560,20 +6613,23 @@ except Exception:
 		# `cmd /c "rmdir /s /q \"...\""` reached the PowerShell reader with its escapes doubled
 		# and passed, and a stock Windows desktop is exactly the host whose `python3` is the
 		# Store alias that does not run (AMH ledger row DD030).
-		if json_command_string "$payload" && [ -n "$JSON_STRING" ]; then
-			printf '%s\n%s\n' "$tool" "$JSON_STRING"
+		if json_command_string "$payload" "$outer" "$key" && [ -n "$JSON_STRING" ]; then
+			printf '%s\n%s\n%s\n' "$host" "$tool" "$JSON_STRING"
+		elif [ "$host" != claude ]; then
+			printf '%s\n%s\n' "$host" "$tool" # named, as the Python reader does, with nothing to judge
 		fi
 	fi
 }
 
-# The value of `tool_input.command` in a JSON payload, decoded: `\"`, `\\`, `\/`, `\n`, `\t`
-# and `\r` become what they encode, and a `\uXXXX` escape is left as written. Fails (status 1)
-# on anything it cannot read to a closing quote, and the caller then judges nothing — the
-# fallback's fail-open direction. Sets JSON_STRING.
-json_command_string() { # json_command_string <payload>
-	local rest=$1 chunk decoded='' e
-	case $rest in *'"tool_input"'*) rest=${rest#*\"tool_input\"} ;; *) return 1 ;; esac
-	case $rest in *'"command"'*) rest=${rest#*\"command\"} ;; *) return 1 ;; esac
+# The value of the first `"<key>"` after the first `"<outer>"` in a JSON payload — by default
+# `tool_input.command`; Antigravity's `toolCall` … `CommandLine` is the other — decoded: `\"`,
+# `\\`, `\/`, `\n`, `\t` and `\r` become what they encode, and a `\uXXXX` escape is left as
+# written. Fails (status 1) on anything it cannot read to a closing quote, and the caller then
+# judges nothing — the fallback's fail-open direction. Sets JSON_STRING.
+json_command_string() { # json_command_string <payload> [<outer> <key>]
+	local rest=$1 outer=${2:-tool_input} key=${3:-command} chunk decoded='' e
+	case $rest in *"\"$outer\""*) rest=${rest#*\""$outer"\"} ;; *) return 1 ;; esac
+	case $rest in *"\"$key\""*) rest=${rest#*\""$key"\"} ;; *) return 1 ;; esac
 	rest=${rest#"${rest%%[![:space:]]*}"}
 	[ "${rest:0:1}" = : ] || return 1
 	rest=${rest:1}
@@ -6612,25 +6668,88 @@ JSON_STRING=''
 # a record of anything.
 HOOK_INVOCATION=0
 
+# The language of the Gemini CLI's one shell tool, which it documents as `bash -c` on POSIX and
+# `powershell.exe -NoProfile -Command` on Windows. A platform this cannot name gets the bash
+# reader. Antigravity's `run_command` is not routed here: its documentation calls it a Bash
+# command and says nothing of its Windows shell, so it is read as Bash everywhere until a host
+# shows otherwise (AMH ledger row DD113).
+host_shell() {
+	case $(uname -s 2>/dev/null) in
+	MINGW* | MSYS* | CYGWIN*) printf PowerShell ;;
+	*) printf Bash ;;
+	esac
+}
+
+# Sets JSON_QUOTED to its argument as a JSON string literal, quotes included: `\`, `"` and every
+# control character escaped, everything else — UTF-8 included — passed through as it is. The
+# class is `[:cntrl:]`, not a list of the bytes: `\001` is bash's own internal quoting byte, and
+# a bracket expression built by expanding a variable that holds it is where old bash versions
+# have mishandled it. `[:cntrl:]` also takes DEL and, in a UTF-8 locale, the C1 controls; both
+# come out as `\u` escapes, which JSON allows for any character.
+json_quote() { # json_quote <text>
+	local rest=$1 quoted='' chunk c code
+	while :; do
+		chunk=${rest%%[\\\"[:cntrl:]]*}
+		quoted=$quoted$chunk
+		[ "$chunk" = "$rest" ] && break
+		rest=${rest#"$chunk"}
+		c=${rest:0:1}
+		rest=${rest:1}
+		case $c in
+		\\) quoted=$quoted"\\\\" ;;
+		\") quoted=$quoted'\"' ;;
+		$'\n') quoted=$quoted'\n' ;;
+		$'\t') quoted=$quoted'\t' ;;
+		$'\r') quoted=$quoted'\r' ;;
+		*)
+			printf -v code '\\u%04x' "'$c"
+			quoted=$quoted$code
+			;;
+		esac
+	done
+	JSON_QUOTED="\"$quoted\""
+}
+JSON_QUOTED=''
+
+# How each recognised host is answered (see `extract_command`). Claude Code, Codex and the Gemini
+# CLI all document exit 2 as a block with stderr as the reason, and print nothing to allow.
+# Antigravity documents only a JSON answer on stdout whose `decision` is required — `deny` "hard
+# blocks execution", `allow` lets the call proceed to the next hook or the default policy, so it
+# grants nothing a prompt would have asked — and documents no exit code at all, so it is answered
+# on stdout with a zero exit, every time (AMH ledger row DD113).
+hook_allow() { # hook_allow <host>
+	[ "$1" = antigravity ] && printf '{"decision":"allow"}\n'
+	exit 0
+}
+hook_deny() { # hook_deny <host>
+	if [ "$1" = antigravity ]; then
+		json_quote "$BLOCK_HEADING"$'\n\n'"$BLOCK_REASON"
+		printf '{"decision":"deny","reason":%s}\n' "$JSON_QUOTED"
+		exit 0
+	fi
+	printf '%s\n\n%s\n' "$BLOCK_HEADING" "$BLOCK_REASON" >&2
+	exit 2
+}
+
 run_hook() {
-	local payload cmd tool checker=check_command
+	local payload cmd host tool checker=check_command
 	HOOK_INVOCATION=1
 	payload=$(cat) || exit 0
 	cmd=$(extract_command "$payload")
-	[ -n "$cmd" ] || exit 0 # malformed or non-shell tool: fail open
-	# The first line names the tool. A result with no second line held no command at all — a
+	[ -n "$cmd" ] || exit 0 # malformed, unrecognised or non-shell payload: fail open, answer nothing
+	host=${cmd%%$'\n'*}
+	cmd=${cmd#*$'\n'}
+	# The next line names the tool. A result with no line after it held no command at all — a
 	# command of nothing but line ends loses them to the substitution above — and is not judged.
-	case $cmd in *$'\n'*) ;; *) exit 0 ;; esac
+	case $cmd in *$'\n'*) ;; *) hook_allow "$host" ;; esac
 	tool=${cmd%%$'\n'*}
 	cmd=${cmd#*$'\n'}
+	[ "$tool" = shell ] && tool=$(host_shell)
 	[ "$tool" = PowerShell ] && checker=check_powershell_command
-	[ -n "$cmd" ] || exit 0
-	if ! "$checker" "$cmd"; then
-		printf '%s\n\n%s\n' "$BLOCK_HEADING" "$BLOCK_REASON" >&2
-		exit 2
-	fi
+	[ -n "$cmd" ] || hook_allow "$host"
+	"$checker" "$cmd" || hook_deny "$host"
 	[ -n "$WARN_REASON" ] && printf 'WARNING from the AMH command guard.\n\n%s\n' "$WARN_REASON" >&2
-	exit 0
+	hook_allow "$host"
 }
 
 # --- pre-push rail (git-native, P13) ----------------------------------------
@@ -9972,6 +10091,15 @@ git push --force origin main
 		HOOKFILE_ADVISORY_STATE=$old_hookfile_advisory_state
 	else
 		unset HOOKFILE_ADVISORY_STATE
+	fi
+
+	# Antigravity's denial carries the reason as a JSON string, so the escaping is checked byte
+	# for byte, without a JSON reader: a quote, a backslash, the three named controls, two others
+	# and DEL escaped, and UTF-8 and the shell's own metacharacters passed through untouched.
+	json_quote $'q"b\\n\nt\tr\rx\001y\037z\177 — ü `$(x)` & \\u0041'
+	if [ "$JSON_QUOTED" != '"q\"b\\n\nt\tr\rx\u0001y\u001fz\u007f — ü `$(x)` & \\u0041"' ]; then
+		printf 'SELF-TEST FAIL: json_quote produced %s\n' "$JSON_QUOTED" >&2
+		ST_FAILS=$((ST_FAILS + 1))
 	fi
 	if [ "$ST_FAILS" -ne 0 ]; then
 		printf 'command-guard.sh self-test: %d failure(s)\n' "$ST_FAILS" >&2
