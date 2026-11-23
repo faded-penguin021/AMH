@@ -612,44 +612,75 @@ fi
 # Read with a tokenizer, not by lines, because the earlier line reading passed configurations the
 # host loads differently: a block indented like a top-level key while nested under `permissions`,
 # and a key spelled with a JSON escape (`"\u0073andbox"`), which decodes to a second `sandbox` that
-# JSON lets govern. The tokenizer follows strings, escapes and nesting and prints every key's path
-# and every scalar's raw text, so scope, order, layout and CRLF stop mattering. The path joins keys
-# with \034, a control character no JSON string may hold raw, because a dot would let the literal
-# key "sandbox.enabled" pose as nesting. It decodes nothing, so an escaped KEY is refused outright,
-# and so is an escaped allow value, which would decode to a rule refused in plain spelling; no AMH
-# entry needs either. A file it cannot follow to a balanced end, and a scanner that fails, are
-# UNVERIFIED, never passed.
+# JSON lets govern. The tokenizer follows strings, escapes and nesting and prints every key's path,
+# every scalar's raw text and every object or array it opens (OPEN), so scope, order, layout and
+# CRLF stop mattering. It also tracks the grammar a host's parser enforces — which token may follow
+# which, a closer of the opener's kind, one top-level value, a bare word that is a JSON literal, a
+# known escape, no raw control character inside a string and no NUL byte anywhere — because a file
+# the host cannot parse configures nothing while every literal in it still reads as present. The
+# path joins keys with \034, a control character no JSON string may hold raw, and the grammar
+# refuses a key that holds one, because a dot would let the literal key "sandbox.enabled" pose as
+# nesting. It decodes nothing, so an escaped KEY is refused outright, and so is an escaped allow
+# value, which would decode to a rule refused in plain spelling; no AMH entry needs either. A file
+# it cannot follow to a balanced, grammatical end, and a scanner that fails, are UNVERIFIED, never
+# passed.
 # shellcheck disable=SC2016 # an awk program, not shell
 JSON_PATHS='
 function path(   s, j) { s = ""; for (j = 1; j <= d; j++) s = s (j > 1 ? "\034" : "") k[j]; return s }
-function scalar() { if (tok != "") { print "VAL\t" path() "\t" tok; tok = "" } }
+function value() { if ((ex != "V" && ex != "V]") || (d == 0 && top)) bad = 1; if (d == 0) top = 1 }
+function done() { ex = (d == 0 ? "E" : "N") }
+function scalar() {
+	if (tok == "") return
+	value()
+	if (tok !~ /^(true|false|null|-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][-+]?[0-9]+)?)$/) bad = 1
+	print "VAL\t" path() "\t" tok; tok = ""; done()
+}
+BEGIN { ex = "V" }
 {
 	sub(/\r$/, "")
 	n = length($0)
 	for (i = 1; i <= n; i++) {
 		c = substr($0, i, 1)
 		if (ins) {
-			if (esc) { esc = 0; s = s c; continue }
+			if (hex) { hex--; if (c !~ /[0-9A-Fa-f]/) bad = 1; s = s c; continue }
+			if (esc) { esc = 0; if (index("\"\\/bfnrtu", c) == 0) bad = 1; if (c == "u") hex = 4; s = s c; continue }
 			if (c == "\\") { esc = 1; bs = 1; s = s c; continue }
+			if (c ~ /[\001-\037]/) bad = 1
 			if (c != "\"") { s = s c; continue }
 			ins = 0
-			if (t[d] == "o" && want) { k[d] = s; want = 0; print "KEY\t" path() "\t" bs }
-			else print "VAL\t" path() "\t\"" s "\"\t" bs
+			if (t[d] == "o" && (ex == "K" || ex == "K}")) { k[d] = s; ex = "C"; print "KEY\t" path() "\t" bs }
+			else { value(); print "VAL\t" path() "\t\"" s "\"\t" bs; done() }
 			continue
 		}
-		if (c == " " || c == "\t") { scalar(); continue }
+		if (c == " " || c == "\t" || c == "\r") { scalar(); continue }
 		if (c == "\"") { scalar(); ins = 1; s = ""; bs = 0; continue }
-		if (c == "{") { d++; t[d] = "o"; k[d] = ""; want = 1; continue }
-		if (c == "[") { d++; t[d] = "a"; k[d] = "[]"; continue }
-		if (c == "}" || c == "]") { scalar(); d--; if (d < 0) bad = 1; continue }
-		if (c == ",") { scalar(); if (t[d] == "o") want = 1; continue }
-		if (c == ":") { scalar(); continue }
+		if (c == "{" || c == "[") {
+			scalar(); value(); print "OPEN\t" path() "\t" c
+			d++; t[d] = (c == "{" ? "o" : "a"); k[d] = (c == "{" ? "" : "[]"); ex = (c == "{" ? "K}" : "V]")
+			continue
+		}
+		if (c == "}" || c == "]") {
+			scalar()
+			if (d < 1 || t[d] != (c == "}" ? "o" : "a") || (ex != "N" && ex != (c == "}" ? "K}" : "V]"))) bad = 1
+			d--; if (d < 0) { bad = 1; d = 0 }
+			done(); continue
+		}
+		if (c == ",") { scalar(); if (ex != "N") bad = 1; ex = (t[d] == "o" ? "K" : "V"); continue }
+		if (c == ":") { scalar(); if (ex != "C") bad = 1; ex = "V"; continue }
 		tok = tok c
 	}
 	scalar()
+	if (ins) bad = 1
 }
-END { if (ins || d != 0 || bad) print "BROKEN" }
+END { if (ins || d != 0 || bad || (top && ex != "E")) print "BROKEN" }
 '
+# json_records <file>: the tokenizer's records, in the C locale so its character classes mean
+# bytes. awk keeps a NUL byte as data that no class here names, and JSON allows none anywhere, so a
+# file holding one is BROKEN before the tokenizer reads it.
+json_records() {
+	[ "$(LC_ALL=C tr -d '\000' <"$1" | wc -c)" -eq "$(wc -c <"$1")" ] || printf 'BROKEN\n'
+	LC_ALL=C awk "$JSON_PATHS" "$1"
+}
 claude_sandbox=0
 for declaration in "${ADAPTERS[@]}"; do
 	case $declaration in
@@ -658,7 +689,7 @@ for declaration in "${ADAPTERS[@]}"; do
 	esac
 	for settings in "${declaration%|*}" "${declaration#*|}"; do
 		[ -f "$settings" ] || continue
-		findings=$(awk "$JSON_PATHS" "$settings" | awk -F'\t' '
+		findings=$(json_records "$settings" | awk -F'\t' '
 			$1 == "BROKEN" { broken = 1 }
 			$1 == "KEY" { keys++ }
 			function shown(p) { gsub(/\034/, ".", p); return p }
@@ -694,7 +725,7 @@ for declaration in "${ADAPTERS[@]}"; do
 		while IFS=$'\t' read -r kind detail; do
 			case $kind in
 			'') ;;
-			BROKEN) note "$settings: the sandbox check could not follow this file to a balanced end — an unclosed string, object or array — so the sandbox configuration is UNVERIFIED, not present (DD-079)" ;;
+			BROKEN) note "$settings: the sandbox check could not follow this file to a balanced, grammatical end — an unclosed string, object or array, or a token JSON does not allow where it stands — so the sandbox configuration is UNVERIFIED, not present (DD-079)" ;;
 			EMPTY) note "$settings: checked NOTHING for the sandbox — the tokenizer read not one key, so this guard either reads an empty file or has stopped reading the one it checks (DD-079)" ;;
 			ESCAPED) note "$settings: the key $detail is written with a JSON escape. This guard decodes nothing, and \"\\u0073andbox\" is a second \"sandbox\" that JSON lets govern, so an escaped key is refused outright; no AMH key needs one (DD-079)" ;;
 			COUNT) note "$settings: $detail top-level \"sandbox\" key(s), where the adapter ships exactly one — none leaves the host sandbox off, a block nested under another key turns nothing on, and with two JSON keeps the last (DD-079)" ;;
@@ -815,47 +846,53 @@ done
 
 # The Gemini CLI and Antigravity adapters (DD-114). One wiring check per surface, as the plan that
 # added them budgeted: each hook file's whole wiring, each reviewer's frontmatter, and each
-# pointer's frontmatter and heading. No JSON or YAML parser is in the dependency floor, so like the
-# Claude checks above these read the SHIPPED one-key-per-line layout, and a line outside it is
-# UNVERIFIED, never passed. What they validate is configuration: neither host has been observed
-# loading any of these files.
+# pointer's frontmatter and heading. No JSON or YAML parser is in the dependency floor: the hook
+# files go through the sandbox check's tokenizer above, and the Markdown files' frontmatter is read
+# at the SHIPPED one-key-per-line layout, where a line outside it is UNVERIFIED, never passed. What
+# they validate is configuration: neither host has been observed loading any of these files.
 #
-# json_paths <file>: every scalar in the file as `key.path=value`, and every object in an array as
-# `ELEM <array path>`, one per line and sorted, with a `description` value read as `*`. The hook
-# files are then compared with the shipped set EXACTLY, as a multiset: a key matched anywhere in a
-# group is not enough, because a hook moved out of `hooks`, flattened beside its matcher, split
-# across two elements, disabled by `enabled` or `hooksConfig`, or left without its `type` still
-# carries every literal. A duplicate key shows as a second line, so the last-wins reading of most
-# JSON readers cannot hide behind the first.
-json_paths() {
-	awk '
-		{ sub(/\r$/, ""); l = $0; sub(/^[[:space:]]+/, "", l); sub(/,$/, "", l) }
-		l == "" { next }
-		l == "{" { if (sp == 0) { sp = 1; stack[1] = ""; next }
-			print "ELEM " stack[sp]; sp++; stack[sp] = stack[sp - 1]; next }
-		l == "}" || l == "]" { sp--; next }
-		match(l, /^"[^"]*": /) {
-			key = substr(l, 2, RLENGTH - 4); rest = substr(l, RLENGTH + 1)
-			p = (stack[sp] == "" ? key : stack[sp] "." key)
-			if (rest == "{") { sp++; stack[sp] = p; next }
-			if (rest == "[") { sp++; stack[sp] = p "[]"; next }
-			if (key == "description") rest = "*"
-			print p "=" rest; next
-		}
-		{ print "#UNREAD line " NR }
-		END { if (sp != 0) print "#UNREAD unbalanced at end of file" }
-	' "$1" | LC_ALL=C sort
+# hook_paths <file>: the tokenizer's records for one hook file, one per line and sorted — every
+# object or array it opens as `<path> {` or `<path> [`, every scalar as `<path> =<raw text>`, with a
+# string `description` read as `*` — then `#DONE`. The path keeps the tokenizer's \034 joins, so a
+# literal key "context.fileName" is not the nesting it spells. The hook files are compared with the
+# shipped set EXACTLY, as a multiset: a key matched anywhere in a group is not enough, because a hook
+# moved out of `hooks`, flattened beside its matcher, split across two elements, disabled by
+# `enabled` or `hooksConfig`, or left without its `type` still carries every literal. Every key
+# holds either a container, which shows as an opener, or a scalar, so a duplicate key — an empty
+# second `"hooks": {}` as much as a second `"command"` — shows as a second line, and the last-wins
+# reading of most JSON readers cannot hide behind the first. A file the tokenizer cannot follow is
+# `#BROKEN` (DD-115).
+hook_paths() {
+	json_records "$1" | awk -F'\t' '
+		$1 == "BROKEN" { print "#BROKEN"; next }
+		$1 == "OPEN" { print $2 "\t" $3; next }
+		$1 == "VAL" { v = $3; n = split($2, seg, "\034")
+			if (seg[n] == "description" && v ~ /^"/) v = "*"
+			print $2 "\t=" v }
+		END { print "#DONE" }
+	' | LC_ALL=C sort
 }
-# hook_entry <prefix> <matcher or -> <name or -> <command> <timeout> [description]: the expected
-# lines of one hook, in json_paths form.
+# shown <records>: the records as a person reads them, joins as dots and arrays as [].
+shown() { printf '%s\n' "$1" | sed $'s/\034\\[\\]/[]/g; s/\034/./g; s/\t=/=/; s/\t/ /' | paste -sd, - | sed 's/,/, /g'; }
+# hook_entry <group path> <matcher or -> <name or -> <command> <timeout> [description]: the expected
+# records of one hook group holding one hook, in hook_paths form. The group path is written with /
+# between keys; a group of the Gemini CLI form nests its hook in a `hooks` array.
 hook_entry() {
-	local prefix=$1 matcher=$2 name=$3 command=$4 timeout=$5 described=${6-}
-	printf 'ELEM %s\n' "${prefix%.hooks[]}"
-	[ "$matcher" = - ] || printf '%s.matcher="%s"\n' "${prefix%.hooks[]}" "$matcher"
-	[ "$prefix" = "${prefix%.hooks[]}" ] || printf 'ELEM %s\n' "$prefix"
-	[ "$name" = - ] || printf '%s.name="%s"\n' "$prefix" "$name"
-	printf '%s.type="command"\n%s.command=%s\n%s.timeout=%s\n' "$prefix" "$prefix" "$command" "$prefix" "$timeout"
-	[ -z "$described" ] || printf '%s.description=*\n' "$prefix"
+	local group=$1 matcher=$2 name=$3 command=$4 timeout=$5 described=${6-} hook
+	group=${group//\//$'\034'}
+	printf '%s\t[\n%s\t{\n' "$group" "$group"$'\034[]'
+	hook=$group$'\034[]'
+	[ "$matcher" = - ] || printf '%s\t="%s"\n' "$hook"$'\034matcher' "$matcher"
+	if [ "$name" != - ]; then
+		printf '%s\t[\n%s\t{\n' "$hook"$'\034hooks' "$hook"$'\034hooks\034[]'
+		hook=$hook$'\034hooks\034[]'
+		printf '%s\t="%s"\n' "$hook"$'\034name' "$name"
+	elif [ "$matcher" != - ]; then
+		printf '%s\t[\n%s\t{\n' "$hook"$'\034hooks' "$hook"$'\034hooks\034[]'
+		hook=$hook$'\034hooks\034[]'
+	fi
+	printf '%s\t="command"\n%s\t=%s\n%s\t=%s\n' "$hook"$'\034type' "$hook"$'\034command' "$command" "$hook"$'\034timeout' "$timeout"
+	[ -z "$described" ] || printf '%s\t=*\n' "$hook"$'\034description'
 }
 # shellcheck disable=SC2016 # the variables are literals in the JSON; the host or its shell expands them
 GEMINI_SESSION='"bash \"$GEMINI_PROJECT_DIR/scripts/session-start.sh\" --json=additional-context"'
@@ -871,14 +908,17 @@ AG_GUARD='"root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; exec bas
 # fingerprints each hook by name and command, so both are part of the wiring. Antigravity: no
 # PostToolUse entry on purpose, since its response cannot rewrite a result.
 GEMINI_EXPECTED=$({
-	printf '%s\n' 'context.fileName=["AGENTS.md", "GEMINI.md"]'
-	hook_entry 'hooks.SessionStart[].hooks[]' '*' amh-session-start "$GEMINI_SESSION" 30000 described
-	hook_entry 'hooks.BeforeTool[].hooks[]' '^run_shell_command$' amh-command-guard "$GEMINI_GUARD" 10000 described
-	hook_entry 'hooks.AfterTool[].hooks[]' '*' amh-redact-tool-output "$GEMINI_REDACT" 40000 described
+	printf '\t{\ncontext\t{\nhooks\t{\n'
+	printf '%s\t[\n' $'context\034fileName'
+	printf '%s\t="%s"\n' $'context\034fileName\034[]' AGENTS.md $'context\034fileName\034[]' GEMINI.md
+	hook_entry hooks/SessionStart '*' amh-session-start "$GEMINI_SESSION" 30000 described
+	hook_entry hooks/BeforeTool '^run_shell_command$' amh-command-guard "$GEMINI_GUARD" 10000 described
+	hook_entry hooks/AfterTool '*' amh-redact-tool-output "$GEMINI_REDACT" 40000 described
 } | LC_ALL=C sort)
 ANTIGRAVITY_EXPECTED=$({
-	hook_entry 'amh-session-start.SessionStart[]' - - "$AG_SESSION" 30
-	hook_entry 'amh-command-guard.PreToolUse[].hooks[]' run_command - "$AG_GUARD" 10
+	printf '\t{\namh-session-start\t{\namh-command-guard\t{\n'
+	hook_entry amh-session-start/SessionStart - - "$AG_SESSION" 30
+	hook_entry amh-command-guard/PreToolUse run_command - "$AG_GUARD" 10
 } | LC_ALL=C sort)
 gemini_files=0
 antigravity_files=0
@@ -890,15 +930,23 @@ for declaration in "${ADAPTERS[@]}"; do
 	esac
 	for config in "${declaration%|*}" "${declaration#*|}"; do
 		[ -f "$config" ] || continue
-		actual=$(json_paths "$config")
-		if grep -q '^#UNREAD' <<<"$actual"; then
-			note "$config: $(grep '^#UNREAD' <<<"$actual" | head -3 | sed 's/^#UNREAD //' | paste -sd, -) is not at the one-key-per-line layout this guard reads, so the hook wiring is UNVERIFIED, not present"
+		actual=$(hook_paths "$config")
+		# The scanner must SUCCEED and reach its last record: one that dies prints nothing, and a
+		# file emptied of hooks would then read as merely missing them (DC-002's fail-closed rule).
+		scan_rc=$?
+		if [ "$scan_rc" -ne 0 ] || [ "$(grep -cxF '#DONE' <<<"$actual")" -ne 1 ]; then
+			note "$config: the hook scanner failed (exit $scan_rc) or stopped before its end, so the hook wiring is UNVERIFIED, not present"
 			continue
 		fi
+		if [ "$(grep -cxF '#BROKEN' <<<"$actual")" -ne 0 ]; then
+			note "$config: the hook check could not follow this file to a balanced, grammatical end, so the host may parse none of it and the hook wiring is UNVERIFIED, not present"
+			continue
+		fi
+		actual=$(grep -vxF '#DONE' <<<"$actual")
 		missing=$(LC_ALL=C comm -23 <(printf '%s\n' "$expected") <(printf '%s\n' "$actual"))
 		extra=$(LC_ALL=C comm -13 <(printf '%s\n' "$expected") <(printf '%s\n' "$actual"))
 		if [ -n "$missing$extra" ]; then
-			note "$config: its wiring is not the shipped adapter's, read as key paths — missing: ${missing:-none}; not shipped: ${extra:-none}"
+			note "$config: its wiring is not the shipped adapter's, read as key paths — missing: $(shown "${missing:-none}"); not shipped: $(shown "${extra:-none}")"
 			continue
 		fi
 		case $config in
@@ -938,8 +986,16 @@ frontmatter_keys() {
 	FRONT=$front
 }
 front_line() { printf '%s\n' "$FRONT" | grep -cxF -- "$1"; }
-reviewers=0
-pointers=0
+# counted <reviewers|pointers>: one more file of that kind passed, in the total and for the host
+# its declaration belongs to, so one host's files dropping out cannot hide behind the other's.
+counted() {
+	local per=${1}_antigravity
+	case $declaration in *gemini*) per=${1}_gemini ;; esac
+	printf -v "$per" '%d' $((${!per} + 1))
+	printf -v "$1" '%d' $((${!1} + 1))
+}
+reviewers=0 reviewers_gemini=0 reviewers_antigravity=0
+pointers=0 pointers_gemini=0 pointers_antigravity=0
 for declaration in "${ADAPTERS[@]}"; do
 	case $declaration in
 	*gemini-agents/amh-rule-reviewer.md*)
@@ -975,7 +1031,7 @@ for declaration in "${ADAPTERS[@]}"; do
 			if [ -n "$unpinned" ]; then
 				note "$file: the reviewer's frontmatter lacks the shipped line(s) $unpinned"
 			else
-				reviewers=$((reviewers + 1))
+				counted reviewers
 			fi
 			continue
 		fi
@@ -1010,25 +1066,28 @@ for declaration in "${ADAPTERS[@]}"; do
 		# shellcheck disable=SC2016 # the backticks are Markdown, matched literally
 		target=$(printf '%s\n' "$found" | sed 's/^`\([^`]*\)`.*/\1/')
 		heading=$(printf '%s\n' "$found" | sed 's/^.*→ \*\*\(.*\)\*\*$/\1/')
-		case $file in harness/templates/*) target=harness/templates/seed/$target ;; esac
+		# Checked before the seed prefix: prefixed, `/AGENTS.md` would read as the seed's own file.
 		case /$target/ in
 		*/../* | //*)
 			note "$file: points at $target, which leaves the tree it must resolve in"
 			continue
 			;;
 		esac
+		case $file in harness/templates/*) target=harness/templates/seed/$target ;; esac
 		if [ ! -f "$target" ]; then
 			note "$file: points at $target, which does not exist"
 		# grep -c, never -q: under pipefail an early-exiting reader can fail the writer (DD-110).
 		elif [ "$(sed 's/[[:space:]]*$//' "$target" | grep -cxF -e "# $heading" -e "## $heading" -e "### $heading" -e "#### $heading")" -ne 1 ]; then
 			note "$file: points at $target → **$heading**, and not exactly one heading there reads exactly that"
 		else
-			pointers=$((pointers + 1))
+			counted pointers
 		fi
 	done
 done
-[ "$reviewers" -gt 0 ] || note "checked NOTHING for the Gemini CLI and Antigravity reviewers — no reviewer file was reached or none passed"
-[ "$pointers" -gt 0 ] || note "checked NOTHING for the Gemini CLI and Antigravity pointers — no skill or rule file was reached or none passed"
+[ "$reviewers_gemini" -gt 0 ] || note "checked NOTHING for the Gemini CLI reviewer — no reviewer file was reached or none passed"
+[ "$reviewers_antigravity" -gt 0 ] || note "checked NOTHING for the Antigravity reviewer — no reviewer file was reached or none passed"
+[ "$pointers_gemini" -gt 0 ] || note "checked NOTHING for the Gemini CLI skills — no skill file was reached or none passed"
+[ "$pointers_antigravity" -gt 0 ] || note "checked NOTHING for the Antigravity rules — no rule file was reached or none passed"
 
 [ "$fails" -eq 0 ] || exit 1
 printf 'first-class adapter set is complete across sources, reference paths, installation and legislation; %s Claude command hook(s) across %s file(s) pin shell=bash, %s file(s) anchor every Claude hook at the project root and refuse calls when a command guard fails, %s Claude command guard(s) match Bash|PowerShell, %s Claude and %s Codex adapter(s) wire the PostToolUse redaction rail for every tool, %s Claude file(s) deny the editing tools the git pre-push hook, the machine-mode template carries its exact hook and every adapter credential Read rail, and as configuration validation, not runtime attestation, %s Claude file(s) request exactly the shipped sandbox block, %s Codex file(s) set no key outside their hook tables, %s reviewer file(s) pin sandbox_mode read-only, %s Gemini CLI and %s Antigravity hook file(s) wire their shipped hooks, %s Gemini CLI and Antigravity reviewer file(s) carry their read-only tool list, and %s pointer file(s) name a heading that resolves\n' "$claude_hooks" "$claude_files" "$claude_anchor_files" "$claude_pre" "$claude_post" "$codex_post" "$claude_hookfile" "$claude_sandbox" "$codex_sandbox" "$reviewer_sandbox" "$gemini_files" "$antigravity_files" "$reviewers" "$pointers"

@@ -763,7 +763,7 @@ awk '{ print } NR == 1 { print "  \"hooksConfig\": {"; print "    \"enabled\": f
 	"$d/harness/templates/configs/gemini-settings.json" >"$d/gemini-settings.json.new"
 mv "$d/gemini-settings.json.new" "$d/harness/templates/configs/gemini-settings.json"
 expect fail "adapter-set: the Gemini CLI hooks switched off beside intact wiring" "$d" adapter-set.sh \
-	'not shipped: hooksConfig.enabled=false'
+	'not shipped: hooksConfig {, hooksConfig.enabled=false'
 
 d=$(snapshot adapter_antigravity_entry_disabled)
 awk '{ print } /^  "amh-command-guard": \{$/ { print "    \"enabled\": false," }' "$d/.agents/hooks.json" >"$d/hooks.json.new"
@@ -771,11 +771,11 @@ mv "$d/hooks.json.new" "$d/.agents/hooks.json"
 expect fail "adapter-set: the Antigravity command guard entry switched off" "$d" adapter-set.sh \
 	'not shipped: amh-command-guard.enabled=false'
 
+# Layout is not wiring: the tokenizer reads a minified file as the same configuration.
 d=$(snapshot adapter_antigravity_minified)
 tr -d '\n' <"$d/harness/templates/configs/antigravity-hooks.json" >"$d/hooks.json.new"
 mv "$d/hooks.json.new" "$d/harness/templates/configs/antigravity-hooks.json"
-expect fail "adapter-set: a hooks file off the readable layout is UNVERIFIED" "$d" adapter-set.sh \
-	'is not at the one-key-per-line layout this guard reads'
+expect pass "adapter-set: a minified hooks file is the same wiring" "$d" adapter-set.sh
 
 d=$(snapshot adapter_antigravity_guard_rewired)
 sed_in_place 's|scripts/command-guard\.sh|scripts/other-guard.sh|' "$d/.agents/hooks.json"
@@ -790,7 +790,112 @@ expect fail "adapter-set: the Antigravity command guard matcher was altered" "$d
 d=$(snapshot adapter_antigravity_entry_renamed)
 sed_in_place 's|"amh-session-start": {|"session": {|' "$d/harness/templates/configs/antigravity-hooks.json"
 expect fail "adapter-set: the Antigravity session entry was renamed" "$d" adapter-set.sh \
-	'missing: ELEM amh-session-start.SessionStart[]'
+	'missing: amh-session-start {'
+
+# Each of these keeps every shipped record in place and still overrides it under the last-wins
+# reading of most JSON readers, or spells the shipped path with a literal dot (DD-115).
+d=$(snapshot adapter_gemini_description_swallows_key)
+sed_in_place 's|^\(            "description": "AMH command guard .*"\)$|\1, "command": "true"|' "$d/.gemini/settings.json"
+expect fail "adapter-set: a key appended to a description line" "$d" adapter-set.sh \
+	'not shipped: hooks.BeforeTool[].hooks[].command="true"'
+
+d=$(snapshot adapter_gemini_empty_duplicate_array)
+sed_in_place 's|^    "AfterTool": \[$|    "BeforeTool": [\
+    ],\
+    "AfterTool": [|' "$d/harness/templates/configs/gemini-settings.json"
+expect fail "adapter-set: a later, empty BeforeTool array" "$d" adapter-set.sh \
+	'not shipped: hooks.BeforeTool ['
+
+d=$(snapshot adapter_antigravity_empty_duplicate_object)
+awk '{ line[NR] = $0 } END { for (i = 1; i < NR - 1; i++) print line[i]
+	print line[NR - 1] ","; print "  \"amh-command-guard\": {"; print "  }"; print line[NR] }' \
+	"$d/.agents/hooks.json" >"$d/hooks.json.new"
+mv "$d/hooks.json.new" "$d/.agents/hooks.json"
+expect fail "adapter-set: a later, empty command guard entry" "$d" adapter-set.sh \
+	'not shipped: amh-command-guard {'
+
+d=$(snapshot adapter_gemini_dotted_key)
+sed_in_place '2d; 4d; 3s|^    "fileName": \(.*\)$|  "context.fileName": \1,|' "$d/.gemini/settings.json"
+expect fail "adapter-set: a literal dotted key posing as the context setting" "$d" adapter-set.sh \
+	'missing: context {'
+
+# A file the host cannot parse configures nothing, whatever literals it carries (DD-115).
+d=$(snapshot adapter_gemini_trailing_comma)
+sed_in_place 's|^\(            "description": "AMH command guard .*"\)$|\1,|' "$d/.gemini/settings.json"
+expect fail "adapter-set: a trailing comma the host refuses" "$d" adapter-set.sh \
+	'could not follow this file to a balanced, grammatical end'
+
+d=$(snapshot adapter_antigravity_mismatched_closer)
+# shellcheck disable=SC2016 # a sed address, not a shell expansion
+sed_in_place '$s|^}$|]|' "$d/harness/templates/configs/antigravity-hooks.json"
+expect fail "adapter-set: an object closed as an array" "$d" adapter-set.sh \
+	'could not follow this file to a balanced, grammatical end'
+
+d=$(snapshot adapter_antigravity_second_document)
+printf '{}\n' >>"$d/.agents/hooks.json"
+expect fail "adapter-set: a second top-level value after the shipped one" "$d" adapter-set.sh \
+	'could not follow this file to a balanced, grammatical end'
+
+d=$(snapshot adapter_gemini_missing_comma)
+sed_in_place 's|^\(            "timeout": 10000\),$|\1|' "$d/harness/templates/configs/gemini-settings.json"
+expect fail "adapter-set: a missing comma the host refuses" "$d" adapter-set.sh \
+	'could not follow this file to a balanced, grammatical end'
+
+# A raw \034 in a key would forge the tokenizer's own path join: here an emptied command guard
+# entry beside a flat key spelled as its nested PreToolUse array.
+d=$(snapshot adapter_antigravity_forged_join)
+awk -v sep="$(printf '\034')" '{ line[NR] = $0 } END {
+	for (i = 1; i < NR - 1; i++) {
+		if (line[i] == "  \"amh-command-guard\": {") { print "  \"amh-command-guard\": {},"; print "  \"amh-command-guard" sep "PreToolUse\": ["; continue }
+		if (line[i] == "    \"PreToolUse\": [") continue
+		print line[i]
+	}
+	print line[NR] }' "$d/.agents/hooks.json" >"$d/hooks.json.new"
+mv "$d/hooks.json.new" "$d/.agents/hooks.json"
+expect fail "adapter-set: a raw control character in a key forges a path join" "$d" adapter-set.sh \
+	'could not follow this file to a balanced, grammatical end'
+
+# Each of these is refused by the grammar alone: the description is read as `*`, and Claude's
+# settings pin no value of a key the shipped file does not set.
+d=$(snapshot adapter_claude_bare_word)
+sed_in_place '1s|^{$|{\
+  "cleanupPeriodDays": 3O,|' "$d/.claude/settings.json"
+expect fail "adapter-set: a bare word that is no JSON literal" "$d" adapter-set.sh \
+	'could not follow this file to a balanced, grammatical end'
+
+d=$(snapshot adapter_gemini_unknown_escape)
+sed_in_place 's|AMH command guard on|AMH command guard \\q on|' "$d/.gemini/settings.json"
+expect fail "adapter-set: an escape JSON does not know" "$d" adapter-set.sh \
+	'could not follow this file to a balanced, grammatical end'
+
+d=$(snapshot adapter_gemini_short_unicode_escape)
+sed_in_place 's|AMH command guard on|AMH command guard \\u12x on|' "$d/harness/templates/configs/gemini-settings.json"
+expect fail "adapter-set: a \\u escape short of four hex digits" "$d" adapter-set.sh \
+	'could not follow this file to a balanced, grammatical end'
+
+d=$(snapshot adapter_gemini_raw_nul)
+sed 's|AMH command guard on|AMH command guard ~ on|' "$d/.gemini/settings.json" | tr '~' '\000' >"$d/settings.json.new"
+mv "$d/settings.json.new" "$d/.gemini/settings.json"
+expect fail "adapter-set: a raw NUL byte inside a string" "$d" adapter-set.sh \
+	'could not follow this file to a balanced, grammatical end'
+
+# A hook scanner that fails is a red run, never a pass: the shim fails exactly the awk program
+# that carries the named text — the tokenizer, or the hook check's consumer — and passes the rest.
+HOOK_AWK=$(command -v awk)
+for scanner in 'function value()' 'seg[n] =='; do
+	d=$(snapshot "adapter_hook_scanner_${scanner%%[ (]*}")
+	mkdir -p "$d/.shim"
+	printf '#!/bin/sh\ncase "$*" in *"%s"*) exit 42 ;; esac\nexec "%s" "$@"\n' "$scanner" "$HOOK_AWK" >"$d/.shim/awk"
+	chmod +x "$d/.shim/awk"
+	EXPECT_PATH_PREFIX="$d/.shim"
+	expect fail "adapter-set: a hook scanner that fails ($scanner)" "$d" adapter-set.sh 'the hook scanner failed'
+	EXPECT_PATH_PREFIX=
+done
+
+d=$(snapshot adapter_claude_settings_unparseable)
+sed_in_place 's|^\(    "enabled": true\),$|\1|' "$d/.claude/settings.json"
+expect fail "adapter-set: Claude settings the host cannot parse" "$d" adapter-set.sh \
+	'could not follow this file to a balanced, grammatical end'
 
 d=$(snapshot adapter_gemini_reviewer_shell)
 sed_in_place 's|^tools: \[read_file, |tools: [run_shell_command, read_file, |' "$d/.gemini/agents/amh-rule-reviewer.md"
@@ -828,6 +933,37 @@ d=$(snapshot adapter_seed_pointer_heading_renamed)
 sed_in_place 's|^## Agent harness$|## Agents|' "$d/harness/templates/seed/AGENTS.md"
 expect fail "adapter-set: a shipped pointer's seed heading was renamed" "$d" adapter-set.sh \
 	"points at harness/templates/seed/AGENTS.md → **Agent harness**"
+
+d=$(snapshot adapter_seed_pointer_absolute)
+# shellcheck disable=SC2016 # Markdown backticks, written literally
+sed_in_place 's|^`AGENTS\.md` → |`/AGENTS.md` → |' "$d/harness/templates/configs/antigravity-rules/amh-host-rails.md"
+expect fail "adapter-set: a shipped pointer with a leading slash" "$d" adapter-set.sh \
+	"points at /AGENTS.md, which leaves the tree it must resolve in"
+
+# Dropped from the checked set and the banner list alike, the other host's reviewer still passes.
+d=$(snapshot adapter_gemini_reviewer_undeclared)
+sed_in_place "/^	'harness\/templates\/configs\/gemini-agents\/amh-rule-reviewer\.md|/d" "$d/scripts/guards/adapter-set.sh"
+sed_in_place 's| \.gemini/agents/amh-rule-reviewer\.md||' "$d/amh.conf"
+expect fail "adapter-set: one host's reviewer leaves the checked set" "$d" adapter-set.sh \
+	"checked NOTHING for the Gemini CLI reviewer"
+
+d=$(snapshot adapter_antigravity_reviewer_undeclared)
+sed_in_place "/^	'harness\/templates\/configs\/antigravity-agents\/amh-rule-reviewer\.md|/d" "$d/scripts/guards/adapter-set.sh"
+sed_in_place 's| \.agents/agents/amh-rule-reviewer\.md||' "$d/amh.conf"
+expect fail "adapter-set: the other host's reviewer leaves the checked set" "$d" adapter-set.sh \
+	"checked NOTHING for the Antigravity reviewer"
+
+d=$(snapshot adapter_gemini_skills_undeclared)
+sed_in_place "/^	'harness\/templates\/configs\/gemini-skills\//d" "$d/scripts/guards/adapter-set.sh"
+sed_in_place "s| \.gemini/skills/[^ ']*||g" "$d/amh.conf"
+expect fail "adapter-set: one host's pointers leave the checked set" "$d" adapter-set.sh \
+	"checked NOTHING for the Gemini CLI skills"
+
+d=$(snapshot adapter_antigravity_rules_undeclared)
+sed_in_place "/^	'harness\/templates\/configs\/antigravity-rules\//d" "$d/scripts/guards/adapter-set.sh"
+sed_in_place "s| \.agents/rules/[^ ']*||g" "$d/amh.conf"
+expect fail "adapter-set: the other host's pointers leave the checked set" "$d" adapter-set.sh \
+	"checked NOTHING for the Antigravity rules"
 
 d=$(snapshot adapter_pointer_doubled)
 # shellcheck disable=SC2016 # Markdown backticks, written literally
