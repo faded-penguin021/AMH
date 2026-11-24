@@ -26,6 +26,14 @@
 set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." || exit 1
 
+# Byte order, whatever the host's locale. Bash sorts the glob in emit by LC_COLLATE, and a
+# locale such as en_US.UTF-8 ignores `-` at its first level, so it puts `redact.sh` before
+# `redact-tool-output.sh` where C puts it after: the same scripts gave a different manifest,
+# and manifest-drift.sh failed a clean tree as hand-edited. LC_ALL, because a host that sets
+# LC_ALL overrides any LC_COLLATE set here. Nothing below depends on character semantics — the
+# header's non-ASCII bytes pass through printf unchanged — so the whole run takes it.
+export LC_ALL=C
+
 SRC=harness/templates/scripts
 NAME=MANIFEST.sha256
 VERSION=$(tr -d '[:space:]' <harness/VERSION)

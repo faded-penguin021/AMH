@@ -60,8 +60,9 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
 
 ### Upgrading
 
-This train also carries changes to the AMH repository's own adapter-set guard, init tests and
-conformance arm; they ship nothing, so nothing below asks anything of you for them.
+This train also carries changes to the AMH repository's own adapter-set guard, init tests,
+conformance arm and manifest generator, which now lists the scripts in byte order whatever the
+host's locale; they ship nothing, so nothing below asks anything of you for them.
 
 Copy the 17.1.0 shipped scripts and manifest through the normal upgrade procedure. Four scripts
 changed against 17.0.0, and the manifest changes with them:
@@ -74,7 +75,9 @@ changed against 17.0.0, and the manifest changes with them:
   Windows-only PowerShell routing, Antigravity's `allow` on a recognised payload with no command,
   Claude's and Codex's answers unchanged, an unrecognised event or tool of either host answered
   with nothing, both JSON envelopes decoding to the bare banner byte for byte, and
-  `--json=inject-steps` draining a stdin past the pipe buffer.
+  `--json=inject-steps` draining a stdin past the pipe buffer. The two envelope cases read
+  `/dev/null`, so the suite no longer hangs when run from a tool that keeps an open pipe on
+  stdin.
 
 Nothing else is required: Claude Code and Codex see no change. **The new adapter files are
 optional.** If you use the Gemini CLI or Antigravity and want its adapter, copy its files by

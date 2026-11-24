@@ -11,4 +11,4 @@
 4fd503d94b6d8452deb6acb113b42d8fc6b1f872cef69e9b050077d4764547f1  scripts/redact-tool-output.sh
 cbf4c824e3d90db5bb55330c245052fdbcdf7511a2f8b3424e65531151051487  scripts/redact.sh
 af826c6eecc721817b6fc3e55ba5aeeb359a8067bf55efeb2e57d8f388277248  scripts/session-start.sh
-81c39ecfaa99712dd9c2645d8ea12dc707ff2b7da7cb72613cd07ca121d64f28  scripts/test-ladder-guards.sh
+a07de1c820e36b22d2d0114fa75244d7d1e53f5f461d8ccd2278c0a3ca4e7b49  scripts/test-ladder-guards.sh

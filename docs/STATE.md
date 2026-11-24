@@ -138,6 +138,9 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-24 — **Live-probe fixes: the manifest generator lists the scripts in byte order
+  whatever the host's locale, and the shipped suite's JSON-envelope cases close stdin, so neither
+  fails nor hangs on an Antigravity Remote Agents VM** (**DD-118**, **DD-119**).
 - 2026-11-24 — **Gemini CLI and Antigravity adapter, A5, the last: drafted as MINOR 17.1.0, its
   changelog entry saying the new adapter files are optional and what an upgrade must do first;
   the tag and a live probe of each host are queued** (**DD-117**).
@@ -167,32 +170,11 @@ rows — this section is a pointer index, not a narrative.
   the secret scan over the build output an adopter names, a Resend redaction class and a seed
   sentence on client-exposed variables; B1, its review, is queued** (no ledger row: nothing is
   decided yet).
-- 2026-11-19 — **Pipefail race, R1: every pipe into an early-exit reader under `pipefail` whose
-  status decides something audited, 109 fixed, the rest recorded with why they cannot race**
-  (**DD-110**).
-- 2026-11-19 — **PR #75 review fixes, F3, the last unit: the command guard's advisory state —
-  an override read alone, the reports' union across both directories, one directory read once,
-  and only a regular file a spent marker; the plan is archived to
-  `docs/history/2026-11-19-pr75-review-fixes.md`** (**DD-109**).
-- 2026-11-19 — **PR #75 review fixes, F2: the bootstrap warns of an advisory marker it cannot
-  clear, the fixture suite counts skips apart, and the installer reads `RULE_FILES` as the ladder
-  does** (**DD-108**).
-- 2026-11-19 — **PR #75 review fixes, F1: the 17.0.0 Upgrading text, the README and the seed
-  ledger corrected; every finding reproduced and fixed** (**DD-107**).
-- 2026-11-19 — **Owner: three queue items closed on the session's recommendation** — no
-  non-UTF-8 parser fix until testable, no test-change guard until an incident, no `find` arm
-  (**DD-106**).
-- 2026-11-19 — **H4b follow-up, the last: the machine-mode fragment drops its `//proc` rules
-  under `adapter-set.sh`, the README claims only the passed sandbox cells, and acceptance (f)
-  passed in both arms** (**DD-104**, **DD-105**).
-- 2026-11-19 — **The owner cleared DD-088's tag block and chose to drop the machine-mode
-  `//proc` rules,** each on the session's recommendation (**DD-103**).
-
-- 2026-11-18 — **H4b follow-up: the last owner-box run, two runs at `7d44ff5`, recorded**
-  (**DD-099** to **DD-102**, `2026-11-01-harness-research-gaps-h4b-results.md` §5).
-- 2026-11-18 — **H4b follow-up: `2026-11-01-harness-research-gaps-h4b-probe.sh` repaired for the
-  last box run** (**DD-098**).
-- 2026-11-18 — **Owner: an advisory whose marker cannot be written fires** (**DD-097**).
+- 2026-11-18 through 2026-11-19 — **The H4b follow-ups, the PR #75 review fixes F1 to F3 and
+  the pipefail race R1, folded** (**DD-097** to **DD-110**; `docs/history/`
+  `2026-11-01-harness-research-gaps-h4b-results.md` §5,
+  `2026-11-01-harness-research-gaps-h4b-probe.sh`, `2026-11-19-pr75-review-fixes.md` and
+  `2026-11-19-pipefail-grep-race.md`).
 - 2026-11-13 through 2026-11-17 — **The research-gaps plan's units and H4b follow-ups, folded**
   (**DD-072** to **DD-096**, the plan's §1 and §5, companions
   `2026-11-01-harness-research-gaps-h1-inventory.md`,

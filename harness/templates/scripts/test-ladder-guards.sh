@@ -748,7 +748,10 @@ plain=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>/dev/null)
 if ! python3 -I -c '' >/dev/null 2>&1; then
 	report skip "session-start --json shapes (decoding them needs a python3 that runs; the script itself does not)"
 else for shape in additional-context inject-steps; do
-	out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh --json="$shape" 2>/dev/null)
+	# stdin closed here, because the JSON shapes drain it to EOF: a suite run from a tool that
+	# keeps an open pipe on stdin, as Antigravity's run_command does, hung here until it timed
+	# out. The piped-payload case below poses the drain on purpose.
+	out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh --json="$shape" </dev/null 2>/dev/null)
 	decoded=$(printf '%s' "$out" | python3 -I -c 'import json,sys
 d = json.load(sys.stdin)
 if sys.argv[1] == "additional-context":

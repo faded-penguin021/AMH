@@ -2594,6 +2594,50 @@ else
 		"$bm_rc_stdout" "$bm_rc_write" "$out" >&2
 fi
 
+# build-manifest.sh under a locale whose collation is not byte order. Bash sorts a glob by
+# the host's LC_COLLATE, and en_US.UTF-8 ignores `-` at its first level, so `redact.sh` comes
+# before `redact-tool-output.sh` there and after it in C: the generator wrote a different
+# manifest on such a host, and manifest-drift.sh failed a clean tree as hand-edited. Measured
+# on an Antigravity Remote Agents VM whose default is LC_ALL=en_US.UTF-8. The case can run
+# only where such a locale is installed, so it is posed, not assumed: a candidate counts only
+# if it actually orders the two real template names differently from C, and with none the
+# case is SKIPPED and says so. LOCPATH, when set, reaches the locale lookup like any other.
+# shellcheck disable=SC2016 # the $1 belongs to the child bash, which must expand it itself.
+bm_coll_order() { # <locale> -> the two names, in that locale's glob order
+	LC_ALL=$1 bash -c 'cd -- "$1" && printf "%s\n" redact*.sh' _ "$base/harness/templates/scripts" 2>/dev/null
+}
+# The probe needs both names. With one renamed or gone it would match no locale anywhere, CI
+# included, and the skip below would blame the locale: that is a broken fixture, so it fails.
+bm_locale=
+if [ "$(bm_coll_order C | LC_ALL=C sort)" != "$(printf '%s\n' redact-tool-output.sh redact.sh)" ]; then
+	FAILED=$((FAILED + 1))
+	printf '  FAIL build-manifest locale case: its probe needs redact.sh and redact-tool-output.sh among the templates — got:\n%s\n' \
+		"$(bm_coll_order C)" >&2
+	bm_locale=-
+fi
+for l in en_US.UTF-8 en_US.utf8 en_GB.UTF-8 en_GB.utf8 de_DE.UTF-8 de_DE.utf8; do
+	[ "$bm_locale" = - ] && break
+	if [ "$(bm_coll_order "$l")" != "$(bm_coll_order C)" ]; then
+		bm_locale=$l
+		break
+	fi
+done
+if [ "$bm_locale" = - ]; then
+	: # failed above
+elif [ -n "$bm_locale" ]; then
+	out=$(cd "$base" && LC_ALL=$bm_locale bash scripts/guards/manifest-drift.sh 2>&1)
+	rc=$?
+	if [ "$rc" -eq 0 ]; then
+		PASSED=$((PASSED + 1))
+	else
+		FAILED=$((FAILED + 1))
+		printf '  FAIL manifest-drift: a clean tree passes under LC_ALL=%s, whose collation is not byte order — rc=%s\n%s\n' \
+			"$bm_locale" "$rc" "$out" >&2
+	fi
+else
+	printf '  SKIP 1 build-manifest locale case: no installed locale here collates a hyphen apart from byte order\n' >&2
+fi
+
 # config-schema with no `comm` on PATH — the same hollow-green shape, and the one its own
 # review found: with the comparison unable to run, the difference is empty and the guard
 # would otherwise print an affirmative line claiming 22 keys were checked. The shim's fixed
