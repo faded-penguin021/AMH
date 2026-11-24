@@ -101,7 +101,9 @@ checks fired and how the agent saw each, and which **DD-112** cells it settled, 
 working directory or what a timed-out hook does. In the same unit, move each settled cell out of
 that host's *Unverified* line in `docs/RUNBOOK.md` → **Host rails and what they miss**. Check:
 `grep -nE '^- D[A-Z]*-[0-9]+( \[cited\])?: \*\*Live probe of (the Gemini CLI|Antigravity)'
-docs/LEDGER_*.md` — a host with no row is still unprobed.
+docs/LEDGER_*.md` — a host with no row is still unprobed. Antigravity Remote Agents were
+probed on 2026-11-24 and are not the host this asks for: no hook fired there, so the desktop
+App, CLI or IDE is still unprobed, and that row's lead does not match this check (**DD-120**).
 
 **OPEN — decide the N1 review's last recommendation it could not apply:** the cross-plan order
 and release placement in that plan's §2, decision 3. H0.5 recommended S1 → S2 → S6a → S3 → N2 →
@@ -138,6 +140,9 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-24 — **Antigravity Remote Agents, probed by the owner: rules, `AGENTS.md` and the
+  reviewer load from the workspace root, no hook fired; the runbook treats such an agent as
+  hook-less, and the desktop probe stays queued** (**DD-120**).
 - 2026-11-24 — **Live-probe fixes: the manifest generator lists the scripts in byte order
   whatever the host's locale, and the shipped suite's JSON-envelope cases close stdin, so neither
   fails nor hangs on an Antigravity Remote Agents VM** (**DD-118**, **DD-119**).

@@ -417,10 +417,19 @@ summary: configured, and never observed firing (**DD-111**, **DD-112**).
   on attached GitHub repositories, Drive files and uploads, with plugin OAuth tokens injected on
   their requests. That contains the user's own machine: such an agent cannot reach local files,
   keys or a local `.env`. It does not contain what the agent does with what it was given, such as
-  a push to an attached repository or a call made with an injected token. Whether it is an
-  ephemeral non-root VM, loads `.agents/` and runs its hooks is unverified, so the `pre-push`
-  rail exists there only if the bootstrap ran in that clone. No rule is relaxed for it: every rule
-  in `AGENTS.md` binds a remote agent as it binds a local one.
+  a push to an attached repository or a call made with an injected token. No rule is relaxed for
+  it: every rule in `AGENTS.md` binds a remote agent as it binds a local one. The owner's probe of
+  2026-11-24 (**DD-120**), on a non-root Linux VM with the repository cloned during the session
+  rather than attached, saw `AGENTS.md`, the four rules and the reviewer load only from the
+  workspace root at agent start, never from a clone below it. The reviewer got `view_file` and
+  none of `grep_search`, `list_dir` or `find_by_name`, which that host lacks and drops without an
+  error, so a session invoking it there passes it every path it is to read. Neither hook fired,
+  even for a subagent started after `.agents/hooks.json` sat at the root. Until a top-level
+  conversation in a Remote Project with the repository attached shows otherwise, treat a Remote
+  Agent as hook-less: no command rail, no banner, and no `pre-push` rail until a bare
+  `scripts/session-start.sh` has run in that clone. Its `run_command` keeps stdin open, so a
+  `--json` run there waits for an end of input that never comes; the bare form never reads
+  stdin (**DD-119**).
 
 ## When CI fails (workflow vs code)
 
