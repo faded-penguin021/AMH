@@ -41,7 +41,7 @@ that unit:
 - `2026-11-22-build-output-secret-scan.md`: a draft, B0 done; only B1, its gpt-6-astra `-e high`
   review, is approved (owner, 2026-11-22), and the plan runner runs it (Owner queue).
 - `2026-11-23-antigravity-gemini-adapter.md`, adopted: a Gemini CLI and Antigravity adapter,
-  A0 to A3 done; A1 to A5 approved in full for the plan runner, the session deciding every fork
+  A0 to A4 done; A1 to A5 approved in full for the plan runner, the session deciding every fork
   and recording each in its unit's ledger row (owner, 2026-11-23).
 
 Operational gotchas:
@@ -118,6 +118,10 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-23 — **Gemini CLI and Antigravity adapter, A4: the runbook's host-rails section says,
+  per new host, which rails it has, which it lacks and what binds only as prose, what skips it,
+  which files are procedure and what is unverified; the harness prose, README and UPGRADING name
+  both hosts** (**DD-116**).
 - 2026-11-23 — **Gemini CLI and Antigravity adapter, A3: twelve adapter files ship under
   `.gemini/` and `.agents/`, wired into every list of adapters, with one `adapter-set.sh` check
   per surface; the shipped pointers name the seed's headings, this repository's its own; the hook

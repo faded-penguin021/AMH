@@ -117,7 +117,7 @@ This split is the whole reason upgrades are cheap, so it is worth internalising:
 | `amh.conf` | — | yours; new keys are additive, listed in the changelog |
 | `scripts/verify.sh`, `scripts/guards/*` | — | yours; the ladder's extension points |
 | `AGENTS.md`, `docs/RUNBOOK.md`, `docs/STATE.md`, `docs/LEDGER.md` | — | yours; seed changes arrive as hand-applied notes |
-| `.claude/settings.json`, `.codex/config.toml`, `.codex/rules/amh.rules`, `.github/workflows/*` | — | yours; diff each adapter or workflow against its template and take what applies |
+| `.claude/settings.json`, `.codex/config.toml`, `.codex/rules/amh.rules`, `.codex/agents/amh-rule-reviewer.toml`, `.gemini/settings.json`, `.gemini/skills/*/SKILL.md`, `.gemini/agents/amh-rule-reviewer.md`, `.agents/hooks.json`, `.agents/rules/amh-*.md`, `.agents/agents/amh-rule-reviewer.md`, `.github/workflows/*` | — | yours; diff each adapter or workflow against its template and take what applies |
 | `AMH-ADOPT.md` | — | yours, and one-time: written only on a FRESH instantiation, and yours to delete when you have finished it. An upgrade run never re-issues it |
 
 One invariant underwrites the whole table, and it is worth stating rather than inferring:

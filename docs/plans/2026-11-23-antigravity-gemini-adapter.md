@@ -1,6 +1,6 @@
 # PLAN — a third host adapter: the Gemini CLI and Antigravity
 
-> **Status: adopted by the owner on 2026-11-23; A0 to A3 done.** Units A1 to A5, run in order by the
+> **Status: adopted by the owner on 2026-11-23; A0 to A4 done.** Units A1 to A5, run in order by the
 > plan runner on `session/antigravity-adapter`. **Do not archive or delete this file in any
 > unit**: the runner reads each unit's done marker here. The session that merges the train
 > archives it afterwards.
@@ -218,7 +218,11 @@ manifest drift clean; the full ladder green; the rule review run and triaged.
 **Acceptance:** the fixtures above seen red and green; the full ladder green, including the init
 e2e test; the rule review run and triaged.
 
-### A4 — say what the new host's rails do and do not catch
+### A4 — say what the new host's rails do and do not catch: done 2026-11-23
+
+- **Done:** one entry per host in `docs/RUNBOOK.md` → **Host rails and what they miss**, the
+  harness prose of §3.7 and §3.8, README and UPGRADING; the seed constitution unchanged, since no
+  adopter-facing rule changed (**DD-116**).
 
 1. `docs/RUNBOOK.md` → **Host rails and what they miss** (keep the heading): one entry per host
    from §4 naming each rail it has, each one it lacks and what then binds only as prose (no
