@@ -16,7 +16,7 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 17.0.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 17.1.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
@@ -41,8 +41,8 @@ that unit:
 - `2026-11-22-build-output-secret-scan.md`: a draft, B0 done; only B1, its gpt-6-astra `-e high`
   review, is approved (owner, 2026-11-22), and the plan runner runs it (Owner queue).
 - `2026-11-23-antigravity-gemini-adapter.md`, adopted: a Gemini CLI and Antigravity adapter,
-  A0 to A4 done; A1 to A5 approved in full for the plan runner, the session deciding every fork
-  and recording each in its unit's ledger row (owner, 2026-11-23).
+  every unit done, A5 last, drafting 17.1.0 (**DD-117**); the tag and a live probe of each host
+  are in the Owner queue, and the session that merges the train archives the plan.
 
 Operational gotchas:
 
@@ -84,6 +84,27 @@ No check settles it.
 **OPEN — decide on the queue-cycle plan, `docs/plans/2026-11-10-queue-cycle-and-memory-tiers.md`:
 review first (M1), adoption, and the facts its §2, item 3 asks for.** No check settles it.
 
+**OPEN — tag `amh-v17.1.0` once the train carrying 17.1.0 merges** (the adapter plan's A5).
+`harness/VERSION` here says 17.1.0; tag the merge commit on `main`, after checking that the
+squash message carries no poison token (**DC-040**). Check: `git ls-remote --tags origin
+amh-v17.1.0` — a line naming the tag means done; no output with exit 0 means open, and a
+non-zero exit means `origin` was not reached and settles nothing.
+
+**OPEN — probe the Gemini CLI and Antigravity adapters on a live host** (the adapter plan's A5).
+Nothing in either has been seen firing. On each host, open a scratch repository that has
+`amh-init.sh`'s install, with the folder trusted on the Gemini CLI, and see: the session-start
+banner reaching the agent; a deny, of `git push --force origin main` through the host's shell
+tool, harmless in a scratch repository with no remote if no hook fires; on the Gemini CLI only, a
+redaction, of an `echo` of `sk-ant-` followed by 20 or more made-up letters (Antigravity has no
+redactor); and on Antigravity, a harmless `git status` still running, since its guard answers
+every call `allow` or `deny`. Then append one ledger row per host whose bold lead opens `Live
+probe of the Gemini CLI` or `Live probe of Antigravity`, naming the host version and OS, which
+checks fired and how the agent saw each, and which **DD-112** cells it settled, such as a hook's
+working directory or what a timed-out hook does. In the same unit, move each settled cell out of
+that host's *Unverified* line in `docs/RUNBOOK.md` → **Host rails and what they miss**. Check:
+`grep -nE '^- D[A-Z]*-[0-9]+( \[cited\])?: \*\*Live probe of (the Gemini CLI|Antigravity)'
+docs/LEDGER_*.md` — a host with no row is still unprobed.
+
 **OPEN — decide the N1 review's last recommendation it could not apply:** the cross-plan order
 and release placement in that plan's §2, decision 3; H0.5's recommended order is in the
 research-gaps plan's §7.1. No check settles it.
@@ -118,6 +139,9 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-24 — **Gemini CLI and Antigravity adapter, A5, the last: drafted as MINOR 17.1.0, its
+  changelog entry saying the new adapter files are optional and what an upgrade must do first;
+  the tag and a live probe of each host are queued** (**DD-117**).
 - 2026-11-23 — **Gemini CLI and Antigravity adapter, A4: the runbook's host-rails section says,
   per new host, which rails it has, which it lacks and what binds only as prose, what skips it,
   which files are procedure and what is unverified; the harness prose, README and UPGRADING name

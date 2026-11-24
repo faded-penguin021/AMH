@@ -1,6 +1,6 @@
 # PLAN — a third host adapter: the Gemini CLI and Antigravity
 
-> **Status: adopted by the owner on 2026-11-23; A0 to A4 done.** Units A1 to A5, run in order by the
+> **Status: adopted by the owner on 2026-11-23; every unit done, A5 last on 2026-11-24.** Units A1 to A5, run in order by the
 > plan runner on `session/antigravity-adapter`. **Do not archive or delete this file in any
 > unit**: the runner reads each unit's done marker here. The session that merges the train
 > archives it afterwards.
@@ -240,7 +240,11 @@ e2e test; the rule review run and triaged.
 **Acceptance:** dist, doc-navigation and path-reference rungs green; the full ladder green; the
 rule review run and triaged.
 
-### A5 — the release record for 17.1.0
+### A5 — the release record for 17.1.0: done 2026-11-24
+
+- **Done:** drafted as MINOR 17.1.0 against `amh-v17.0.0`, with the changelog entry, its
+  Upgrading section, the lockstep copies, dist and manifest; the tag and a live probe of each host
+  are in the Owner queue with their checks (**DD-117**).
 
 1. Follow `docs/RUNBOOK.md`'s release playbook: `harness/VERSION` to `17.1.0` and every lockstep
    copy the version guard checks; a `harness/CHANGELOG.md` entry with an **Upgrading** section
