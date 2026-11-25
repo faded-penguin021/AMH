@@ -374,15 +374,26 @@ Its settings file carries no comment, so the adapter's host-rails skill carries 
 which then named CLI 1.5.12 and App 2.34.0. `.agents/hooks.json` carries no comment, because the
 host documents no comment key and rejects at load time a hook configuration that could never
 run, so this entry is its full honesty text, of which the adapter's host-rails rule carries a
-summary: configured, and never observed firing (**DD-111**, **DD-112**).
+summary written before any probe: configured, and never observed firing (**DD-111**,
+**DD-112**). On CLI 1.5.15 in print mode on Linux both hooks have since fired and the rules been
+listed by description (**DD-121**); on App 2.35.1 on Windows the hooks run and the shipped
+commands do nothing (**DD-122**).
 
 - *Rails it has*, in `.agents/hooks.json`, which the CLI, the App and the IDE all read. A
   `PreToolUse` hook on `run_command` runs the command guard, which answers
   `{"decision":"deny","reason":…}` or `{"decision":"allow"}` on stdout and exits 0. A
   `SessionStart` hook runs the bootstrap and injects its banner as a system message. Both find
   the project root through `git rev-parse --show-toplevel` and exit 0 with nothing outside a git
-  work tree. The `pre-push` rail binds as it does everywhere, invoked by git, and
-  `--no-verify` bypasses it.
+  work tree. On Linux both ran in `.agents/`, from which that lookup resolves (**DD-121**), as
+  the vendor's hooks page says of every OS. On Linux CLI print mode a `PreToolUse` hook that
+  exits non-zero, times out or answers with anything but JSON blocks the call, so a broken guard
+  fails closed (**DD-121**); on App 2.35.1 on Windows an `exit 1` hook returned the host's hook
+  error in place of the command's output, and one that exits 0 with no answer let the call run
+  (**DD-122**). **On App 2.35.1 on Windows neither rail works:** it runs both hooks in `cmd.exe`,
+  whose grammar fails the POSIX `root=$(…)` and so reaches the `|| exit 0` after it, ending the
+  hook with no answer, so the guard allows every command and no banner arrives (**DD-122**; the
+  mechanism is inferred, the hook's own error was not captured). The `pre-push` rail binds as it
+  does everywhere, invoked by git, and `--no-verify` bypasses it.
 - *What it lacks, and what then binds only as prose.* No output redaction: `PostToolUse` sees no
   tool output and can only answer `{}`, so a credential a command prints reaches the model as
   printed. No repo-local deny rules, since permissions live in user settings only: a
@@ -393,26 +404,31 @@ summary: configured, and never observed firing (**DD-111**, **DD-112**).
   or App settings:
   the adapter neither sets it nor can see it, and it is a layer under the rails, not one of
   them. The guard reads every `run_command` as Bash, while the vendor's permissions page names
-  PowerShell and Command Prompt for command matching on Windows, and the hook commands are POSIX
-  shell. The spawn speed bump is not wired.
+  PowerShell and Command Prompt for command matching on Windows, on App 2.35.1 the agent's
+  `run_command` ran PowerShell and the hooks `cmd.exe` (**DD-122**), and the hook commands are
+  POSIX shell. The spawn speed bump is not wired.
 - *What skips it.* A hook entry with `enabled: false`. There is no repo-local settings file to
   skip. `--dangerously-skip-permissions` approves every request; whether it, `--mode` or anything
-  else skips workspace hooks or rules is not documented. `AGENTS.md` is read natively and always,
-  but a rule file over 24,000 bytes is truncated, and always-on rules share a 20,000-token budget
-  past which the largest are cut to a path and a description: a constitution grown past either
+  else skips workspace hooks or rules is not documented. Print mode (`agy -p`) on Linux skips
+  neither and put no trust prompt in front of the workspace hooks (**DD-121**). `AGENTS.md` is
+  read natively and always, but a rule file over 24,000 bytes is truncated, and always-on rules share a
+  20,000-token budget past which the largest are cut to a path and a description: a constitution
+  grown past either
   limit loses text on this host, and no AMH check warns of it.
 - *Procedure, not rails.* Four `model_decision` rules under `.agents/rules/`, whose description
   is up front and whose body is read on demand (a rule with a missing or unknown trigger is
   silently discarded), and the read-only reviewer `.agents/agents/amh-rule-reviewer.md`, with no
   shell or write tool and `commandExecutionPolicy: "off"`, which starts with none of the parent's
   history. They help a session find the binding documents and enforce nothing.
-- *Unverified* (**DD-112**): the hooks' exit-code semantics, and what a non-zero exit, a timeout
-  or a malformed answer does to a `PreToolUse` call (a failing hook is reported and the
-  conversation continues; whether the tool ran is unsaid), so whether a broken guard fails open
-  is unknown; a workspace hook's working directory and Windows shell; any trust gate on
-  workspace hooks; any flag or mode that skips them or the rules; the shell `run_command` uses
-  on Windows; where the App stores a project's settings; and whether the terminal sandbox is on
-  in a given session and enforces what its page describes.
+- *Unverified* (**DD-112**, less what **DD-121** and **DD-122** settled): whether the
+  interactive CLI and the IDE behave as print mode did, and the CLI and the IDE on Windows at
+  all, their hook and `run_command` shells included; on Windows, whether an `exit 1` hook keeps
+  the command from running, as a side effect would show, and what a timeout or a non-JSON answer
+  does; on Linux, what a `PreToolUse` exit 0 with no answer does; what a failing `SessionStart`
+  hook does anywhere; the hooks' working directory on Windows; any trust gate on workspace hooks
+  outside print mode; any other flag or mode that skips them or the rules; whether the App keeps
+  a project's settings in `~/.gemini/config/projects/`, the likeliest place (**DD-122**); and
+  whether the terminal sandbox is on in a given session and enforces what its page describes.
 - *Remote Agents* run in what the vendor calls an isolated, Google-managed remote environment,
   on attached GitHub repositories, Drive files and uploads, with plugin OAuth tokens injected on
   their requests. That contains the user's own machine: such an agent cannot reach local files,

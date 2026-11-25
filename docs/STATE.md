@@ -35,8 +35,8 @@ that unit:
 - `2026-11-22-build-output-secret-scan.md`: a draft, B0 done; only B1, its gpt-6-astra `-e high`
   review, is approved (owner, 2026-11-22), and the plan runner runs it (Owner queue).
 - `2026-11-23-antigravity-gemini-adapter.md`, adopted: a Gemini CLI and Antigravity adapter,
-  every unit done, A5 last, drafting 17.1.0 (**DD-117**); the tag and a live probe of each host
-  are in the Owner queue, and the session that merges the train archives the plan.
+  every unit done, A5 last, drafting 17.1.0 (**DD-117**); the tag, the Gemini CLI probe and the
+  Windows hooks fix are in the Owner queue, and the session that merges the train archives the plan.
 
 Operational gotchas:
 
@@ -82,6 +82,13 @@ No check settles it.
 **OPEN — decide on the queue-cycle plan, `docs/plans/2026-11-10-queue-cycle-and-memory-tiers.md`:
 review first (M1), adoption, and the facts its §2, item 3 asks for.** No check settles it.
 
+**OPEN — fix the Antigravity hooks for Windows, the next unit.** On the App on Windows both hooks
+run in `cmd.exe`, the shipped commands exit 0 with no answer, and so the guard allows every
+command and no banner arrives (**DD-122**). Owner, 2026-11-25: the hook commands must work in
+`cmd.exe` and call Git Bash explicitly, never a bare `bash` that may be WSL's; a high-effort
+second opinion on the design comes before any edit, then the shipped-adapter change takes its
+own rule review. Whether 17.1.0 waits for it is the owner's call.
+
 **OPEN — tag `amh-v17.1.0` once the train carrying 17.1.0 merges** (the adapter plan's A5).
 `harness/VERSION` here says 17.1.0; tag the merge commit on `main`, after checking that the
 squash message carries no poison token (**DC-040**). Check: `git ls-remote --tags origin
@@ -89,8 +96,9 @@ amh-v17.1.0` — a line naming the tag means done; no output with exit 0 means o
 non-zero exit means `origin` was not reached and settles nothing.
 
 **OPEN — probe the Gemini CLI and Antigravity adapters on a live host** (the adapter plan's A5).
-Nothing in either has been seen firing. On each host, open a scratch repository that has
-`amh-init.sh`'s install, with the folder trusted on the Gemini CLI, and see: the session-start
+Antigravity is done: CLI print mode on Linux and the App on Windows (**DD-121**, **DD-122**).
+Open: the Gemini CLI, not installed here or on `codex-runner` when looked for on 2026-11-25. On
+each host, open a scratch repository that has `amh-init.sh`'s install, with the folder trusted on the Gemini CLI, and see: the session-start
 banner reaching the agent; a deny, of `git push --force origin main` through the host's shell
 tool, harmless in a scratch repository with no remote if no hook fires; on the Gemini CLI only, a
 redaction, of an `echo` of `sk-ant-` followed by 20 or more made-up letters (Antigravity has no
@@ -102,8 +110,8 @@ working directory or what a timed-out hook does. In the same unit, move each set
 that host's *Unverified* line in `docs/RUNBOOK.md` → **Host rails and what they miss**. Check:
 `grep -nE '^- D[A-Z]*-[0-9]+( \[cited\])?: \*\*Live probe of (the Gemini CLI|Antigravity)'
 docs/LEDGER_*.md` — a host with no row is still unprobed. Antigravity Remote Agents were
-probed on 2026-11-24 and are not the host this asks for: no hook fired there, so the desktop
-App, CLI or IDE is still unprobed, and that row's lead does not match this check (**DD-120**).
+probed on 2026-11-24 and are not the host this asks for: no hook fired there, and that row's
+lead does not match this check (**DD-120**).
 
 **OPEN — decide the N1 review's last recommendation it could not apply:** the cross-plan order
 and release placement in that plan's §2, decision 3. H0.5 recommended S1 → S2 → S6a → S3 → N2 →
@@ -140,6 +148,8 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-25 — **Antigravity live probes: CLI print mode on Linux works; on the App on Windows
+  the hooks run in `cmd.exe` and the guard allows everything** (**DD-121**, **DD-122**).
 - 2026-11-24 — **Antigravity Remote Agents, probed by the owner: rules, `AGENTS.md` and the
   reviewer load from the workspace root, no hook fired; the runbook treats such an agent as
   hook-less, and the desktop probe stays queued** (**DD-120**).
