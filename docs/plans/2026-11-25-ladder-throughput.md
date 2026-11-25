@@ -110,7 +110,7 @@ Every unit:
 - **Done:** the matrix splits by case index across `AMH_JOBS` workers with the coverage check
   and its nine fixtures, each seen failing with its behaviour removed (**DD-126**).
 
-### T2 — run `scripts/verify.sh`'s independent stages concurrently
+### T2 — run `scripts/verify.sh`'s independent stages concurrently: done 2026-11-25
 
 - **Touch:** `scripts/verify.sh` (this repository's, not shipped), a fixture in
   `scripts/tests/local-guards.sh`.
@@ -126,6 +126,9 @@ Every unit:
   the stages finish in; with `AMH_JOBS=1` the stages run one after another.
 - **Acceptance:** the full ladder is green, and its wall time on this runner, measured, is
   below T1's measured wall time.
+- **Done:** the five stages run at most `AMH_JOBS` at a time, held and printed in the fixed
+  order, with six stub-tree fixtures, each seen failing with its behaviour removed; the stages
+  get `AMH_JOBS` unchanged, measured faster than a share (**DD-127**).
 
 ### T3 — measure, then split the longest remaining stage or drop the unit
 

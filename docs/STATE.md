@@ -161,6 +161,9 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-25 — **Ladder throughput, T2: `scripts/verify.sh` runs its five stages after the parse
+  check concurrently, at most `AMH_JOBS` at a time, printing each in the fixed order**
+  (**DD-127**).
 - 2026-11-25 — **Ladder throughput, T1: the command guard's self-test splits its cases across
   `AMH_JOBS` workers and counts that each ran exactly once** (**DD-126**).
 - 2026-11-25 — **Ladder throughput, T0: the plan adopted, with the measurements behind it**

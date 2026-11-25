@@ -2762,5 +2762,180 @@ bs_env_run "$dw" "$h" "file://$d/good.tar.xz" "$BS_PATH"
 bs_check "warm-up: the ref lands in a single-branch clone too" \
 	bs_await_ref "$dw" "refs/remotes/origin/$bs_branch"
 
+# --- scripts/verify.sh: its stages run concurrently (DD-127) ------------------
+# Concurrency may change when a stage runs, never which stages run, what they print or in what
+# order. Each case runs a copy of verify.sh in a tree whose five stages are stubs: a stub logs
+# `start <key>` and `end <key>` to VS_LOG, prints one line, and sleeps, waits or exits as its
+# VS_* variables say. Every wait is a bounded one on a line another stub writes (D-024), so an
+# order a case relies on is made, never hoped for; the ceiling is only reached when it fails.
+VS_KEYS='shellcheck shipped local conformance e2e'
+vs_tree() { # vs_tree <name> -> prints the path of a tree holding verify.sh and five stub stages
+	local d="$WORK/$1" key path
+	mkdir -p "$d/scripts/tests" "$d/conformance" "$d/bin"
+	cp "$ROOT/scripts/verify.sh" "$d/scripts/verify.sh"
+	for key in $VS_KEYS; do
+		case $key in
+		shellcheck) path=bin/shellcheck ;;
+		shipped) path=scripts/test-ladder-guards.sh ;;
+		local) path=scripts/tests/local-guards.sh ;;
+		conformance) path=conformance/selftest.sh ;;
+		e2e) path=scripts/tests/test-init-e2e.sh ;;
+		esac
+		# shellcheck disable=SC2016 # the stub's own text: nothing here is for this shell.
+		printf '%s\n' '#!/usr/bin/env bash' "k=$key" \
+			'v=VS_RC_$k; rc=${!v:-0}' 'v=VS_SLEEP_$k; nap=${!v:-0}' 'v=VS_AWAIT_$k; await=${!v:-}' \
+			'printf "start %s\n" "$k" >>"$VS_LOG"' \
+			'printf "stub %s output\n" "$k"' \
+			'[ "$nap" = 0 ] || sleep "$nap"' \
+			'starts() { grep -c "^start " "$VS_LOG"; }' \
+			'i=0' \
+			'while { [ -n "$await" ] && ! grep -qx "end $await" "$VS_LOG"; } ||' \
+			'	{ [ -n "${VS_STARTS:-}" ] && [ "$(starts)" -lt "$VS_STARTS" ]; }; do' \
+			'	[ "$i" -lt 200 ] || { printf "timeout %s\n" "$k" >>"$VS_LOG"; break; }' \
+			'	sleep 0.1; i=$((i + 1))' \
+			'done' \
+			'printf "end %s\n" "$k" >>"$VS_LOG"' \
+			'[ "$rc" != vanish ] || { kill -KILL "$PPID"; exit 0; }' \
+			'exit "$rc"' >"$d/$path"
+		chmod +x "$d/$path"
+	done
+	git -C "$d" init -q
+	printf '%s' "$d"
+}
+vs_run() { # vs_run <tree> [VAR=VALUE...] -> sets VS_OUT and VS_RC
+	local d=$1
+	shift
+	: >"$d/log"
+	VS_OUT=$(cd "$d" && env PATH="$d/bin:$PATH" VS_LOG="$d/log" "$@" bash scripts/verify.sh 2>&1)
+	VS_RC=$?
+}
+vs_peak() { # vs_peak <log> -> the most stages the log shows running at once
+	awk '/^start /{n++; if (n > m) m = n} /^end /{n--} END{print m + 0}' "$1"
+}
+# The headers and stub lines of a run, in the order printed, elapsed seconds dropped.
+vs_layout() { grep -E '^   · |^stub ' <<<"$VS_OUT" | grep -v '^   · parse check' | sed -E 's/ \([0-9]+ s\)$//'; }
+VS_LAYOUT='   · shellcheck
+stub shellcheck output
+   · shipped guard fixture suite
+stub shipped output
+   · repo-local guard fixture suite
+stub local output
+   · conformance evaluator self-test
+stub conformance output
+   · instantiation end-to-end
+stub e2e output'
+
+# One stage fails while the other four pass: the set fails, and the failing stage is named with
+# its status under its own header while the others still run and print.
+d=$(vs_tree vs_one_fails)
+vs_run "$d" AMH_JOBS=5 VS_RC_local=3
+if [ "$VS_RC" -ne 0 ] &&
+	grep -qxF '     FAIL scripts/tests/local-guards.sh exited with status 3' <<<"$VS_OUT" &&
+	[ "$(grep -c '^     FAIL' <<<"$VS_OUT")" -eq 1 ] &&
+	grep -qxF '   verification set: 1 failure(s)' <<<"$VS_OUT" &&
+	[ "$(vs_layout)" = "$VS_LAYOUT" ]; then
+	PASSED=$((PASSED + 1))
+else
+	FAILED=$((FAILED + 1))
+	printf '  FAIL verify.sh: one failing stage fails the set and is named — rc=%s\n%s\n' "$VS_RC" "$VS_OUT" >&2
+fi
+
+# The stages finish in reverse order, each waiting for the next one's end, and still print in
+# the fixed order, each header carrying its elapsed seconds. The log shows the reversal
+# happened: a run that never reversed anything has not tested the order.
+d=$(vs_tree vs_order)
+vs_run "$d" AMH_JOBS=5 VS_AWAIT_shellcheck=shipped VS_AWAIT_shipped=local VS_AWAIT_local=conformance \
+	VS_AWAIT_conformance=e2e
+if [ "$VS_RC" -eq 0 ] &&
+	[ "$(grep '^end ' "$d/log" | tr '\n' ' ')" = 'end e2e end conformance end local end shipped end shellcheck ' ] &&
+	! grep -q '^timeout ' "$d/log" &&
+	[ "$(vs_layout)" = "$VS_LAYOUT" ] &&
+	[ "$(grep -cE '^   · [a-z].* \([0-9]+ s\)$' <<<"$VS_OUT")" -eq 5 ] &&
+	grep -qxF '   verification set: clean' <<<"$VS_OUT"; then
+	PASSED=$((PASSED + 1))
+else
+	FAILED=$((FAILED + 1))
+	printf '  FAIL verify.sh: stages print in the fixed order whatever order they finish in — rc=%s\n%s\n%s\n' \
+		"$VS_RC" "$VS_OUT" "$(cat "$d/log")" >&2
+fi
+
+# AMH_JOBS=1 runs the stages one after another, in the fixed order; AMH_JOBS=2 runs two at once
+# and never three. The first stage of the pair waits for a second one to start.
+d=$(vs_tree vs_jobs)
+vs_run "$d" AMH_JOBS=1 VS_SLEEP_shellcheck=0.2 VS_SLEEP_shipped=0.2 VS_SLEEP_local=0.2 \
+	VS_SLEEP_conformance=0.2 VS_SLEEP_e2e=0.2
+serial_log=$(cat "$d/log")
+serial_out=$VS_OUT
+serial_rc=$VS_RC
+vs_run "$d" AMH_JOBS=2 VS_STARTS=2 VS_SLEEP_shellcheck=0.2 VS_SLEEP_shipped=0.2 VS_SLEEP_local=0.2 \
+	VS_SLEEP_conformance=0.2 VS_SLEEP_e2e=0.2
+if [ "$serial_rc" -eq 0 ] &&
+	[ "$serial_log" = "$(for key in $VS_KEYS; do printf 'start %s\nend %s\n' "$key" "$key"; done)" ] &&
+	[ "$VS_RC" -eq 0 ] && ! grep -q '^timeout ' "$d/log" && [ "$(vs_peak "$d/log")" -eq 2 ]; then
+	PASSED=$((PASSED + 1))
+else
+	FAILED=$((FAILED + 1))
+	printf '  FAIL verify.sh: AMH_JOBS=1 runs the stages one after another, AMH_JOBS=2 two at a time\n%s\n%s\n%s\n%s\n' \
+		"$serial_out" "$serial_log" "$VS_OUT" "$(cat "$d/log")" >&2
+fi
+
+# A stage whose runner dies before it reports — the stub kills the subshell that would record
+# its status — fails the set and is named, while the others still run and print.
+d=$(vs_tree vs_vanish)
+vs_run "$d" AMH_JOBS=5 VS_RC_conformance=vanish
+if [ "$VS_RC" -ne 0 ] &&
+	grep -qE '^     FAIL conformance/selftest\.sh never reported' <<<"$VS_OUT" &&
+	[ "$(grep -c '^     FAIL' <<<"$VS_OUT")" -eq 1 ] &&
+	grep -qxF '   verification set: 1 failure(s)' <<<"$VS_OUT" &&
+	[ "$(vs_layout)" = "$VS_LAYOUT" ]; then
+	PASSED=$((PASSED + 1))
+else
+	FAILED=$((FAILED + 1))
+	printf '  FAIL verify.sh: a stage that never reports fails the set and is named — rc=%s\n%s\n' "$VS_RC" "$VS_OUT" >&2
+fi
+
+# No scratch directory for the held output: the stages run serially, say so, and still all run,
+# and the serial path, which AMH_JOBS=1 takes too, still fails the set on a failing stage.
+d=$(vs_tree vs_no_scratch)
+vs_run "$d" AMH_JOBS=5 VS_RC_local=3 PATH="$(mktemp_fails_shim vs):$d/bin:$PATH"
+if [ "$VS_RC" -ne 0 ] &&
+	grep -qF 'no scratch directory' <<<"$VS_OUT" &&
+	grep -qxF '     FAIL scripts/tests/local-guards.sh exited with status 3' <<<"$VS_OUT" &&
+	[ "$(grep -c '^     FAIL' <<<"$VS_OUT")" -eq 1 ] &&
+	grep -qxF '   verification set: 1 failure(s)' <<<"$VS_OUT" &&
+	[ "$(cat "$d/log")" = "$(for key in $VS_KEYS; do printf 'start %s\nend %s\n' "$key" "$key"; done)" ] &&
+	[ "$(vs_layout)" = "$VS_LAYOUT" ]; then
+	PASSED=$((PASSED + 1))
+else
+	FAILED=$((FAILED + 1))
+	printf '  FAIL verify.sh: no scratch directory runs the stages serially, says so, and fails on a failing stage — rc=%s\n%s\n' "$VS_RC" "$VS_OUT" >&2
+fi
+
+# CI with no shellcheck on PATH fails the set, named, on the serial path and the concurrent one;
+# the other four stages still run. The PATH is built from bs_shim's links, so no real shellcheck
+# is on it wherever the host keeps one.
+d=$(vs_tree vs_ci_no_shellcheck)
+rm -f "$d/bin/shellcheck"
+bs_shim "$WORK/vs_no_shellcheck" bash sh env git sort sed getconf nproc mktemp rm rmdir cat sleep grep dirname
+vs_ci_fails=0
+for jobs in 1 5; do
+	vs_run "$d" AMH_JOBS=$jobs CI=1 PATH="$d/bin:$WORK/vs_no_shellcheck"
+	if [ "$VS_RC" -ne 0 ] &&
+		grep -qxF '     FAIL shellcheck is not installed in CI' <<<"$VS_OUT" &&
+		[ "$(grep -c '^     FAIL' <<<"$VS_OUT")" -eq 1 ] &&
+		[ "$(grep -c '^end ' "$d/log")" -eq 4 ]; then
+		:
+	else
+		vs_ci_fails=1
+		printf '  FAIL verify.sh: AMH_JOBS=%s, CI with no shellcheck fails the set and names it — rc=%s\n%s\n' \
+			"$jobs" "$VS_RC" "$VS_OUT" >&2
+	fi
+done
+if [ "$vs_ci_fails" -eq 0 ]; then
+	PASSED=$((PASSED + 1))
+else
+	FAILED=$((FAILED + 1))
+fi
+
 printf '\n%d passed, %d failed\n' "$PASSED" "$FAILED"
 [ "$FAILED" -eq 0 ]
