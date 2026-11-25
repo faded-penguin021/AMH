@@ -38,6 +38,8 @@ that unit:
   every unit done, A5 last, drafting 17.1.0 (**DD-117**), and the Windows hooks fix made in this
   tree (**DD-123**); the tag, the Gemini CLI probe and the App re-probe of that fix are in the
   Owner queue, and the session that merges the train archives the plan.
+- `2026-11-25-ladder-throughput.md`, adopted: T0 to T3, every fork delegated to the session
+  (owner, 2026-11-25), run in order (**DD-125**).
 
 Operational gotchas:
 
@@ -159,6 +161,8 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-25 — **Ladder throughput, T0: the plan adopted, with the measurements behind it**
+  (**DD-125**).
 - 2026-11-25 — **Antigravity hooks reach Git Bash from `cmd.exe` and `sh` alike, its `run_command`
   is read by the PowerShell reader on Windows, and the guard's parser stops writing `\r\n` on
   Windows, which had sent Claude's PowerShell payloads to the bash reader** (**DD-123**,
