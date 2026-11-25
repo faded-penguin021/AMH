@@ -310,7 +310,8 @@ hook's own shell (bash) is present; the Claude adapter's matcher does, and Power
 goes to the guard's PowerShell reader, a shorter list than the bash one, whose misses the guard's
 header names (**DD-039**). Before 17.1.0 that held on Windows only where no native `python3`
 ran: CPython's `\r\n` line ends made the guard's parser name the tool `PowerShell\r`, which went
-to the bash reader, and `Remove-Item -Recurse -Force C:\` passed (**DD-124**). The Claude adapter anchors every hook at the project root and, on
+to the bash reader, and `Remove-Item -Recurse -Force C:\` passed (**DD-124**).
+The Claude adapter anchors every hook at the project root and, on
 Claude Code 2.1.295 or later (an older build fails open as before), sets both PreToolUse hooks to
 refuse the call when the hook itself fails, so a guard that crashes, times out or cannot start
 blocks the call instead of letting it run (**DD-040**). On Windows that makes Git for Windows a

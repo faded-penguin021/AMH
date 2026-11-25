@@ -76,6 +76,8 @@ def main():
     if os.name != "nt":
         print("windows-hook-spawn: not Windows, nothing to run")
         return 0
+    # A Windows console or CI log is cp1252 by default, and a failure's detail can hold any text.
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     hooks = json.load(open(os.path.join(ROOT, ".agents", "hooks.json"), encoding="utf-8"))
     session_cmd = hooks["amh-session-start"]["SessionStart"][0]["command"]
     guard_cmd = hooks["amh-command-guard"]["PreToolUse"][0]["hooks"][0]["command"]
@@ -86,6 +88,8 @@ def main():
             if k.upper() not in ("MSYSTEM", "BASH", "SHELL", "EXEPATH", "MINGW_PREFIX", "PYTHONPATH")}
 
     work = tempfile.mkdtemp(prefix="amh-hook-spawn-")
+    empty_config = os.path.join(work, "empty.gitconfig")
+    open(empty_config, "w").close()
     # The guard runs `command -v python3`, and a Windows Python folder may hold only python.exe,
     # so the python leg gets an extensionless `python3` that runs this Python and leaves a
     # marker: without the marker, that leg would be the fallback's again, silently.
@@ -137,8 +141,12 @@ def main():
                 steps = None
             say(rc == 0 and isinstance(steps, list) and steps, tag + " the session hook answers injectSteps",
                 "rc=%d out=%r err=%r" % (rc, out[:600], err[:600]))
+            # The refusal case reads no system or global git config: a runner image that sets
+            # `safe.directory=*` there would otherwise allow the repository and test nothing.
+            no_config = {"GIT_TEST_ASSUME_DIFFERENT_OWNER": "1", "GIT_CONFIG_NOSYSTEM": "1",
+                         "GIT_CONFIG_GLOBAL": empty_config}
             for where, cwd, extra in (("outside a work tree", outside, {}),
-                                      ("under a safe.directory refusal", agents, {"GIT_TEST_ASSUME_DIFFERENT_OWNER": "1"})):
+                                      ("under a safe.directory refusal", agents, no_config)):
                 for name, cmd, stdin in (("guard", guard_cmd, payload("git status")), ("session", session_cmd, "{}")):
                     rc, out, err = spawn(cmd, cwd, dict(env, **extra), style, stdin)
                     say(rc != 0 and out.strip() == "", "%s the %s hook fails closed %s" % (tag, name, where),
