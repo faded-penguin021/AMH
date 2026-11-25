@@ -308,7 +308,9 @@ modes above skip it too (**DD-063**).
 PowerShell tool, the command rail exists only if the adapter's matcher names that tool and the
 hook's own shell (bash) is present; the Claude adapter's matcher does, and PowerShell text then
 goes to the guard's PowerShell reader, a shorter list than the bash one, whose misses the guard's
-header names (**DD-039**). The Claude adapter anchors every hook at the project root and, on
+header names (**DD-039**). Before 17.1.0 that held on Windows only where no native `python3`
+ran: CPython's `\r\n` line ends made the guard's parser name the tool `PowerShell\r`, which went
+to the bash reader, and `Remove-Item -Recurse -Force C:\` passed (**DD-124**). The Claude adapter anchors every hook at the project root and, on
 Claude Code 2.1.295 or later (an older build fails open as before), sets both PreToolUse hooks to
 refuse the call when the hook itself fails, so a guard that crashes, times out or cannot start
 blocks the call instead of letting it run (**DD-040**). On Windows that makes Git for Windows a
@@ -376,23 +378,33 @@ host documents no comment key and rejects at load time a hook configuration that
 run, so this entry is its full honesty text, of which the adapter's host-rails rule carries a
 summary written before any probe: configured, and never observed firing (**DD-111**,
 **DD-112**). On CLI 1.5.15 in print mode on Linux both hooks have since fired and the rules been
-listed by description (**DD-121**); on App 2.35.1 on Windows the hooks run and the shipped
-commands do nothing (**DD-122**).
+listed by description (**DD-121**); on App 2.35.1 on Windows the hooks ran and the commands then
+shipped did nothing (**DD-122**), and the commands that replaced them have not yet been run on
+the App (**DD-123**).
 
 - *Rails it has*, in `.agents/hooks.json`, which the CLI, the App and the IDE all read. A
   `PreToolUse` hook on `run_command` runs the command guard, which answers
   `{"decision":"deny","reason":…}` or `{"decision":"allow"}` on stdout and exits 0. A
-  `SessionStart` hook runs the bootstrap and injects its banner as a system message. Both find
-  the project root through `git rev-parse --show-toplevel` and exit 0 with nothing outside a git
-  work tree. On Linux both ran in `.agents/`, from which that lookup resolves (**DD-121**), as
-  the vendor's hooks page says of every OS. On Linux CLI print mode a `PreToolUse` hook that
+  `SessionStart` hook runs the bootstrap and injects its banner as a system message. The host
+  runs each `command` under `cmd /c` on Windows and `sh -c` elsewhere, in `.agents/`, so each is
+  one string with no syntax of either shell: `git -c alias.amh-guard=!bash amh-guard
+  scripts/command-guard.sh`. Git runs the alias's `bash` from the work tree's top level with the
+  script as its argument, and on Windows that is Git for Windows' own bash, with its `grep` and
+  `awk`, even with WSL's `bash.exe` ahead of Git on `PATH`; outside a work tree, under a
+  `safe.directory` refusal or with no `git` on `PATH` the hook exits non-zero with nothing on
+  stdout, which blocked the call in Linux CLI print mode (**DD-121**) and on the App is still to
+  be confirmed, as this entry's *Unverified* line says. Measured on Windows by spawning `cmd.exe` both ways a runtime
+  quotes a command line, which CI's Windows leg repeats (`scripts/tests/windows-hook-spawn.py`),
+  and not yet on the App (**DD-123**); `adapter-set.sh` refuses any other character in these
+  commands. On Linux the commands then shipped ran in `.agents/` (**DD-121**), as the vendor's
+  hooks page says of every OS. On Linux CLI print mode a `PreToolUse` hook that
   exits non-zero, times out or answers with anything but JSON blocks the call, so a broken guard
   fails closed (**DD-121**); on App 2.35.1 on Windows an `exit 1` hook returned the host's hook
   error in place of the command's output, and one that exits 0 with no answer let the call run
-  (**DD-122**). **On App 2.35.1 on Windows neither rail works:** it runs both hooks in `cmd.exe`,
-  whose grammar fails the POSIX `root=$(…)` and so reaches the `|| exit 0` after it, ending the
-  hook with no answer, so the guard allows every command and no banner arrives (**DD-122**; the
-  mechanism is inferred, the hook's own error was not captured). The `pre-push` rail binds as it
+  (**DD-122**). On App 2.35.1 on Windows the commands then shipped, POSIX shell, ended in
+  `cmd.exe` at their own `|| exit 0` with no answer, so the guard allowed every command and no
+  banner arrived (**DD-122**); the guard's own stand-down exits, such as a payload it cannot
+  read, still answer nothing, which this host takes as allow (Owner queue). The `pre-push` rail binds as it
   does everywhere, invoked by git, and `--no-verify` bypasses it.
 - *What it lacks, and what then binds only as prose.* No output redaction: `PostToolUse` sees no
   tool output and can only answer `{}`, so a credential a command prints reaches the model as
@@ -403,10 +415,10 @@ commands do nothing (**DD-122**).
   blocking `~/.ssh` and `.env` and cutting the network to approved domains, but it is set in user
   or App settings:
   the adapter neither sets it nor can see it, and it is a layer under the rails, not one of
-  them. The guard reads every `run_command` as Bash, while the vendor's permissions page names
-  PowerShell and Command Prompt for command matching on Windows, on App 2.35.1 the agent's
-  `run_command` ran PowerShell and the hooks `cmd.exe` (**DD-122**), and the hook commands are
-  POSIX shell. The spawn speed bump is not wired.
+  them. On App 2.35.1 the agent's `run_command` ran PowerShell (**DD-122**), so the guard reads
+  it with its PowerShell reader under a Windows `uname` and with the bash reader elsewhere, as it
+  does the Gemini CLI's; the vendor's permissions page also names Command Prompt for command
+  matching on Windows, which no reader here judges. The spawn speed bump is not wired.
 - *What skips it.* A hook entry with `enabled: false`. There is no repo-local settings file to
   skip. `--dangerously-skip-permissions` approves every request; whether it, `--mode` or anything
   else skips workspace hooks or rules is not documented. Print mode (`agy -p`) on Linux skips

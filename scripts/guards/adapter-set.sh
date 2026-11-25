@@ -900,10 +900,11 @@ GEMINI_SESSION='"bash \"$GEMINI_PROJECT_DIR/scripts/session-start.sh\" --json=ad
 GEMINI_GUARD='"bash \"$GEMINI_PROJECT_DIR/scripts/command-guard.sh\""'
 # shellcheck disable=SC2016
 GEMINI_REDACT='"bash \"$GEMINI_PROJECT_DIR/scripts/redact-tool-output.sh\""'
-# shellcheck disable=SC2016
-AG_SESSION='"root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; exec bash \"$root/scripts/session-start.sh\" --json=inject-steps"'
-# shellcheck disable=SC2016
-AG_GUARD='"root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; exec bash \"$root/scripts/command-guard.sh\""'
+# Antigravity runs one command string under `cmd /c` on Windows and `sh -c` elsewhere, so it
+# holds nothing either shell reads as syntax: git runs the one-off alias `!bash` from the work
+# tree's top level, and on Windows that is Git for Windows' own bash, never WSL's (DD-123).
+AG_SESSION='"git -c alias.amh-start=!bash amh-start scripts/session-start.sh --json=inject-steps"'
+AG_GUARD='"git -c alias.amh-guard=!bash amh-guard scripts/command-guard.sh"'
 # The Gemini CLI: the AGENTS.md setting is its only route to the constitution, and the host
 # fingerprints each hook by name and command, so both are part of the wiring. Antigravity: no
 # PostToolUse entry on purpose, since its response cannot rewrite a result.
@@ -943,6 +944,17 @@ for declaration in "${ADAPTERS[@]}"; do
 			continue
 		fi
 		actual=$(grep -vxF '#DONE' <<<"$actual")
+		# Checked apart from the pin above, so an edit that changes the pin and the file together
+		# still cannot bring shell syntax back: `"`, `$`, `|`, `;`, `%`, `&`, `(`, a backslash
+		# escape and the rest parse differently, or not at all, in one of the two shells, and a
+		# quote is escaped differently by the host's own spawner (DD-123). One `!` stays, and only
+		# one: cmd reads `!` only under delayed expansion, which leaves a lone one alone but takes
+		# a `!VAR!` pair as a variable.
+		if [ "$expected" = "$ANTIGRAVITY_EXPECTED" ]; then
+			unsafe=$(grep -F $'\034command\t=' <<<"$actual" | sed $'s/^[^\t]*\t=//' |
+				LC_ALL=C grep -vxE '"[A-Za-z0-9 ./=_-]*!?[A-Za-z0-9 ./=_-]*"')
+			[ -z "$unsafe" ] || note "$config: an Antigravity hook command holds a character beyond letters, digits, space, . / = _ - and one ! so cmd.exe and sh would not read it alike: $(paste -sd, - <<<"$unsafe")"
+		fi
 		missing=$(LC_ALL=C comm -23 <(printf '%s\n' "$expected") <(printf '%s\n' "$actual"))
 		extra=$(LC_ALL=C comm -13 <(printf '%s\n' "$expected") <(printf '%s\n' "$actual"))
 		if [ -n "$missing$extra" ]; then

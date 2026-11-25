@@ -16,7 +16,8 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
 - **Two more hosts get adapters: the Gemini CLI and Antigravity.** Both were written from each
   vendor's documentation, read on 2026-11-23: the Gemini CLI's at its `v0.70.0` tag, and
   Antigravity's at antigravity.google/docs, which then named CLI 1.5.12 and App 2.34.0. Neither
-  host has been run here. Every file says it has never been observed working, except
+  had been run here when they were written; Antigravity has since been probed on its CLI on
+  Linux and its App on Windows, and the Gemini CLI has not. Every file says it has never been observed working, except
   Antigravity's hooks file, which can carry no comment because that host documents no comment
   key; this repository's runbook says it for that file. The Gemini CLI gets `.gemini/settings.json`. It points `context.fileName` at
   `AGENTS.md`, keeps the default GEMINI.md, and wires three hooks: `SessionStart` to the bootstrap, `BeforeTool` on
@@ -34,14 +35,27 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
 - **The command guard and the output redactor recognise each host's payload explicitly.** Each
   host is answered in the shape it documents. The guard refuses the Gemini CLI's `BeforeTool` as
   it refuses Claude's and Codex's: exit 2, with the reason on stderr. It reads that command with
-  the PowerShell reader only under a Windows `uname`. It reads Antigravity's `PreToolUse` as Bash
-  everywhere and answers on stdout with `{"decision":"deny","reason":…}` or
-  `{"decision":"allow"}`, exiting 0 every time. That host requires the `decision` field and
+  the PowerShell reader only under a Windows `uname`, and Antigravity's `PreToolUse` the same
+  way, since that host's `run_command` ran PowerShell on its Windows App; it answers Antigravity
+  on stdout with `{"decision":"deny","reason":…}` or `{"decision":"allow"}`, exiting 0 every
+  time. That host requires the `decision` field and
   documents no exit code, and its `allow` defers to the next hook or the default policy; it
   approves nothing. The redactor answers the Gemini CLI's `AfterTool` with `deny`, the filtered
   output as `reason`, which that host documents as replacing the result the model sees. A payload
   no shape matches still gets no answer at all. Claude's and Codex's answers and exit codes are
   unchanged.
+- **Antigravity's hook commands work in `cmd.exe` as well as `sh`.** That host runs one
+  `command` string under `cmd /c` on Windows and `sh -c` elsewhere, so each hook is now
+  `git -c alias.amh-guard=!bash amh-guard scripts/command-guard.sh` (and its `amh-start` twin):
+  no syntax of either shell, run by git from the work tree's top level through Git for Windows'
+  own bash, never WSL's. Outside a work tree, or when git refuses the repository as unsafe, the
+  hook exits non-zero with nothing on stdout, where the first draft exited 0 and allowed the
+  call; that blocked the call on the CLI on Linux, and is still to be confirmed on the App on
+  Windows.
+- **Fix: on Windows the command guard's `python3` reader misnamed the tool.** CPython there
+  writes `\r\n` line ends, so a Claude `PowerShell` payload reached the bash reader, which passed
+  `Remove-Item -Recurse -Force C:\`, the Gemini CLI's Windows routing never fired, and
+  Antigravity's answers lost their shape. The reader now writes `\n`; the no-Python fallback was never affected.
 - **`session-start.sh` can print its banner as JSON**, for a host whose session hook must answer
   that way: `--json=additional-context` and `--json=inject-steps`, named by field and not by
   host. Each drains stdin, runs the bare banner and prints it, whole, as one JSON string escaped
@@ -68,18 +82,21 @@ Copy the 17.1.0 shipped scripts and manifest through the normal upgrade procedur
 changed against 17.0.0, and the manifest changes with them:
 
 - `command-guard.sh` recognises the Gemini CLI's `BeforeTool` and Antigravity's `PreToolUse`
-  payloads, in both its `python3` reader and its no-Python fallback, and answers each as above.
+  payloads, in both its `python3` reader and its no-Python fallback, and answers each as above;
+  its `python3` reader writes `\n` line ends on Windows too.
 - `redact-tool-output.sh` decides the host explicitly and answers the Gemini CLI's `AfterTool`.
 - `session-start.sh` gains `--json=additional-context` and `--json=inject-steps`.
 - `test-ladder-guards.sh` gains fixtures for both new payloads through both readers, the
-  Windows-only PowerShell routing, Antigravity's `allow` on a recognised payload with no command,
+  Windows-only PowerShell routing of both, a `python3` whose stdout writes `\r\n`,
+  Antigravity's `allow` on a recognised payload with no command,
   Claude's and Codex's answers unchanged, an unrecognised event or tool of either host answered
   with nothing, both JSON envelopes decoding to the bare banner byte for byte, and
   `--json=inject-steps` draining a stdin past the pipe buffer. The two envelope cases read
   `/dev/null`, so the suite no longer hangs when run from a tool that keeps an open pipe on
   stdin.
 
-Nothing else is required: Claude Code and Codex see no change. **The new adapter files are
+Nothing else is required. Claude Code and Codex see no change except the Windows fix above, which
+takes effect when the script is copied. **The new adapter files are
 optional.** If you use the Gemini CLI or Antigravity and want its adapter, copy its files by
 hand, each from its template. Where your path already exists, it is yours: diff it against the
 template and take what applies, never overwrite it.

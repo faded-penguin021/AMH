@@ -187,7 +187,8 @@
 #     Gemini CLI's `run_shell_command` on a Windows host (see `host_shell`), and the
 #     text behind `powershell -Command` or `pwsh -c` from bash go to the PowerShell arm, which
 #     judges `Remove-Item` and its aliases and `cmd /c` deletions itself and hands every other
-#     statement to the bash rails re-quoted word for word. PowerShell's own readers and dumps
+#     statement to the bash rails re-quoted word for word. Antigravity's `run_command` on a
+#     Windows host takes the Gemini CLI's route. PowerShell's own readers and dumps
 #     (`Get-Content .env`, `Get-ChildItem env:`), `.NET` deletions, `Invoke-Expression`, a `.ps1`
 #     file, `-EncodedCommand` and a `$(...)` inside a string are NOT read; the arm's own comment
 #     is the full list. It runs only where the hook's own bash does — a Windows host with Git
@@ -6503,9 +6504,9 @@ check_command_reading() { # check_command_reading <command>, under the current C
 #                `toolCall.args.CommandLine`; a `hookEventName`, when present, must be
 #                `PreToolUse`.
 #
-# The tool line is `Bash` or `PowerShell` for Claude's two tools and `Bash` for Antigravity's
-# `run_command`, which its documentation calls a Bash command; the Gemini CLI's is `shell`, whose
-# language depends on the platform (see `host_shell`). It decides
+# The tool line is `Bash` or `PowerShell` for Claude's two tools, and `shell` for the Gemini
+# CLI's `run_shell_command` and Antigravity's `run_command`, whose language depends on the
+# platform (see `host_shell`). It decides
 # which reader judges the command: PowerShell text is never handed to the bash walkers whole
 # (AMH ledger row DD012). An unrecognised payload — another host's, another event's, another
 # tool's — prints nothing, and `run_hook` answers it with nothing: the fail-open stand-down this
@@ -6528,8 +6529,18 @@ extract_command() { # fail-open: print nothing if the payload is not what we exp
 	# the machine (AMH ledger row DD065). `-I` also ignores `PYTHON*` variables and the user
 	# site directory. A Python too old to know the flag exits non-zero, which is the fallback's
 	# route above, never a silent pass.
+	#
+	# Its stdout is set to write `\n` line ends, before the `try`. CPython on Windows writes text
+	# stdout with `\r\n`, and the host and tool lines then reached `run_hook` as `antigravity\r`
+	# and `PowerShell\r`: no comparison matched, an Antigravity answer came out in Claude's shape,
+	# and a Claude PowerShell payload was judged by the bash reader, which passed
+	# `Remove-Item -Recurse -Force C:\` (AMH ledger row DD124). A Python without `reconfigure`
+	# keeps this reader on POSIX, where its stdout already writes `\n`, and on Windows exits
+	# non-zero, which takes the fallback's route.
 	if command -v python3 >/dev/null 2>&1 &&
 		parsed=$(printf '%s' "$payload" | python3 -I -c 'import json,sys
+if hasattr(sys.stdout, "reconfigure"): sys.stdout.reconfigure(newline="\n")
+elif sys.platform == "win32": sys.exit(3)
 try:
     d = json.load(sys.stdin)
     host = tool = None
@@ -6541,7 +6552,7 @@ try:
         host, tool = "gemini", "shell"
         c = d.get("tool_input", {}).get("command", "")
     elif isinstance(d.get("toolCall"), dict) and d["toolCall"].get("name") == "run_command" and d.get("hookEventName", "PreToolUse") == "PreToolUse":
-        host, tool = "antigravity", "Bash"
+        host, tool = "antigravity", "shell"
         a = d["toolCall"].get("args")
         c = a.get("CommandLine", "") if isinstance(a, dict) else ""
     # A recognised payload of a new host is always named, command or not: Antigravity requires
@@ -6600,7 +6611,7 @@ except Exception:
 				! grep -qE '"hookEventName"[[:space:]]*:[[:space:]]*"PreToolUse"' <<<"$payload"; then
 				return 0
 			fi
-			host=antigravity tool=Bash outer=toolCall key=CommandLine
+			host=antigravity tool=shell outer=toolCall key=CommandLine
 		else
 			return 0
 		fi
@@ -6670,9 +6681,10 @@ HOOK_INVOCATION=0
 
 # The language of the Gemini CLI's one shell tool, which it documents as `bash -c` on POSIX and
 # `powershell.exe -NoProfile -Command` on Windows. A platform this cannot name gets the bash
-# reader. Antigravity's `run_command` is not routed here: its documentation calls it a Bash
-# command and says nothing of its Windows shell, so it is read as Bash everywhere until a host
-# shows otherwise (AMH ledger row DD113).
+# reader. Antigravity's `run_command` is routed here too: its documentation calls it a Bash
+# command, but on the App on Windows it ran PowerShell (AMH ledger row DD122). `uname -s` reads
+# the same under any `MSYSTEM` in Git for Windows' bash, measured on 2.55.0 on ARM64, and keeps a
+# WSL2 Linux on the bash reader.
 host_shell() {
 	case $(uname -s 2>/dev/null) in
 	MINGW* | MSYS* | CYGWIN*) printf PowerShell ;;

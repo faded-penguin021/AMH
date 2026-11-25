@@ -780,7 +780,25 @@ expect pass "adapter-set: a minified hooks file is the same wiring" "$d" adapter
 d=$(snapshot adapter_antigravity_guard_rewired)
 sed_in_place 's|scripts/command-guard\.sh|scripts/other-guard.sh|' "$d/.agents/hooks.json"
 expect fail "adapter-set: the Antigravity command guard runs another script" "$d" adapter-set.sh \
-	'not shipped: amh-command-guard.PreToolUse[].hooks[].command="root='
+	'not shipped: amh-command-guard.PreToolUse[].hooks[].command="git -c alias.amh-guard=!bash amh-guard scripts/other-guard.sh"'
+
+# The pin and both files changed together still cannot bring shell syntax back: `$` is read by
+# sh and not by cmd.exe, and the character rule is checked apart from the pin (DD-123).
+d=$(snapshot adapter_antigravity_shell_syntax)
+for f in "$d/.agents/hooks.json" "$d/harness/templates/configs/antigravity-hooks.json" "$d/scripts/guards/adapter-set.sh"; do
+	# shellcheck disable=SC2016 # the `$HOME` is the literal shell syntax this fixture plants
+	sed_in_place 's|amh-guard scripts/command-guard\.sh|amh-guard $HOME/scripts/command-guard.sh|' "$f"
+done
+expect fail "adapter-set: an Antigravity hook command with shell syntax, pin and files changed together" "$d" adapter-set.sh \
+	'an Antigravity hook command holds a character beyond letters, digits, space, . / = _ - and one !'
+
+# A second `!` is a `!VAR!` pair to cmd.exe's delayed expansion, so one is all the rule allows.
+d=$(snapshot adapter_antigravity_two_bangs)
+for f in "$d/.agents/hooks.json" "$d/harness/templates/configs/antigravity-hooks.json" "$d/scripts/guards/adapter-set.sh"; do
+	sed_in_place 's|amh-guard=!bash amh-guard scripts/command-guard\.sh|amh-guard=!bash!x amh-guard scripts/command-guard.sh|' "$f"
+done
+expect fail "adapter-set: an Antigravity hook command with two ! marks, pin and files changed together" "$d" adapter-set.sh \
+	'an Antigravity hook command holds a character beyond letters, digits, space, . / = _ - and one !'
 
 d=$(snapshot adapter_antigravity_guard_matcher)
 sed_in_place 's|"matcher": "run_command"|"matcher": "run_.*"|' "$d/harness/templates/configs/antigravity-hooks.json"

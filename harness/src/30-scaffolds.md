@@ -364,7 +364,11 @@ rebased, or cut from a newer commit than HEAD.
   `"onFailure": "block"` on both PreToolUse hooks) — by default a crash, a timeout or a missing
   script is a non-blocking error and the command runs unjudged. On Windows that refusal is what
   a host without Git Bash meets on every call, so the adapter must say AMH needs Git for
-  Windows where the refusal shows it (the Claude adapter's trailing command comment). Where the
+  Windows where the refusal shows it (the Claude adapter's trailing command comment). Where a
+  host runs one command string through a different shell per platform (Antigravity: `cmd /c`
+  on Windows, `sh -c` elsewhere), write it with no syntax of either shell, as that adapter's
+  one-off git alias does, since a command one of them cannot parse can end with no answer,
+  which that host reads as allow. Where the
   host documents no such declaration, say that a broken guard may switch the rail off unseen:
   the Gemini CLI documents its hooks as fail-open, and Antigravity documents no failure contract
   at all. Two

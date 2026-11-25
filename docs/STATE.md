@@ -35,8 +35,9 @@ that unit:
 - `2026-11-22-build-output-secret-scan.md`: a draft, B0 done; only B1, its gpt-6-astra `-e high`
   review, is approved (owner, 2026-11-22), and the plan runner runs it (Owner queue).
 - `2026-11-23-antigravity-gemini-adapter.md`, adopted: a Gemini CLI and Antigravity adapter,
-  every unit done, A5 last, drafting 17.1.0 (**DD-117**); the tag, the Gemini CLI probe and the
-  Windows hooks fix are in the Owner queue, and the session that merges the train archives the plan.
+  every unit done, A5 last, drafting 17.1.0 (**DD-117**), and the Windows hooks fix made in this
+  tree (**DD-123**); the tag, the Gemini CLI probe and the App re-probe of that fix are in the
+  Owner queue, and the session that merges the train archives the plan.
 
 Operational gotchas:
 
@@ -82,12 +83,20 @@ No check settles it.
 **OPEN — decide on the queue-cycle plan, `docs/plans/2026-11-10-queue-cycle-and-memory-tiers.md`:
 review first (M1), adoption, and the facts its §2, item 3 asks for.** No check settles it.
 
-**OPEN — fix the Antigravity hooks for Windows, the next unit.** On the App on Windows both hooks
-run in `cmd.exe`, the shipped commands exit 0 with no answer, and so the guard allows every
-command and no banner arrives (**DD-122**). Owner, 2026-11-25: the hook commands must work in
-`cmd.exe` and call Git Bash explicitly, never a bare `bash` that may be WSL's; a high-effort
-second opinion on the design comes before any edit, then the shipped-adapter change takes its
-own rule review. Whether 17.1.0 waits for it is the owner's call.
+**OPEN — re-run the Antigravity App probe on Windows on the new hook commands** (**DD-123**).
+17.1.0 waits for it (owner, 2026-11-25). See the banner arrive, `git push --force origin main`
+denied, `git status` run, a PowerShell `Remove-Item -Recurse -Force` of a drive root refused, an
+`exit 1` hook's file-creating command leave no file, and what a failing `SessionStart` does; then
+append a `Live probe of Antigravity` row. No check settles it.
+
+**OPEN — decide whether the command guard's stand-down exits answer Antigravity.** An unreadable
+payload or an early exit answers nothing, which that host takes as allow (owner, 2026-11-25: its
+own item). Check: `printf '%s' '{"toolCall":' | scripts/command-guard.sh` — exit 0 with no
+output means open.
+
+**OPEN — the shipped suite's no-Python fallback cases exit 127 on Git Bash on Windows,**
+uninvestigated (**DD-124**). Check: on a Windows host, `bash scripts/test-ladder-guards.sh 2>&1 |
+grep 'FAIL.*without Python'` — any line means open.
 
 **OPEN — tag `amh-v17.1.0` once the train carrying 17.1.0 merges** (the adapter plan's A5).
 `harness/VERSION` here says 17.1.0; tag the merge commit on `main`, after checking that the
@@ -97,7 +106,9 @@ non-zero exit means `origin` was not reached and settles nothing.
 
 **OPEN — probe the Gemini CLI and Antigravity adapters on a live host** (the adapter plan's A5).
 Antigravity is done: CLI print mode on Linux and the App on Windows (**DD-121**, **DD-122**).
-Open: the Gemini CLI, not installed here or on `codex-runner` when looked for on 2026-11-25. On
+Open: the Gemini CLI, not installed here or on `codex-runner` when looked for on 2026-11-25; the owner
+reports Google retired it for free and AI Pro/Ultra users on 2026-06-18 in favour of the
+Antigravity CLI, and its POSIX-shell hook commands are unmeasured on Windows (**DD-123**). On
 each host, open a scratch repository that has `amh-init.sh`'s install, with the folder trusted on the Gemini CLI, and see: the session-start
 banner reaching the agent; a deny, of `git push --force origin main` through the host's shell
 tool, harmless in a scratch repository with no remote if no hook fires; on the Gemini CLI only, a
@@ -148,39 +159,16 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-25 — **Antigravity hooks reach Git Bash from `cmd.exe` and `sh` alike, its `run_command`
+  is read by the PowerShell reader on Windows, and the guard's parser stops writing `\r\n` on
+  Windows, which had sent Claude's PowerShell payloads to the bash reader** (**DD-123**,
+  **DD-124**).
 - 2026-11-25 — **Antigravity live probes: CLI print mode on Linux works; on the App on Windows
   the hooks run in `cmd.exe` and the guard allows everything** (**DD-121**, **DD-122**).
-- 2026-11-24 — **Antigravity Remote Agents, probed by the owner: rules, `AGENTS.md` and the
-  reviewer load from the workspace root, no hook fired; the runbook treats such an agent as
-  hook-less, and the desktop probe stays queued** (**DD-120**).
-- 2026-11-24 — **Live-probe fixes: the manifest generator lists the scripts in byte order
-  whatever the host's locale, and the shipped suite's JSON-envelope cases close stdin, so neither
-  fails nor hangs on an Antigravity Remote Agents VM** (**DD-118**, **DD-119**).
-- 2026-11-24 — **Gemini CLI and Antigravity adapter, A5, the last: drafted as MINOR 17.1.0, its
-  changelog entry saying the new adapter files are optional and what an upgrade must do first;
-  the tag and a live probe of each host are queued** (**DD-117**).
-- 2026-11-23 — **Gemini CLI and Antigravity adapter, A4: the runbook's host-rails section says,
-  per new host, which rails it has, which it lacks and what binds only as prose, what skips it,
-  which files are procedure and what is unverified; the harness prose, README and UPGRADING name
-  both hosts** (**DD-116**).
-- 2026-11-23 — **Gemini CLI and Antigravity adapter, A3: twelve adapter files ship under
-  `.gemini/` and `.agents/`, wired into every list of adapters, with one `adapter-set.sh` check
-  per surface; the shipped pointers name the seed's headings, this repository's its own; the hook
-  files are read by the sandbox check's tokenizer, which now tracks JSON's grammar** (**DD-114**,
-  **DD-115**).
-- 2026-11-23 — **Gemini CLI and Antigravity adapter, A2: the command guard and the redactor
-  recognise each host's payload explicitly and answer in its documented shape, an unrecognised
-  one gets nothing, and `session-start.sh` gains two JSON envelopes; Claude and Codex unchanged**
-  (**DD-113**).
-- 2026-11-23 — **Gemini CLI and Antigravity adapter, A1: each host's surfaces established from
-  vendor docs, nothing measured; the Gemini CLI gets settings, three hooks, skills and a reviewer,
-  Antigravity two hooks, rules and a reviewer, and A2 runs** (**DD-111**, **DD-112**).
-- 2026-11-23 — **Housekeeping: the research-gaps plan and its eight companions, and the merged
-  pipefail plan, archived to `docs/history/`; the Owner-queue items that pointed into the former
-  now state H8 and H0.5's order themselves** (no ledger row: nothing is decided).
-- 2026-11-23 — **Gemini CLI and Antigravity adapter, A0: a plan committed for a third host
-  adapter, every unit approved for the plan runner; the `amh-v17.0.0` tag item left the Owner
-  queue, the tag seen on `origin` that day** (no ledger row: nothing is decided yet).
+- 2026-11-23 through 2026-11-24 — **The Gemini CLI and Antigravity adapter plan, A0 to A5,
+  folded, with the Remote Agents probe and the live-probe fixes it needed; the research-gaps
+  plan and the merged pipefail plan archived** (**DD-111** to **DD-120**; the plan,
+  `docs/plans/2026-11-23-antigravity-gemini-adapter.md`).
 - 2026-11-22 — **Build-output secret scan, B0: a draft plan committed for a ladder rung that runs
   the secret scan over the build output an adopter names, a Resend redaction class and a seed
   sentence on client-exposed variables; B1, its review, is queued** (no ledger row: nothing is

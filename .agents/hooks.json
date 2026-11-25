@@ -3,7 +3,7 @@
     "SessionStart": [
       {
         "type": "command",
-        "command": "root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; exec bash \"$root/scripts/session-start.sh\" --json=inject-steps",
+        "command": "git -c alias.amh-start=!bash amh-start scripts/session-start.sh --json=inject-steps",
         "timeout": 30
       }
     ]
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; exec bash \"$root/scripts/command-guard.sh\"",
+            "command": "git -c alias.amh-guard=!bash amh-guard scripts/command-guard.sh",
             "timeout": 10
           }
         ]

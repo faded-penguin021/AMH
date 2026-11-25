@@ -593,19 +593,20 @@ gemini_deny='{"session_id":"s","transcript_path":"/t","cwd":"/w","hook_event_nam
 antigravity_deny='{"conversationId":"c","workspacePaths":["/w"],"hookEventName":"PreToolUse","toolCall":{"id":"t1","name":"run_command","args":{"CommandLine":"cat .env","Cwd":"/w"}},"stepIdx":3}'
 # The `.env` rule answers a directory's first attempt with its one-time advisory and later ones
 # with a permanent denial, so the fixtures below match the heading both carry, not either text.
-ag_answer() { # ag_answer <stdout> -> "deny True" for one JSON deny line carrying the reason
-	# Parsed as JSON where a python3 runs, so an escaping defect cannot pass as a match; the glob
-	# below is the floor where none does.
+ag_answer() { # ag_answer <stdout> [<substring>] -> "deny True" for one JSON deny line whose reason
+	# carries <substring>, `.env` by default. Parsed as JSON where a python3 runs, so an escaping
+	# defect cannot pass as a match; the glob below is the floor where none does.
+	local want=${2-.env}
 	if [ "$1" = "${1%%$'\n'*}" ] && python3 -I -c '' >/dev/null 2>&1; then
 		printf '%s' "$1" | python3 -I -c 'import json,sys
 d = json.load(sys.stdin)
 r = d.get("reason", "")
-print(d.get("decision"), sorted(d) == ["decision", "reason"] and r.startswith("BLOCKED by the AMH command guard.") and ".env" in r)' 2>/dev/null
+print(d.get("decision"), sorted(d) == ["decision", "reason"] and r.startswith("BLOCKED by the AMH command guard.") and sys.argv[1] in r)' "$want" 2>/dev/null
 		return
 	fi
 	case $1 in
 	*$'\n'*) printf 'more than one line' ;;
-	'{"decision":"deny","reason":"BLOCKED by the AMH command guard.'*'.env'*'"}') printf 'deny True' ;;
+	'{"decision":"deny","reason":"BLOCKED by the AMH command guard.'*"$want"*'"}') printf 'deny True' ;;
 	*) printf 'not a deny' ;;
 	esac
 }
@@ -737,6 +738,73 @@ if [ "$rc" -eq 0 ]; then
 	report ok "an ordinary PowerShell command from the Gemini CLI on Windows passes"
 else
 	report no "an ordinary PowerShell command from the Gemini CLI on Windows passes" "rc=$rc" "$out"
+fi
+# Antigravity's `run_command` takes the same platform route: on the App on Windows it ran
+# PowerShell (AMH ledger row DD122), so the PowerShell reader judges it there, by both readers,
+# and the answer is still Antigravity's JSON. Under the bash reader this `Remove-Item` passes.
+ag_ps='{"hookEventName":"PreToolUse","toolCall":{"name":"run_command","args":{"CommandLine":"Remove-Item -Recurse -Force C:\\","Cwd":"/w"}}}'
+out=$(cd "$d" && printf '%s' "$ag_ps" | env PATH="$win_path:$PATH" scripts/command-guard.sh 2>/dev/null)
+rc=$?
+out_fb=$(cd "$d" && printf '%s' "$ag_ps" | env PATH="$win_path:$fallback_path" scripts/command-guard.sh 2>/dev/null)
+rc_fb=$?
+if [ "$rc" -eq 0 ] && [ "$(ag_answer "$out" 'the root of a Windows drive')" = "deny True" ] &&
+	[ "$rc_fb" -eq 0 ] && [ "$(ag_answer "$out_fb" 'the root of a Windows drive')" = "deny True" ]; then
+	report ok "an Antigravity payload on Windows is read by the PowerShell reader, by both readers"
+else
+	report no "an Antigravity payload on Windows is read by the PowerShell reader, by both readers" "rc=$rc" "$out" "fallback rc=$rc_fb: $out_fb"
+fi
+out=$(cd "$d" && printf '%s' '{"hookEventName":"PreToolUse","toolCall":{"name":"run_command","args":{"CommandLine":"rm -rf /","Cwd":"/w"}}}' |
+	env PATH="$linux_path:$PATH" scripts/command-guard.sh 2>/dev/null)
+rc=$?
+if [ "$rc" -eq 0 ] && [ "$(ag_answer "$out" 'the filesystem root')" = "deny True" ]; then
+	report ok "an Antigravity payload off Windows is read by the bash reader"
+else
+	report no "an Antigravity payload off Windows is read by the bash reader" "rc=$rc" "$out"
+fi
+# CPython on Windows writes its text stdout with `\r\n` line ends, so the parser's host and tool
+# lines reached `run_hook` as `antigravity\r` and `PowerShell\r`: no host matched, an
+# Antigravity denial came out in Claude's shape, and a Claude PowerShell payload went to the bash
+# reader, which let `Remove-Item -Recurse -Force C:\` through (AMH ledger row DD124). This
+# python3 is the real one with its stdout rewrapped that way, as Windows does it.
+real_py=$(command -v python3 2>/dev/null)
+if [ -z "$real_py" ] || ! python3 -I -c '' >/dev/null 2>&1; then
+	report skip "the payload parser under a CRLF stdout (needs a python3 that runs)"
+else
+	crlf_path="$d/crlf-python-bin"
+	crlf_log="$d/crlf-python.log"
+	mkdir -p "$crlf_path"
+	# Not `exec`: a parser that crashed would fall back to the bash reader and pass this
+	# vacuously, so the stub logs the real python's exit status, one line per run.
+	{
+		printf '#!/bin/sh\n'
+		# shellcheck disable=SC2016
+		printf '[ "$1" = -I ] && [ "$2" = -c ] || exit 97\n'
+		# shellcheck disable=SC2016
+		printf '%s -I -c '"'"'import io,sys\nsys.stdout = io.TextIOWrapper(sys.stdout.buffer, newline="\\r\\n")\nexec(compile(sys.argv.pop(1), "<parser>", "exec"))'"'"' "$3"\n' "'$real_py'"
+		# shellcheck disable=SC2016
+		printf 'rc=$?\necho "$rc" >>%s\nexit "$rc"\n' "'$crlf_log'"
+	} >"$crlf_path/python3"
+	chmod +x "$crlf_path/python3"
+	probe=$(printf 'a\n' | "$crlf_path/python3" -I -c 'import sys; print(sys.stdin.read().strip())' | od -c | tr -s ' ')
+	: >"$crlf_log"
+	out_ag=$(cd "$d" && printf '%s' "$ag_ps" | env PATH="$crlf_path:$win_path:$PATH" scripts/command-guard.sh 2>/dev/null)
+	rc_ag=$?
+	out_ok=$(cd "$d" && printf '%s' '{"hookEventName":"PreToolUse","toolCall":{"name":"run_command","args":{"CommandLine":"printf hello","Cwd":"/w"}}}' |
+		env PATH="$crlf_path:$PATH" scripts/command-guard.sh 2>/dev/null)
+	out_cl=$(cd "$d" && printf '%s' '{"tool_name":"PowerShell","tool_input":{"command":"Remove-Item -Recurse -Force C:\\"}}' |
+		env PATH="$crlf_path:$PATH" scripts/command-guard.sh 2>&1)
+	rc_cl=$?
+	crlf_runs=$(cat "$crlf_log" 2>/dev/null)
+	if ! grep -qF 'a \r \n' <<<"$probe"; then
+		report no "the payload parser under a CRLF stdout" "the stub did not write CRLF: $probe"
+	elif [ "$crlf_runs" != $'0\n0\n0' ]; then
+		report no "the payload parser under a CRLF stdout" "the python3 reader did not run and exit 0 three times; its exit log:" "$crlf_runs"
+	elif [ "$rc_ag" -eq 0 ] && [ "$(ag_answer "$out_ag" 'the root of a Windows drive')" = "deny True" ] && [ "$out_ok" = '{"decision":"allow"}' ] &&
+		[ "$rc_cl" -eq 2 ] && grep -qF 'the root of a Windows drive' <<<"$out_cl"; then
+		report ok "the payload parser under a CRLF stdout still names the host and the tool"
+	else
+		report no "the payload parser under a CRLF stdout still names the host and the tool" "antigravity rc=$rc_ag: $out_ag" "allow: $out_ok" "claude PowerShell rc=$rc_cl: $out_cl"
+	fi
 fi
 
 # --- session-start.sh: the JSON envelopes for a host whose session hook answers JSON
