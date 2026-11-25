@@ -38,8 +38,8 @@ that unit:
   every unit done, A5 last, drafting 17.1.0 (**DD-117**), and the Windows hooks fix made in this
   tree (**DD-123**); the tag, the Gemini CLI probe and the App re-probe of that fix are in the
   Owner queue, and the session that merges the train archives the plan.
-- `2026-11-25-ladder-throughput.md`, adopted: T0 to T3, every fork delegated to the session
-  (owner, 2026-11-25), run in order (**DD-125**).
+- `2026-11-25-ladder-throughput.md`, adopted: every unit done or dropped, T3 dropped
+  (**DD-125**, **DD-128**); the session that merges the train archives or deletes it.
 
 Operational gotchas:
 
@@ -161,6 +161,8 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-25 — **Ladder throughput, T3 dropped: the full ladder is CPU-bound on 4 cores, so
+  splitting its longest stage cannot cut it by the 25% the plan required** (**DD-128**).
 - 2026-11-25 — **Ladder throughput, T2: `scripts/verify.sh` runs its five stages after the parse
   check concurrently, at most `AMH_JOBS` at a time, printing each in the fixed order**
   (**DD-127**).

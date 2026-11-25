@@ -130,7 +130,11 @@ Every unit:
   order, with six stub-tree fixtures, each seen failing with its behaviour removed; the stages
   get `AMH_JOBS` unchanged, measured faster than a share (**DD-127**).
 
-### T3 — measure, then split the longest remaining stage or drop the unit
+### T3 — measure, then split the longest remaining stage or drop the unit: dropped 2026-11-25
+
+- **Dropped:** the run is CPU-bound, so no split can reach the 25% bar (**DD-128**). The
+  Owner-queue item below was not added: the owner asked on 2026-11-25 for no new Owner-queue
+  items, and DD-128 records what this runner cannot measure.
 
 - **Rule:** after T2, measure each stage. If the longest stage is more than half of the
   verification set's wall time, and splitting it is estimated to cut the full ladder by at least
