@@ -85,7 +85,7 @@ Every unit:
 
 - **Done:** committed with the owner's decisions; `docs/STATE.md` lists it under Live plans.
 
-### T1 — split the command guard's self-test across cores
+### T1 — split the command guard's self-test across cores: done 2026-11-25
 
 - **Touch:** `harness/templates/scripts/command-guard.sh`, copied down to `scripts/`, the
   manifest rebuilt (`docs/RUNBOOK.md` → **Change a shipped script**), fixtures in
@@ -107,6 +107,8 @@ Every unit:
 - **Acceptance:** the full ladder is green; on this runner the self-test's wall time at the
   default worker count is at most half of its `AMH_JOBS=1` time, both measured; the fixtures
   above pass and were each seen failing.
+- **Done:** the matrix splits by case index across `AMH_JOBS` workers with the coverage check
+  and its nine fixtures, each seen failing with its behaviour removed (**DD-126**).
 
 ### T2 — run `scripts/verify.sh`'s independent stages concurrently
 

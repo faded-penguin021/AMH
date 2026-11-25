@@ -3176,6 +3176,157 @@ rm -f "$d/scripts/command-guard.sh"
 expect_runner_saying "a missing rail script loudly says that nothing self-tested it" run_rails "$d" 0 \
 	"   skip  scripts/command-guard.sh is not a readable file — nothing self-tested it"
 
+# --- command-guard.sh: the self-test split across AMH_JOBS workers (AMH ledger row DD126)
+# Concurrency may change when a case runs, never which cases run or what they say. Three of these
+# run a copy whose `self_test` is a six-case stub put before the dispatcher, so each costs about
+# a second; the verdict comparison runs the real matrix twice, serially and in three workers.
+# The stub's first line says how many workers ran it: once with `ST_JOBS=1` is a serial run.
+st_stub() { # st_stub <name> -> prints the path of a guard copy whose matrix is six cases
+	local f="$WORK/$1.command-guard.sh"
+	cp "$ROOT/scripts/command-guard.sh" "$f"
+	# shellcheck disable=SC2016 # sed program text for the copy: nothing here is for this shell.
+	sed_in_place '/^case "\${1:-}" in$/i\
+self_test() {\
+printf "stub matrix run with ST_JOBS=%s\\n" "$ST_JOBS"\
+st_allowed "ls"\
+st_allowed "pwd"\
+st_blocked "printenv"\
+st_allowed "git status"\
+st_blocked "env"\
+st_allowed "date"\
+st_verdict\
+}' "$f"
+	printf '%s' "$f"
+}
+
+# A worker that leaves a case unjudged: worker 1 of 3 skips case 5, as a broken share would.
+f=$(st_stub st_split_dropped)
+# shellcheck disable=SC2016 # sed program text for the copy: nothing here is for this shell.
+sed_in_place '/^[[:space:]]*ST_JUDGED=\$((ST_JUDGED + 1))$/i\
+[ "$ST_IDX" -ne 5 ] || return 1' "$f"
+out=$(AMH_JOBS=3 bash "$f" --self-test 2>&1)
+rc=$?
+if [ "$rc" -ne 0 ] &&
+	grep -qF 'coverage check FAILED across 3 workers: the workers judged 5 of 6 cases' <<<"$out" &&
+	! grep -qF 'self-test: ok' <<<"$out"; then
+	report ok "a split self-test fails, naming the shortfall, when a worker judges fewer cases than its share"
+else
+	report no "a split self-test fails, naming the shortfall, when a worker judges fewer cases than its share" "rc=$rc" "$out"
+fi
+
+# A failing case in the LAST worker (case 6 of 6 falls to worker 2 of 3) fails the run, and the
+# failure is named in the replayed output and counted once.
+f=$(st_stub st_split_failing)
+sed_in_place 's/^st_allowed "date"$/st_allowed "printenv"/' "$f"
+out=$(AMH_JOBS=3 bash "$f" --self-test 2>&1)
+rc=$?
+if [ "$rc" -eq 1 ] &&
+	grep -qxF 'SELF-TEST FAIL: should have been ALLOWED: printenv' <<<"$out" &&
+	grep -qxF 'command-guard.sh self-test: 1 failure(s)' <<<"$out" &&
+	! grep -qF 'self-test: ok' <<<"$out"; then
+	report ok "a failing case in any worker fails a split self-test and is named"
+else
+	report no "a failing case in any worker fails a split self-test and is named" "rc=$rc" "$out"
+fi
+
+# The real matrix, serially and in three workers, verdict for verdict. The ~1,500 cases log about
+# 2,000 verdicts, so a log far shorter than that is a wrapper that stopped logging, not a match.
+vlog_serial="$WORK/st_split_verdicts.serial"
+vlog_split="$WORK/st_split_verdicts.split"
+out=$(AMH_JOBS=1 AMH_SELF_TEST_VERDICT_LOG="$vlog_serial" bash "$ROOT/scripts/command-guard.sh" --self-test 2>&1)
+rc=$?
+out3=$(AMH_JOBS=3 AMH_SELF_TEST_VERDICT_LOG="$vlog_split" bash "$ROOT/scripts/command-guard.sh" --self-test 2>&1)
+rc3=$?
+vlines=$(wc -l <"$vlog_serial" 2>/dev/null | tr -d ' ')
+if [ "$rc" -eq 0 ] && [ "$rc3" -eq 0 ] && [ "${vlines:-0}" -ge 1000 ] && cmp -s "$vlog_serial" "$vlog_split"; then
+	report ok "a serial self-test and one split three ways return the same verdicts, case by case"
+else
+	report no "a serial self-test and one split three ways return the same verdicts, case by case" \
+		"serial rc=$rc, split rc=$rc3, serial log ${vlines:-no} line(s)" "$out" "$out3" \
+		"$(diff "$vlog_serial" "$vlog_split" 2>&1 | head -6 | cut -c1-200)"
+fi
+
+# An AMH_JOBS that is not a positive integer runs the cases serially and says so, never fewer.
+f=$(st_stub st_split_unusable)
+bad_jobs=''
+for jobs in abc 0; do
+	out=$(AMH_JOBS=$jobs bash "$f" --self-test 2>&1)
+	rc=$?
+	if [ "$rc" -ne 0 ] ||
+		! grep -qxF "command-guard.sh self-test: AMH_JOBS='$jobs' is not a positive integer; running the cases serially" <<<"$out" ||
+		[ "$(grep -c '^stub matrix run with ' <<<"$out")" != 1 ] ||
+		! grep -qxF 'stub matrix run with ST_JOBS=1' <<<"$out" ||
+		! grep -qxF 'command-guard.sh self-test: ok' <<<"$out"; then
+		bad_jobs="$bad_jobs AMH_JOBS=$jobs: rc=$rc"$'\n'"$out"
+	fi
+done
+if [ -z "$bad_jobs" ]; then
+	report ok "an unusable AMH_JOBS runs the self-test serially and says so"
+else
+	report no "an unusable AMH_JOBS runs the self-test serially and says so" "$bad_jobs"
+fi
+
+# AMH_JOBS=1 is the serial path itself: one pass through the matrix with ST_JOBS=1, and no note.
+f=$(st_stub st_split_serial)
+out=$(AMH_JOBS=1 bash "$f" --self-test 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ] && [ "$out" = "stub matrix run with ST_JOBS=1"$'\n'"command-guard.sh self-test: ok" ]; then
+	report ok "AMH_JOBS=1 runs the self-test once, serially, with no note"
+else
+	report no "AMH_JOBS=1 runs the self-test once, serially, with no note" "rc=$rc" "$out"
+fi
+
+# Each coverage check on its own: a stub split three ways that only the named check can catch.
+st_split_fails_naming() { # <fixture name> <guard copy> <what the coverage failure must name>
+	local out rc
+	out=$(AMH_JOBS=3 bash "$2" --self-test 2>&1)
+	rc=$?
+	if [ "$rc" -ne 0 ] &&
+		grep -qF "coverage check FAILED across 3 workers: $3" <<<"$out" &&
+		! grep -qF 'self-test: ok' <<<"$out"; then
+		report ok "$1"
+	else
+		report no "$1" "rc=$rc" "$out"
+	fi
+}
+# No case counted: every gate lets every case through uncounted, so the totals, the judged counts
+# and the case-number sums are all 0 and agree with each other.
+f=$(st_stub st_split_uncounted)
+sed_in_place 's/= self_test ] || return 0$/= no_such_caller ] || return 0/' "$f"
+st_split_fails_naming "a split self-test in which no case was counted fails, named" "$f" \
+	"worker 0 counted no cases"
+# Worker 1 alone sees a seventh case, which falls to worker 0: the judged counts and case numbers
+# still add up to the six the others saw.
+f=$(st_stub st_split_totals)
+# shellcheck disable=SC2016 # sed program text for the copy: nothing here is for this shell.
+sed_in_place '/^st_verdict$/i\
+[ "$ST_WORKER" -ne 1 ] || st_allowed "true"' "$f"
+st_split_fails_naming "a split self-test fails, named, when the workers saw different totals" "$f" \
+	"worker 1 saw 7 cases where an earlier worker saw 6"
+# Worker 1 judges case 4, which is worker 0's, instead of its own case 5: six cases judged of six.
+f=$(st_stub st_split_twice)
+# shellcheck disable=SC2016 # sed program text for the copy: nothing here is for this shell.
+sed_in_place '/% ST_JOBS )) -eq "\$ST_WORKER"/i\
+[ "$ST_WORKER:$ST_IDX" != 1:5 ] || return 1\
+if [ "$ST_WORKER:$ST_IDX" = 1:4 ]; then ST_JUDGED=$((ST_JUDGED + 1)); ST_IDXSUM=$((ST_IDXSUM + ST_IDX)); return 0; fi' "$f"
+st_split_fails_naming "a split self-test fails, named, when one case is judged twice and another never" "$f" \
+	"the workers judged 6 cases, but not each case exactly once"
+
+# A worker that exits 0 without reporting fails the run in the guard's own words, not the shell's.
+f=$(st_stub st_split_unreported)
+# shellcheck disable=SC2016 # sed program text for the copy: nothing here is for this shell.
+sed_in_place 's/^st_verdict$/[ "$ST_WORKER" -eq 1 ] || st_verdict/' "$f"
+out=$(AMH_JOBS=3 bash "$f" --self-test 2>&1)
+rc=$?
+if [ "$rc" -ne 0 ] &&
+	grep -qxF 'command-guard.sh self-test: coverage check FAILED across 3 workers: worker 1 reported no counts' <<<"$out" &&
+	! grep -qF 'report.1' <<<"$out" &&
+	! grep -qF 'self-test: ok' <<<"$out"; then
+	report ok "a split self-test fails, named, when a worker reports no counts, and leaks no shell error"
+else
+	report no "a split self-test fails, named, when a worker reports no counts, and leaks no shell error" "rc=$rc" "$out"
+fi
+
 # --- shipped-script integrity
 # The manifest is the only thing in an adopter's tree that can tell an upgraded script from
 # an edited one. Every branch below is a different way for that answer to be wrong, and the
