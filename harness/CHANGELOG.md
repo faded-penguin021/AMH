@@ -56,6 +56,16 @@ as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.m
   writes `\r\n` line ends, so a Claude `PowerShell` payload reached the bash reader, which passed
   `Remove-Item -Recurse -Force C:\`, the Gemini CLI's Windows routing never fired, and
   Antigravity's answers lost their shape. The reader now writes `\n`; the no-Python fallback was never affected.
+- **The command guard's self-test splits its cases across cores.** `--self-test` runs its
+  matrix in `AMH_JOBS` workers, by default the online core count (`getconf
+  _NPROCESSORS_ONLN`, then `nproc`, then 1), capped at 64. Each top-level case is judged by one
+  worker, chosen by its index; each worker's output is held and replayed in worker order; and the
+  run fails, naming the shortfall, unless every worker saw the same, nonzero number of cases and
+  the cases they judged cover each one exactly once. The verdict line is unchanged. `AMH_JOBS=1`
+  restores the serial run, and a value that is not a positive integer, or a scratch directory
+  that cannot be made, runs serially with a note on stderr. On a 4-core Linux runner it took
+  about 11 s against 38 s serially. You need do nothing: `AMH_JOBS` is an environment variable
+  describing the host, not an `amh.conf` key.
 - **`session-start.sh` can print its banner as JSON**, for a host whose session hook must answer
   that way: `--json=additional-context` and `--json=inject-steps`, named by field and not by
   host. Each drains stdin, runs the bare banner and prints it, whole, as one JSON string escaped
@@ -83,7 +93,8 @@ changed against 17.0.0, and the manifest changes with them:
 
 - `command-guard.sh` recognises the Gemini CLI's `BeforeTool` and Antigravity's `PreToolUse`
   payloads, in both its `python3` reader and its no-Python fallback, and answers each as above;
-  its `python3` reader writes `\n` line ends on Windows too.
+  its `python3` reader writes `\n` line ends on Windows too; its `--self-test` splits across
+  `AMH_JOBS` workers, as above.
 - `redact-tool-output.sh` decides the host explicitly and answers the Gemini CLI's `AfterTool`.
 - `session-start.sh` gains `--json=additional-context` and `--json=inject-steps`.
 - `test-ladder-guards.sh` gains fixtures for both new payloads through both readers, the
@@ -91,9 +102,13 @@ changed against 17.0.0, and the manifest changes with them:
   Antigravity's `allow` on a recognised payload with no command,
   Claude's and Codex's answers unchanged, an unrecognised event or tool of either host answered
   with nothing, both JSON envelopes decoding to the bare banner byte for byte, and
-  `--json=inject-steps` draining a stdin past the pipe buffer. The two envelope cases read
-  `/dev/null`, so the suite no longer hangs when run from a tool that keeps an open pipe on
-  stdin.
+  `--json=inject-steps` draining a stdin past the pipe buffer, and nine for the split self-test:
+  a worker that judges too few cases, a failing case in the last worker, serial and three-worker
+  verdicts compared case by case, an unusable `AMH_JOBS`, `AMH_JOBS=1` running one serial pass,
+  and a run failing, named, when no case is counted, when workers see different totals, when a
+  case is judged twice and another never, and when a worker reports no counts. The two envelope
+  cases read `/dev/null`, so the suite no longer hangs when run from a tool that keeps an open
+  pipe on stdin.
 
 Nothing else is required. Claude Code and Codex see no change except the Windows fix above, which
 takes effect when the script is copied. **The new adapter files are
