@@ -1,6 +1,9 @@
 # PLAN — the Owner-queue cycle, working-memory pressure, and what the principles leave unsaid
 
-> **Status: rev 1, committed 2026-11-10 (M0) as an open draft. Nothing in it is approved.**
+> **Status: rev 2, 2026-11-26: an open draft. Nothing in it is approved.** Rev 1 was committed
+> on 2026-11-10 (M0). Rev 2 adds the owner's four points of 2026-11-26 (§1, items 5 to 8), the
+> measurements re-taken for them (§3.2), and two units, M3b and M4b. It changes no unit of rev 1
+> except where those points bear on it.
 > No unit starts without the owner's explicit approval of that unit, and adopting the plan
 > approves no unit. Whether it gets a review before adoption, as the other three live plans
 > did, is the owner's first decision (§2, item 1).
@@ -8,7 +11,7 @@
 
 The plan is provisional while it is live. Its durable outcomes go to Changelog lines and ledger
 rows. Code cites ledger rows and never this file, and no ledger row may cite this file's path.
-When the work is done, archive this file to `docs/history/` or delete it (`docs/RUNBOOK.md` →
+When the work is done, archive this file to `docs/history/` or delete it (`docs/PROTOCOLS.md` →
 **Session discipline** 5).
 
 Unit names carry an `M` prefix (for *memory*), distinct from the `H`, `S`, `N` and `G` units of
@@ -35,6 +38,29 @@ things, which Part A is built on:
    wait. It is that waiting items are charged to working memory, and that sessions open new ones
    faster than any owner pace would close them.
 
+On 2026-11-26 the owner called the queue "out of hand" and added four more points:
+
+5. **Keeping the queue outside what the state file's sizing can act on was a mistake, and it
+   made the problem worse.** Measured (§3.2): the size rung counts every byte of the queue, as
+   rev 1 found. What the queue escapes is compression: no pass may fold it, so it grows into the
+   budget and never gives any back. It now takes most of the room a pass could land in.
+6. **The long queue looks like an AMH pattern, not one Tideo shares.** Measured (§3.2): Tideo
+   has a queue, but each item is one dated action or decision with one `Settles it` command.
+   AMH items also carry whole procedures.
+7. **Most live plans had no rule asking for them.** Measured: **Session discipline** 5 asks
+   for "an owner-approved plan file" for multi-unit work, and says nothing about a draft nobody
+   has approved. Three of the six live plans approve nothing, and a fourth approves only its
+   own review. Five began when the owner asked a question or for a review or a read, and the
+   session committed its answer as a plan. Each such draft then
+   adds a "review it" or "decide on it" item to the queue.
+8. **One leftover segment of a plan should not keep the whole plan in `docs/plans/`, and once
+   its work is on `main` or in a tag, most of a plan belongs in `docs/history/`.** Measured
+   (§3.2): `main` still carries the finished research-gaps plan, its eight companions and the
+   finished pipefail plan in `docs/plans/`. The live plans tie archiving to "the session that
+   merges the train", and sessions never merge: the owner does. The research-gaps item still in
+   the queue asks the owner for nothing. P6 stays open "until one is proposed", and H8 stays
+   parked until an incident: both are conditions for reopening.
+
 **Left out, because another plan or queue item carries it:** what every session must read and
 what may move out of the constitution (research-gaps H1, H2, H3); the host sandbox (H4a, H4b);
 invariants against compensations (H5); behavioural evidence (H6a, H6b, H7); the fix for a
@@ -50,17 +76,24 @@ plan's read bears on those.
    re-proposals since.
 4. **M3: which dispositions a unit may give a finding without asking,** and whether to limit
    plans in progress.
+   **M3b: what makes a plan retire, and whether an unapproved draft is committed at all.**
 5. **M4: how the protected sections are sized, and where Decided non-items lives.** Moving a
-   section out of the state file is the owner's grant, one at a time (`docs/RUNBOOK.md` →
-   **Working-memory compression**).
+   section out of the state file is the owner's grant, one at a time (`docs/PROTOCOLS.md` →
+   **Working-memory compression**). **M4b: an answer for each item that triage would close**
+   (its table), the Gemini CLI half of the probe item and the N1 cross-plan order item among
+   them.
 6. **M5b: whether the ledger's rollover boundary should follow rows now that a row is one
    line.**
 7. **M7: whether P2 keeps the hardware analogy as stated, keeps it corrected, or replaces it.**
 8. **M8 and M9: which principles to state once, and whether any consolidation is worth its
    references** (§3).
 9. **Version semantics for each legislation unit** (**Session discipline** 7(c)).
-10. **One fresh-context reviewer, at the strongest tier, for M3, M4, M5a's seed half, M6, M7,
-    M8 and M9.** That needs the standing no-subagents instruction lifted for exactly that pass.
+10. **One fresh-context reviewer, at the strongest tier, for M3, M3b, M4, M5a's seed half, M6,
+    M7, M8 and M9.** That needs the standing no-subagents instruction lifted for exactly that
+    pass, or the owner runs the reviewer.
+11. **Where M3, M3b and M4 ship** (2026-11-26): inside the unreleased 17.1.0, or as their own
+    version after it is tagged. M4(c) adds a check that can fail an adopter's ladder, which
+    argues for its own version.
 
 ## 3. What was measured
 
@@ -98,6 +131,23 @@ Recorded so they are not proposed again from this read.
 - **The subagent rail's matcher fires on this host,** whose spawn tool is named `Agent`: one
   spawn was refused once with the rail's text. Observed once, in Claude Code on the web.
 
+### 3.2 Re-taken on 2026-11-26, for the owner's points 5 to 8
+
+Taken at `ffdb33f`, the tip of the train carrying 17.1.0, against `origin/main` at `6281bb5`,
+on Linux. The same commands as §3; sentences by `count_sentences` on each section.
+
+| What | Result |
+|---|---|
+| State file, by section | preamble 894 B, 6 sentences; Project 310, 2; Current state 1,719, 5; Owner queue 5,942, 40; Decided non-items 1,634, 1; Changelog 2,344, 3. Whole file 12,843 B and 52 sentences. |
+| What no compression pass may fold | 8,780 B and 49 sentences, against landing ceilings of 9,216 B and 50. That leaves 436 B and one sentence for Current state and the Changelog, which hold 4,063 B and 8. **A pass over the trigger cannot land.** |
+| Queue on this branch and on `main` | 11 items here, 193 to 1,803 B each; on `main`, 6 items in 2,270 B of a 9,507 B file. Since `main`, the train opened 6 items and closed 1, the 17.0.0 tag; the research-gaps item was reworded. |
+| Kinds of item here | 4 decisions (backtick quotes, stand-down exits, the queue-cycle plan, N1's cross-plan order); 5 owner actions (G1, B1, the App re-probe, the tag, the Gemini CLI and Antigravity probe); 1 bug that asks for an investigation on Windows, not for an owner decision (**DD-124**); 1 with no action at all (the research-gaps leftovers). |
+| The largest item | the Gemini CLI and Antigravity probe, 1,803 B: a probe procedure, its ledger-row format and its `grep`. |
+| Tideo's queue, for comparison | 3 items in 3,304 B and 21 sentences, its preamble included. Each item is dated and asks for one action or decision, with one `Settles it` command. Its procedures live in its runbook and device test script. |
+| Plans in `docs/plans/` | here: six, 207,690 B; three approve nothing and one approves only its own review (B1). On `main`: the finished research-gaps plan, its eight companions and the finished pipefail plan, besides four of today's six. |
+| What ties a plan's archive to the merge | the status lines of the build-output and adapter plans ("The session that merges the train archives it afterwards") and the State file's line for the adapter plan. No session merges. Both plans' runner reads each unit's done marker from the file, which is a real reason not to move a plan while the runner has units left, and none once it has none. |
+| What would notice a finished plan | the plan-orphan tripwire in `scripts/ladder.sh`, local and WARN-only, fires only for a plan the State file does not name. A finished plan the State file still lists never fires it. |
+
 ## 4. The cycle, read from the measurements
 
 Four rules produce it together. Each is sound alone:
@@ -115,13 +165,29 @@ owner attention is cut by removing unnecessary decisions and never by suppressin
 one. The decisions to remove here are the repeated ones: the same question about a class of
 finding, asked once per finding.
 
+§3.2 adds three more drivers, and none of them is a rule:
+
+- **a draft becomes a file.** An answer to the owner's question is committed as a plan with
+  nothing approved, and the draft brings its own "review it" and "decide on it" items. That
+  puts an extra plan and an extra item on top of every question;
+- **nothing retires a plan.** Its archive step waits on a merge no session performs, and one
+  parked segment keeps the rest live. The tripwire that should notice stays quiet while the
+  State file still names the plan;
+- **nothing bounds an item.** An item carries its procedure as well as its decision, so the
+  queue grows by bytes faster than it grows by items, and the final chat message restates
+  every byte (**Session discipline** 7).
+
+M3 cuts the first rule's inflow, M3b the first two drivers, M4 the third, and M4b applies all
+three once to the items open today.
+
 **What this plan may not do.** P0 forbids making "owner decisions per change" a measured KPI.
 §3's queue-flow count is a one-off diagnosis. No unit below prints it, stores it, or judges it.
 
 ## 5. The units
 
-**Order: M1 → M2 → M3 → M4 → M5a → M5b → M6 → M8a → M7 → M8b to M8d → M9.** Part A (M2 to M4)
-is the owner's three points and comes first. A blocked choice does not stall an independent
+**Order: M1 → M2 → M3 → M3b → M4 → M4b → M5a → M5b → M6 → M8a → M7 → M8b to M8d → M9.**
+Part A (M2 to M4b) carries the owner's points of 2026-11-10 and 2026-11-26 and comes first.
+M3, M3b and M4 change rules and can share one review; M4b applies them and changes none. A blocked choice does not stall an independent
 unit, and every unit still needs its own approval.
 
 ### M0 — commit the plan (docs-only): done 2026-11-10, as an open draft
@@ -182,17 +248,58 @@ unit, and every unit still needs its own approval.
     how many are parked, and the final chat message repeats it.
   - (e) can be met by growing one plan instead of opening another. It is prose-only and it
     stays so.
-- **Touch:** `docs/RUNBOOK.md` → **Session discipline** 5 and 7, the seed runbook, and P8, P9
-  and P16 where they describe the queue and plans.
+- **Touch:** `docs/PROTOCOLS.md` → **Session discipline** 5 and 7, the seed's
+  `docs/PROTOCOLS.md`, and P8, P9 and P16 where they describe the queue and plans.
 - **Pass owed:** rule review, at the strongest tier.
 - **Acceptance:** the full ladder green; `scripts/guards/doc-navigation.sh` covers any new
   pointer. No check can show that sessions follow the new default, and the unit says so.
 
+### M3b — a plan retires on its own trigger, and a draft is not a file
+
+- **Why:** the owner's points 7 and 8 (§1); §3.2; §4's first two added drivers.
+- **Proposed rules.** They combine.
+  - (a) **A plan is archived by the commit that settles its last unit**, or earlier, once
+    every unit left is done, parked or declined. No merge, tag or release gates it, and the
+    archive travels in the train like any other change. Units on `main` or in a tag are done
+    for this purpose.
+  - (b) **Leftovers do not pin a plan.** At archive time each parked unit becomes one ledger
+    row naming its reopening condition, with a Decided non-items line where one is due. A
+    declined unit becomes a non-item. A reopened unit starts a new plan. The research-gaps item
+    in the queue is the worked case (M4b).
+  - (c) **A plan a runner drives is archived in the commit after its runner's last unit**, so
+    the runner still finds its done markers. This is the one wait (a) allows, and it is on a
+    file, not on the forge.
+  - (d) **An answer to the owner's question is reported in chat, not committed as a plan.** It
+    becomes a file when the owner approves a unit of it, or asks for the file. Then its first
+    unit is the review or decision it needs, and it adds one queue item, never two.
+  - (e) The tripwire stays as it is, local and WARN-only; it already catches a plan the State
+    file forgets. A check that a listed plan is finished would judge meaning, and P3 forbids
+    building a gate on that.
+  - (f) No change.
+  - Recommendation: (a) to (d). Of the live plans, rule (a) archives the adapter plan in the
+    commit after A5's runner, and rule (b) closes the research-gaps item.
+- **How each could be gamed.**
+  - (a) lets a session call a unit parked to retire a plan early. Parking writes a ledger row
+    with the reopening condition, and the owner sees the row; declining stays the owner's.
+  - (d) lets a session keep a long answer in chat, where no later session reads it. That is
+    the point: an unapproved answer is the owner's to keep or drop. If kept, it becomes a
+    file under (d).
+- **Touch:** `docs/PROTOCOLS.md` → **Session discipline** 5, the seed's `docs/PROTOCOLS.md`,
+  the archive paragraphs of P2 in `harness/src/10-principles.md` (then
+  `scripts/build-dist.sh`), and the status lines of the live plans that tie the archive to the
+  merge.
+- **Pass owed:** rule review, at the strongest tier; shared with M3's where the owner agrees.
+- **Acceptance:** the full ladder green, dist-drift included; no live plan's status line names
+  the merge as its archive trigger (`grep -n 'merges the train' docs/plans/*.md` prints
+  nothing). No check can show that sessions report drafts in chat, and the unit says so.
+
 ### M4 — size the protected sections without an uncounted one
 
-- **Why:** §3. The sections no pass may fold take 80 % of the byte ceiling and 84 % of the
-  sentence ceiling. **DB-028** and **DB-029** met the same defect with the preambles, and the
-  owner's first point is a downstream instance of it.
+- **Why:** §3. The sections no pass may fold took 80 % of the byte ceiling and 84 % of the
+  sentence ceiling on 2026-11-10, and 95 % and 98 % on 2026-11-26 (§3.2), when a pass over
+  the trigger could no longer land. **DB-028** and **DB-029** met the same defect with the
+  preambles, and the owner's first point is a downstream instance of it. The owner's fifth
+  point (§1) names it as a mistake, and Tideo's queue (§3.2) shows the bounded form working.
 - **Options for the owner.**
 
   | Option | What it does | What it costs, and how it could be gamed |
@@ -204,8 +311,12 @@ unit, and every unit still needs its own approval.
   | (e) Name the condition | when the protected sections alone leave too little room, the rung says the fold cannot reach the ceilings and that relief is the owner's; the session parks instead of shaving | No exemption and no new budget. Substantive work stops until the owner answers, which is either the limit M3(e) asks for or an outage, by the owner's reading. |
   | (f) Raise the numbers | more room | Treats the size and not the inflow; **DB-038** and **DB-040** are the cautions. |
 
-  Recommendation: M3 first, because it cuts what flows in; then (c) and (e); then measure
-  again before considering (b) or (d). For Decided non-items: leave it in the state file until
+  Recommendation: M3 and M3b first, because they cut what flows in; then (c) and (e); then
+  measure again before considering (b) or (d). For (c), the form is Tideo's: an item is a
+  decision (the fork, its options, a recommendation) or one owner action, dated, with at most
+  one `Check:`; a procedure it needs lives in the runbook, a plan section or a ledger row, and
+  the item names it. The boundary is set like the new-row boundary in `amh.conf`, and only a
+  new or changed item is measured, so no open item fails the day the rung ships. For Decided non-items: leave it in the state file until
   M2 has the downstream facts. If it moves, the destination is a runbook section with the
   pointer and heading in `scripts/guards/doc-navigation.sh`, and every playbook that can
   propose machinery names it as a read. That would be the owner's third grant of this kind.
@@ -214,6 +325,30 @@ unit, and every unit still needs its own approval.
 - **Acceptance:** for each rung change, a fixture that fails without it
   (`docs/RUNBOOK.md` → **Add a guard**); the full ladder green; the seed state file and seed
   runbook reconciled in the same unit.
+
+### M4b — triage the open queue under M3, M3b and M4 (docs-only)
+
+- **Why:** the rules above slow the inflow; the 11 items open on 2026-11-26 are still there.
+  This unit applies the rules once, and changes none.
+- **Do:** re-take §3.2's item list, then for each item:
+
+  | Item | Proposed disposition | Owner answer needed |
+  |---|---|---|
+  | Research-gaps leftovers (P6, H8) | one ledger row with both reopening conditions and a Decided non-items line; delete the item (M3b(b)) | none, if M3b is adopted |
+  | G1 and B1, the two gpt-6-astra review runs | one item: "run these reviews", listing both | none |
+  | Gemini CLI and Antigravity live probe | the procedure moves to `docs/RUNBOOK.md` → **Host rails and what they miss**; the item keeps the action and its `Check:` | whether to decline the Gemini CLI half: the owner reported its retirement for most users on 2026-06-18 |
+  | Antigravity App re-probe on Windows | kept, shortened to the action and a pointer to the same runbook procedure | none |
+  | N1's cross-plan order | the order it states interleaves research-gaps units that are all done | close it, or restate it for the plans still live |
+  | Windows no-Python fallback exit 127 | an investigation for a session on a Windows host, not an owner decision: a parked finding of the adapter plan, with its condition | whether it waits for a Windows session |
+  | Tag `amh-v17.1.0` | kept | none |
+  | The queue-cycle plan itself | kept until M1 and adoption are decided | none |
+  | Backtick quotes; stand-down exits | kept; each shortened to the M4(c) form | none |
+
+- **Pass owed:** none mandatory: it moves text and changes no rule. A ledger row it writes
+  carries the evidence for its condition (**Session discipline** 11).
+- **Acceptance:** `scripts/ladder.sh --guards-only` green; every deleted item has its outcome
+  as a ledger row or Changelog line (the queue's preamble); every kept item meets M4(c)'s
+  boundary if that unit has shipped.
 
 ### M5a — a ledger search prints headlines first (docs)
 
@@ -315,7 +450,10 @@ Recommendations only. Each belongs to the plan or queue item named, and none is 
 - **Order across plans.** The research-gaps plan's evidence units (H5, H6a, H7) and its
   sandbox units (H4a, H4b) ahead of further guard arms, where a sandbox runs. 46 of volume D's
   72 rows concern the rails or redaction, and 20 of 45 changelog sections mention them. The cross-plan order is already an
-  Owner-queue item.
+  Owner-queue item. As of 2026-11-26 every research-gaps unit is done or parked, and M4b asks
+  whether that item still has a question in it.
+- **The live plans' archive lines.** Under M3b the build-output and adapter plans drop "the
+  session that merges the train archives it"; that edit is M3b's, not theirs.
 - **A stopping rule for guard arms.** M8b would supply it.
 - **H2's first candidate.** The constitution and its seed describe guard coverage in detail,
   and the seed is copied once while the scripts upgrade, so an adopter's constitution comes to
@@ -341,3 +479,7 @@ Recommendations only. Each belongs to the plan or queue item named, and none is 
 - Anything on Windows or macOS, and any host but Claude Code on the web.
 - Every remedy. Each is a design, not measured code.
 - The reading of P2 in M7 is this session's, checked by no reviewer.
+- That Tideo's queue stays small *because* of its item form. §3.2 compares one snapshot of
+  each; neither queue's history was measured for it.
+- How each live plan began. §1, item 7 reads each plan's own account of its origin; no chat
+  record was consulted.

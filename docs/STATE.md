@@ -31,7 +31,8 @@ that unit:
   final (its §2, items 4 and 5); S4, S5, S6b and S6c deferred.
 - `2026-11-10-command-guard-gap-review.md` and `2026-11-09-cc-safety-net-borrowings.md`: drafts,
   nothing approved; G1, one review of both, comes first (Owner queue).
-- `2026-11-10-queue-cycle-and-memory-tiers.md`: a draft, nothing approved.
+- `2026-11-10-queue-cycle-and-memory-tiers.md`: a draft at rev 2, nothing approved; it also
+  carries the queue's size, the queue triage and when a plan retires (M3b, M4, M4b).
 - `2026-11-22-build-output-secret-scan.md`: a draft, B0 done; only B1, its gpt-6-astra `-e high`
   review, is approved (owner, 2026-11-22), and the plan runner runs it (Owner queue).
 - `2026-11-23-antigravity-gemini-adapter.md`, adopted: a Gemini CLI and Antigravity adapter,
@@ -81,7 +82,8 @@ The review's first question is whether the incident bar admits the plan at all (
 No check settles it.
 
 **OPEN — decide on the queue-cycle plan, `docs/plans/2026-11-10-queue-cycle-and-memory-tiers.md`:
-review first (M1), adoption, and the facts its §2, item 3 asks for.** No check settles it.
+review first (M1), adoption, and the decisions its §2 lists, rev 2's included.** No check
+settles it.
 
 **OPEN — re-run the Antigravity App probe on Windows on the new hook commands** (**DD-123**).
 17.1.0 waits for it (owner, 2026-11-25). See the banner arrive, `git push --force origin main`
@@ -159,6 +161,10 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
+- 2026-11-26 — **Queue-cycle plan rev 2: the owner's four points on the queue's size, Tideo's
+  item form, unapproved drafts and plans held live by a leftover, with re-taken measurements
+  and two new units, M3b (a plan retires on its own trigger) and M4b (triage the open queue)**
+  (no ledger row: nothing is decided yet).
 - 2026-11-25 — **Antigravity hooks reach Git Bash from `cmd.exe` and `sh` alike, its `run_command`
   is read by the PowerShell reader on Windows, and the guard's parser stops writing `\r\n` on
   Windows, which had sent Claude's PowerShell payloads to the bash reader** (**DD-123**,
