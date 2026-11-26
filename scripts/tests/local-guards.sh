@@ -719,6 +719,275 @@ d=$(snapshot adapter_codex_agent_neutral_script_gone)
 sed_in_place 's|scripts/command-guard\.sh|scripts/codex-command-guard.sh|' "$d/harness/templates/configs/codex-config.toml"
 expect fail "adapter-set: Codex invokes the shipped agent-neutral command guard" "$d" adapter-set.sh "agent-neutral command-guard.sh"
 
+# The Gemini CLI and Antigravity adapters (DD-114): every delivery layer is the generic loop's, so
+# one registration mutation per host proves the new paths are in it; the rest alter one wired
+# entry each, in a template or a reference copy, and each fails with the wiring check's own words.
+d=$(snapshot adapter_gemini_path_gone)
+rm "$d/.gemini/settings.json"
+expect fail "adapter-set: the Gemini CLI settings reference path was removed" "$d" adapter-set.sh \
+	"adapter reference-instance path missing: .gemini/settings.json"
+
+d=$(snapshot adapter_antigravity_install_gone)
+sed_in_place 's| configs/antigravity-rules/amh-rule-review\.md:\.agents/rules/amh-rule-review\.md||' "$d/scripts/amh-init.sh"
+expect fail "adapter-set: an Antigravity rule's install action was removed" "$d" adapter-set.sh \
+	"adapter install action missing: harness/templates/configs/antigravity-rules/amh-rule-review.md -> .agents/rules/amh-rule-review.md"
+
+d=$(snapshot adapter_antigravity_legislation_gone)
+sed_in_place 's| \.agents/hooks\.json||' "$d/harness/templates/amh.conf.example"
+expect fail "adapter-set: the Antigravity hooks file left the adopter RULE_FILES" "$d" adapter-set.sh \
+	"adopter RULE_FILES does not cover adapter path: .agents/hooks.json"
+
+d=$(snapshot adapter_gemini_context_dropped)
+sed_in_place 's|"fileName": \["AGENTS\.md", "GEMINI\.md"\]|"fileName": ["GEMINI.md"]|' "$d/harness/templates/configs/gemini-settings.json"
+expect fail "adapter-set: the Gemini CLI no longer reads AGENTS.md" "$d" adapter-set.sh "context.fileName"
+
+d=$(snapshot adapter_gemini_guard_matcher_narrowed)
+sed_in_place 's|"matcher": "^run_shell_command\$"|"matcher": "^run_shell$"|' "$d/.gemini/settings.json"
+expect fail "adapter-set: the Gemini CLI command guard matcher was altered" "$d" adapter-set.sh \
+	'not shipped: hooks.BeforeTool[].matcher="^run_shell$"'
+
+d=$(snapshot adapter_gemini_redactor_rewired)
+sed_in_place 's|scripts/redact-tool-output\.sh|scripts/redact.sh|' "$d/harness/templates/configs/gemini-settings.json"
+# shellcheck disable=SC2016 # the variable is a literal in the JSON the guard quotes
+expect fail "adapter-set: the Gemini CLI AfterTool hook runs another script" "$d" adapter-set.sh \
+	'not shipped: hooks.AfterTool[].hooks[].command="bash \"$GEMINI_PROJECT_DIR/scripts/redact.sh\""'
+
+d=$(snapshot adapter_gemini_session_hook_renamed)
+sed_in_place 's|"name": "amh-session-start"|"name": "session-start"|' "$d/.gemini/settings.json"
+expect fail "adapter-set: the Gemini CLI session hook was renamed" "$d" adapter-set.sh \
+	'not shipped: hooks.SessionStart[].hooks[].name="session-start"'
+
+# Each of these keeps every shipped literal in place and still turns the wiring off or moves it.
+d=$(snapshot adapter_gemini_hooks_disabled)
+awk '{ print } NR == 1 { print "  \"hooksConfig\": {"; print "    \"enabled\": false"; print "  }," }' \
+	"$d/harness/templates/configs/gemini-settings.json" >"$d/gemini-settings.json.new"
+mv "$d/gemini-settings.json.new" "$d/harness/templates/configs/gemini-settings.json"
+expect fail "adapter-set: the Gemini CLI hooks switched off beside intact wiring" "$d" adapter-set.sh \
+	'not shipped: hooksConfig {, hooksConfig.enabled=false'
+
+d=$(snapshot adapter_antigravity_entry_disabled)
+awk '{ print } /^  "amh-command-guard": \{$/ { print "    \"enabled\": false," }' "$d/.agents/hooks.json" >"$d/hooks.json.new"
+mv "$d/hooks.json.new" "$d/.agents/hooks.json"
+expect fail "adapter-set: the Antigravity command guard entry switched off" "$d" adapter-set.sh \
+	'not shipped: amh-command-guard.enabled=false'
+
+# Layout is not wiring: the tokenizer reads a minified file as the same configuration.
+d=$(snapshot adapter_antigravity_minified)
+tr -d '\n' <"$d/harness/templates/configs/antigravity-hooks.json" >"$d/hooks.json.new"
+mv "$d/hooks.json.new" "$d/harness/templates/configs/antigravity-hooks.json"
+expect pass "adapter-set: a minified hooks file is the same wiring" "$d" adapter-set.sh
+
+d=$(snapshot adapter_antigravity_guard_rewired)
+sed_in_place 's|scripts/command-guard\.sh|scripts/other-guard.sh|' "$d/.agents/hooks.json"
+expect fail "adapter-set: the Antigravity command guard runs another script" "$d" adapter-set.sh \
+	'not shipped: amh-command-guard.PreToolUse[].hooks[].command="git -c alias.amh-guard=!bash amh-guard scripts/other-guard.sh"'
+
+# The pin and both files changed together still cannot bring shell syntax back: `$` is read by
+# sh and not by cmd.exe, and the character rule is checked apart from the pin (DD-123).
+d=$(snapshot adapter_antigravity_shell_syntax)
+for f in "$d/.agents/hooks.json" "$d/harness/templates/configs/antigravity-hooks.json" "$d/scripts/guards/adapter-set.sh"; do
+	# shellcheck disable=SC2016 # the `$HOME` is the literal shell syntax this fixture plants
+	sed_in_place 's|amh-guard scripts/command-guard\.sh|amh-guard $HOME/scripts/command-guard.sh|' "$f"
+done
+expect fail "adapter-set: an Antigravity hook command with shell syntax, pin and files changed together" "$d" adapter-set.sh \
+	'an Antigravity hook command holds a character beyond letters, digits, space, . / = _ - and one !'
+
+# A second `!` is a `!VAR!` pair to cmd.exe's delayed expansion, so one is all the rule allows.
+d=$(snapshot adapter_antigravity_two_bangs)
+for f in "$d/.agents/hooks.json" "$d/harness/templates/configs/antigravity-hooks.json" "$d/scripts/guards/adapter-set.sh"; do
+	sed_in_place 's|amh-guard=!bash amh-guard scripts/command-guard\.sh|amh-guard=!bash!x amh-guard scripts/command-guard.sh|' "$f"
+done
+expect fail "adapter-set: an Antigravity hook command with two ! marks, pin and files changed together" "$d" adapter-set.sh \
+	'an Antigravity hook command holds a character beyond letters, digits, space, . / = _ - and one !'
+
+d=$(snapshot adapter_antigravity_guard_matcher)
+sed_in_place 's|"matcher": "run_command"|"matcher": "run_.*"|' "$d/harness/templates/configs/antigravity-hooks.json"
+expect fail "adapter-set: the Antigravity command guard matcher was altered" "$d" adapter-set.sh \
+	'not shipped: amh-command-guard.PreToolUse[].matcher="run_.*"'
+
+d=$(snapshot adapter_antigravity_entry_renamed)
+sed_in_place 's|"amh-session-start": {|"session": {|' "$d/harness/templates/configs/antigravity-hooks.json"
+expect fail "adapter-set: the Antigravity session entry was renamed" "$d" adapter-set.sh \
+	'missing: amh-session-start {'
+
+# Each of these keeps every shipped record in place and still overrides it under the last-wins
+# reading of most JSON readers, or spells the shipped path with a literal dot (DD-115).
+d=$(snapshot adapter_gemini_description_swallows_key)
+sed_in_place 's|^\(            "description": "AMH command guard .*"\)$|\1, "command": "true"|' "$d/.gemini/settings.json"
+expect fail "adapter-set: a key appended to a description line" "$d" adapter-set.sh \
+	'not shipped: hooks.BeforeTool[].hooks[].command="true"'
+
+d=$(snapshot adapter_gemini_empty_duplicate_array)
+sed_in_place 's|^    "AfterTool": \[$|    "BeforeTool": [\
+    ],\
+    "AfterTool": [|' "$d/harness/templates/configs/gemini-settings.json"
+expect fail "adapter-set: a later, empty BeforeTool array" "$d" adapter-set.sh \
+	'not shipped: hooks.BeforeTool ['
+
+d=$(snapshot adapter_antigravity_empty_duplicate_object)
+awk '{ line[NR] = $0 } END { for (i = 1; i < NR - 1; i++) print line[i]
+	print line[NR - 1] ","; print "  \"amh-command-guard\": {"; print "  }"; print line[NR] }' \
+	"$d/.agents/hooks.json" >"$d/hooks.json.new"
+mv "$d/hooks.json.new" "$d/.agents/hooks.json"
+expect fail "adapter-set: a later, empty command guard entry" "$d" adapter-set.sh \
+	'not shipped: amh-command-guard {'
+
+d=$(snapshot adapter_gemini_dotted_key)
+sed_in_place '2d; 4d; 3s|^    "fileName": \(.*\)$|  "context.fileName": \1,|' "$d/.gemini/settings.json"
+expect fail "adapter-set: a literal dotted key posing as the context setting" "$d" adapter-set.sh \
+	'missing: context {'
+
+# A file the host cannot parse configures nothing, whatever literals it carries (DD-115).
+d=$(snapshot adapter_gemini_trailing_comma)
+sed_in_place 's|^\(            "description": "AMH command guard .*"\)$|\1,|' "$d/.gemini/settings.json"
+expect fail "adapter-set: a trailing comma the host refuses" "$d" adapter-set.sh \
+	'could not follow this file to a balanced, grammatical end'
+
+d=$(snapshot adapter_antigravity_mismatched_closer)
+# shellcheck disable=SC2016 # a sed address, not a shell expansion
+sed_in_place '$s|^}$|]|' "$d/harness/templates/configs/antigravity-hooks.json"
+expect fail "adapter-set: an object closed as an array" "$d" adapter-set.sh \
+	'could not follow this file to a balanced, grammatical end'
+
+d=$(snapshot adapter_antigravity_second_document)
+printf '{}\n' >>"$d/.agents/hooks.json"
+expect fail "adapter-set: a second top-level value after the shipped one" "$d" adapter-set.sh \
+	'could not follow this file to a balanced, grammatical end'
+
+d=$(snapshot adapter_gemini_missing_comma)
+sed_in_place 's|^\(            "timeout": 10000\),$|\1|' "$d/harness/templates/configs/gemini-settings.json"
+expect fail "adapter-set: a missing comma the host refuses" "$d" adapter-set.sh \
+	'could not follow this file to a balanced, grammatical end'
+
+# A raw \034 in a key would forge the tokenizer's own path join: here an emptied command guard
+# entry beside a flat key spelled as its nested PreToolUse array.
+d=$(snapshot adapter_antigravity_forged_join)
+awk -v sep="$(printf '\034')" '{ line[NR] = $0 } END {
+	for (i = 1; i < NR - 1; i++) {
+		if (line[i] == "  \"amh-command-guard\": {") { print "  \"amh-command-guard\": {},"; print "  \"amh-command-guard" sep "PreToolUse\": ["; continue }
+		if (line[i] == "    \"PreToolUse\": [") continue
+		print line[i]
+	}
+	print line[NR] }' "$d/.agents/hooks.json" >"$d/hooks.json.new"
+mv "$d/hooks.json.new" "$d/.agents/hooks.json"
+expect fail "adapter-set: a raw control character in a key forges a path join" "$d" adapter-set.sh \
+	'could not follow this file to a balanced, grammatical end'
+
+# Each of these is refused by the grammar alone: the description is read as `*`, and Claude's
+# settings pin no value of a key the shipped file does not set.
+d=$(snapshot adapter_claude_bare_word)
+sed_in_place '1s|^{$|{\
+  "cleanupPeriodDays": 3O,|' "$d/.claude/settings.json"
+expect fail "adapter-set: a bare word that is no JSON literal" "$d" adapter-set.sh \
+	'could not follow this file to a balanced, grammatical end'
+
+d=$(snapshot adapter_gemini_unknown_escape)
+sed_in_place 's|AMH command guard on|AMH command guard \\q on|' "$d/.gemini/settings.json"
+expect fail "adapter-set: an escape JSON does not know" "$d" adapter-set.sh \
+	'could not follow this file to a balanced, grammatical end'
+
+d=$(snapshot adapter_gemini_short_unicode_escape)
+sed_in_place 's|AMH command guard on|AMH command guard \\u12x on|' "$d/harness/templates/configs/gemini-settings.json"
+expect fail "adapter-set: a \\u escape short of four hex digits" "$d" adapter-set.sh \
+	'could not follow this file to a balanced, grammatical end'
+
+d=$(snapshot adapter_gemini_raw_nul)
+sed 's|AMH command guard on|AMH command guard ~ on|' "$d/.gemini/settings.json" | tr '~' '\000' >"$d/settings.json.new"
+mv "$d/settings.json.new" "$d/.gemini/settings.json"
+expect fail "adapter-set: a raw NUL byte inside a string" "$d" adapter-set.sh \
+	'could not follow this file to a balanced, grammatical end'
+
+# A hook scanner that fails is a red run, never a pass: the shim fails exactly the awk program
+# that carries the named text — the tokenizer, or the hook check's consumer — and passes the rest.
+HOOK_AWK=$(command -v awk)
+for scanner in 'function value()' 'seg[n] =='; do
+	d=$(snapshot "adapter_hook_scanner_${scanner%%[ (]*}")
+	mkdir -p "$d/.shim"
+	printf '#!/bin/sh\ncase "$*" in *"%s"*) exit 42 ;; esac\nexec "%s" "$@"\n' "$scanner" "$HOOK_AWK" >"$d/.shim/awk"
+	chmod +x "$d/.shim/awk"
+	EXPECT_PATH_PREFIX="$d/.shim"
+	expect fail "adapter-set: a hook scanner that fails ($scanner)" "$d" adapter-set.sh 'the hook scanner failed'
+	EXPECT_PATH_PREFIX=
+done
+
+d=$(snapshot adapter_claude_settings_unparseable)
+sed_in_place 's|^\(    "enabled": true\),$|\1|' "$d/.claude/settings.json"
+expect fail "adapter-set: Claude settings the host cannot parse" "$d" adapter-set.sh \
+	'could not follow this file to a balanced, grammatical end'
+
+d=$(snapshot adapter_gemini_reviewer_shell)
+sed_in_place 's|^tools: \[read_file, |tools: [run_shell_command, read_file, |' "$d/.gemini/agents/amh-rule-reviewer.md"
+expect fail "adapter-set: the Gemini CLI reviewer gained the shell tool" "$d" adapter-set.sh "reviewer's tool list is not exactly"
+
+d=$(snapshot adapter_antigravity_reviewer_mcp)
+sed_in_place 's|^mainAgent: false$|mcpServers: [github]|' "$d/harness/templates/configs/antigravity-agents/amh-rule-reviewer.md"
+expect fail "adapter-set: the Antigravity reviewer gained an unlisted key" "$d" adapter-set.sh "unlisted key mcpServers"
+
+d=$(snapshot adapter_antigravity_reviewer_commands)
+sed_in_place 's|^commandExecutionPolicy: "off"$|commandExecutionPolicy: auto|' "$d/.agents/agents/amh-rule-reviewer.md"
+expect fail "adapter-set: the Antigravity reviewer may run commands" "$d" adapter-set.sh \
+	'lacks the shipped line(s) commandExecutionPolicy: "off"'
+
+d=$(snapshot adapter_gemini_reviewer_remote)
+sed_in_place 's|^kind: local$|kind: remote|' "$d/harness/templates/configs/gemini-agents/amh-rule-reviewer.md"
+expect fail "adapter-set: the Gemini CLI reviewer is no longer local" "$d" adapter-set.sh 'lacks the shipped line(s) kind: local'
+
+d=$(snapshot adapter_antigravity_rule_trigger)
+sed_in_place 's|^trigger: model_decision$|trigger: model-decision|' "$d/.agents/rules/amh-acceptance-ladder.md"
+expect fail "adapter-set: an Antigravity rule's trigger is one the host discards" "$d" adapter-set.sh "trigger is not model_decision"
+
+d=$(snapshot adapter_gemini_skill_misnamed)
+sed_in_place 's|^name: amh-host-rails$|name: host-rails|' "$d/harness/templates/configs/gemini-skills/amh-host-rails/SKILL.md"
+expect fail "adapter-set: a Gemini CLI skill's name is not its directory's" "$d" adapter-set.sh "is not its directory's, amh-host-rails"
+
+# A pointer resolves against the documents of the tree it lands in: the template against the seed,
+# the reference copy against this repository. Renaming the heading, not the pointer, is the drift.
+d=$(snapshot adapter_pointer_heading_renamed)
+sed_in_place 's|^## Universal session sequence$|## Session sequence|' "$d/AGENTS.md"
+expect fail "adapter-set: a reference pointer's heading was renamed" "$d" adapter-set.sh \
+	"points at AGENTS.md → **Universal session sequence**, and not exactly one heading there reads exactly that"
+
+d=$(snapshot adapter_seed_pointer_heading_renamed)
+sed_in_place 's|^## Agent harness$|## Agents|' "$d/harness/templates/seed/AGENTS.md"
+expect fail "adapter-set: a shipped pointer's seed heading was renamed" "$d" adapter-set.sh \
+	"points at harness/templates/seed/AGENTS.md → **Agent harness**"
+
+d=$(snapshot adapter_seed_pointer_absolute)
+# shellcheck disable=SC2016 # Markdown backticks, written literally
+sed_in_place 's|^`AGENTS\.md` → |`/AGENTS.md` → |' "$d/harness/templates/configs/antigravity-rules/amh-host-rails.md"
+expect fail "adapter-set: a shipped pointer with a leading slash" "$d" adapter-set.sh \
+	"points at /AGENTS.md, which leaves the tree it must resolve in"
+
+# Dropped from the checked set and the banner list alike, the other host's reviewer still passes.
+d=$(snapshot adapter_gemini_reviewer_undeclared)
+sed_in_place "/^	'harness\/templates\/configs\/gemini-agents\/amh-rule-reviewer\.md|/d" "$d/scripts/guards/adapter-set.sh"
+sed_in_place 's| \.gemini/agents/amh-rule-reviewer\.md||' "$d/amh.conf"
+expect fail "adapter-set: one host's reviewer leaves the checked set" "$d" adapter-set.sh \
+	"checked NOTHING for the Gemini CLI reviewer"
+
+d=$(snapshot adapter_antigravity_reviewer_undeclared)
+sed_in_place "/^	'harness\/templates\/configs\/antigravity-agents\/amh-rule-reviewer\.md|/d" "$d/scripts/guards/adapter-set.sh"
+sed_in_place 's| \.agents/agents/amh-rule-reviewer\.md||' "$d/amh.conf"
+expect fail "adapter-set: the other host's reviewer leaves the checked set" "$d" adapter-set.sh \
+	"checked NOTHING for the Antigravity reviewer"
+
+d=$(snapshot adapter_gemini_skills_undeclared)
+sed_in_place "/^	'harness\/templates\/configs\/gemini-skills\//d" "$d/scripts/guards/adapter-set.sh"
+sed_in_place "s| \.gemini/skills/[^ ']*||g" "$d/amh.conf"
+expect fail "adapter-set: one host's pointers leave the checked set" "$d" adapter-set.sh \
+	"checked NOTHING for the Gemini CLI skills"
+
+d=$(snapshot adapter_antigravity_rules_undeclared)
+sed_in_place "/^	'harness\/templates\/configs\/antigravity-rules\//d" "$d/scripts/guards/adapter-set.sh"
+sed_in_place "s| \.agents/rules/[^ ']*||g" "$d/amh.conf"
+expect fail "adapter-set: the other host's pointers leave the checked set" "$d" adapter-set.sh \
+	"checked NOTHING for the Antigravity rules"
+
+d=$(snapshot adapter_pointer_doubled)
+# shellcheck disable=SC2016 # Markdown backticks, written literally
+printf '\nAlso `docs/RUNBOOK.md` → **Change-type playbooks**.\n' >>"$d/.agents/rules/amh-rule-review.md"
+expect fail "adapter-set: a pointer file names a second section" "$d" adapter-set.sh "carries 2 pointer(s)"
+
 # ADAPTER_FILES is the sixth place the set is written down — the session banner reports from
 # it — so it drifts like any other. All three mutations below are silent without the guard:
 # the banner simply stops mentioning an adapter, or mentions one nobody ships, and `unknown`
@@ -2343,6 +2612,50 @@ else
 		"$bm_rc_stdout" "$bm_rc_write" "$out" >&2
 fi
 
+# build-manifest.sh under a locale whose collation is not byte order. Bash sorts a glob by
+# the host's LC_COLLATE, and en_US.UTF-8 ignores `-` at its first level, so `redact.sh` comes
+# before `redact-tool-output.sh` there and after it in C: the generator wrote a different
+# manifest on such a host, and manifest-drift.sh failed a clean tree as hand-edited. Measured
+# on an Antigravity Remote Agents VM whose default is LC_ALL=en_US.UTF-8. The case can run
+# only where such a locale is installed, so it is posed, not assumed: a candidate counts only
+# if it actually orders the two real template names differently from C, and with none the
+# case is SKIPPED and says so. LOCPATH, when set, reaches the locale lookup like any other.
+# shellcheck disable=SC2016 # the $1 belongs to the child bash, which must expand it itself.
+bm_coll_order() { # <locale> -> the two names, in that locale's glob order
+	LC_ALL=$1 bash -c 'cd -- "$1" && printf "%s\n" redact*.sh' _ "$base/harness/templates/scripts" 2>/dev/null
+}
+# The probe needs both names. With one renamed or gone it would match no locale anywhere, CI
+# included, and the skip below would blame the locale: that is a broken fixture, so it fails.
+bm_locale=
+if [ "$(bm_coll_order C | LC_ALL=C sort)" != "$(printf '%s\n' redact-tool-output.sh redact.sh)" ]; then
+	FAILED=$((FAILED + 1))
+	printf '  FAIL build-manifest locale case: its probe needs redact.sh and redact-tool-output.sh among the templates — got:\n%s\n' \
+		"$(bm_coll_order C)" >&2
+	bm_locale=-
+fi
+for l in en_US.UTF-8 en_US.utf8 en_GB.UTF-8 en_GB.utf8 de_DE.UTF-8 de_DE.utf8; do
+	[ "$bm_locale" = - ] && break
+	if [ "$(bm_coll_order "$l")" != "$(bm_coll_order C)" ]; then
+		bm_locale=$l
+		break
+	fi
+done
+if [ "$bm_locale" = - ]; then
+	: # failed above
+elif [ -n "$bm_locale" ]; then
+	out=$(cd "$base" && LC_ALL=$bm_locale bash scripts/guards/manifest-drift.sh 2>&1)
+	rc=$?
+	if [ "$rc" -eq 0 ]; then
+		PASSED=$((PASSED + 1))
+	else
+		FAILED=$((FAILED + 1))
+		printf '  FAIL manifest-drift: a clean tree passes under LC_ALL=%s, whose collation is not byte order — rc=%s\n%s\n' \
+			"$bm_locale" "$rc" "$out" >&2
+	fi
+else
+	printf '  SKIP 1 build-manifest locale case: no installed locale here collates a hyphen apart from byte order\n' >&2
+fi
+
 # config-schema with no `comm` on PATH — the same hollow-green shape, and the one its own
 # review found: with the comparison unable to run, the difference is empty and the guard
 # would otherwise print an affirmative line claiming 22 keys were checked. The shim's fixed
@@ -2448,6 +2761,181 @@ bs_ready_home "$h"
 bs_env_run "$dw" "$h" "file://$d/good.tar.xz" "$BS_PATH"
 bs_check "warm-up: the ref lands in a single-branch clone too" \
 	bs_await_ref "$dw" "refs/remotes/origin/$bs_branch"
+
+# --- scripts/verify.sh: its stages run concurrently (DD-127) ------------------
+# Concurrency may change when a stage runs, never which stages run, what they print or in what
+# order. Each case runs a copy of verify.sh in a tree whose five stages are stubs: a stub logs
+# `start <key>` and `end <key>` to VS_LOG, prints one line, and sleeps, waits or exits as its
+# VS_* variables say. Every wait is a bounded one on a line another stub writes (D-024), so an
+# order a case relies on is made, never hoped for; the ceiling is only reached when it fails.
+VS_KEYS='shellcheck shipped local conformance e2e'
+vs_tree() { # vs_tree <name> -> prints the path of a tree holding verify.sh and five stub stages
+	local d="$WORK/$1" key path
+	mkdir -p "$d/scripts/tests" "$d/conformance" "$d/bin"
+	cp "$ROOT/scripts/verify.sh" "$d/scripts/verify.sh"
+	for key in $VS_KEYS; do
+		case $key in
+		shellcheck) path=bin/shellcheck ;;
+		shipped) path=scripts/test-ladder-guards.sh ;;
+		local) path=scripts/tests/local-guards.sh ;;
+		conformance) path=conformance/selftest.sh ;;
+		e2e) path=scripts/tests/test-init-e2e.sh ;;
+		esac
+		# shellcheck disable=SC2016 # the stub's own text: nothing here is for this shell.
+		printf '%s\n' '#!/usr/bin/env bash' "k=$key" \
+			'v=VS_RC_$k; rc=${!v:-0}' 'v=VS_SLEEP_$k; nap=${!v:-0}' 'v=VS_AWAIT_$k; await=${!v:-}' \
+			'printf "start %s\n" "$k" >>"$VS_LOG"' \
+			'printf "stub %s output\n" "$k"' \
+			'[ "$nap" = 0 ] || sleep "$nap"' \
+			'starts() { grep -c "^start " "$VS_LOG"; }' \
+			'i=0' \
+			'while { [ -n "$await" ] && ! grep -qx "end $await" "$VS_LOG"; } ||' \
+			'	{ [ -n "${VS_STARTS:-}" ] && [ "$(starts)" -lt "$VS_STARTS" ]; }; do' \
+			'	[ "$i" -lt 200 ] || { printf "timeout %s\n" "$k" >>"$VS_LOG"; break; }' \
+			'	sleep 0.1; i=$((i + 1))' \
+			'done' \
+			'printf "end %s\n" "$k" >>"$VS_LOG"' \
+			'[ "$rc" != vanish ] || { kill -KILL "$PPID"; exit 0; }' \
+			'exit "$rc"' >"$d/$path"
+		chmod +x "$d/$path"
+	done
+	git -C "$d" init -q
+	printf '%s' "$d"
+}
+vs_run() { # vs_run <tree> [VAR=VALUE...] -> sets VS_OUT and VS_RC
+	local d=$1
+	shift
+	: >"$d/log"
+	VS_OUT=$(cd "$d" && env PATH="$d/bin:$PATH" VS_LOG="$d/log" "$@" bash scripts/verify.sh 2>&1)
+	VS_RC=$?
+}
+vs_peak() { # vs_peak <log> -> the most stages the log shows running at once
+	awk '/^start /{n++; if (n > m) m = n} /^end /{n--} END{print m + 0}' "$1"
+}
+# The headers and stub lines of a run, in the order printed, elapsed seconds dropped.
+vs_layout() { grep -E '^   · |^stub ' <<<"$VS_OUT" | grep -v '^   · parse check' | sed -E 's/ \([0-9]+ s\)$//'; }
+VS_LAYOUT='   · shellcheck
+stub shellcheck output
+   · shipped guard fixture suite
+stub shipped output
+   · repo-local guard fixture suite
+stub local output
+   · conformance evaluator self-test
+stub conformance output
+   · instantiation end-to-end
+stub e2e output'
+
+# One stage fails while the other four pass: the set fails, and the failing stage is named with
+# its status under its own header while the others still run and print.
+d=$(vs_tree vs_one_fails)
+vs_run "$d" AMH_JOBS=5 VS_RC_local=3
+if [ "$VS_RC" -ne 0 ] &&
+	grep -qxF '     FAIL scripts/tests/local-guards.sh exited with status 3' <<<"$VS_OUT" &&
+	[ "$(grep -c '^     FAIL' <<<"$VS_OUT")" -eq 1 ] &&
+	grep -qxF '   verification set: 1 failure(s)' <<<"$VS_OUT" &&
+	[ "$(vs_layout)" = "$VS_LAYOUT" ]; then
+	PASSED=$((PASSED + 1))
+else
+	FAILED=$((FAILED + 1))
+	printf '  FAIL verify.sh: one failing stage fails the set and is named — rc=%s\n%s\n' "$VS_RC" "$VS_OUT" >&2
+fi
+
+# The stages finish in reverse order, each waiting for the next one's end, and still print in
+# the fixed order, each header carrying its elapsed seconds. The log shows the reversal
+# happened: a run that never reversed anything has not tested the order.
+d=$(vs_tree vs_order)
+vs_run "$d" AMH_JOBS=5 VS_AWAIT_shellcheck=shipped VS_AWAIT_shipped=local VS_AWAIT_local=conformance \
+	VS_AWAIT_conformance=e2e
+if [ "$VS_RC" -eq 0 ] &&
+	[ "$(grep '^end ' "$d/log" | tr '\n' ' ')" = 'end e2e end conformance end local end shipped end shellcheck ' ] &&
+	! grep -q '^timeout ' "$d/log" &&
+	[ "$(vs_layout)" = "$VS_LAYOUT" ] &&
+	[ "$(grep -cE '^   · [a-z].* \([0-9]+ s\)$' <<<"$VS_OUT")" -eq 5 ] &&
+	grep -qxF '   verification set: clean' <<<"$VS_OUT"; then
+	PASSED=$((PASSED + 1))
+else
+	FAILED=$((FAILED + 1))
+	printf '  FAIL verify.sh: stages print in the fixed order whatever order they finish in — rc=%s\n%s\n%s\n' \
+		"$VS_RC" "$VS_OUT" "$(cat "$d/log")" >&2
+fi
+
+# AMH_JOBS=1 runs the stages one after another, in the fixed order; AMH_JOBS=2 runs two at once
+# and never three. The first stage of the pair waits for a second one to start.
+d=$(vs_tree vs_jobs)
+vs_run "$d" AMH_JOBS=1 VS_SLEEP_shellcheck=0.2 VS_SLEEP_shipped=0.2 VS_SLEEP_local=0.2 \
+	VS_SLEEP_conformance=0.2 VS_SLEEP_e2e=0.2
+serial_log=$(cat "$d/log")
+serial_out=$VS_OUT
+serial_rc=$VS_RC
+vs_run "$d" AMH_JOBS=2 VS_STARTS=2 VS_SLEEP_shellcheck=0.2 VS_SLEEP_shipped=0.2 VS_SLEEP_local=0.2 \
+	VS_SLEEP_conformance=0.2 VS_SLEEP_e2e=0.2
+if [ "$serial_rc" -eq 0 ] &&
+	[ "$serial_log" = "$(for key in $VS_KEYS; do printf 'start %s\nend %s\n' "$key" "$key"; done)" ] &&
+	[ "$VS_RC" -eq 0 ] && ! grep -q '^timeout ' "$d/log" && [ "$(vs_peak "$d/log")" -eq 2 ]; then
+	PASSED=$((PASSED + 1))
+else
+	FAILED=$((FAILED + 1))
+	printf '  FAIL verify.sh: AMH_JOBS=1 runs the stages one after another, AMH_JOBS=2 two at a time\n%s\n%s\n%s\n%s\n' \
+		"$serial_out" "$serial_log" "$VS_OUT" "$(cat "$d/log")" >&2
+fi
+
+# A stage whose runner dies before it reports — the stub kills the subshell that would record
+# its status — fails the set and is named, while the others still run and print.
+d=$(vs_tree vs_vanish)
+vs_run "$d" AMH_JOBS=5 VS_RC_conformance=vanish
+if [ "$VS_RC" -ne 0 ] &&
+	grep -qE '^     FAIL conformance/selftest\.sh never reported' <<<"$VS_OUT" &&
+	[ "$(grep -c '^     FAIL' <<<"$VS_OUT")" -eq 1 ] &&
+	grep -qxF '   verification set: 1 failure(s)' <<<"$VS_OUT" &&
+	[ "$(vs_layout)" = "$VS_LAYOUT" ]; then
+	PASSED=$((PASSED + 1))
+else
+	FAILED=$((FAILED + 1))
+	printf '  FAIL verify.sh: a stage that never reports fails the set and is named — rc=%s\n%s\n' "$VS_RC" "$VS_OUT" >&2
+fi
+
+# No scratch directory for the held output: the stages run serially, say so, and still all run,
+# and the serial path, which AMH_JOBS=1 takes too, still fails the set on a failing stage.
+d=$(vs_tree vs_no_scratch)
+vs_run "$d" AMH_JOBS=5 VS_RC_local=3 PATH="$(mktemp_fails_shim vs):$d/bin:$PATH"
+if [ "$VS_RC" -ne 0 ] &&
+	grep -qF 'no scratch directory' <<<"$VS_OUT" &&
+	grep -qxF '     FAIL scripts/tests/local-guards.sh exited with status 3' <<<"$VS_OUT" &&
+	[ "$(grep -c '^     FAIL' <<<"$VS_OUT")" -eq 1 ] &&
+	grep -qxF '   verification set: 1 failure(s)' <<<"$VS_OUT" &&
+	[ "$(cat "$d/log")" = "$(for key in $VS_KEYS; do printf 'start %s\nend %s\n' "$key" "$key"; done)" ] &&
+	[ "$(vs_layout)" = "$VS_LAYOUT" ]; then
+	PASSED=$((PASSED + 1))
+else
+	FAILED=$((FAILED + 1))
+	printf '  FAIL verify.sh: no scratch directory runs the stages serially, says so, and fails on a failing stage — rc=%s\n%s\n' "$VS_RC" "$VS_OUT" >&2
+fi
+
+# CI with no shellcheck on PATH fails the set, named, on the serial path and the concurrent one;
+# the other four stages still run. The PATH is built from bs_shim's links, so no real shellcheck
+# is on it wherever the host keeps one.
+d=$(vs_tree vs_ci_no_shellcheck)
+rm -f "$d/bin/shellcheck"
+bs_shim "$WORK/vs_no_shellcheck" bash sh env git sort sed getconf nproc mktemp rm rmdir cat sleep grep dirname
+vs_ci_fails=0
+for jobs in 1 5; do
+	vs_run "$d" AMH_JOBS=$jobs CI=1 PATH="$d/bin:$WORK/vs_no_shellcheck"
+	if [ "$VS_RC" -ne 0 ] &&
+		grep -qxF '     FAIL shellcheck is not installed in CI' <<<"$VS_OUT" &&
+		[ "$(grep -c '^     FAIL' <<<"$VS_OUT")" -eq 1 ] &&
+		[ "$(grep -c '^end ' "$d/log")" -eq 4 ]; then
+		:
+	else
+		vs_ci_fails=1
+		printf '  FAIL verify.sh: AMH_JOBS=%s, CI with no shellcheck fails the set and names it — rc=%s\n%s\n' \
+			"$jobs" "$VS_RC" "$VS_OUT" >&2
+	fi
+done
+if [ "$vs_ci_fails" -eq 0 ]; then
+	PASSED=$((PASSED + 1))
+else
+	FAILED=$((FAILED + 1))
+fi
 
 printf '\n%d passed, %d failed\n' "$PASSED" "$FAILED"
 [ "$FAILED" -eq 0 ]

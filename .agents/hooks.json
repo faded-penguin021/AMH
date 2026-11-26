@@ -1,0 +1,25 @@
+{
+  "amh-session-start": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "git -c alias.amh-start=!bash amh-start scripts/session-start.sh --json=inject-steps",
+        "timeout": 30
+      }
+    ]
+  },
+  "amh-command-guard": {
+    "PreToolUse": [
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git -c alias.amh-guard=!bash amh-guard scripts/command-guard.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

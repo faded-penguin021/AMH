@@ -582,6 +582,283 @@ else
 	report no "the incident command is denied through the Python reader" "rc=$rc" "$out"
 fi
 
+# --- command-guard.sh: the Gemini CLI's and Antigravity's payloads ------------
+# Each host is recognised from its own documented payload and answered in its own documented
+# shape. The Gemini CLI's `BeforeTool` takes Claude's answer — exit 2, the reason on stderr —
+# while Antigravity documents a required JSON `decision` on stdout and no exit code, so a denial
+# there is `deny` with a zero exit and an allowed call still says `allow`. A payload no shape
+# matches is answered with nothing at all, never in another host's shape.
+d=$(mk third_host_payloads)
+gemini_deny='{"session_id":"s","transcript_path":"/t","cwd":"/w","hook_event_name":"BeforeTool","timestamp":"2026-11-23T00:00:00Z","tool_name":"run_shell_command","tool_input":{"command":"cat .env"}}'
+antigravity_deny='{"conversationId":"c","workspacePaths":["/w"],"hookEventName":"PreToolUse","toolCall":{"id":"t1","name":"run_command","args":{"CommandLine":"cat .env","Cwd":"/w"}},"stepIdx":3}'
+# The `.env` rule answers a directory's first attempt with its one-time advisory and later ones
+# with a permanent denial, so the fixtures below match the heading both carry, not either text.
+ag_answer() { # ag_answer <stdout> [<substring>] -> "deny True" for one JSON deny line whose reason
+	# carries <substring>, `.env` by default. Parsed as JSON where a python3 runs, so an escaping
+	# defect cannot pass as a match; the glob below is the floor where none does.
+	local want=${2-.env}
+	if [ "$1" = "${1%%$'\n'*}" ] && python3 -I -c '' >/dev/null 2>&1; then
+		printf '%s' "$1" | python3 -I -c 'import json,sys
+d = json.load(sys.stdin)
+r = d.get("reason", "")
+print(d.get("decision"), sorted(d) == ["decision", "reason"] and r.startswith("BLOCKED by the AMH command guard.") and sys.argv[1] in r)' "$want" 2>/dev/null
+		return
+	fi
+	case $1 in
+	*$'\n'*) printf 'more than one line' ;;
+	'{"decision":"deny","reason":"BLOCKED by the AMH command guard.'*"$want"*'"}') printf 'deny True' ;;
+	*) printf 'not a deny' ;;
+	esac
+}
+out=$(cd "$d" && printf '%s' "$gemini_deny" | scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && grep -qF 'prefer presence-only checks' <<<"$out"; then
+	report ok "a forbidden Gemini CLI BeforeTool payload is blocked by exit 2 with the reason"
+else
+	report no "a forbidden Gemini CLI BeforeTool payload is blocked by exit 2 with the reason" "rc=$rc" "$out"
+fi
+out=$(cd "$d" && printf '%s' '{"hook_event_name":"BeforeTool","tool_name":"run_shell_command","tool_input":{"command":"printf hello"}}' |
+	scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
+	report ok "an allowed Gemini CLI payload passes silently"
+else
+	report no "an allowed Gemini CLI payload passes silently" "rc=$rc" "$out"
+fi
+out=$(cd "$d" && printf '%s' "$antigravity_deny" | scripts/command-guard.sh 2>/dev/null)
+rc=$?
+if [ "$rc" -eq 0 ] && [ "$(ag_answer "$out")" = "deny True" ]; then
+	report ok "a forbidden Antigravity PreToolUse payload is denied in JSON on stdout"
+else
+	report no "a forbidden Antigravity PreToolUse payload is denied in JSON on stdout" "rc=$rc" "$out"
+fi
+out=$(cd "$d" && printf '%s' '{"conversationId":"c","toolCall":{"name":"run_command","args":{"CommandLine":"printf hello","Cwd":"/w"}},"stepIdx":1}' |
+	scripts/command-guard.sh 2>/dev/null)
+rc=$?
+if [ "$rc" -eq 0 ] && [ "$out" = '{"decision":"allow"}' ]; then
+	report ok "an allowed Antigravity payload is answered allow, with or without hookEventName"
+else
+	report no "an allowed Antigravity payload is answered allow, with or without hookEventName" "rc=$rc" "$out"
+fi
+# Antigravity requires a `decision` in every answer, so a recognised payload with no command to
+# judge is still answered `allow`, never with nothing.
+out=$(cd "$d" && printf '%s' '{"hookEventName":"PreToolUse","toolCall":{"name":"run_command","args":{"CommandLine":"","Cwd":"/w"}}}' |
+	scripts/command-guard.sh 2>/dev/null)
+rc=$?
+out_fb=$(cd "$d" && printf '%s' '{"hookEventName":"PreToolUse","toolCall":{"name":"run_command","args":{"CommandLine":"","Cwd":"/w"}}}' |
+	env PATH="$fallback_path" scripts/command-guard.sh 2>/dev/null)
+rc_fb=$?
+out_null=$(cd "$d" && printf '%s' '{"hookEventName":"PreToolUse","toolCall":{"name":"run_command","args":null}}' |
+	scripts/command-guard.sh 2>/dev/null)
+if [ "$rc" -eq 0 ] && [ "$rc_fb" -eq 0 ] && [ "$out" = '{"decision":"allow"}' ] &&
+	[ "$out_fb" = '{"decision":"allow"}' ] && [ "$out_null" = '{"decision":"allow"}' ]; then
+	report ok "an Antigravity payload with an empty command is still answered allow, by both readers"
+else
+	report no "an Antigravity payload with an empty command is still answered allow, by both readers" "rc=$rc" "$out" "fallback rc=$rc_fb: $out_fb" "null args: $out_null"
+fi
+# A Claude or Codex denial is still stderr and exit 2 with NOTHING on stdout: a JSON answer
+# there would be a change to two hosts this unit must leave alone.
+out=$(cd "$d" && printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat .env"}}' |
+	scripts/command-guard.sh 2>/dev/null)
+rc=$?
+if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
+	report ok "a Claude or Codex denial prints nothing on stdout"
+else
+	report no "a Claude or Codex denial prints nothing on stdout" "rc=$rc" "$out"
+fi
+# Unrecognised: another event of each new host, and a tool of theirs that is not the shell.
+for unrecognised in \
+	'{"hook_event_name":"AfterTool","tool_name":"run_shell_command","tool_input":{"command":"cat .env"}}' \
+	'{"hookEventName":"PostToolUse","toolCall":{"name":"run_command","args":{"CommandLine":"cat .env"}}}' \
+	'{"hook_event_name":"BeforeTool","tool_name":"read_file","tool_input":{"command":"cat .env"}}' \
+	'{"hookEventName":"PreToolUse","toolCall":{"name":"view_file","args":{"CommandLine":"cat .env"}}}'; do
+	out=$(cd "$d" && printf '%s' "$unrecognised" | scripts/command-guard.sh 2>&1)
+	rc=$?
+	if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
+		report ok "an unrecognised payload is answered with nothing: ${unrecognised:0:60}"
+	else
+		report no "an unrecognised payload is answered with nothing: ${unrecognised:0:60}" "rc=$rc" "$out"
+	fi
+done
+# Both new shapes through the no-Python reader, decoded at their own keys.
+out=$(cd "$d" && printf '%s' "$gemini_deny" | env PATH="$fallback_path" scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && grep -qF 'BLOCKED by the AMH command guard.' <<<"$out"; then
+	report ok "a Gemini CLI payload is guarded without Python"
+else
+	report no "a Gemini CLI payload is guarded without Python" "rc=$rc" "$out"
+fi
+out=$(cd "$d" && printf '%s' "$antigravity_deny" | env PATH="$fallback_path" scripts/command-guard.sh 2>/dev/null)
+rc=$?
+if [ "$rc" -eq 0 ] && [ "$(ag_answer "$out")" = "deny True" ]; then
+	report ok "an Antigravity payload is guarded without Python"
+else
+	report no "an Antigravity payload is guarded without Python" "rc=$rc" "$out"
+fi
+out=$(cd "$d" && printf '%s' '{"hookEventName":"PostToolUse","toolCall":{"name":"run_command","args":{"CommandLine":"cat .env"}}}' |
+	env PATH="$fallback_path" scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
+	report ok "another Antigravity event is answered with nothing without Python"
+else
+	report no "another Antigravity event is answered with nothing without Python" "rc=$rc" "$out"
+fi
+# On Windows the Gemini CLI documents `run_shell_command` as PowerShell, so the PowerShell reader
+# judges it there and the bash reader everywhere else. `uname` is stubbed to say which.
+win_path="$d/windows-bin"
+mkdir -p "$win_path"
+printf '#!/bin/sh\necho MINGW64_NT-10.0\n' >"$win_path/uname"
+chmod +x "$win_path/uname"
+gemini_ps='{"hook_event_name":"BeforeTool","tool_name":"run_shell_command","tool_input":{"command":"Remove-Item -Recurse -Force C:\\"}}'
+out=$(cd "$d" && printf '%s' "$gemini_ps" | env PATH="$win_path:$PATH" scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && grep -qF 'the root of a Windows drive' <<<"$out"; then
+	report ok "a Gemini CLI payload on Windows is read by the PowerShell reader"
+else
+	report no "a Gemini CLI payload on Windows is read by the PowerShell reader" "rc=$rc" "$out"
+fi
+# And everywhere else the bash reader, whose rails the PowerShell one does not run on a bare `rm`:
+# the filesystem root is denied under a Linux `uname`, which a PowerShell reading would pass.
+linux_path="$d/linux-bin"
+mkdir -p "$linux_path"
+printf '#!/bin/sh\necho Linux\n' >"$linux_path/uname"
+chmod +x "$linux_path/uname"
+out=$(cd "$d" && printf '%s' '{"hook_event_name":"BeforeTool","tool_name":"run_shell_command","tool_input":{"command":"rm -rf /"}}' |
+	env PATH="$linux_path:$PATH" scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && grep -qF 'the filesystem root' <<<"$out"; then
+	report ok "a Gemini CLI payload off Windows is read by the bash reader"
+else
+	report no "a Gemini CLI payload off Windows is read by the bash reader" "rc=$rc" "$out"
+fi
+out=$(cd "$d" && printf '%s' '{"hook_event_name":"BeforeTool","tool_name":"run_shell_command","tool_input":{"command":"Write-Output '"'"'it'"''"'s fine'"'"'; Get-ChildItem"}}' |
+	env PATH="$win_path:$PATH" scripts/command-guard.sh 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ]; then
+	report ok "an ordinary PowerShell command from the Gemini CLI on Windows passes"
+else
+	report no "an ordinary PowerShell command from the Gemini CLI on Windows passes" "rc=$rc" "$out"
+fi
+# Antigravity's `run_command` takes the same platform route: on the App on Windows it ran
+# PowerShell (AMH ledger row DD122), so the PowerShell reader judges it there, by both readers,
+# and the answer is still Antigravity's JSON. Under the bash reader this `Remove-Item` passes.
+ag_ps='{"hookEventName":"PreToolUse","toolCall":{"name":"run_command","args":{"CommandLine":"Remove-Item -Recurse -Force C:\\","Cwd":"/w"}}}'
+out=$(cd "$d" && printf '%s' "$ag_ps" | env PATH="$win_path:$PATH" scripts/command-guard.sh 2>/dev/null)
+rc=$?
+out_fb=$(cd "$d" && printf '%s' "$ag_ps" | env PATH="$win_path:$fallback_path" scripts/command-guard.sh 2>/dev/null)
+rc_fb=$?
+if [ "$rc" -eq 0 ] && [ "$(ag_answer "$out" 'the root of a Windows drive')" = "deny True" ] &&
+	[ "$rc_fb" -eq 0 ] && [ "$(ag_answer "$out_fb" 'the root of a Windows drive')" = "deny True" ]; then
+	report ok "an Antigravity payload on Windows is read by the PowerShell reader, by both readers"
+else
+	report no "an Antigravity payload on Windows is read by the PowerShell reader, by both readers" "rc=$rc" "$out" "fallback rc=$rc_fb: $out_fb"
+fi
+out=$(cd "$d" && printf '%s' '{"hookEventName":"PreToolUse","toolCall":{"name":"run_command","args":{"CommandLine":"rm -rf /","Cwd":"/w"}}}' |
+	env PATH="$linux_path:$PATH" scripts/command-guard.sh 2>/dev/null)
+rc=$?
+if [ "$rc" -eq 0 ] && [ "$(ag_answer "$out" 'the filesystem root')" = "deny True" ]; then
+	report ok "an Antigravity payload off Windows is read by the bash reader"
+else
+	report no "an Antigravity payload off Windows is read by the bash reader" "rc=$rc" "$out"
+fi
+# CPython on Windows writes its text stdout with `\r\n` line ends, so the parser's host and tool
+# lines reached `run_hook` as `antigravity\r` and `PowerShell\r`: no host matched, an
+# Antigravity denial came out in Claude's shape, and a Claude PowerShell payload went to the bash
+# reader, which let `Remove-Item -Recurse -Force C:\` through (AMH ledger row DD124). This
+# python3 is the real one with its stdout rewrapped that way, as Windows does it.
+real_py=$(command -v python3 2>/dev/null)
+if [ -z "$real_py" ] || ! python3 -I -c '' >/dev/null 2>&1; then
+	report skip "the payload parser under a CRLF stdout (needs a python3 that runs)"
+else
+	crlf_path="$d/crlf-python-bin"
+	crlf_log="$d/crlf-python.log"
+	mkdir -p "$crlf_path"
+	# Not `exec`: a parser that crashed would fall back to the bash reader and pass this
+	# vacuously, so the stub logs the real python's exit status, one line per run.
+	{
+		printf '#!/bin/sh\n'
+		# shellcheck disable=SC2016
+		printf '[ "$1" = -I ] && [ "$2" = -c ] || exit 97\n'
+		# shellcheck disable=SC2016
+		printf '%s -I -c '"'"'import io,sys\nsys.stdout = io.TextIOWrapper(sys.stdout.buffer, newline="\\r\\n")\nexec(compile(sys.argv.pop(1), "<parser>", "exec"))'"'"' "$3"\n' "'$real_py'"
+		# shellcheck disable=SC2016
+		printf 'rc=$?\necho "$rc" >>%s\nexit "$rc"\n' "'$crlf_log'"
+	} >"$crlf_path/python3"
+	chmod +x "$crlf_path/python3"
+	probe=$(printf 'a\n' | "$crlf_path/python3" -I -c 'import sys; print(sys.stdin.read().strip())' | od -c | tr -s ' ')
+	: >"$crlf_log"
+	out_ag=$(cd "$d" && printf '%s' "$ag_ps" | env PATH="$crlf_path:$win_path:$PATH" scripts/command-guard.sh 2>/dev/null)
+	rc_ag=$?
+	out_ok=$(cd "$d" && printf '%s' '{"hookEventName":"PreToolUse","toolCall":{"name":"run_command","args":{"CommandLine":"printf hello","Cwd":"/w"}}}' |
+		env PATH="$crlf_path:$PATH" scripts/command-guard.sh 2>/dev/null)
+	out_cl=$(cd "$d" && printf '%s' '{"tool_name":"PowerShell","tool_input":{"command":"Remove-Item -Recurse -Force C:\\"}}' |
+		env PATH="$crlf_path:$PATH" scripts/command-guard.sh 2>&1)
+	rc_cl=$?
+	crlf_runs=$(cat "$crlf_log" 2>/dev/null)
+	if ! grep -qF 'a \r \n' <<<"$probe"; then
+		report no "the payload parser under a CRLF stdout" "the stub did not write CRLF: $probe"
+	elif [ "$crlf_runs" != $'0\n0\n0' ]; then
+		report no "the payload parser under a CRLF stdout" "the python3 reader did not run and exit 0 three times; its exit log:" "$crlf_runs"
+	elif [ "$rc_ag" -eq 0 ] && [ "$(ag_answer "$out_ag" 'the root of a Windows drive')" = "deny True" ] && [ "$out_ok" = '{"decision":"allow"}' ] &&
+		[ "$rc_cl" -eq 2 ] && grep -qF 'the root of a Windows drive' <<<"$out_cl"; then
+		report ok "the payload parser under a CRLF stdout still names the host and the tool"
+	else
+		report no "the payload parser under a CRLF stdout still names the host and the tool" "antigravity rc=$rc_ag: $out_ag" "allow: $out_ok" "claude PowerShell rc=$rc_cl: $out_cl"
+	fi
+fi
+
+# --- session-start.sh: the JSON envelopes for a host whose session hook answers JSON
+# Each is the bare banner, whole, as one JSON string in its documented field: decoded, it must
+# equal a bare run's stdout byte for byte, and a bare run must stay plain text.
+d=$(mk ss_json_envelopes)
+(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh >/dev/null 2>&1) # first run installs the pre-push rail
+plain=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh 2>/dev/null)
+if ! python3 -I -c '' >/dev/null 2>&1; then
+	report skip "session-start --json shapes (decoding them needs a python3 that runs; the script itself does not)"
+else for shape in additional-context inject-steps; do
+	# stdin closed here, because the JSON shapes drain it to EOF: a suite run from a tool that
+	# keeps an open pipe on stdin, as Antigravity's run_command does, hung here until it timed
+	# out. The piped-payload case below poses the drain on purpose.
+	out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh --json="$shape" </dev/null 2>/dev/null)
+	decoded=$(printf '%s' "$out" | python3 -I -c 'import json,sys
+d = json.load(sys.stdin)
+if sys.argv[1] == "additional-context":
+    t = d["hookSpecificOutput"]["additionalContext"]
+else:
+    t = d["injectSteps"][0]["systemMessage"]["systemMessage"]
+sys.stdout.write(t)' "$shape" 2>&1)
+	if [ -n "$plain" ] && [ "$decoded" = "$plain" ] && [ "$(printf '%s\n' "$out" | wc -l)" -eq 1 ]; then
+		report ok "session-start --json=$shape carries the whole banner as one JSON string"
+	else
+		report no "session-start --json=$shape carries the whole banner as one JSON string" "$out" "decoded: $decoded"
+	fi
+done; fi
+case $plain in
+'{'*) report no "a bare session-start run stays plain text" "$plain" ;;
+*) report ok "a bare session-start run stays plain text" ;;
+esac
+# A host may pipe its session payload in. Past the pipe buffer, a writer whose reader never
+# reads is killed by SIGPIPE when the reader exits; the JSON shapes drain stdin so it is not.
+big_stdin=$(mk ss_json_stdin)
+(cd "$big_stdin" && env -u AMH_REMOTE bash scripts/session-start.sh >/dev/null 2>&1)
+(cd "$big_stdin" && head -c 300000 /dev/zero | tr '\0' x | env -u AMH_REMOTE bash scripts/session-start.sh --json=inject-steps >/dev/null 2>&1
+	printf '%s' "${PIPESTATUS[*]}" >"$WORK/ss_json_stdin.status")
+if [ "$(cat "$WORK/ss_json_stdin.status")" = "0 0 0" ]; then
+	report ok "session-start --json drains a piped payload"
+else
+	report no "session-start --json drains a piped payload" "pipeline status: $(cat "$WORK/ss_json_stdin.status")"
+fi
+# An argument the script does not know is announced and the bare run still happens: a session
+# must not lose its bootstrap to a typo in an adapter.
+out=$(cd "$d" && env -u AMH_REMOTE bash scripts/session-start.sh --json=additional-contxt 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ] && grep -qF 'unknown argument --json=additional-contxt' <<<"$out" &&
+	grep -qF '· protocol:' <<<"$out"; then
+	report ok "an unknown session-start argument is announced and the banner still runs"
+else
+	report no "an unknown session-start argument is announced and the banner still runs" "rc=$rc" "$out"
+fi
+
 # --- command-guard.sh: machine mode (`--machine`) -----------------------------
 # The user-level install: the guard copied OUTSIDE any repository, to the path the Claude machine
 # template names, beside an `amh.conf` machine mode must never read — sourcing it prints a marker.
@@ -2898,6 +3175,157 @@ d=$(mk_unmodified rail_missing)
 rm -f "$d/scripts/command-guard.sh"
 expect_runner_saying "a missing rail script loudly says that nothing self-tested it" run_rails "$d" 0 \
 	"   skip  scripts/command-guard.sh is not a readable file — nothing self-tested it"
+
+# --- command-guard.sh: the self-test split across AMH_JOBS workers (AMH ledger row DD126)
+# Concurrency may change when a case runs, never which cases run or what they say. Three of these
+# run a copy whose `self_test` is a six-case stub put before the dispatcher, so each costs about
+# a second; the verdict comparison runs the real matrix twice, serially and in three workers.
+# The stub's first line says how many workers ran it: once with `ST_JOBS=1` is a serial run.
+st_stub() { # st_stub <name> -> prints the path of a guard copy whose matrix is six cases
+	local f="$WORK/$1.command-guard.sh"
+	cp "$ROOT/scripts/command-guard.sh" "$f"
+	# shellcheck disable=SC2016 # sed program text for the copy: nothing here is for this shell.
+	sed_in_place '/^case "\${1:-}" in$/i\
+self_test() {\
+printf "stub matrix run with ST_JOBS=%s\\n" "$ST_JOBS"\
+st_allowed "ls"\
+st_allowed "pwd"\
+st_blocked "printenv"\
+st_allowed "git status"\
+st_blocked "env"\
+st_allowed "date"\
+st_verdict\
+}' "$f"
+	printf '%s' "$f"
+}
+
+# A worker that leaves a case unjudged: worker 1 of 3 skips case 5, as a broken share would.
+f=$(st_stub st_split_dropped)
+# shellcheck disable=SC2016 # sed program text for the copy: nothing here is for this shell.
+sed_in_place '/^[[:space:]]*ST_JUDGED=\$((ST_JUDGED + 1))$/i\
+[ "$ST_IDX" -ne 5 ] || return 1' "$f"
+out=$(AMH_JOBS=3 bash "$f" --self-test 2>&1)
+rc=$?
+if [ "$rc" -ne 0 ] &&
+	grep -qF 'coverage check FAILED across 3 workers: the workers judged 5 of 6 cases' <<<"$out" &&
+	! grep -qF 'self-test: ok' <<<"$out"; then
+	report ok "a split self-test fails, naming the shortfall, when a worker judges fewer cases than its share"
+else
+	report no "a split self-test fails, naming the shortfall, when a worker judges fewer cases than its share" "rc=$rc" "$out"
+fi
+
+# A failing case in the LAST worker (case 6 of 6 falls to worker 2 of 3) fails the run, and the
+# failure is named in the replayed output and counted once.
+f=$(st_stub st_split_failing)
+sed_in_place 's/^st_allowed "date"$/st_allowed "printenv"/' "$f"
+out=$(AMH_JOBS=3 bash "$f" --self-test 2>&1)
+rc=$?
+if [ "$rc" -eq 1 ] &&
+	grep -qxF 'SELF-TEST FAIL: should have been ALLOWED: printenv' <<<"$out" &&
+	grep -qxF 'command-guard.sh self-test: 1 failure(s)' <<<"$out" &&
+	! grep -qF 'self-test: ok' <<<"$out"; then
+	report ok "a failing case in any worker fails a split self-test and is named"
+else
+	report no "a failing case in any worker fails a split self-test and is named" "rc=$rc" "$out"
+fi
+
+# The real matrix, serially and in three workers, verdict for verdict. The ~1,500 cases log about
+# 2,000 verdicts, so a log far shorter than that is a wrapper that stopped logging, not a match.
+vlog_serial="$WORK/st_split_verdicts.serial"
+vlog_split="$WORK/st_split_verdicts.split"
+out=$(AMH_JOBS=1 AMH_SELF_TEST_VERDICT_LOG="$vlog_serial" bash "$ROOT/scripts/command-guard.sh" --self-test 2>&1)
+rc=$?
+out3=$(AMH_JOBS=3 AMH_SELF_TEST_VERDICT_LOG="$vlog_split" bash "$ROOT/scripts/command-guard.sh" --self-test 2>&1)
+rc3=$?
+vlines=$(wc -l <"$vlog_serial" 2>/dev/null | tr -d ' ')
+if [ "$rc" -eq 0 ] && [ "$rc3" -eq 0 ] && [ "${vlines:-0}" -ge 1000 ] && cmp -s "$vlog_serial" "$vlog_split"; then
+	report ok "a serial self-test and one split three ways return the same verdicts, case by case"
+else
+	report no "a serial self-test and one split three ways return the same verdicts, case by case" \
+		"serial rc=$rc, split rc=$rc3, serial log ${vlines:-no} line(s)" "$out" "$out3" \
+		"$(diff "$vlog_serial" "$vlog_split" 2>&1 | head -6 | cut -c1-200)"
+fi
+
+# An AMH_JOBS that is not a positive integer runs the cases serially and says so, never fewer.
+f=$(st_stub st_split_unusable)
+bad_jobs=''
+for jobs in abc 0; do
+	out=$(AMH_JOBS=$jobs bash "$f" --self-test 2>&1)
+	rc=$?
+	if [ "$rc" -ne 0 ] ||
+		! grep -qxF "command-guard.sh self-test: AMH_JOBS='$jobs' is not a positive integer; running the cases serially" <<<"$out" ||
+		[ "$(grep -c '^stub matrix run with ' <<<"$out")" != 1 ] ||
+		! grep -qxF 'stub matrix run with ST_JOBS=1' <<<"$out" ||
+		! grep -qxF 'command-guard.sh self-test: ok' <<<"$out"; then
+		bad_jobs="$bad_jobs AMH_JOBS=$jobs: rc=$rc"$'\n'"$out"
+	fi
+done
+if [ -z "$bad_jobs" ]; then
+	report ok "an unusable AMH_JOBS runs the self-test serially and says so"
+else
+	report no "an unusable AMH_JOBS runs the self-test serially and says so" "$bad_jobs"
+fi
+
+# AMH_JOBS=1 is the serial path itself: one pass through the matrix with ST_JOBS=1, and no note.
+f=$(st_stub st_split_serial)
+out=$(AMH_JOBS=1 bash "$f" --self-test 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ] && [ "$out" = "stub matrix run with ST_JOBS=1"$'\n'"command-guard.sh self-test: ok" ]; then
+	report ok "AMH_JOBS=1 runs the self-test once, serially, with no note"
+else
+	report no "AMH_JOBS=1 runs the self-test once, serially, with no note" "rc=$rc" "$out"
+fi
+
+# Each coverage check on its own: a stub split three ways that only the named check can catch.
+st_split_fails_naming() { # <fixture name> <guard copy> <what the coverage failure must name>
+	local out rc
+	out=$(AMH_JOBS=3 bash "$2" --self-test 2>&1)
+	rc=$?
+	if [ "$rc" -ne 0 ] &&
+		grep -qF "coverage check FAILED across 3 workers: $3" <<<"$out" &&
+		! grep -qF 'self-test: ok' <<<"$out"; then
+		report ok "$1"
+	else
+		report no "$1" "rc=$rc" "$out"
+	fi
+}
+# No case counted: every gate lets every case through uncounted, so the totals, the judged counts
+# and the case-number sums are all 0 and agree with each other.
+f=$(st_stub st_split_uncounted)
+sed_in_place 's/= self_test ] || return 0$/= no_such_caller ] || return 0/' "$f"
+st_split_fails_naming "a split self-test in which no case was counted fails, named" "$f" \
+	"worker 0 counted no cases"
+# Worker 1 alone sees a seventh case, which falls to worker 0: the judged counts and case numbers
+# still add up to the six the others saw.
+f=$(st_stub st_split_totals)
+# shellcheck disable=SC2016 # sed program text for the copy: nothing here is for this shell.
+sed_in_place '/^st_verdict$/i\
+[ "$ST_WORKER" -ne 1 ] || st_allowed "true"' "$f"
+st_split_fails_naming "a split self-test fails, named, when the workers saw different totals" "$f" \
+	"worker 1 saw 7 cases where an earlier worker saw 6"
+# Worker 1 judges case 4, which is worker 0's, instead of its own case 5: six cases judged of six.
+f=$(st_stub st_split_twice)
+# shellcheck disable=SC2016 # sed program text for the copy: nothing here is for this shell.
+sed_in_place '/% ST_JOBS )) -eq "\$ST_WORKER"/i\
+[ "$ST_WORKER:$ST_IDX" != 1:5 ] || return 1\
+if [ "$ST_WORKER:$ST_IDX" = 1:4 ]; then ST_JUDGED=$((ST_JUDGED + 1)); ST_IDXSUM=$((ST_IDXSUM + ST_IDX)); return 0; fi' "$f"
+st_split_fails_naming "a split self-test fails, named, when one case is judged twice and another never" "$f" \
+	"the workers judged 6 cases, but not each case exactly once"
+
+# A worker that exits 0 without reporting fails the run in the guard's own words, not the shell's.
+f=$(st_stub st_split_unreported)
+# shellcheck disable=SC2016 # sed program text for the copy: nothing here is for this shell.
+sed_in_place 's/^st_verdict$/[ "$ST_WORKER" -eq 1 ] || st_verdict/' "$f"
+out=$(AMH_JOBS=3 bash "$f" --self-test 2>&1)
+rc=$?
+if [ "$rc" -ne 0 ] &&
+	grep -qxF 'command-guard.sh self-test: coverage check FAILED across 3 workers: worker 1 reported no counts' <<<"$out" &&
+	! grep -qF 'report.1' <<<"$out" &&
+	! grep -qF 'self-test: ok' <<<"$out"; then
+	report ok "a split self-test fails, named, when a worker reports no counts, and leaks no shell error"
+else
+	report no "a split self-test fails, named, when a worker reports no counts, and leaks no shell error" "rc=$rc" "$out"
+fi
 
 # --- shipped-script integrity
 # The manifest is the only thing in an adopter's tree that can tell an upgraded script from

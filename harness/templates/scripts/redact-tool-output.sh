@@ -2,10 +2,10 @@
 # AMH — post-execution tool-output redaction (P17), for agents that can replace or suppress
 # a tool result before the context window sees it.
 #
-# Reads one Claude Code or Codex PostToolUse hook payload (JSON) on stdin. Walks the STRING
-# leaves of the payload's `tool_response`, runs each through `redact.sh` beside this script,
-# and — only if a leaf actually gained a `[REDACTED:` marker — prints a host-specific hook
-# response that keeps the original result from the agent's context:
+# Reads one Claude Code or Codex PostToolUse, or Gemini CLI AfterTool, hook payload (JSON) on
+# stdin. Walks the STRING leaves of the payload's `tool_response`, runs each through `redact.sh`
+# beside this script, and — only if a leaf actually gained a `[REDACTED:` marker — prints a
+# host-specific hook response that keeps the original result from the agent's context:
 #
 # Claude Code can replace a result in place:
 #   {"hookSpecificOutput":{"hookEventName":"PostToolUse","updatedToolOutput": <same shape>}}
@@ -13,6 +13,16 @@
 # safe direction is to block delivery of the original and return the filtered result as the
 # hook's model-facing reason:
 #   {"decision":"block","reason":"<filtered result>"}
+# The Gemini CLI documents an AfterTool `decision` of `deny` as hiding the real result from the
+# agent, and its `reason` as the text that replaces the result sent to the model:
+#   {"decision":"deny","reason":"<filtered llmContent>"}
+#
+# The host is recognised from the payload, explicitly: `hook_event_name` `AfterTool` is the
+# Gemini CLI; `PostToolUse` with a `turn_id` is Codex; `PostToolUse` without one is Claude
+# Code. Any other payload — another host's, whose answer this script does not know — stands
+# down like every uncertain path below: nothing printed, the original result delivered
+# (AMH ledger row DD113). Antigravity's PostToolUse carries no tool output and answers `{}`, so
+# there is nothing here for it to call.
 #
 # Usage:
 #   redact-tool-output.sh              hook mode: payload on stdin, response on stdout
@@ -27,9 +37,10 @@
 # 1. The value was already produced. The command ran, the file was read, and the bytes exist
 #    in the tool's own execution, in the session transcript on disk, and in whatever
 #    telemetry the host keeps. This layer changes what the MODEL reads, nothing else.
-# 2. Both host contracts fail OPEN on hook failure. Claude also uses the ORIGINAL output when
+# 2. Every host contract fails OPEN on hook failure. Claude also uses the ORIGINAL output when
 #    a replacement misses the tool's response schema; Codex uses it when no blocking response
-#    is produced or honored. Every uncertain path here therefore prints nothing and exits 0,
+#    is produced or honored; the Gemini CLI documents that any exit but 0 or 2 lets the call
+#    proceed unchanged. Every uncertain path here therefore prints nothing and exits 0,
 #    which lands in exactly the same place: the unmodified result.
 # 3. It sees successful tool calls only, per the host's PostToolUse contract. The
 #    credential printed by a command that FAILED is the common leak and may never reach
@@ -162,7 +173,13 @@ except Exception:
     stand_down()
 if not isinstance(payload, dict):
     stand_down()
-if payload.get("hook_event_name") != "PostToolUse":
+# The host, decided here and only here; see the header for why an unrecognised one stands down.
+event = payload.get("hook_event_name")
+if event == "AfterTool":
+    host = "gemini"
+elif event == "PostToolUse":
+    host = "codex" if "turn_id" in payload else "claude"
+else:
     stand_down()
 if "tool_response" not in payload:
     stand_down()
@@ -298,13 +315,30 @@ if leftover != "!":
     stand_down("leaf accounting disagreed with the response shape")
 
 notice = "AMH redacted one or more known credential shapes from this tool result before it reached the context. The unredacted value still exists where the tool produced it."
-# Codex's payload carries a turn_id; Claude Code's does not. Codex PostToolUse supports
-# blocking and model feedback but not arbitrary result replacement. Returning Claude's
-# updatedToolOutput there is rejected as unsupported and FAILS OPEN, exposing the original.
-# Blocking makes the completed tool look failed to the model, so this path is deliberately
-# used only after a known shape was actually redacted. A string result remains text; a
-# structured result becomes JSON text because Codex's reason field is necessarily a string.
-if "turn_id" in payload:
+if host == "gemini":
+    # The Gemini CLI's `reason` REPLACES the tool result sent to the model, so it carries the
+    # field the model reads, `llmContent`, filtered: as text when it is text, as JSON otherwise.
+    # A response with no `llmContent` is sent whole the same way — text if it is a string, JSON
+    # if not — rather than guessed at.
+    if isinstance(updated, dict) and "llmContent" in updated:
+        content = updated["llmContent"]
+    else:
+        content = updated
+    if isinstance(content, str):
+        filtered = content
+    else:
+        try:
+            filtered = json.dumps(content)
+        except Exception:
+            stand_down()
+    body = {"decision": "deny", "reason": notice + "\n\n" + filtered}
+elif host == "codex":
+    # Codex's payload carries a turn_id; Claude Code's does not. Codex PostToolUse supports
+    # blocking and model feedback but not arbitrary result replacement. Returning Claude's
+    # updatedToolOutput there is rejected as unsupported and FAILS OPEN, exposing the original.
+    # Blocking makes the completed tool look failed to the model, so this path is deliberately
+    # used only after a known shape was actually redacted. A string result remains text; a
+    # structured result becomes JSON text because Codex's reason field is necessarily a string.
     if isinstance(updated, str):
         filtered = updated
     else:
@@ -387,6 +421,10 @@ st_payload() { # <tool_response JSON>
 
 st_codex_payload() { # <tool_response JSON>
 	printf '{"hook_event_name":"PostToolUse","turn_id":"turn-test","tool_name":"Bash","tool_input":{},"tool_response":%s}' "$1"
+}
+
+st_gemini_payload() { # <tool_response JSON>
+	printf '{"session_id":"s","transcript_path":"/t","cwd":"/w","hook_event_name":"AfterTool","timestamp":"2026-11-23T00:00:00Z","tool_name":"run_shell_command","tool_input":{"command":"x"},"tool_response":%s}' "$1"
 }
 
 st_run() { # <payload> -> stdout of the hook
@@ -503,6 +541,36 @@ self_test() {
 	fi
 	st_silent 'Codex does not block an unchanged result' \
 		"$(st_codex_payload '"all tests passed"')"
+
+	# The Gemini CLI's AfterTool: `deny` hides the real result, and `reason` is the text the
+	# model gets instead, so it must carry the filtered `llmContent` — as text, not as JSON —
+	# and never the token, nor either of the other hosts' shapes.
+	tok="AKIA$(rand_upper 16)"
+	out=$(st_run "$(st_gemini_payload "$(printf '{"llmContent":"token %s here\\nline two","returnDisplay":"token %s here"}' "$tok" "$tok")")")
+	shape=$(st_jq "$out" '[d.get("decision"), "hookSpecificOutput" in d, d.get("reason", "").endswith("token [REDACTED:aws_access_key_id] here\nline two")]')
+	if [ "$shape" = "['deny', False, True]" ] && ! printf '%s' "$out" | grep -qF "$tok"; then
+		st_pass 'the Gemini CLI denies the original and returns the filtered llmContent'
+	else
+		st_fail 'the Gemini CLI denies the original and returns the filtered llmContent' "got: ${out:0:200}"
+	fi
+	tok="AKIA$(rand_upper 16)"
+	out=$(st_run "$(st_gemini_payload "$(printf '{"llmContent":[{"text":"token %s"}],"returnDisplay":""}' "$tok")")")
+	shape=$(st_jq "$out" '[d.get("decision"), json.loads(d["reason"].split("\n\n", 1)[1])[0]["text"]]')
+	if [ "$shape" = "['deny', 'token [REDACTED:aws_access_key_id]']" ]; then
+		st_pass 'a structured Gemini CLI llmContent is returned as filtered JSON'
+	else
+		st_fail 'a structured Gemini CLI llmContent is returned as filtered JSON' "got: ${out:0:200}"
+	fi
+	st_silent 'the Gemini CLI does not deny an unchanged result' \
+		"$(st_gemini_payload '{"llmContent":"all tests passed","returnDisplay":"all tests passed"}')"
+	# A host this script does not recognise is not answered in anyone's shape. Antigravity's
+	# PostToolUse is the real case: camelCase, no tool output, and a credential-shaped string
+	# in it must still draw no answer.
+	tok="AKIA$(rand_upper 16)"
+	st_silent 'says nothing to an unrecognised host, even with a known shape in it' \
+		"$(printf '{"conversationId":"c","hookEventName":"PostToolUse","toolCall":{"name":"run_command","args":{"CommandLine":"echo %s"}},"stepIdx":1,"tool_response":"token %s"}' "$tok" "$tok")"
+	st_silent 'says nothing to a payload with no hook_event_name, even with a known shape in it' \
+		"$(printf '{"tool_name":"Bash","tool_input":{},"tool_response":"token %s"}' "$tok")"
 
 	# 4. A real JSON null must not consume a filtered leaf. This is the placeholder
 	#    collision the rebuild walks the ORIGINAL to avoid; without that, every leaf after

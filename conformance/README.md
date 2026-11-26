@@ -153,7 +153,10 @@ evidence of reduced context cost, and not a measure of reading stamina.
   commit a32a1bb, and does so again whenever the patch is re-derived. One hunk is not H2's and
   was added after that comparison (DD-085): a fixture in `scripts/tests/local-guards.sh` that H3
   wrote later borrows H2's section heading, so the patch re-aims it at another runbook section,
-  and the pre-H2 arm's fixture suite would be red without it.
+  and the pre-H2 arm's fixture suite would be red without it. A second line is not H2's
+  either (DD-116): A4 of the adapter plan added two host entries to H2's runbook section, which
+  were never in `AGENTS.md`, so the patch deletes H2's own lines only and gives those entries a
+  heading of their own, `## Gemini CLI and Antigravity adapters`, in the pre-H2 arm.
 
 **The claim this can carry, and no more.** Behavioural results come only from owner-launched
 paired runs: both arms, the same model, settings and containment, recorded beside each verdict,

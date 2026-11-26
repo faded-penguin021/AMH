@@ -308,7 +308,10 @@ modes above skip it too (**DD-063**).
 PowerShell tool, the command rail exists only if the adapter's matcher names that tool and the
 hook's own shell (bash) is present; the Claude adapter's matcher does, and PowerShell text then
 goes to the guard's PowerShell reader, a shorter list than the bash one, whose misses the guard's
-header names (**DD-039**). The Claude adapter anchors every hook at the project root and, on
+header names (**DD-039**). Before 17.1.0 that held on Windows only where no native `python3`
+ran: CPython's `\r\n` line ends made the guard's parser name the tool `PowerShell\r`, which went
+to the bash reader, and `Remove-Item -Recurse -Force C:\` passed (**DD-124**).
+The Claude adapter anchors every hook at the project root and, on
 Claude Code 2.1.295 or later (an older build fails open as before), sets both PreToolUse hooks to
 refuse the call when the hook itself fails, so a guard that crashes, times out or cannot start
 blocks the call instead of letting it run (**DD-040**). On Windows that makes Git for Windows a
@@ -323,6 +326,139 @@ armed only on an unknown target are silent on a literal path, except behind `xar
 operands of its own. An INLINE interpreter deletion (`python3 -c` naming `rmtree`, `unlink` and
 the rest of that list) buys one advisory a rerun clears, on the evidence of a word in a command
 line and never a reading of the program (**DD-019**).
+
+**The Gemini CLI adapter**, written against the Gemini CLI v0.70.0 documentation as retrieved on
+2026-11-23. Nothing in it has been observed firing (**DD-111**, **DD-112**).
+Its settings file carries no comment, so the adapter's host-rails skill carries a summary of it.
+
+- *Rails it has*, all in `.gemini/settings.json`. A `BeforeTool` hook on `run_shell_command` runs
+  the command guard, which refuses by exit 2, reading the command as PowerShell only under a
+  Windows `uname`. An `AfterTool` hook on every tool runs `scripts/redact-tool-output.sh`, which,
+  when it redacted a leaf, answers `deny` with the filtered text: the host documents that answer
+  as replacing the result the model reads. A `SessionStart` hook runs the bootstrap, which
+  installs the `pre-push` rail and resets the guard's advisory state. The `pre-push` rail is
+  invoked by git, not by the host, so once installed it holds when every hook here is off, and
+  `git push --no-verify` bypasses it; a fresh clone opened in an untrusted folder has none until
+  `scripts/session-start.sh` has run.
+- *What it lacks, and what then binds only as prose.* No file deny rules: the host's workspace
+  policy tier is documented as non-functional and `tools.exclude` as deprecated, so a
+  `write_file` or `replace` on `.git/hooks/**` and a `read_file` or `read_many_files` of a secret
+  file are stopped by nothing but the written rules. The command guard judges `run_shell_command`
+  alone, and the redactor scrubbing the shapes it knows out of a read's result is not a refusal
+  to read. The redactor has the Claude adapter's bounds: the value was already produced, only
+  what the model reads changes, it catches the shapes `scripts/redact.sh` enumerates, and it
+  stands down where no Python 3 runs. The host's hook contract is fail-open, and nothing
+  like Claude Code's `onFailure` is documented: a hook that exits with anything but 0 or 2 lets
+  the call run unchanged, so a guard that crashes, or whose `bash` is missing on Windows, judges
+  nothing and refuses nothing. No sandbox: the host's is off by default and the adapter turns
+  none on. The spawn speed bump is not wired.
+- *What skips it.* In an untrusted folder the host ignores `.gemini/settings.json` whole, and
+  with it every hook and the `context.fileName` setting that loads `AGENTS.md`. Such a session
+  has no command rail, no redaction, no bootstrap and no constitution unless it is told to read
+  `AGENTS.md`. `--skip-trust` or `GEMINI_CLI_TRUST_WORKSPACE=true` trusts the folder for one
+  session. `hooksConfig.enabled: false`, which the shipped file leaves unset so that a user or
+  system settings file can set it, or `/hooks disable-all`, turns every hook off. A new or changed project hook is warned about before it runs.
+  `--approval-mode=yolo` approves every call.
+- *Procedure, not rails.* Four skills under `.gemini/skills/`, each naming one binding section,
+  whose body loads only when the model activates it and the user consents, and the read-only
+  reviewer `.gemini/agents/amh-rule-reviewer.md`, whose tool list holds no shell and no write
+  tool. They help a session find the binding documents and enforce nothing.
+- *Unverified* (**DD-112**): whether folder trust is on by default (the vendor's two pages
+  disagree); what a timed-out hook does to the call; a hook's working directory and, on Windows,
+  its shell; whether `$GEMINI_PROJECT_DIR` is expanded at load or by the shell; whether hooks
+  fire in `yolo` mode, in headless `-p` mode or for a subagent's calls; whether
+  `context.fileName` also renames the global `~/.gemini/` file; whether `settings.json` tolerates
+  a comment key; what `tools.exclude` does without `tools.core`; and what a subagent's first turn
+  holds.
+- *Where it runs:* a local process, as the user. Its remote subagents are services it calls, not
+  a place it runs, so nothing contains it but the user's account.
+
+**The Antigravity adapter**, written against antigravity.google/docs as retrieved on 2026-11-23,
+which then named CLI 1.5.12 and App 2.34.0. `.agents/hooks.json` carries no comment, because the
+host documents no comment key and rejects at load time a hook configuration that could never
+run, so this entry is its full honesty text, of which the adapter's host-rails rule carries a
+summary written before any probe: configured, and never observed firing (**DD-111**,
+**DD-112**). On CLI 1.5.15 in print mode on Linux both hooks have since fired and the rules been
+listed by description (**DD-121**); on App 2.35.1 on Windows the hooks ran and the commands then
+shipped did nothing (**DD-122**), and the commands that replaced them have not yet been run on
+the App (**DD-123**).
+
+- *Rails it has*, in `.agents/hooks.json`, which the CLI, the App and the IDE all read. A
+  `PreToolUse` hook on `run_command` runs the command guard, which answers
+  `{"decision":"deny","reason":…}` or `{"decision":"allow"}` on stdout and exits 0. A
+  `SessionStart` hook runs the bootstrap and injects its banner as a system message. The host
+  runs each `command` under `cmd /c` on Windows and `sh -c` elsewhere, in `.agents/`, so each is
+  one string with no syntax of either shell: `git -c alias.amh-guard=!bash amh-guard
+  scripts/command-guard.sh`. Git runs the alias's `bash` from the work tree's top level with the
+  script as its argument, and on Windows that is Git for Windows' own bash, with its `grep` and
+  `awk`, even with WSL's `bash.exe` ahead of Git on `PATH`; outside a work tree, under a
+  `safe.directory` refusal or with no `git` on `PATH` the hook exits non-zero with nothing on
+  stdout, which blocked the call in Linux CLI print mode (**DD-121**) and on the App is still to
+  be confirmed, as this entry's *Unverified* line says. Measured on Windows by spawning `cmd.exe` both ways a runtime
+  quotes a command line, which CI's Windows leg repeats (`scripts/tests/windows-hook-spawn.py`),
+  and not yet on the App (**DD-123**); `adapter-set.sh` refuses any other character in these
+  commands. On Linux the commands then shipped ran in `.agents/` (**DD-121**), as the vendor's
+  hooks page says of every OS. On Linux CLI print mode a `PreToolUse` hook that
+  exits non-zero, times out or answers with anything but JSON blocks the call, so a broken guard
+  fails closed (**DD-121**); on App 2.35.1 on Windows an `exit 1` hook returned the host's hook
+  error in place of the command's output, and one that exits 0 with no answer let the call run
+  (**DD-122**). On App 2.35.1 on Windows the commands then shipped, POSIX shell, ended in
+  `cmd.exe` at their own `|| exit 0` with no answer, so the guard allowed every command and no
+  banner arrived (**DD-122**); the guard's own stand-down exits, such as a payload it cannot
+  read, still answer nothing, which this host takes as allow (Owner queue). The `pre-push` rail binds as it
+  does everywhere, invoked by git, and `--no-verify` bypasses it.
+- *What it lacks, and what then binds only as prose.* No output redaction: `PostToolUse` sees no
+  tool output and can only answer `{}`, so a credential a command prints reaches the model as
+  printed. No repo-local deny rules, since permissions live in user settings only: a
+  `write_to_file`, `replace_file_content` or `multi_replace_file_content` on `.git/hooks/**`, and
+  a `view_file` of a secret file, are stopped by nothing but the written rules, and the command
+  guard judges `run_command` alone. The host's terminal sandbox is documented as on by default,
+  blocking `~/.ssh` and `.env` and cutting the network to approved domains, but it is set in user
+  or App settings:
+  the adapter neither sets it nor can see it, and it is a layer under the rails, not one of
+  them. On App 2.35.1 the agent's `run_command` ran PowerShell (**DD-122**), so the guard reads
+  it with its PowerShell reader under a Windows `uname` and with the bash reader elsewhere, as it
+  does the Gemini CLI's; the vendor's permissions page also names Command Prompt for command
+  matching on Windows, which no reader here judges. The spawn speed bump is not wired.
+- *What skips it.* A hook entry with `enabled: false`. There is no repo-local settings file to
+  skip. `--dangerously-skip-permissions` approves every request; whether it, `--mode` or anything
+  else skips workspace hooks or rules is not documented. Print mode (`agy -p`) on Linux skips
+  neither and put no trust prompt in front of the workspace hooks (**DD-121**). `AGENTS.md` is
+  read natively and always, but a rule file over 24,000 bytes is truncated, and always-on rules share a
+  20,000-token budget past which the largest are cut to a path and a description: a constitution
+  grown past either
+  limit loses text on this host, and no AMH check warns of it.
+- *Procedure, not rails.* Four `model_decision` rules under `.agents/rules/`, whose description
+  is up front and whose body is read on demand (a rule with a missing or unknown trigger is
+  silently discarded), and the read-only reviewer `.agents/agents/amh-rule-reviewer.md`, with no
+  shell or write tool and `commandExecutionPolicy: "off"`, which starts with none of the parent's
+  history. They help a session find the binding documents and enforce nothing.
+- *Unverified* (**DD-112**, less what **DD-121** and **DD-122** settled): whether the
+  interactive CLI and the IDE behave as print mode did, and the CLI and the IDE on Windows at
+  all, their hook and `run_command` shells included; on Windows, whether an `exit 1` hook keeps
+  the command from running, as a side effect would show, and what a timeout or a non-JSON answer
+  does; on Linux, what a `PreToolUse` exit 0 with no answer does; what a failing `SessionStart`
+  hook does anywhere; the hooks' working directory on Windows; any trust gate on workspace hooks
+  outside print mode; any other flag or mode that skips them or the rules; whether the App keeps
+  a project's settings in `~/.gemini/config/projects/`, the likeliest place (**DD-122**); and
+  whether the terminal sandbox is on in a given session and enforces what its page describes.
+- *Remote Agents* run in what the vendor calls an isolated, Google-managed remote environment,
+  on attached GitHub repositories, Drive files and uploads, with plugin OAuth tokens injected on
+  their requests. That contains the user's own machine: such an agent cannot reach local files,
+  keys or a local `.env`. It does not contain what the agent does with what it was given, such as
+  a push to an attached repository or a call made with an injected token. No rule is relaxed for
+  it: every rule in `AGENTS.md` binds a remote agent as it binds a local one. The owner's probe of
+  2026-11-24 (**DD-120**), on a non-root Linux VM with the repository cloned during the session
+  rather than attached, saw `AGENTS.md`, the four rules and the reviewer load only from the
+  workspace root at agent start, never from a clone below it. The reviewer got `view_file` and
+  none of `grep_search`, `list_dir` or `find_by_name`, which that host lacks and drops without an
+  error, so a session invoking it there passes it every path it is to read. Neither hook fired,
+  even for a subagent started after `.agents/hooks.json` sat at the root. Until a top-level
+  conversation in a Remote Project with the repository attached shows otherwise, treat a Remote
+  Agent as hook-less: no command rail, no banner, and no `pre-push` rail until a bare
+  `scripts/session-start.sh` has run in that clone. Its `run_command` keeps stdin open, so a
+  `--json` run there waits for an end of input that never comes; the bare form never reads
+  stdin (**DD-119**).
 
 ## When CI fails (workflow vs code)
 

@@ -61,8 +61,8 @@ command it denies and AMH allows is a question for this plan, not a defect on it
 
 ### 1.1 What the research-gaps plan already owns
 
-The harness-research-gaps plan, `docs/plans/2026-11-01-harness-research-gaps.md`, is an open
-draft. Several cc-safety-net themes fall under it. This plan does not restate them; it points at
+The harness-research-gaps plan, archived since 2026-11-23 as
+`docs/history/2026-11-01-harness-research-gaps.md`, owned several cc-safety-net themes. This plan does not restate them; it points at
 them. Nothing below changes that plan, and moving an item between the two plans is the owner's
 call.
 

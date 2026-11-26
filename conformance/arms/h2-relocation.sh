@@ -27,7 +27,12 @@
 #            the copied ladder judges each arm by its own pointers. One hunk is not H2's own: a
 #            fixture H3 wrote later borrows H2's section heading as its example of a runbook
 #            section, and without H2 it would fail, so the patch re-aims it at another runbook
-#            section, `Efficient document retrieval`, and changes nothing else in it.
+#            section, `Efficient document retrieval`, and changes nothing else in it. One line
+#            is not H2's either: A4 of the adapter plan added the Gemini CLI and Antigravity
+#            entries to H2's section after H2 (DD-116). They were never in AGENTS.md, so the
+#            patch deletes only H2's own lines of that section and puts the heading
+#            `## Gemini CLI and Antigravity adapters` above A4's entries, which stay
+#            byte-identical in both arms instead of falling under the previous playbook.
 #
 # The pre-h2 arm is therefore "the current tree with H2 reversed", a counterfactual, and never a
 # historical snapshot: everything else that changed in these files after H2 is in both arms.
@@ -376,7 +381,7 @@ diff --git a/docs/PROTOCOLS.md b/docs/PROTOCOLS.md
 diff --git a/docs/RUNBOOK.md b/docs/RUNBOOK.md
 --- a/docs/RUNBOOK.md
 +++ b/docs/RUNBOOK.md
-@@ -274,56 +274,6 @@ written before the acceptance run, so the ladder verifies the tree that is commi
+@@ -274,58 +274,7 @@ written before the acceptance run, so the ladder verifies the tree that is commi
    has been run against a real agent it has demonstrated only that its evaluator is
    deterministic. Any release claim that mentions the lab carries that sentence.
  
@@ -414,7 +419,10 @@ diff --git a/docs/RUNBOOK.md b/docs/RUNBOOK.md
 -PowerShell tool, the command rail exists only if the adapter's matcher names that tool and the
 -hook's own shell (bash) is present; the Claude adapter's matcher does, and PowerShell text then
 -goes to the guard's PowerShell reader, a shorter list than the bash one, whose misses the guard's
--header names (**DD-039**). The Claude adapter anchors every hook at the project root and, on
+-header names (**DD-039**). Before 17.1.0 that held on Windows only where no native `python3`
+-ran: CPython's `\r\n` line ends made the guard's parser name the tool `PowerShell\r`, which went
+-to the bash reader, and `Remove-Item -Recurse -Force C:\` passed (**DD-124**).
+-The Claude adapter anchors every hook at the project root and, on
 -Claude Code 2.1.295 or later (an older build fails open as before), sets both PreToolUse hooks to
 -refuse the call when the hook itself fails, so a guard that crashes, times out or cannot start
 -blocks the call instead of letting it run (**DD-040**). On Windows that makes Git for Windows a
@@ -429,10 +437,10 @@ diff --git a/docs/RUNBOOK.md b/docs/RUNBOOK.md
 -operands of its own. An INLINE interpreter deletion (`python3 -c` naming `rmtree`, `unlink` and
 -the rest of that list) buys one advisory a rerun clears, on the evidence of a word in a command
 -line and never a reading of the program (**DD-019**).
--
- ## When CI fails (workflow vs code)
++## Gemini CLI and Antigravity adapters
  
- Local and CI run the same script, so first compare what that script could see: the commit,
+ **The Gemini CLI adapter**, written against the Gemini CLI v0.70.0 documentation as retrieved on
+ 2026-11-23. Nothing in it has been observed firing (**DD-111**, **DD-112**).
 diff --git a/scripts/guards/doc-navigation.sh b/scripts/guards/doc-navigation.sh
 --- a/scripts/guards/doc-navigation.sh
 +++ b/scripts/guards/doc-navigation.sh

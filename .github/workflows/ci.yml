@@ -180,6 +180,17 @@ jobs:
           test -x "$target/scripts/ladder.sh"
           test ! -e "$target/scripts/command-guard.sh.amh-init.tmp"
 
+      # Antigravity runs a workspace hook under `cmd /c` on Windows, which no other leg of this
+      # workflow has. The driver spawns the real `.agents/hooks.json` commands through cmd.exe,
+      # verbatim and with C-runtime quoting, on a PATH with System32 ahead of Git, with and
+      # without Python, and checks the answers and the fail-closed cases (AMH ledger rows DD-123,
+      # DD-124). What the App does with an answer stays a live probe.
+      - name: Antigravity hooks through cmd.exe (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          set -euo pipefail
+          python -I scripts/tests/windows-hook-spawn.py
+
       # The matrix cell that was green through DC-030 and could not have been anything else.
       # This job's first step sets `core.autocrlf false` GLOBALLY before the checkout that
       # follows, and only on the Windows leg (`if: runner.os == 'Windows'`). Deliberate:

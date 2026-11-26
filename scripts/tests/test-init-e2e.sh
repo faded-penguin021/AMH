@@ -177,8 +177,29 @@ else
 	fail "a fresh instantiation keeps the complete hook-bearing Codex adapter repository-local"
 fi
 
+# The Gemini CLI and Antigravity adapters carry no placeholder, so each installed file is its
+# template byte for byte, at the path the host reads, and nothing lands under $HOME.
+gemini_antigravity_ok=1
+# shellcheck disable=SC2013 # KEEP_CONFIGS is one line of space-separated pairs, read as words
+for pair in $(sed -n "s/^KEEP_CONFIGS='\([^']*\)'$/\1/p" "$ROOT/scripts/amh-init.sh"); do
+	case ${pair#*:} in .gemini/* | .agents/*) ;; *) continue ;; esac
+	cmp -s "$ROOT/harness/templates/${pair%%:*}" "$d/${pair#*:}" || {
+		gemini_antigravity_ok=0
+		printf '  differs or missing: %s\n' "${pair#*:}" >&2
+	}
+done
+if [ "$gemini_antigravity_ok" = 1 ] &&
+	[ -f "$d/.gemini/settings.json" ] && [ -f "$d/.agents/hooks.json" ] &&
+	[ "$(find "$d/.gemini" "$d/.agents" -type f | wc -l | tr -d ' ')" -eq 12 ] &&
+	[ ! -e "$HOME/.gemini/agents/amh-rule-reviewer.md" ] &&
+	[ ! -e "$HOME/.agents/hooks.json" ]; then
+	pass
+else
+	fail "a fresh instantiation installs all twelve Gemini CLI and Antigravity adapter files repository-local, each its template"
+fi
+
 placeholder_open=$(printf '{%s' '{')
-if ! grep -R -qF "$placeholder_open" "$d/.claude" "$d/.codex"; then
+if ! grep -R -qF "$placeholder_open" "$d/.claude" "$d/.codex" "$d/.gemini" "$d/.agents"; then
 	pass
 else
 	fail "generated agent-adapter installations contain no unresolved placeholders"
@@ -240,6 +261,10 @@ printf '\n# adopter reviewer instruction\n' >>"$d/.codex/agents/amh-rule-reviewe
 adopter_codex_config=$(cat "$d/.codex/config.toml")
 adopter_codex_rules=$(cat "$d/.codex/rules/amh.rules")
 adopter_codex_reviewer=$(cat "$d/.codex/agents/amh-rule-reviewer.toml")
+printf '\n' >>"$d/.gemini/settings.json"
+printf '\nAn adopter rule sentence.\n' >>"$d/.agents/rules/amh-session-start.md"
+printf '\nAn adopter reviewer sentence.\n' >>"$d/.gemini/agents/amh-rule-reviewer.md"
+adopter_new_adapters=$(cat "$d/.gemini/settings.json" "$d/.agents/rules/amh-session-start.md" "$d/.gemini/agents/amh-rule-reviewer.md")
 # B13's shape, and the recovery for it: a seed script that has lost its execute bit makes
 # the ladder refuse to run its verification rung, and "re-run init" is what the docs tell
 # an adopter to do about it.
@@ -269,6 +294,13 @@ if [ "$(cat "$d/.codex/config.toml")" = "$adopter_codex_config" ] &&
 	pass
 else
 	fail "a re-run does not clobber adopter changes to any Codex adapter file"
+fi
+
+if [ "$(cat "$d/.gemini/settings.json" "$d/.agents/rules/amh-session-start.md" "$d/.gemini/agents/amh-rule-reviewer.md")" = "$adopter_new_adapters" ] &&
+	grep -qF 'An adopter rule sentence.' "$d/.agents/rules/amh-session-start.md"; then
+	pass
+else
+	fail "a re-run does not clobber adopter changes to the Gemini CLI or Antigravity adapter files"
 fi
 
 if [ -x "$d/scripts/verify.sh" ]; then

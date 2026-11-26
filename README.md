@@ -63,7 +63,7 @@ Install the latest stable release of the Agentic Maintenance Harness (AMH) into 
 
 Run:
 
-    git clone --depth 1 --branch amh-v17.0.0 https://github.com/faded-penguin021/AMH.git /tmp/amh
+    git clone --depth 1 --branch amh-v17.1.0 https://github.com/faded-penguin021/AMH.git /tmp/amh
     /tmp/amh/scripts/amh-init.sh .
 
 Once the harness has been instantiated, read `AMH-ADOPT.md` and follow it completely.
@@ -105,10 +105,16 @@ cheap:
   `scripts/guards` script, or in `scripts/verify.sh` (`docs/UPGRADING.md` names the one
   exception, an owner-decided fork, and what it costs).
 - **Everything else is yours**, written only when absent: the seed prose, `amh.conf`, the CI
-  workflow, and both agent adapters (`.claude/settings.json` for Claude Code;
+  workflow, and the agent adapters: `.claude/settings.json` for Claude Code;
   `.codex/config.toml`, `.codex/rules/amh.rules`, and the project-scoped
-  `.codex/agents/amh-rule-reviewer.toml` for Codex). Codex consumes the canonical
-  `AGENTS.md` directly, so it does not need a second constitution pointer. Re-running never
+  `.codex/agents/amh-rule-reviewer.toml` for Codex; `.gemini/settings.json`, four pointer skills
+  under `.gemini/skills/` and `.gemini/agents/amh-rule-reviewer.md` for the Gemini CLI; and
+  `.agents/hooks.json`, four pointer rules under `.agents/rules/` and
+  `.agents/agents/amh-rule-reviewer.md` for Antigravity. Codex and Antigravity read the canonical
+  `AGENTS.md` directly and the Gemini CLI is pointed at it by its settings file, so none of them
+  needs a second constitution pointer. What each host's rails catch and miss, and which of its
+  files are procedure that enforces nothing, is in this repository's `docs/RUNBOOK.md` → **Host
+  rails and what they miss**. Re-running never
   clobbers a word you wrote.
 
 **What is left over is agent work, which is why the second step is a sentence rather than an
@@ -286,6 +292,11 @@ rather than replacing it:
   settings outrank it, and `--restricted` ignores it.
 - **Codex** sandboxes by default. AMH's Codex adapter sets no sandbox key, so it relies on
   Codex's default and on whatever policy you configured, and does not enforce either.
+- **The Gemini CLI** runs with no sandbox by default, and AMH's adapter turns none on, because
+  each sandbox it offers needs something a machine may lack: Seatbelt, a container runtime,
+  gVisor, LXC or its `windows-native` one.
+- **Antigravity** sandboxes terminal commands by default, but only in user or App settings: no
+  file in your repository asks for it, and nothing in AMH can see whether it is on.
 - **One host was probed live, and only what it showed is claimed.**
   `scripts/guards/adapter-set.sh` checks that the shipped files ask for exactly this and nothing
   looser, which is configuration validation, not a test of a running session. The live probe ran
@@ -309,9 +320,10 @@ rather than replacing it:
   sandboxed command cannot create a linked worktree or commit in one made beforehand. Run that
   work in your own terminal.
 - **Everything else is unverified.** That covers macOS, Linux outside a container and with its
-  own kernel, and Codex's sandbox. It covers whether a sandboxed command on WSL2 can launch a
-  Windows program, and whether Claude Code's Read tool honours the `/proc` rails, since the probed
-  model never called it on them. It also covers any other Claude Code or `bubblewrap` version.
+  own kernel, and the Codex, Gemini CLI and Antigravity sandboxes. It covers whether a sandboxed
+  command on WSL2 can launch a Windows program, and whether Claude Code's Read tool honours the
+  `/proc` rails, since the probed model never called it on them. It also covers any other
+  Claude Code or `bubblewrap` version.
 
 ## Who it is for
 
@@ -375,6 +387,12 @@ amh.conf             this repo's harness settings; the shipped scripts read it a
 .codex/config.toml      Codex adapter: honest repository-local capability declaration
 .codex/rules/amh.rules  Codex adapter: static command-policy rails
 .codex/agents/amh-rule-reviewer.toml  Codex adapter: project-scoped rule-review lens
+.gemini/settings.json   Gemini CLI adapter: AGENTS.md as context, session, guard and redaction hooks
+.gemini/skills/         Gemini CLI adapter: four pointer skills, prose that enforces nothing
+.gemini/agents/amh-rule-reviewer.md  Gemini CLI adapter: read-only rule-review subagent
+.agents/hooks.json      Antigravity adapter: session and command-guard hooks
+.agents/rules/          Antigravity adapter: four pointer rules, prose that enforces nothing
+.agents/agents/amh-rule-reviewer.md  Antigravity adapter: read-only rule-review subagent
 docs/
   STATE.md           working memory: current state, Owner queue, changelog
   RUNBOOK.md         playbooks
@@ -394,7 +412,8 @@ harness/             THE PRODUCT — what an adopter copies
   templates/
     AMH-ADOPT.md     the adoption brief, written into an adopter's tree for their agent
     scripts/         the shipped scripts, plus their generated integrity manifest
-    configs/         CI workflow plus Claude Code and Codex adapters; substituted at init.
+    configs/         CI workflow plus Claude Code, Codex, Gemini CLI and Antigravity
+                     adapters; substituted at init.
                      claude-machine-settings.json is the exception: the optional user-level
                      machine mode, merged into ~/.claude/settings.json only on your yes
     seed/            prose scaffolds: copied once, then yours forever

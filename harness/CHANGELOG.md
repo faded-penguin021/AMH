@@ -11,6 +11,145 @@ Each entry's **Upgrading** section is the complete list of what an adopter must 
 from the previous version. Scripts are copied; seeds are yours, so seed changes appear here
 as hand-applied notes. Full procedure: [`docs/UPGRADING.md`](../docs/UPGRADING.md).
 
+## 17.1.0 — 2026-11-24
+
+- **Two more hosts get adapters: the Gemini CLI and Antigravity.** Both were written from each
+  vendor's documentation, read on 2026-11-23: the Gemini CLI's at its `v0.70.0` tag, and
+  Antigravity's at antigravity.google/docs, which then named CLI 1.5.12 and App 2.34.0. Neither
+  had been run here when they were written; Antigravity has since been probed on its CLI on
+  Linux and its App on Windows, and the Gemini CLI has not. Every file says it has never been observed working, except
+  Antigravity's hooks file, which can carry no comment because that host documents no comment
+  key; this repository's runbook says it for that file. The Gemini CLI gets `.gemini/settings.json`. It points `context.fileName` at
+  `AGENTS.md`, keeps the default GEMINI.md, and wires three hooks: `SessionStart` to the bootstrap, `BeforeTool` on
+  `run_shell_command` to the command guard, and `AfterTool` to the output redactor. It also gets
+  four pointer skills under `.gemini/skills/` and a read-only rule-reviewer subagent under
+  `.gemini/agents/`. Antigravity reads `AGENTS.md` natively and has no repo-local settings file.
+  It gets `.agents/hooks.json`, with `SessionStart` wired to the bootstrap and `PreToolUse` on
+  `run_command` to the command guard. It also gets four `model_decision` pointer rules under
+  `.agents/rules/` and a read-only reviewer under `.agents/agents/`. It gets no output redaction,
+  because its `PostToolUse` hook sees no output and cannot replace it. Neither host gets deny
+  rules or a sandbox setting. The Gemini CLI's repo-local deny options are deprecated or
+  documented as non-functional, and its `tools.sandbox` needs a container runtime or Seatbelt
+  that a machine may lack; Antigravity keeps both in user settings. The skills and rules
+  are procedure, never rails. Each names one binding section by its heading and enforces nothing.
+- **The command guard and the output redactor recognise each host's payload explicitly.** Each
+  host is answered in the shape it documents. The guard refuses the Gemini CLI's `BeforeTool` as
+  it refuses Claude's and Codex's: exit 2, with the reason on stderr. It reads that command with
+  the PowerShell reader only under a Windows `uname`, and Antigravity's `PreToolUse` the same
+  way, since that host's `run_command` ran PowerShell on its Windows App; it answers Antigravity
+  on stdout with `{"decision":"deny","reason":…}` or `{"decision":"allow"}`, exiting 0 every
+  time. That host requires the `decision` field and
+  documents no exit code, and its `allow` defers to the next hook or the default policy; it
+  approves nothing. The redactor answers the Gemini CLI's `AfterTool` with `deny`, the filtered
+  output as `reason`, which that host documents as replacing the result the model sees. A payload
+  no shape matches still gets no answer at all. Claude's and Codex's answers and exit codes are
+  unchanged.
+- **Antigravity's hook commands work in `cmd.exe` as well as `sh`.** That host runs one
+  `command` string under `cmd /c` on Windows and `sh -c` elsewhere, so each hook is now
+  `git -c alias.amh-guard=!bash amh-guard scripts/command-guard.sh` (and its `amh-start` twin):
+  no syntax of either shell, run by git from the work tree's top level through Git for Windows'
+  own bash, never WSL's. Outside a work tree, or when git refuses the repository as unsafe, the
+  hook exits non-zero with nothing on stdout, where the first draft exited 0 and allowed the
+  call; that blocked the call on the CLI on Linux, and is still to be confirmed on the App on
+  Windows.
+- **Fix: on Windows the command guard's `python3` reader misnamed the tool.** CPython there
+  writes `\r\n` line ends, so a Claude `PowerShell` payload reached the bash reader, which passed
+  `Remove-Item -Recurse -Force C:\`, the Gemini CLI's Windows routing never fired, and
+  Antigravity's answers lost their shape. The reader now writes `\n`; the no-Python fallback was never affected.
+- **The command guard's self-test splits its cases across cores.** `--self-test` runs its
+  matrix in `AMH_JOBS` workers, by default the online core count (`getconf
+  _NPROCESSORS_ONLN`, then `nproc`, then 1), capped at 64. Each top-level case is judged by one
+  worker, chosen by its index; each worker's output is held and replayed in worker order; and the
+  run fails, naming the shortfall, unless every worker saw the same, nonzero number of cases and
+  the cases they judged cover each one exactly once. The verdict line is unchanged. `AMH_JOBS=1`
+  restores the serial run, and a value that is not a positive integer, or a scratch directory
+  that cannot be made, runs serially with a note on stderr. On a 4-core Linux runner it took
+  about 11 s against 38 s serially. You need do nothing: `AMH_JOBS` is an environment variable
+  describing the host, not an `amh.conf` key.
+- **`session-start.sh` can print its banner as JSON**, for a host whose session hook must answer
+  that way: `--json=additional-context` and `--json=inject-steps`, named by field and not by
+  host. Each drains stdin, runs the bare banner and prints it, whole, as one JSON string escaped
+  in bash, without `python3`. A bare run stays plain text, and an unknown argument is announced
+  and the bare run still happens.
+- **What only a live host can settle is written down, not guessed.** `docs/RUNBOOK.md` →
+  **Host rails and what they miss** in this repository gains one entry per host. Each says which
+  rails the host has, which it lacks and what then binds only as prose, what skips its adapter,
+  and every documentation gap. The Gemini CLI ignores the whole settings file in a folder it does
+  not trust, hooks included, and its documented hook contract fails open. What a failing,
+  timed-out or malformed Antigravity hook does to the call is undocumented. Antigravity truncates
+  a rule file over 24,000 bytes and cuts always-on rules past a shared 20,000-token budget, so a
+  grown constitution can lose text there, and nothing in the AMH warns of it. The harness prose's
+  scaffolds section describes both adapters' rails and points at that runbook section for the
+  gaps.
+
+### Upgrading
+
+This train also carries changes to the AMH repository's own adapter-set guard, init tests,
+conformance arm and manifest generator, which now lists the scripts in byte order whatever the
+host's locale; they ship nothing, so nothing below asks anything of you for them.
+
+Copy the 17.1.0 shipped scripts and manifest through the normal upgrade procedure. Four scripts
+changed against 17.0.0, and the manifest changes with them:
+
+- `command-guard.sh` recognises the Gemini CLI's `BeforeTool` and Antigravity's `PreToolUse`
+  payloads, in both its `python3` reader and its no-Python fallback, and answers each as above;
+  its `python3` reader writes `\n` line ends on Windows too; its `--self-test` splits across
+  `AMH_JOBS` workers, as above.
+- `redact-tool-output.sh` decides the host explicitly and answers the Gemini CLI's `AfterTool`.
+- `session-start.sh` gains `--json=additional-context` and `--json=inject-steps`.
+- `test-ladder-guards.sh` gains fixtures for both new payloads through both readers, the
+  Windows-only PowerShell routing of both, a `python3` whose stdout writes `\r\n`,
+  Antigravity's `allow` on a recognised payload with no command,
+  Claude's and Codex's answers unchanged, an unrecognised event or tool of either host answered
+  with nothing, both JSON envelopes decoding to the bare banner byte for byte, and
+  `--json=inject-steps` draining a stdin past the pipe buffer, and nine for the split self-test:
+  a worker that judges too few cases, a failing case in the last worker, serial and three-worker
+  verdicts compared case by case, an unusable `AMH_JOBS`, `AMH_JOBS=1` running one serial pass,
+  and a run failing, named, when no case is counted, when workers see different totals, when a
+  case is judged twice and another never, and when a worker reports no counts. The two envelope
+  cases read `/dev/null`, so the suite no longer hangs when run from a tool that keeps an open
+  pipe on stdin.
+
+Nothing else is required. Claude Code and Codex see no change except the Windows fix above, which
+takes effect when the script is copied. **The new adapter files are
+optional.** If you use the Gemini CLI or Antigravity and want its adapter, copy its files by
+hand, each from its template. Where your path already exists, it is yours: diff it against the
+template and take what applies, never overwrite it.
+
+| Template | Your path |
+| --- | --- |
+| `harness/templates/configs/gemini-settings.json` | `.gemini/settings.json` |
+| `harness/templates/configs/gemini-skills/amh-*/SKILL.md` (four) | `.gemini/skills/amh-*/SKILL.md` |
+| `harness/templates/configs/gemini-agents/amh-rule-reviewer.md` | `.gemini/agents/amh-rule-reviewer.md` |
+| `harness/templates/configs/antigravity-hooks.json` | `.agents/hooks.json` |
+| `harness/templates/configs/antigravity-rules/amh-*.md` (four) | `.agents/rules/amh-*.md` |
+| `harness/templates/configs/antigravity-agents/amh-rule-reviewer.md` | `.agents/agents/amh-rule-reviewer.md` |
+
+1. **Copy this release's scripts first.** The hook files call `session-start.sh` with a
+   `--json` option and rely on the guard and the redactor recognising the new payloads, which a
+   17.0.0 script does not.
+2. **An `amh-init.sh` re-run installs all twelve files wherever each is absent,** like any file
+   a newer release introduces, whether or not you use either host. If you upgrade that way,
+   delete the adapter files of a host you do not use, or keep them knowing they configure that
+   host for anyone who opens your repository in it. Where a path already exists, the run keeps
+   yours, as above.
+3. **Check every pointer's heading against your constitution.** Each skill and rule names a
+   seed heading: `AGENTS.md` → **Maintenance protocol (every session)** and **Agent harness**,
+   and `docs/PROTOCOLS.md` → **Acceptance ladder** and **Rule-review protocol (MANDATORY for
+   binding-rule and guard diffs)**. If you renamed one, change the pointer to match. Nothing
+   shipped checks that it resolves.
+4. **Add every adapter file you keep to `RULE_FILES` in `amh.conf`,** copied or installed, so
+   an edit to one raises the legislation advisory. `harness/templates/amh.conf.example` lists all twelve after the Codex
+   ones. If you list adapters in `ADAPTER_FILES`, add them there too, so the session banner
+   reports them.
+5. **Read the host's entry in this repository's `docs/RUNBOOK.md` → Host rails and what they
+   miss before you rely on it,** and carry into your own runbook what applies. On the Gemini CLI,
+   trust the folder, or the settings file, and with it every hook and the `AGENTS.md` setting,
+   is ignored. Antigravity has no output redaction and no repo-local deny rules, and its sandbox
+   is a user or App setting that no repository file reaches.
+
+This release is MINOR: every change is additive, and nothing an adopter does now becomes wrong.
+
 ## 17.0.0 — 2026-11-12
 
 - **A fix's test is written before the fix, and the tests that already existed are not the fix's

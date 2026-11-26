@@ -296,7 +296,10 @@ adapter must invoke the bootstrap at session start (or the instructions file tel
 agents to run it manually), mirror the deny rails below if the agent supports permission rules,
 honour the one-session-one-branch rule, and add its permission-config file to the rule-review
 tripwire list. Everything behavioural stays in the shared constitution and scripts, so
-switching agents rewrites nothing.
+switching agents rewrites nothing. A host whose session hook must answer in JSON gets the same
+banner as one escaped string: `--json=additional-context` (the Gemini CLI) and
+`--json=inject-steps` (Antigravity), named by the field they fill rather than by host. A bare run
+stays plain text.
 
 It also states, once per session and only where it is true, what the default branch's history
 is NOT. Under a squash-merge train the default branch's log is a list of merges rather than a
@@ -346,9 +349,11 @@ rebased, or cut from a newer commit than HEAD.
 - **Instructive pre-execution guard** (where the agent supports pre-tool-use hooks): wire the
   agent-neutral `scripts/command-guard.sh` so every shell command is checked against the hard
   rails before it runs, and a violation is blocked with a reason naming the rule and the
-  correct alternative (Claude Code and Codex: a Bash PreToolUse hook; exit 2 plus stderr becomes
-  the reason shown to the model). This is the layer that makes rails *self-correcting*; the static
-  deny list stays beneath it as the second net. Follow the P13 pattern rules: leading-command
+  correct alternative (Claude Code and Codex: a Bash PreToolUse hook; the Gemini CLI: a
+  `BeforeTool` hook on `run_shell_command`; in all three, exit 2 plus stderr becomes the reason
+  shown to the model. Antigravity: a `PreToolUse` hook on `run_command`, answered with a JSON
+  `decision` on stdout, since that host documents no exit-code contract). This is the layer that
+  makes rails *self-correcting*; the static deny list stays beneath it as the second net. Follow the P13 pattern rules: leading-command
   matching, mistake-not-evasion threat model, fail open on malformed input — but never on the
   guard's own failure to parse, which is not an odd command and must not be reported as a clean
   one — and a self-test run by the ladder. Wire it so the guard's OWN failure cannot pass
@@ -359,7 +364,14 @@ rebased, or cut from a newer commit than HEAD.
   `"onFailure": "block"` on both PreToolUse hooks) — by default a crash, a timeout or a missing
   script is a non-blocking error and the command runs unjudged. On Windows that refusal is what
   a host without Git Bash meets on every call, so the adapter must say AMH needs Git for
-  Windows where the refusal shows it (the Claude adapter's trailing command comment). Two
+  Windows where the refusal shows it (the Claude adapter's trailing command comment). Where a
+  host runs one command string through a different shell per platform (Antigravity: `cmd /c`
+  on Windows, `sh -c` elsewhere), write it with no syntax of either shell, as that adapter's
+  one-off git alias does, since a command one of them cannot parse can end with no answer,
+  which that host reads as allow. Where the
+  host documents no such declaration, say that a broken guard may switch the rail off unseen:
+  the Gemini CLI documents its hooks as fail-open, and Antigravity documents no failure contract
+  at all. Two
   honesty obligations come with it. The guard's header carries a consolidated
   **what this guard does NOT catch** block — interpreters outside its enumerated reader list,
   wrappers, constructed commands, heredocs, window limits — because a rail whose limits are
@@ -406,10 +418,14 @@ rebased, or cut from a newer commit than HEAD.
   they reach the context window. Claude Code can replace a result in place. Codex cannot
   currently rewrite one, but its `PostToolUse` hook can block delivery of the original and
   substitute model feedback; the Codex adapter uses that path only after redaction, with the
-  cost that the completed tool looks failed and a structured result becomes JSON text.
-  `scripts/redact-tool-output.sh` handles both contracts. **Filter the string LEAVES of the
-  response the host actually handed you, and rebuild it in place** — never reconstruct what
-  you believe that tool returns. A replacement
+  cost that the completed tool looks failed and a structured result becomes JSON text. The Gemini
+  CLI's `AfterTool` hook answers `deny` with a reason that the host documents as replacing the
+  result the model reads, and the Gemini CLI adapter sends the filtered text there, again only
+  after a redaction. Antigravity's `PostToolUse` hook sees no tool output and can answer only
+  `{}`, so that adapter has no output redaction.
+  `scripts/redact-tool-output.sh` handles the three contracts that exist. **Filter the string
+  LEAVES of the response the host actually handed you, and rebuild it in place** — never
+  reconstruct what you believe that tool returns. A replacement
   that misses the tool's own schema is discarded as a non-blocking error and the original output
   is used, so the rail reads as wired while doing nothing, and the whole layer is fail-open by
   the host's design. Filtering the SERIALISED response instead is the trap: a private key inside
@@ -428,8 +444,23 @@ rebased, or cut from a newer commit than HEAD.
   failing instead would stop Claude Code starting on native Windows. And a project file sets
   defaults that a local, `--settings` or managed file outranks. The Codex adapter pins no sandbox
   key and relies on Codex's default, since a pinned key could collide with the user's own
-  permission profile. A guard can validate what the shipped files ask for; whether a sandbox
-  started and enforced anything is a live probe, and no file proves it.
+  permission profile. The Gemini CLI adapter pins none either: that host's sandbox is off by
+  default and each provider it documents needs something a machine may lack — Seatbelt, a
+  container runtime, gVisor, LXC or its `windows-native` one — so a pinned one could break a
+  session. Antigravity's terminal sandbox is on by default but is set only in user or App
+  settings, so no repository file can ask for it or see it. A guard can validate what the
+  shipped files ask for; whether a sandbox started and enforced anything is a live probe, and no
+  file proves it.
+- **Procedure surfaces** (where the host has skills, rules or subagents): pointers, never rails.
+  A host may offer surfaces that put text in front of the model rather than run a check: skills
+  whose body loads on demand, rules, workflows, subagents with a fresh context. The Gemini CLI
+  and Antigravity adapters use them for the session-time entry points only — the session start,
+  the acceptance ladder, the rule review and what an adapter must wire — and for a read-only
+  rule-review subagent like Codex's. Each pointer file names one binding section by its exact
+  heading and restates none of it, because a copy drifts from its source and moving a live rule
+  out of its document is repeal, and each says it is prose and enforces nothing. The reviewer
+  carries the rule-review lens itself and no shell or write tool. An adapter's list of the layers
+  it provides never counts any of them as a rail.
 - **Server-side:** the owner mirrors the hardest rails at the host — branch protection on the
   default branch (PRs required; force-push and deletion blocked) and secret-scanning push
   protection. The adapter's deny rules bind only agents that load them; the server binds every
@@ -444,6 +475,18 @@ A worked adapter, for Codex (lifecycle hooks plus the static lower command-polic
 <!-- amh:include harness/templates/configs/codex-config.toml -->
 
 <!-- amh:include harness/templates/configs/codex-amh.rules -->
+
+Two more adapters ship as templates and are not reproduced here: the Gemini CLI's
+(`harness/templates/configs/gemini-settings.json` with its hooks, plus pointer skills under
+`gemini-skills/` and a reviewer under `gemini-agents/`) and Antigravity's
+(`harness/templates/configs/antigravity-hooks.json`, plus pointer rules under
+`antigravity-rules/` and a reviewer under `antigravity-agents/`). Antigravity's hooks file
+carries no comment, because that host documents no comment key and rejects at load time a hook
+configuration that could never run, and the Gemini CLI's settings file carries none either. So
+each of these two adapters states its layers and their gaps in its host-rails pointer, which is
+prose and which the adopter's tree keeps. The AMH repository states
+each host's rails, gaps and unverified behaviour in full in
+`docs/RUNBOOK.md` → **Host rails and what they miss**.
 
 ### 3.9 CI — invoking the same entrypoint
 

@@ -16,7 +16,7 @@
 The AMH meta-repository — source of truth for the harness and its reference instance, which runs
 byte-identical copies of the scripts it ships; `AGENTS.md` describes both and is read in full
 every session.
-Adopted harness version: **AMH 17.0.0** — see `harness/VERSION`, the copy that counts.
+Adopted harness version: **AMH 17.1.0** — see `harness/VERSION`, the copy that counts.
 
 ## Current state
 
@@ -26,18 +26,21 @@ Release state: `scripts/session-start.sh` probes the declared version's tag ever
 Live plans, each in `docs/plans/`, where a unit starts only on the owner's explicit approval of
 that unit:
 
-- `2026-11-01-harness-research-gaps.md`, adopted: every unit done, H4b's follow-up last
-  (**DD-103** to **DD-105**), except H8, parked. Before a unit starts the session names the
-  decisions it needs and waits for the answers; a fresh-context review is pre-allowed for every
-  unit (owner, 2026-11-09).
 - `2026-11-04-spill-guard-borrowings.md`, adopted: S1, S2, S6a and S3 approved on 2026-11-10, to
   run in that order, each with its own review and its version settled when its behaviour is
   final (its §2, items 4 and 5); S4, S5, S6b and S6c deferred.
 - `2026-11-10-command-guard-gap-review.md` and `2026-11-09-cc-safety-net-borrowings.md`: drafts,
   nothing approved; G1, one review of both, comes first (Owner queue).
-- `2026-11-10-queue-cycle-and-memory-tiers.md`: a draft, nothing approved.
-- `2026-11-19-pipefail-grep-race.md`, adopted, its one unit R1 done (**DD-110**); the session
-  that merges the train archives it.
+- `2026-11-10-queue-cycle-and-memory-tiers.md`: a draft at rev 2, nothing approved; it also
+  carries the queue's size, the queue triage and when a plan retires (M3b, M4, M4b).
+- `2026-11-22-build-output-secret-scan.md`: a draft, B0 done; only B1, its gpt-6-astra `-e high`
+  review, is approved (owner, 2026-11-22), and the plan runner runs it (Owner queue).
+- `2026-11-23-antigravity-gemini-adapter.md`, adopted: a Gemini CLI and Antigravity adapter,
+  every unit done, A5 last, drafting 17.1.0 (**DD-117**), and the Windows hooks fix made in this
+  tree (**DD-123**); the tag, the Gemini CLI probe and the App re-probe of that fix are in the
+  Owner queue, and the session that merges the train archives the plan.
+- `2026-11-25-ladder-throughput.md`, adopted: every unit done or dropped, T3 dropped
+  (**DD-125**, **DD-128**); the session that merges the train archives or deletes it.
 
 Operational gotchas:
 
@@ -60,10 +63,14 @@ guard reads a `'` inside one as opening a string that hides the rest; no plan co
 guard's header names it, and it reaches heredoc bodies too (**DD-059**).
 Check: `scripts/command-guard.sh --command "echo \`echo 'x\`; printenv"` — exit 0 means open.
 
-**OPEN — the research-gaps plan's remaining §1 decisions.** Whether P6 admits retiring a
-compensation stays open until one is proposed, with H5's classification as input (**DD-082**);
-an H8 incident-bar exception is asked if H8 reopens; the combined order is the item below. No
-check settles it.
+**OPEN — the research-gaps plan's remaining decisions; the plan itself is archived in
+`docs/history/`.** Whether P6 admits retiring a compensation stays open until one is proposed,
+with H5's classification as input (**DD-082**). H8 stays parked: measure an adopter verification
+or output failure, reopened only on a recorded adopter incident or an explicit owner exception to
+the incident bar. Its advice was one step in `harness/templates/AMH-ADOPT.md` §4 and the seed
+`verify.sh` comments that exercises the product as a user would, with green output short and
+failures loud; a reopened H8 gets a new plan and keeps strongest-tier rule review. No check
+settles it.
 
 **OPEN — run G1, one gpt-6-astra `-e high` review of both command-guard plans,
 `docs/plans/2026-11-10-command-guard-gap-review.md` and
@@ -71,16 +78,61 @@ check settles it.
 which units** (owner, 2026-11-10, with N1's mandate, the gap plan's §2, item 2).
 Check: `scripts/command-guard.sh --command 'rm -r ~'` — exit 0 means that gap is still open.
 
+**OPEN — run B1, one gpt-6-astra `-e high` review of
+`docs/plans/2026-11-22-build-output-secret-scan.md`, then decide on rev 2** (owner, 2026-11-22).
+The review's first question is whether the incident bar admits the plan at all (its §2, item 2).
+No check settles it.
+
 **OPEN — decide on the queue-cycle plan, `docs/plans/2026-11-10-queue-cycle-and-memory-tiers.md`:
-review first (M1), adoption, and the facts its §2, item 3 asks for.** No check settles it.
+review first (M1), adoption, and the decisions its §2 lists, rev 2's included.** No check
+settles it.
+
+**OPEN — re-run the Antigravity App probe on Windows on the new hook commands** (**DD-123**).
+17.1.0 waits for it (owner, 2026-11-25). See the banner arrive, `git push --force origin main`
+denied, `git status` run, a PowerShell `Remove-Item -Recurse -Force` of a drive root refused, an
+`exit 1` hook's file-creating command leave no file, and what a failing `SessionStart` does; then
+append a `Live probe of Antigravity` row. No check settles it.
+
+**OPEN — decide whether the command guard's stand-down exits answer Antigravity.** An unreadable
+payload or an early exit answers nothing, which that host takes as allow (owner, 2026-11-25: its
+own item). Check: `printf '%s' '{"toolCall":' | scripts/command-guard.sh` — exit 0 with no
+output means open.
+
+**OPEN — the shipped suite's no-Python fallback cases exit 127 on Git Bash on Windows,**
+uninvestigated (**DD-124**). Check: on a Windows host, `bash scripts/test-ladder-guards.sh 2>&1 |
+grep 'FAIL.*without Python'` — any line means open.
+
+**OPEN — tag `amh-v17.1.0` once the train carrying 17.1.0 merges** (the adapter plan's A5).
+`harness/VERSION` here says 17.1.0; tag the merge commit on `main`, after checking that the
+squash message carries no poison token (**DC-040**). Check: `git ls-remote --tags origin
+amh-v17.1.0` — a line naming the tag means done; no output with exit 0 means open, and a
+non-zero exit means `origin` was not reached and settles nothing.
+
+**OPEN — probe the Gemini CLI and Antigravity adapters on a live host** (the adapter plan's A5).
+Antigravity is done: CLI print mode on Linux and the App on Windows (**DD-121**, **DD-122**).
+Open: the Gemini CLI, not installed here or on `codex-runner` when looked for on 2026-11-25; the owner
+reports Google retired it for free and AI Pro/Ultra users on 2026-06-18 in favour of the
+Antigravity CLI, and its POSIX-shell hook commands are unmeasured on Windows (**DD-123**). On
+each host, open a scratch repository that has `amh-init.sh`'s install, with the folder trusted on the Gemini CLI, and see: the session-start
+banner reaching the agent; a deny, of `git push --force origin main` through the host's shell
+tool, harmless in a scratch repository with no remote if no hook fires; on the Gemini CLI only, a
+redaction, of an `echo` of `sk-ant-` followed by 20 or more made-up letters (Antigravity has no
+redactor); and on Antigravity, a harmless `git status` still running, since its guard answers
+every call `allow` or `deny`. Then append one ledger row per host whose bold lead opens `Live
+probe of the Gemini CLI` or `Live probe of Antigravity`, naming the host version and OS, which
+checks fired and how the agent saw each, and which **DD-112** cells it settled, such as a hook's
+working directory or what a timed-out hook does. In the same unit, move each settled cell out of
+that host's *Unverified* line in `docs/RUNBOOK.md` → **Host rails and what they miss**. Check:
+`grep -nE '^- D[A-Z]*-[0-9]+( \[cited\])?: \*\*Live probe of (the Gemini CLI|Antigravity)'
+docs/LEDGER_*.md` — a host with no row is still unprobed. Antigravity Remote Agents were
+probed on 2026-11-24 and are not the host this asks for: no hook fired there, and that row's
+lead does not match this check (**DD-120**).
 
 **OPEN — decide the N1 review's last recommendation it could not apply:** the cross-plan order
-and release placement in that plan's §2, decision 3; H0.5's recommended order is in the
-research-gaps plan's §7.1. No check settles it.
+and release placement in that plan's §2, decision 3. H0.5 recommended S1 → S2 → S6a → S3 → N2 →
+N6a → N3 → N4 → N5 → N7a → N7b, interleaved with research-gaps units that are now all done. No
+check settles it.
 
-**OPEN — tag `amh-v17.0.0` once this train is merged.** MAJOR (owner, 2026-11-17, **DD-094**),
-no longer blocked by H4b (owner, 2026-11-19, **DD-103**). Tagging is an owner step, and the README's clone command names the
-tag. Check: `git ls-remote --tags origin amh-v17.0.0` — no output means open.
 
 
 ## Decided non-items (don't re-litigate without new evidence)
@@ -111,32 +163,38 @@ from.
 One line per shipped change or completed unit (newest first). Details live in the cited ledger
 rows — this section is a pointer index, not a narrative.
 
-- 2026-11-19 — **Pipefail race, R1: every pipe into an early-exit reader under `pipefail` whose
-  status decides something audited, 109 fixed, the rest recorded with why they cannot race**
-  (**DD-110**).
-- 2026-11-19 — **PR #75 review fixes, F3, the last unit: the command guard's advisory state —
-  an override read alone, the reports' union across both directories, one directory read once,
-  and only a regular file a spent marker; the plan is archived to
-  `docs/history/2026-11-19-pr75-review-fixes.md`** (**DD-109**).
-- 2026-11-19 — **PR #75 review fixes, F2: the bootstrap warns of an advisory marker it cannot
-  clear, the fixture suite counts skips apart, and the installer reads `RULE_FILES` as the ladder
-  does** (**DD-108**).
-- 2026-11-19 — **PR #75 review fixes, F1: the 17.0.0 Upgrading text, the README and the seed
-  ledger corrected; every finding reproduced and fixed** (**DD-107**).
-- 2026-11-19 — **Owner: three queue items closed on the session's recommendation** — no
-  non-UTF-8 parser fix until testable, no test-change guard until an incident, no `find` arm
-  (**DD-106**).
-- 2026-11-19 — **H4b follow-up, the last: the machine-mode fragment drops its `//proc` rules
-  under `adapter-set.sh`, the README claims only the passed sandbox cells, and acceptance (f)
-  passed in both arms** (**DD-104**, **DD-105**).
-- 2026-11-19 — **The owner cleared DD-088's tag block and chose to drop the machine-mode
-  `//proc` rules,** each on the session's recommendation (**DD-103**).
-
-- 2026-11-18 — **H4b follow-up: the last owner-box run, two runs at `7d44ff5`, recorded**
-  (**DD-099** to **DD-102**, `2026-11-01-harness-research-gaps-h4b-results.md` §5).
-- 2026-11-18 — **H4b follow-up: `2026-11-01-harness-research-gaps-h4b-probe.sh` repaired for the
-  last box run** (**DD-098**).
-- 2026-11-18 — **Owner: an advisory whose marker cannot be written fires** (**DD-097**).
+- 2026-11-26 — **Queue-cycle plan rev 2: the owner's four points on the queue's size, Tideo's
+  item form, unapproved drafts and plans held live by a leftover, with re-taken measurements
+  and two new units, M3b (a plan retires on its own trigger) and M4b (triage the open queue)**
+  (no ledger row: nothing is decided yet).
+- 2026-11-25 — **Ladder throughput, T3 dropped: the full ladder is CPU-bound on 4 cores, so
+  splitting its longest stage cannot cut it by the 25% the plan required** (**DD-128**).
+- 2026-11-25 — **Ladder throughput, T2: `scripts/verify.sh` runs its five stages after the parse
+  check concurrently, at most `AMH_JOBS` at a time, printing each in the fixed order**
+  (**DD-127**).
+- 2026-11-25 — **Ladder throughput, T1: the command guard's self-test splits its cases across
+  `AMH_JOBS` workers and counts that each ran exactly once** (**DD-126**).
+- 2026-11-25 — **Ladder throughput, T0: the plan adopted, with the measurements behind it**
+  (**DD-125**).
+- 2026-11-25 — **Antigravity hooks reach Git Bash from `cmd.exe` and `sh` alike, its `run_command`
+  is read by the PowerShell reader on Windows, and the guard's parser stops writing `\r\n` on
+  Windows, which had sent Claude's PowerShell payloads to the bash reader** (**DD-123**,
+  **DD-124**).
+- 2026-11-25 — **Antigravity live probes: CLI print mode on Linux works; on the App on Windows
+  the hooks run in `cmd.exe` and the guard allows everything** (**DD-121**, **DD-122**).
+- 2026-11-23 through 2026-11-24 — **The Gemini CLI and Antigravity adapter plan, A0 to A5,
+  folded, with the Remote Agents probe and the live-probe fixes it needed; the research-gaps
+  plan and the merged pipefail plan archived** (**DD-111** to **DD-120**; the plan,
+  `docs/plans/2026-11-23-antigravity-gemini-adapter.md`).
+- 2026-11-22 — **Build-output secret scan, B0: a draft plan committed for a ladder rung that runs
+  the secret scan over the build output an adopter names, a Resend redaction class and a seed
+  sentence on client-exposed variables; B1, its review, is queued** (no ledger row: nothing is
+  decided yet).
+- 2026-11-18 through 2026-11-19 — **The H4b follow-ups, the PR #75 review fixes F1 to F3 and
+  the pipefail race R1, folded** (**DD-097** to **DD-110**; `docs/history/`
+  `2026-11-01-harness-research-gaps-h4b-results.md` §5,
+  `2026-11-01-harness-research-gaps-h4b-probe.sh`, `2026-11-19-pr75-review-fixes.md` and
+  `2026-11-19-pipefail-grep-race.md`).
 - 2026-11-13 through 2026-11-17 — **The research-gaps plan's units and H4b follow-ups, folded**
   (**DD-072** to **DD-096**, the plan's §1 and §5, companions
   `2026-11-01-harness-research-gaps-h1-inventory.md`,

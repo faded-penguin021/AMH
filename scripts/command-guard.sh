@@ -183,10 +183,12 @@
 #   * A QUOTE INSIDE BACKTICKS. Bash ends a backtick substitution at the first unescaped
 #     backtick, quotes or not; every walker here reads a `'` inside one as opening a string, so
 #     `` echo `echo 'x`; printenv `` passes.
-#   * POWERSHELL IS READ BY ITS OWN READER, AND A SHORTER ONE. A PowerShell tool payload (and the
-#     text behind `powershell -Command` or `pwsh -c` from bash) goes to the PowerShell arm, which
+#   * POWERSHELL IS READ BY ITS OWN READER, AND A SHORTER ONE. A PowerShell tool payload, the
+#     Gemini CLI's `run_shell_command` on a Windows host (see `host_shell`), and the
+#     text behind `powershell -Command` or `pwsh -c` from bash go to the PowerShell arm, which
 #     judges `Remove-Item` and its aliases and `cmd /c` deletions itself and hands every other
-#     statement to the bash rails re-quoted word for word. PowerShell's own readers and dumps
+#     statement to the bash rails re-quoted word for word. Antigravity's `run_command` on a
+#     Windows host takes the Gemini CLI's route. PowerShell's own readers and dumps
 #     (`Get-Content .env`, `Get-ChildItem env:`), `.NET` deletions, `Invoke-Expression`, a `.ps1`
 #     file, `-EncodedCommand` and a `$(...)` inside a string are NOT read; the arm's own comment
 #     is the full list. It runs only where the hook's own bash does — a Windows host with Git
@@ -436,11 +438,15 @@
 #   command-guard.sh --machine --command 'CMD'     (or --powershell 'CMD') check one in machine mode
 #   command-guard.sh --pre-push       read git's pre-push stdin and judge each ref
 #   command-guard.sh --pre-task       one-time advisory before a subagent spawn
-#   command-guard.sh --self-test      blocked + allowed fixture matrix
+#   command-guard.sh --self-test      blocked + allowed fixture matrix, split across AMH_JOBS
+#                                     workers (default: online cores; AMH_JOBS=1 is serial)
 #   command-guard.sh --advisory-report  destructive advisories fired but never re-attempted
 #   command-guard.sh --spawn-report     count of subagent spawns that proceeded past the advisory
 #
 # Exit codes: 0 = allowed (or fail-open; warnings may print on stderr), 2 = blocked (reason on stderr).
+# One exception, in hook mode only: an Antigravity payload is answered on stdout and always exits
+# 0, `{"decision":"deny","reason":…}` when blocked and `{"decision":"allow"}` otherwise, because
+# that host documents a JSON decision and no exit code (see `hook_deny` and AMH ledger row DD113).
 #
 # Shipped by the Agentic Maintenance Harness. Repo-agnostic: do not edit locally.
 #
@@ -6485,12 +6491,29 @@ check_command_reading() { # check_command_reading <command>, under the current C
 }
 
 # --- hook payload -----------------------------------------------------------
-# Prints the tool's name on the first line and its command after it — `Bash` or `PowerShell`,
-# the two shell tools whose `tool_input.command` this guard reads — and nothing at all for any
-# other payload. The name decides which reader judges the command: PowerShell text is never
-# handed to the bash walkers whole (AMH ledger row DD012).
+# Prints three things, one per line, and then the command: the HOST whose payload this is, the
+# SHELL tool it names, and the command text — and nothing at all for any other payload. Host
+# recognition is explicit, shape by shape, because each host also decides how a denial must be
+# ANSWERED, and an answer in the wrong host's shape can be rejected by the host, which then runs
+# the call: failing open while the guard reports a block (AMH ledger row DD113).
+#
+#   claude       `tool_name` `Bash` or `PowerShell` with `tool_input.command`. Codex sends the
+#                same shape and takes the same answer, so it shares the label.
+#   gemini       the Gemini CLI's `BeforeTool`: `hook_event_name` `BeforeTool`, `tool_name`
+#                `run_shell_command`, `tool_input.command`.
+#   antigravity  Antigravity's `PreToolUse`: `toolCall.name` `run_command`, its command in
+#                `toolCall.args.CommandLine`; a `hookEventName`, when present, must be
+#                `PreToolUse`.
+#
+# The tool line is `Bash` or `PowerShell` for Claude's two tools, and `shell` for the Gemini
+# CLI's `run_shell_command` and Antigravity's `run_command`, whose language depends on the
+# platform (see `host_shell`). It decides
+# which reader judges the command: PowerShell text is never handed to the bash walkers whole
+# (AMH ledger row DD012). An unrecognised payload — another host's, another event's, another
+# tool's — prints nothing, and `run_hook` answers it with nothing: the fail-open stand-down this
+# script has always given a payload it cannot read, never a guess at whose shape to answer in.
 extract_command() { # fail-open: print nothing if the payload is not what we expect
-	local payload=$1 parsed tool
+	local payload=$1 parsed host tool outer key
 	# A `python3` that EXISTS is not one that RUNS. The Windows Store's app-execution alias is
 	# on PATH on a stock desktop and answers every call with an install prompt and a non-zero
 	# exit; reading its silence as "this payload held no command" stood the whole rail down on
@@ -6507,22 +6530,52 @@ extract_command() { # fail-open: print nothing if the payload is not what we exp
 	# the machine (AMH ledger row DD065). `-I` also ignores `PYTHON*` variables and the user
 	# site directory. A Python too old to know the flag exits non-zero, which is the fallback's
 	# route above, never a silent pass.
+	#
+	# Its stdout is set to write `\n` line ends, before the `try`. CPython on Windows writes text
+	# stdout with `\r\n`, and the host and tool lines then reached `run_hook` as `antigravity\r`
+	# and `PowerShell\r`: no comparison matched, an Antigravity answer came out in Claude's shape,
+	# and a Claude PowerShell payload was judged by the bash reader, which passed
+	# `Remove-Item -Recurse -Force C:\` (AMH ledger row DD124). A Python without `reconfigure`
+	# keeps this reader on POSIX, where its stdout already writes `\n`, and on Windows exits
+	# non-zero, which takes the fallback's route.
 	if command -v python3 >/dev/null 2>&1 &&
 		parsed=$(printf '%s' "$payload" | python3 -I -c 'import json,sys
+if hasattr(sys.stdout, "reconfigure"): sys.stdout.reconfigure(newline="\n")
+elif sys.platform == "win32": sys.exit(3)
 try:
     d = json.load(sys.stdin)
+    host = tool = None
+    c = ""
     if d.get("tool_name") in ("Bash", "PowerShell"):
+        host, tool = "claude", d["tool_name"]
         c = d.get("tool_input", {}).get("command", "")
+    elif d.get("tool_name") == "run_shell_command" and d.get("hook_event_name") == "BeforeTool":
+        host, tool = "gemini", "shell"
+        c = d.get("tool_input", {}).get("command", "")
+    elif isinstance(d.get("toolCall"), dict) and d["toolCall"].get("name") == "run_command" and d.get("hookEventName", "PreToolUse") == "PreToolUse":
+        host, tool = "antigravity", "shell"
+        a = d["toolCall"].get("args")
+        c = a.get("CommandLine", "") if isinstance(a, dict) else ""
+    # A recognised payload of a new host is always named, command or not: Antigravity requires
+    # a decision in every answer, so even "nothing to judge" must reach run_hook as its host.
+    if host == "claude":
         if c:
-            print(d["tool_name"])
+            print(host)
+            print(tool)
+            print(c)
+    elif host:
+        print(host)
+        print(tool)
+        if isinstance(c, str) and c:
             print(c)
 except Exception:
     pass' 2>/dev/null); then
 		printf '%s\n' "$parsed"
 	else
 		# Keep the bash/git/coreutils baseline useful when Python is absent or does not run. This
-		# deliberately narrow fallback accepts only an object-shaped Bash or PowerShell payload
-		# and the documented tool_input.command spelling; anything ambiguous fails open.
+		# deliberately narrow fallback accepts only an object-shaped payload of one of the three
+		# recognised shapes above, each read at its documented command key; anything ambiguous
+		# fails open.
 		case $payload in
 		'{'*'}') ;;
 		*) return 0 ;;
@@ -6544,10 +6597,22 @@ except Exception:
 		# a whole LINE, so a single-line payload is consumed entirely no matter how long
 		# it is. It takes a payload that is BOTH multi-line and past the pipe buffer —
 		# pretty-printed JSON — which the `case` above accepts and the fixture builds.
+		outer=tool_input key=command
 		if grep -qE '"tool_name"[[:space:]]*:[[:space:]]*"Bash"' <<<"$payload"; then
-			tool=Bash
+			host=claude tool=Bash
 		elif grep -qE '"tool_name"[[:space:]]*:[[:space:]]*"PowerShell"' <<<"$payload"; then
-			tool=PowerShell
+			host=claude tool=PowerShell
+		elif grep -qE '"tool_name"[[:space:]]*:[[:space:]]*"run_shell_command"' <<<"$payload" &&
+			grep -qE '"hook_event_name"[[:space:]]*:[[:space:]]*"BeforeTool"' <<<"$payload"; then
+			host=gemini tool=shell
+		elif grep -qF '"toolCall"' <<<"$payload" &&
+			grep -qE '"name"[[:space:]]*:[[:space:]]*"run_command"' <<<"$payload"; then
+			# Another event's `hookEventName` is not this one, whatever else it carries.
+			if grep -qE '"hookEventName"[[:space:]]*:' <<<"$payload" &&
+				! grep -qE '"hookEventName"[[:space:]]*:[[:space:]]*"PreToolUse"' <<<"$payload"; then
+				return 0
+			fi
+			host=antigravity tool=shell outer=toolCall key=CommandLine
 		else
 			return 0
 		fi
@@ -6560,20 +6625,23 @@ except Exception:
 		# `cmd /c "rmdir /s /q \"...\""` reached the PowerShell reader with its escapes doubled
 		# and passed, and a stock Windows desktop is exactly the host whose `python3` is the
 		# Store alias that does not run (AMH ledger row DD030).
-		if json_command_string "$payload" && [ -n "$JSON_STRING" ]; then
-			printf '%s\n%s\n' "$tool" "$JSON_STRING"
+		if json_command_string "$payload" "$outer" "$key" && [ -n "$JSON_STRING" ]; then
+			printf '%s\n%s\n%s\n' "$host" "$tool" "$JSON_STRING"
+		elif [ "$host" != claude ]; then
+			printf '%s\n%s\n' "$host" "$tool" # named, as the Python reader does, with nothing to judge
 		fi
 	fi
 }
 
-# The value of `tool_input.command` in a JSON payload, decoded: `\"`, `\\`, `\/`, `\n`, `\t`
-# and `\r` become what they encode, and a `\uXXXX` escape is left as written. Fails (status 1)
-# on anything it cannot read to a closing quote, and the caller then judges nothing — the
-# fallback's fail-open direction. Sets JSON_STRING.
-json_command_string() { # json_command_string <payload>
-	local rest=$1 chunk decoded='' e
-	case $rest in *'"tool_input"'*) rest=${rest#*\"tool_input\"} ;; *) return 1 ;; esac
-	case $rest in *'"command"'*) rest=${rest#*\"command\"} ;; *) return 1 ;; esac
+# The value of the first `"<key>"` after the first `"<outer>"` in a JSON payload — by default
+# `tool_input.command`; Antigravity's `toolCall` … `CommandLine` is the other — decoded: `\"`,
+# `\\`, `\/`, `\n`, `\t` and `\r` become what they encode, and a `\uXXXX` escape is left as
+# written. Fails (status 1) on anything it cannot read to a closing quote, and the caller then
+# judges nothing — the fallback's fail-open direction. Sets JSON_STRING.
+json_command_string() { # json_command_string <payload> [<outer> <key>]
+	local rest=$1 outer=${2:-tool_input} key=${3:-command} chunk decoded='' e
+	case $rest in *"\"$outer\""*) rest=${rest#*\""$outer"\"} ;; *) return 1 ;; esac
+	case $rest in *"\"$key\""*) rest=${rest#*\""$key"\"} ;; *) return 1 ;; esac
 	rest=${rest#"${rest%%[![:space:]]*}"}
 	[ "${rest:0:1}" = : ] || return 1
 	rest=${rest:1}
@@ -6612,25 +6680,89 @@ JSON_STRING=''
 # a record of anything.
 HOOK_INVOCATION=0
 
+# The language of the Gemini CLI's one shell tool, which it documents as `bash -c` on POSIX and
+# `powershell.exe -NoProfile -Command` on Windows. A platform this cannot name gets the bash
+# reader. Antigravity's `run_command` is routed here too: its documentation calls it a Bash
+# command, but on the App on Windows it ran PowerShell (AMH ledger row DD122). `uname -s` reads
+# the same under any `MSYSTEM` in Git for Windows' bash, measured on 2.55.0 on ARM64, and keeps a
+# WSL2 Linux on the bash reader.
+host_shell() {
+	case $(uname -s 2>/dev/null) in
+	MINGW* | MSYS* | CYGWIN*) printf PowerShell ;;
+	*) printf Bash ;;
+	esac
+}
+
+# Sets JSON_QUOTED to its argument as a JSON string literal, quotes included: `\`, `"` and every
+# control character escaped, everything else — UTF-8 included — passed through as it is. The
+# class is `[:cntrl:]`, not a list of the bytes: `\001` is bash's own internal quoting byte, and
+# a bracket expression built by expanding a variable that holds it is where old bash versions
+# have mishandled it. `[:cntrl:]` also takes DEL and, in a UTF-8 locale, the C1 controls; both
+# come out as `\u` escapes, which JSON allows for any character.
+json_quote() { # json_quote <text>
+	local rest=$1 quoted='' chunk c code
+	while :; do
+		chunk=${rest%%[\\\"[:cntrl:]]*}
+		quoted=$quoted$chunk
+		[ "$chunk" = "$rest" ] && break
+		rest=${rest#"$chunk"}
+		c=${rest:0:1}
+		rest=${rest:1}
+		case $c in
+		\\) quoted=$quoted"\\\\" ;;
+		\") quoted=$quoted'\"' ;;
+		$'\n') quoted=$quoted'\n' ;;
+		$'\t') quoted=$quoted'\t' ;;
+		$'\r') quoted=$quoted'\r' ;;
+		*)
+			printf -v code '\\u%04x' "'$c"
+			quoted=$quoted$code
+			;;
+		esac
+	done
+	JSON_QUOTED="\"$quoted\""
+}
+JSON_QUOTED=''
+
+# How each recognised host is answered (see `extract_command`). Claude Code, Codex and the Gemini
+# CLI all document exit 2 as a block with stderr as the reason, and print nothing to allow.
+# Antigravity documents only a JSON answer on stdout whose `decision` is required — `deny` "hard
+# blocks execution", `allow` lets the call proceed to the next hook or the default policy, so it
+# grants nothing a prompt would have asked — and documents no exit code at all, so it is answered
+# on stdout with a zero exit, every time (AMH ledger row DD113).
+hook_allow() { # hook_allow <host>
+	[ "$1" = antigravity ] && printf '{"decision":"allow"}\n'
+	exit 0
+}
+hook_deny() { # hook_deny <host>
+	if [ "$1" = antigravity ]; then
+		json_quote "$BLOCK_HEADING"$'\n\n'"$BLOCK_REASON"
+		printf '{"decision":"deny","reason":%s}\n' "$JSON_QUOTED"
+		exit 0
+	fi
+	printf '%s\n\n%s\n' "$BLOCK_HEADING" "$BLOCK_REASON" >&2
+	exit 2
+}
+
 run_hook() {
-	local payload cmd tool checker=check_command
+	local payload cmd host tool checker=check_command
 	HOOK_INVOCATION=1
 	payload=$(cat) || exit 0
 	cmd=$(extract_command "$payload")
-	[ -n "$cmd" ] || exit 0 # malformed or non-shell tool: fail open
-	# The first line names the tool. A result with no second line held no command at all — a
+	[ -n "$cmd" ] || exit 0 # malformed, unrecognised or non-shell payload: fail open, answer nothing
+	host=${cmd%%$'\n'*}
+	cmd=${cmd#*$'\n'}
+	# The next line names the tool. A result with no line after it held no command at all — a
 	# command of nothing but line ends loses them to the substitution above — and is not judged.
-	case $cmd in *$'\n'*) ;; *) exit 0 ;; esac
+	case $cmd in *$'\n'*) ;; *) hook_allow "$host" ;; esac
 	tool=${cmd%%$'\n'*}
 	cmd=${cmd#*$'\n'}
+	[ "$tool" = shell ] && tool=$(host_shell)
 	[ "$tool" = PowerShell ] && checker=check_powershell_command
-	[ -n "$cmd" ] || exit 0
-	if ! "$checker" "$cmd"; then
-		printf '%s\n\n%s\n' "$BLOCK_HEADING" "$BLOCK_REASON" >&2
-		exit 2
-	fi
+	[ -n "$cmd" ] || hook_allow "$host"
+	"$checker" "$cmd" || hook_deny "$host"
 	[ -n "$WARN_REASON" ] && printf 'WARNING from the AMH command guard.\n\n%s\n' "$WARN_REASON" >&2
-	exit 0
+	hook_allow "$host"
 }
 
 # --- pre-push rail (git-native, P13) ----------------------------------------
@@ -6713,6 +6845,224 @@ run_prepush() {
 
 # --- self-test --------------------------------------------------------------
 ST_FAILS=0
+# The matrix splits across workers (AMH ledger row DD126). `run_self_test` starts ST_JOBS
+# subshells, and each walks the WHOLE matrix: every helper that `self_test` calls directly opens
+# with `st_mine || return 0`, which numbers the case and lets through only the cases whose number
+# falls to this worker. So each worker counts every case and judges its share, and the counts are
+# what the parent checks: the same total from every worker, and judged cases that add up to it.
+# A helper called from inside another helper is part of its caller's case and is never counted.
+# With ST_JOBS=1 every case falls to worker 0, which is the serial path as it always was.
+# A new helper `self_test` calls must open with the same line; one that does not is judged by
+# every worker and counted by none. The verdict-log fixture in the shipped suite catches that
+# only for a helper that reaches `check_command`, `check_powershell_command` or `prepush_verdict`,
+# by its duplicate verdicts; for any other helper no fixture does.
+ST_JOBS=1
+ST_WORKER=0
+ST_IDX=0
+ST_JUDGED=0
+ST_IDXSUM=0
+ST_SPLIT_DIR=''
+ST_VERDICT_LOG=''
+ST_PIDS=()
+st_mine() {
+	[ "${FUNCNAME[2]:-}" = self_test ] || return 0
+	ST_IDX=$((ST_IDX + 1))
+	[ $(( (ST_IDX - 1) % ST_JOBS )) -eq "$ST_WORKER" ] || return 1
+	ST_JUDGED=$((ST_JUDGED + 1))
+	ST_IDXSUM=$((ST_IDXSUM + ST_IDX))
+}
+# The end of `self_test`. A worker reports its counts to the parent and leaves the verdict to it;
+# the serial path prints the verdict itself.
+st_verdict() {
+	if [ "$ST_JOBS" -gt 1 ]; then
+		printf '%s %s %s %s\n' "$ST_IDX" "$ST_JUDGED" "$ST_FAILS" "$ST_IDXSUM" >"$ST_SPLIT_DIR/report.$ST_WORKER"
+		return
+	fi
+	if [ "$ST_FAILS" -ne 0 ]; then
+		printf 'command-guard.sh self-test: %d failure(s)\n' "$ST_FAILS" >&2
+		return 1
+	fi
+	printf 'command-guard.sh self-test: ok\n'
+}
+# The worker count: AMH_JOBS when set, else the online core count, then `nproc`, then 1. A value
+# that is not a positive integer runs the cases serially, and one above ST_JOBS_CAP runs that many
+# workers; both say so on stderr. Never a line that opens `SKIP`: the ladder's rail rung reads
+# one as a self-test that did not run, and these runs run every case.
+ST_JOBS_CAP=64
+st_jobs() {
+	local want=${AMH_JOBS:-} n
+	if [ -z "$want" ]; then
+		n=$(getconf _NPROCESSORS_ONLN 2>/dev/null) || n=
+		case $n in '' | *[!0-9]* | 0) n=$(nproc 2>/dev/null) || n= ;; esac
+		case $n in '' | *[!0-9]* | 0) n=1 ;; esac
+		[ ${#n} -le 4 ] && [ "$n" -le "$ST_JOBS_CAP" ] || n=$ST_JOBS_CAP
+		ST_JOBS=$n
+		return
+	fi
+	case $want in
+	*[!0-9]*)
+		printf "command-guard.sh self-test: AMH_JOBS='%s' is not a positive integer; running the cases serially\n" "$want" >&2
+		ST_JOBS=1
+		return
+		;;
+	esac
+	n=$want
+	while [ "${n#0}" != "$n" ]; do n=${n#0}; done
+	if [ -z "$n" ]; then
+		printf "command-guard.sh self-test: AMH_JOBS='%s' is not a positive integer; running the cases serially\n" "$want" >&2
+		ST_JOBS=1
+		return
+	fi
+	if [ ${#n} -gt 4 ] || [ "$n" -gt "$ST_JOBS_CAP" ]; then
+		printf "command-guard.sh self-test: AMH_JOBS='%s' is above %s; running %s workers\n" "$want" "$ST_JOBS_CAP" "$ST_JOBS_CAP" >&2
+		n=$ST_JOBS_CAP
+	fi
+	ST_JOBS=$n
+}
+# Test-only: with AMH_SELF_TEST_VERDICT_LOG naming a file, every verdict the three checkers return
+# is written there, one line each, under the number of the case it was judged for, so the shipped
+# suite can hold a serial run and a split one to the same verdicts case by case. A line is the
+# case's number, the checker, its status and the reason or warning it gave, not the command: one
+# case builds its command from the process id and `$RANDOM`, so no two runs judge the same text.
+# The wrappers rename each checker and call it; the verdicts themselves are untouched.
+st_log_verdicts() {
+	local f
+	for f in check_command check_powershell_command prepush_verdict; do
+		eval "st_logged_$f$(declare -f "$f" | sed '1s/^[^ (]*//')"
+		eval "$f() { st_logged_$f \"\$@\"; st_log_verdict $f \$?; }"
+	done
+}
+st_log_verdict() { # st_log_verdict <checker> <status> -> returns <status>
+	# Only what this verdict set: `prepush_verdict` never touches WARN_REASON, so on an allow it
+	# still holds whatever the last case in THIS worker left there.
+	local reason=''
+	if [ "$2" -ne 0 ]; then
+		reason=${BLOCK_REASON:-}
+	elif [ "$1" != prepush_verdict ]; then
+		reason=${WARN_REASON:-}
+	fi
+	reason=${reason//$'\n'/ <NL> }
+	reason=${reason//$'\t'/ <TAB> }
+	printf '%s\t%s\t%s\t%s\n' "$ST_IDX" "$1" "$2" "$reason" >>"$ST_VERDICT_LOG"
+	return "$2"
+}
+st_split_cleanup() {
+	local dir=$ST_SPLIT_DIR
+	[ -n "$dir" ] || return 0
+	rm -f -- "$dir"/out.* "$dir"/err.* "$dir"/report.* "$dir"/log.* "$dir"/machine.*
+	rmdir -- "$dir" 2>/dev/null || :
+}
+st_split_interrupted() { # <exit status>
+	kill ${ST_PIDS[@]+"${ST_PIDS[@]}"} 2>/dev/null
+	wait 2>/dev/null
+	st_split_cleanup
+	exit "$1"
+}
+# One worker, run in the background, so in a subshell of its own: nothing it sets reaches the
+# parent or another worker, and its verdict log is a file of its own.
+st_worker() { # st_worker <number>
+	trap - HUP INT TERM
+	ST_WORKER=$1
+	if [ -n "$ST_VERDICT_LOG" ]; then
+		ST_VERDICT_LOG=$ST_SPLIT_DIR/log.$1
+		: >"$ST_VERDICT_LOG"
+	fi
+	self_test
+}
+# `--self-test`. Serial when the count is 1 or no scratch directory can be made (AMH ledger row
+# DD093: a sandbox can leave /tmp read-only); otherwise ST_JOBS workers, each one's stdout and
+# stderr held in a file and replayed in worker order, and then the coverage check: a worker that
+# exited non-zero, reported nothing or counted no case, a total that differs between workers, or
+# judged cases that do not add up to every case exactly once fails the run, named, whatever the
+# cases said.
+run_self_test() {
+	local dir w rc seen judged fails idxsum total='' sum=0 numsum=0 nfail=0 bad='' name
+	ST_VERDICT_LOG=${AMH_SELF_TEST_VERDICT_LOG:-}
+	if [ -n "$ST_VERDICT_LOG" ]; then
+		: >"$ST_VERDICT_LOG" || return 1
+		st_log_verdicts
+	fi
+	st_jobs
+	if [ "$ST_JOBS" -le 1 ]; then
+		self_test
+		return
+	fi
+	if ! dir=$(mktemp -d "${TMPDIR:-/tmp}/amh-self-test-workers.XXXXXX" 2>/dev/null) || [ -z "$dir" ] || [ ! -d "$dir" ]; then
+		printf 'command-guard.sh self-test: no scratch directory for %s workers could be made; running the cases serially\n' "$ST_JOBS" >&2
+		ST_JOBS=1
+		self_test
+		return
+	fi
+	ST_SPLIT_DIR=$dir
+	ST_PIDS=()
+	trap 'st_split_interrupted 129' HUP
+	trap 'st_split_interrupted 130' INT
+	trap 'st_split_interrupted 143' TERM
+	w=0
+	while [ "$w" -lt "$ST_JOBS" ]; do
+		st_worker "$w" >"$dir/out.$w" 2>"$dir/err.$w" &
+		ST_PIDS[w]=$!
+		w=$((w + 1))
+	done
+	w=0
+	while [ "$w" -lt "$ST_JOBS" ]; do
+		wait "${ST_PIDS[w]}"
+		rc=$?
+		cat -- "$dir/out.$w"
+		cat -- "$dir/err.$w" >&2
+		if [ "$rc" -ne 0 ]; then
+			bad="$bad; worker $w exited with status $rc"
+		# The file is tested first, since a failed `<` prints the shell's own error. Not
+		# `! { read; } 2>/dev/null <file`: bash does not negate a compound command whose
+		# redirection fails, so that form would keep the previous worker's counts.
+		elif [ ! -f "$dir/report.$w" ] || ! read -r seen judged fails idxsum <"$dir/report.$w" ||
+			case $seen$judged$fails$idxsum in '' | *[!0-9]*) true ;; *) false ;; esac; then
+			bad="$bad; worker $w reported no counts"
+		else
+			# A total of 0 is a gate that counted nothing: zeros agree with zeros, so the sums
+			# below would pass it.
+			[ "$seen" -ne 0 ] || bad="$bad; worker $w counted no cases"
+			if [ -z "$total" ]; then
+				total=$seen
+			elif [ "$seen" -ne "$total" ]; then
+				bad="$bad; worker $w saw $seen cases where an earlier worker saw $total"
+			fi
+			sum=$((sum + judged))
+			numsum=$((numsum + idxsum))
+			nfail=$((nfail + fails))
+		fi
+		w=$((w + 1))
+	done
+	trap - HUP INT TERM
+	ST_PIDS=()
+	if [ -z "$bad" ]; then
+		if [ "$sum" -ne "$total" ]; then
+			bad="; the workers judged $sum of $total cases"
+		elif [ "$numsum" -ne $((total * (total + 1) / 2)) ]; then
+			bad="; the workers judged $total cases, but not each case exactly once"
+		fi
+	fi
+	# Machine mode's no-state check runs in each worker over the cases that worker judged; the
+	# names it found are counted here once each, as one serial run would count them.
+	while IFS= read -r name; do
+		printf 'SELF-TEST FAIL: machine mode wrote advisory state: %s\n' "$name" >&2
+		nfail=$((nfail + 1))
+	done < <(cat -- "$dir"/machine.* 2>/dev/null | sort -u)
+	if [ -n "$ST_VERDICT_LOG" ]; then
+		awk -F '\t' '{ n = $1 + 0; c[n]++; line[n, c[n]] = $0; if (n > max) max = n }
+			END { for (i = 0; i <= max; i++) for (j = 1; j <= c[i]; j++) print line[i, j] }' \
+			/dev/null "$dir"/log.* >"$ST_VERDICT_LOG" 2>/dev/null
+	fi
+	st_split_cleanup
+	ST_SPLIT_DIR=''
+	[ -z "$bad" ] || printf 'command-guard.sh self-test: coverage check FAILED across %s workers: %s\n' "$ST_JOBS" "${bad#; }" >&2
+	if [ "$nfail" -ne 0 ]; then
+		printf 'command-guard.sh self-test: %d failure(s)\n' "$nfail" >&2
+		return 1
+	fi
+	[ -z "$bad" ] || return 1
+	printf 'command-guard.sh self-test: ok\n'
+}
 # The checker the shared helpers call. `check_command` unless a fixture names another: the
 # PowerShell fixtures run the same helpers through `check_powershell_command`, so a PowerShell
 # verdict is held to exactly the assertions a bash one is.
@@ -6721,12 +7071,14 @@ st_check() {
 }
 
 st_blocked() {
+	st_mine || return 0
 	if st_check "$1"; then
 		printf 'SELF-TEST FAIL: should have been BLOCKED: %s\n' "$1" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	fi
 }
 st_allowed() {
+	st_mine || return 0
 	if ! st_check "$1"; then
 		printf 'SELF-TEST FAIL: should have been ALLOWED: %s\n   reason given: %s\n' "$1" "$BLOCK_REASON" >&2
 		ST_FAILS=$((ST_FAILS + 1))
@@ -6740,6 +7092,7 @@ st_allowed() {
 # carry the phrase, so a machine mode that blocked for the wrong reason — an advisory it should
 # never fire — fails a case it would otherwise pass; an allowed case must also carry no warning.
 st_machine() {
+	st_mine || return 0
 	local want=$1 shell=$2 cmd=$3 phrase=${4:-} checker=check_command rc
 	[ "$shell" = powershell ] && checker=check_powershell_command
 	MACHINE_MODE=1
@@ -6765,6 +7118,7 @@ st_machine() {
 # Refused because a heredoc body never closes, and for that reason: a fixture that any other rail
 # could refuse would not show the body was ever judged unclosed.
 st_heredoc_open() { # st_heredoc_open <command>
+	st_mine || return 0
 	if st_check "$1"; then
 		printf 'SELF-TEST FAIL: should have been BLOCKED as an unclosed heredoc: %s\n' "$1" >&2
 		ST_FAILS=$((ST_FAILS + 1))
@@ -6781,6 +7135,7 @@ st_heredoc_open() { # st_heredoc_open <command>
 # Refused, and NOT because a heredoc body never closes: the text after the body was judged. Where
 # the unclosed-body rule would refuse the same text, `st_blocked` cannot tell the two apart.
 st_body_judged() { # st_body_judged <command>
+	st_mine || return 0
 	if st_check "$1"; then
 		printf 'SELF-TEST FAIL: should have been BLOCKED after its heredoc body: %s\n' "$1" >&2
 		ST_FAILS=$((ST_FAILS + 1))
@@ -6794,12 +7149,14 @@ st_body_judged() { # st_body_judged <command>
 	esac
 }
 st_prepush_blocked() { # <local-ref> <local-sha> <remote-ref> <remote-sha>
+	st_mine || return 0
 	if prepush_verdict "$1" "$2" "$3" "$4"; then
 		printf 'SELF-TEST FAIL: pre-push should have been BLOCKED: %s %s %s %s\n' "$1" "$2" "$3" "$4" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	fi
 }
 st_prepush_allowed() { # <local-ref> <local-sha> <remote-ref> <remote-sha>
+	st_mine || return 0
 	if ! prepush_verdict "$1" "$2" "$3" "$4"; then
 		printf 'SELF-TEST FAIL: pre-push should have been ALLOWED: %s %s %s %s\n   reason given: %s\n' "$1" "$2" "$3" "$4" "$BLOCK_REASON" >&2
 		ST_FAILS=$((ST_FAILS + 1))
@@ -6809,6 +7166,7 @@ st_prepush_allowed() { # <local-ref> <local-sha> <remote-ref> <remote-sha>
 # commit objects; the real `git merge-base` glue is exercised end-to-end in
 # test-ladder-guards.sh (P12: glue a string-only fixture cannot see).
 st_prepush_ff() { # <ff|nonff|undetermined> <block|allow> <l-ref> <l-sha> <r-ref> <r-sha>
+	st_mine || return 0
 	local mode=$1 expect=$2 saved
 	saved=$(declare -f prepush_is_ancestor)
 	case $mode in
@@ -6820,6 +7178,7 @@ st_prepush_ff() { # <ff|nonff|undetermined> <block|allow> <l-ref> <l-sha> <r-ref
 	eval "$saved"
 }
 st_parse_integration() { # st_parse_integration <parser to blind: words|segments>
+	st_mine || return 0
 	# The predicate fixtures above pin a truth table; this one pins the WIRING, which is
 	# the part that actually changed. Blind one parser so it hands back an empty array for
 	# a command that must never be allowed, and require the guard to deny it AND to say the
@@ -6853,6 +7212,7 @@ st_parse_integration() { # st_parse_integration <parser to blind: words|segments
 	esac
 }
 st_parse_sanity() { # st_parse_sanity <expect: defect|normal> <text> <count>
+	st_mine || return 0
 	local want=$1 text=$2 count=$3
 	if parse_produced_nothing "$text" "$count"; then
 		[ "$want" = defect ] && return 0
@@ -6864,6 +7224,7 @@ st_parse_sanity() { # st_parse_sanity <expect: defect|normal> <text> <count>
 	ST_FAILS=$((ST_FAILS + 1))
 }
 st_interpreter_advisory_once() { # st_interpreter_advisory_once <cmd> [<call name it must report>]
+	st_mine || return 0
 	local cmd=$1 want=${2:-} state old_set old_state
 	old_set=${INTERPRETER_ADVISORY_STATE+x}
 	old_state=${INTERPRETER_ADVISORY_STATE:-}
@@ -6891,6 +7252,7 @@ st_interpreter_advisory_once() { # st_interpreter_advisory_once <cmd> [<call nam
 # is where a literal credential turns up, and the state file is world-readable, at a predictable
 # path, outliving the session — so a key that were ever the command text again must fail here.
 st_interpreter_signature_is_opaque() { # st_interpreter_signature_is_opaque <cmd> <string it must not contain>
+	st_mine || return 0
 	local cmd=$1 secret=$2 state old_set old_state
 	old_set=${INTERPRETER_ADVISORY_STATE+x}
 	old_state=${INTERPRETER_ADVISORY_STATE:-}
@@ -6915,6 +7277,7 @@ st_interpreter_signature_is_opaque() { # st_interpreter_signature_is_opaque <cmd
 }
 
 st_interpreter_rearms() { # st_interpreter_rearms <first> <second>
+	st_mine || return 0
 	local first=$1 second=$2 state old_set old_state
 	old_set=${INTERPRETER_ADVISORY_STATE+x}
 	old_state=${INTERPRETER_ADVISORY_STATE:-}
@@ -6936,6 +7299,7 @@ st_interpreter_rearms() { # st_interpreter_rearms <first> <second>
 }
 
 st_dotenv_advisory_once() {
+	st_mine || return 0
 	local state old_set old_state
 	old_set=${DOTENV_ADVISORY_STATE+x}
 	old_state=${DOTENV_ADVISORY_STATE:-}
@@ -6965,6 +7329,7 @@ st_dotenv_advisory_once() {
 # is ordinary program text, and with a spent state file every fixture for it passes whatever
 # the pattern says, which is exactly the fixture-that-cannot-fail shape.
 st_keymaterial_advisory() { # st_keymaterial_advisory <expect: fires|silent> <command>
+	st_mine || return 0
 	local expect=$1 cmd=$2 state old_set old_state
 	old_set=${KEYMATERIAL_ADVISORY_STATE+x}
 	old_state=${KEYMATERIAL_ADVISORY_STATE:-}
@@ -6994,6 +7359,7 @@ st_keymaterial_advisory() { # st_keymaterial_advisory <expect: fires|silent> <co
 # `fires` asks four things: advised, in this tier's own words, cleared by a rerun of the same
 # command, and armed again for a different one (<other>, also a hook-file command).
 st_hookfile_advisory() { # st_hookfile_advisory <expect: fires|silent> <command> [<other>]
+	st_mine || return 0
 	local expect=$1 cmd=$2 other=${3:-} state old_set old_state
 	old_set=${HOOKFILE_ADVISORY_STATE+x}
 	old_state=${HOOKFILE_ADVISORY_STATE:-}
@@ -7023,6 +7389,7 @@ st_hookfile_advisory() { # st_hookfile_advisory <expect: fires|silent> <command>
 }
 
 st_destructive_advisory_once() {
+	st_mine || return 0
 	local state old_set old_state
 	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
 	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
@@ -7051,6 +7418,7 @@ st_destructive_advisory_once() {
 # EMPTY afterwards. A version that blocked twice while recording a signature would pass the
 # attempts and quietly rest "never clears" on a file the bootstrap deletes and a rerun writes.
 st_destructive_never_clears() { # st_destructive_never_clears <cmd> <class phrase>
+	st_mine || return 0
 	local cmd=$1 want=$2 state old_set old_state
 	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
 	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
@@ -7078,6 +7446,7 @@ st_destructive_never_clears() { # st_destructive_never_clears <cmd> <class phras
 # commands, so it fails if a spent advisory covers a deletion aimed somewhere new. Without
 # it, "fires once per target" is a claim in a comment.
 st_destructive_rearms_per_target() { # st_destructive_rearms_per_target <first> <second>
+	st_mine || return 0
 	local first=$1 second=$2 state old_set old_state
 	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
 	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
@@ -7102,6 +7471,7 @@ st_destructive_rearms_per_target() { # st_destructive_rearms_per_target <first> 
 # the same deletion and must consume the same advisory. Without this direction, the rearm
 # fixtures prove only that different sets differ; a no-op or order-sensitive "sort" passes.
 st_destructive_same_target_set() { # <first spelling> <same targets, different order>
+	st_mine || return 0
 	local first=$1 second=$2 state old_set old_state
 	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
 	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
@@ -7124,6 +7494,7 @@ st_destructive_same_target_set() { # <first spelling> <same targets, different o
 # must be. A report that lists everything is as useless as one that lists nothing, and both
 # pass a fixture that only counts lines.
 st_advisory_report() { # st_advisory_report <abandoned cmd> <resumed cmd>
+	st_mine || return 0
 	local abandoned=$1 resumed=$2 state old_set old_state out
 	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
 	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
@@ -7158,6 +7529,7 @@ st_advisory_report() { # st_advisory_report <abandoned cmd> <resumed cmd>
 # it, so a silently emptied sentence would cost nothing mechanically and everything in
 # practice. Pin the clause that names the failure mode.
 st_destructive_reason_names() { # st_destructive_reason_names <substring> <command>
+	st_mine || return 0
 	local want=$1 cmd=$2 state old_set old_state
 	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
 	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
@@ -7184,6 +7556,7 @@ st_destructive_reason_names() { # st_destructive_reason_names <substring> <comma
 # re-firing. <how> is `fail` for no digest tool, `empty` for one whose pipeline printed nothing and
 # exited 0. The same state file serves both tiers because a command only ever reaches one of them.
 st_tier_unkeyable() { # st_tier_unkeyable <fail|empty> <command>
+	st_mine || return 0
 	local how=$1 cmd=$2 state saved n old_i_set old_i old_h_set old_h st_digest_how=$1
 	saved=$(declare -f interpreter_signature)
 	# Prints nothing either way, and succeeds only for `empty`. Reached through the name, by the code
@@ -7228,6 +7601,7 @@ st_tier_unkeyable() { # st_tier_unkeyable <fail|empty> <command>
 # <var> names the tier's state override; `subagent` is driven through `needs_one_time_advisory`,
 # as its own fixtures are, since no command text reaches that tier.
 st_tier_unrecorded() { # st_tier_unrecorded <STATE_VAR> <command>
+	st_mine || return 0
 	local var=$1 cmd=$2 dir old_set old_state n fired reason
 	dir=$(mktemp -d "${TMPDIR:-/tmp}/amh-unrecorded-test.XXXXXX") || exit 1
 	old_set=$(eval "printf '%s' \"\${$var+x}\"")
@@ -7264,6 +7638,7 @@ st_tier_unrecorded() { # st_tier_unrecorded <STATE_VAR> <command>
 # (AMH ledger row DD097). A non-empty directory in the marker's place makes `rm -f` fail on
 # every host and for every user, root included, where a read-only directory would not.
 st_subagent_uncleared() {
+	st_mine || return 0
 	local dir old_set old_state n
 	dir=$(mktemp -d "${TMPDIR:-/tmp}/amh-uncleared-test.XXXXXX") || exit 1
 	mkdir -p -- "$dir/marker/keep" || exit 1
@@ -7293,6 +7668,7 @@ st_subagent_uncleared() {
 # say why. The digest function is replaced for the duration, not the PATH, because a self-test
 # cannot assume which tools a host's PATH holds or where.
 st_destructive_xargs_unkeyable() { # st_destructive_xargs_unkeyable <command>
+	st_mine || return 0
 	local cmd=$1 state old_set old_state saved n
 	saved=$(declare -f interpreter_signature)
 	interpreter_signature() { return 1; }
@@ -7324,6 +7700,7 @@ st_destructive_xargs_unkeyable() { # st_destructive_xargs_unkeyable <command>
 # to anything starting with `$` passes every fixture while telling an agent to check a
 # variable that does not exist — a rail is not allowed to be confidently wrong.
 st_destructive_reason_lacks() { # st_destructive_reason_lacks <substring> <command>
+	st_mine || return 0
 	local unwanted=$1 cmd=$2 state old_set old_state
 	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
 	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
@@ -7355,6 +7732,7 @@ st_destructive_reason_lacks() { # st_destructive_reason_lacks <substring> <comma
 # a secret-shaped literal in the repository, which is the AMH ledger row D004 class: the fixture
 # would then trip the very scanners it sits beside.
 st_dataplane_signature_omits_value() {
+	st_mine || return 0
 	local state old_set old_state secret cmd sig recorded url
 	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
 	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
@@ -7490,6 +7868,7 @@ st_dataplane_signature_omits_value() {
 # the command-shaped ones above: what is asserted is that the FIRST spawn is advised and the
 # second is not, which is the whole contract.
 st_subagent_advisory_once() {
+	st_mine || return 0
 	local state old_set old_state
 	old_set=${SUBAGENT_ADVISORY_STATE+x}
 	old_state=${SUBAGENT_ADVISORY_STATE:-}
@@ -7523,6 +7902,7 @@ st_subagent_advisory_once() {
 }
 
 st_subagent_reason_names() { # st_subagent_reason_names <substring>
+	st_mine || return 0
 	local want=$1 state old_set old_state
 	old_set=${SUBAGENT_ADVISORY_STATE+x}
 	old_state=${SUBAGENT_ADVISORY_STATE:-}
@@ -7546,6 +7926,7 @@ st_subagent_reason_names() { # st_subagent_reason_names <substring>
 }
 
 st_subagent_reason_lacks() { # st_subagent_reason_lacks <substring>
+	st_mine || return 0
 	local unwanted=$1 state old_set old_state
 	old_set=${SUBAGENT_ADVISORY_STATE+x}
 	old_state=${SUBAGENT_ADVISORY_STATE:-}
@@ -7568,11 +7949,22 @@ st_subagent_reason_lacks() { # st_subagent_reason_lacks <substring>
 }
 
 st_warn_allowed() {
+	st_mine || return 0
 	if ! check_command "$1"; then
 		printf 'SELF-TEST FAIL: should have been ALLOWED WITH WARNING: %s\n   reason given: %s\n' "$1" "$BLOCK_REASON" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	elif [ -z "$WARN_REASON" ]; then
 		printf 'SELF-TEST FAIL: should have WARNED: %s\n' "$1" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+}
+
+# A case of its own, so a split run checks it once rather than once per worker.
+st_json_quote() { # st_json_quote <text> <the JSON string literal it must come out as>
+	st_mine || return 0
+	json_quote "$1"
+	if [ "$JSON_QUOTED" != "$2" ]; then
+		printf 'SELF-TEST FAIL: json_quote produced %s\n' "$JSON_QUOTED" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	fi
 }
@@ -9938,6 +10330,11 @@ git push --force origin main
 	st_machine allowed powershell 'cmd /c "rd /s /q build"'
 	for mm_f in "$mm_dir"/*; do
 		[ -e "$mm_f" ] || continue
+		# A worker saw only its own machine cases; the parent counts each name once.
+		if [ "$ST_JOBS" -gt 1 ]; then
+			printf '%s\n' "${mm_f##*/}" >>"$ST_SPLIT_DIR/machine.$ST_WORKER"
+			continue
+		fi
 		printf 'SELF-TEST FAIL: machine mode wrote advisory state: %s\n' "${mm_f##*/}" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	done
@@ -9973,11 +10370,13 @@ git push --force origin main
 	else
 		unset HOOKFILE_ADVISORY_STATE
 	fi
-	if [ "$ST_FAILS" -ne 0 ]; then
-		printf 'command-guard.sh self-test: %d failure(s)\n' "$ST_FAILS" >&2
-		return 1
-	fi
-	printf 'command-guard.sh self-test: ok\n'
+
+	# Antigravity's denial carries the reason as a JSON string, so the escaping is checked byte
+	# for byte, without a JSON reader: a quote, a backslash, the three named controls, two others
+	# and DEL escaped, and UTF-8 and the shell's own metacharacters passed through untouched.
+	st_json_quote $'q"b\\n\nt\tr\rx\001y\037z\177 — ü `$(x)` & \\u0041' \
+		'"q\"b\\n\nt\tr\rx\u0001y\u001fz\u007f — ü `$(x)` & \\u0041"'
+	st_verdict
 }
 
 # Print the destructive advisories this session fired and never saw re-attempted, one per
@@ -10095,7 +10494,7 @@ case "${1:-}" in
 	;;
 --pre-push) run_prepush ;;
 --pre-task) run_pretask ;;
---self-test) self_test ;;
+--self-test) run_self_test ;;
 --advisory-report) advisory_report ;;
 --spawn-report) spawn_report ;;
 *)
